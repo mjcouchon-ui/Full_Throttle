@@ -126,6 +126,21 @@ protected:
 	void BuildMeshes();
 	void BuildProps();
 
+	// 2.7: scenery stays off the road. The road's frames on a 2D grid, so any point can ask "is some part of the
+	// road here?", including parts that come back near this one (tight curves, the circuit lapping round).
+	void BuildRoadGrid();
+	/** How wide/high the road is at frame J: horizontal reach from its centre, the lowest and highest thing on it
+	 *  (deck underside .. car room), and the driving floor (what ground must stay under). */
+	void RoadSpan(int32 J, float& OutW, float& OutLo, float& OutHi, float& OutFloor) const;
+	/** First road frame (outside [SkipLo, SkipHi]) that a yaw-rotated box overlaps, grown by Margin, within the
+	 *  height span [ZLo, ZHi]; INDEX_NONE if clear. OutDepth = how far inside it reaches (cm). */
+	int32 RoadHitBox(const FVector& Centre, const FQuat& Q, const FVector& HalfExt, float Margin, float ZLo, float ZHi,
+		int32 SkipLo, int32 SkipHi, float* OutDepth = nullptr) const;
+	/** Does a point of land at P (its top surface) stick up into the road anywhere outside [SkipLo, SkipHi]? */
+	bool GroundHitsRoad(const FVector& P, int32 SkipLo, int32 SkipHi) const;
+	TMap<FIntPoint, TArray<int32>> RoadCells;
+	float MaxRoadW = 0.f;
+
 	TArray<FFTFrame> Frames;
 	TArray<float> SectionStart; // cm
 	TArray<FFTSection> Sections;

@@ -12,6 +12,7 @@
 #include "Misc/CommandLine.h"
 #include "HAL/PlatformFileManager.h"
 #include "HAL/PlatformMisc.h"
+#include "HAL/IConsoleManager.h"
 #include "Dom/JsonObject.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonWriter.h"
@@ -237,7 +238,19 @@ void UFTGameInstance::ApplyQuality(int32 Q, bool bSave)
 			S->SetOverallScalabilityLevel(FMath::Clamp(Q, 0, 4));
 		}
 		if (!bBench) S->SetVSyncEnabled(bVSync);
+		// 2.7: on a graphics card that can't hold 60 fps, TSR renders fewer pixels instead of dropping frames.
+		// The preset's own resolution is the most it draws (so a fast PC sees no change); the least is half.
+		// -ftnodynres turns it off (a fixed-resolution benchmark).
+		const bool bDyn = !FParse::Param(FCommandLine::Get(), TEXT("ftnodynres"));
+		S->SetDynamicResolutionEnabled(bDyn);
 		S->ApplySettings(false);
+		if (IConsoleVariable* RQ = IConsoleManager::Get().FindConsoleVariable(TEXT("sg.ResolutionQuality")))
+		{
+			const float Top = FMath::Clamp(RQ->GetFloat() > 0.f ? RQ->GetFloat() : 100.f, 50.f, 100.f);
+			if (IConsoleVariable* V = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DynamicRes.MaxScreenPercentage"))) V->Set(Top, ECVF_SetByGameSetting);
+			if (IConsoleVariable* V = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DynamicRes.MinScreenPercentage"))) V->Set(FMath::Min(Top, 50.f), ECVF_SetByGameSetting);
+		}
+		UE_LOG(LogFT, Display, TEXT("FTQUALITY applied=%d overall=%d dynres=%d"), Q, S->GetOverallScalabilityLevel(), bDyn ? 1 : 0);
 	}
 	if (bSave) SaveSettings();
 }

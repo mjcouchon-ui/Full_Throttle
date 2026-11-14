@@ -1,4 +1,4 @@
-# FULL THROTTLE 2.6.1: the Unreal Engine 5.9 game
+# FULL THROTTLE 2.7.0: the Unreal Engine 5.9 game
 
 The 80s spy car chase (web app `full-throttle`, 1.7.2) rebuilt as a native Unreal Engine 5.9 game for Windows,
 C++ plus Blueprints. WispOS opens the packaged build as the native app `full-throttle-unreal`
@@ -43,7 +43,8 @@ No file in the project is over 50 MB. `Binaries`, `Intermediate`, `Saved` and `D
 ## How it is made
 
 - **Track:** `AFTTrack` integrates the 1.x section lists (`FTData.cpp`) into frames and builds the road, walls, neon,
-  glass pipes and ground as procedural mesh chunks, and the roadside props as Nanite instances.
+  glass pipes and ground as procedural mesh chunks, and the roadside props as hierarchical instanced meshes (low-poly,
+  not Nanite). Since 2.7 nothing is placed where it would stand in any part of the road (see the 2.7 notes).
 - **Car:** `AFTPlayerCar` is a Chaos Vehicles car: four-spring suspension, RWD engine and gearbox, rear-tyre drift, arcade
   assists (cvar `ft.Arcade`, a bitmask) that hold it to loops, pipes and walls. Damage knocks its parts off as rigid bodies.
 - **Game:** `AFTGameMode` runs the scenes, foes, bosses, director, scoring, slow motion, the highlight reel and the
@@ -201,3 +202,29 @@ No file in the project is over 50 MB. `Binaries`, `Intermediate`, `Saved` and `D
   - *Tests*: `../full-throttle-tests/v261/run.sh music` (all eight levels via `FTStartLevel`) and `run.sh pick1` ... `pick8`
     (picks the level on the title with the Right arrow and Enter); `FTDumpLevel` now also prints
     `FTMUSIC dump level=Ln track=... playing=1 looping=1`.
+
+- **2.7.0 (owner's queue): the performance pass, and the scenery taken out of the road.** (Track and Settings sections:
+  `Source/FullThrottle/FTTrack.*`, `FTGameInstance.cpp`, `Config/DefaultScalability.ini`, `Config/DefaultEngine.ini`.)
+  - *Scenery off the road* (`AFTTrack`): the road's frames now sit on a 2D grid (`BuildRoadGrid`, `RoadSpan`,
+    `RoadHitBox`, `GroundHitsRoad`), so every placed thing is tested against the *whole* road, not just the frame it was
+    placed beside. Where a circuit laps back past itself or bends tightly, roadside props and skylines used to land on
+    another stretch of road. Now: a prop that only touches its own barrier is pushed out; one that lands on any other
+    part of the road is left out; a deck pillar standing in a road below is left out; each level's distant destination
+    (Vegas, the volcano, the park skyline, the peak, the sunken city, the Metro spire) is tried further out and a little
+    to either side, scaled with the distance so it looks the same size; the land beside the road (and Bayshore's sea)
+    stops short of any other part of the road instead of running 300 m straight across it. Each level logs
+    `FTCLEAR level=N land: ... props kept= ... left out of the road= ... pillars left out=`.
+    `ft.ClearScenery 0` (then reload the level) places everything the 2.6 way, for before/after checks.
+  - Independent check (`../full-throttle-tests/v270/check_road.py`, run in the editor: reads the built road mesh's deck
+    vertices and counts placed boxes that contain any): 2.6 had 94 scenery pieces standing in the road (Metro 53 skyline
+    blocks and the spire, Chemical Works 29 tanks, vats, pipework, stacks, skylines and pillars, Abyss 4 fish schools and
+    2 sunken cities, and the destination backdrop in Bayshore, Nevada, Volcano and the Theme Park); 2.7 has 0 on all eight
+    levels. Chemical Works also cut 1,314 strips of land that crossed the road where the circuit runs under itself.
+  - *Performance*: Lumen GI and reflections are on at EPIC only (`DefaultScalability.ini`); below Epic the cel pass looks
+    the same with the sky light (checked side by side, `v270/lumen`). Dynamic resolution (TSR) is on: when the GPU can't
+    hold 60 fps it renders fewer pixels, between the preset's own resolution and half of it (`ApplyQuality`,
+    `r.DynamicRes.*`; `-ftnodynres` turns it off). Props stop drawing beyond about 120× their size (small things 600 m,
+    houses ~2 km; skylines and backdrops always draw). Bench on this PC (RTX 5060 Ti, 2048×1152, autopilot 30 s,
+    `v270/bench.sh`): HIGH 200 → 261 fps (GPU 4.3 → 3.5 ms), MEDIUM 249 → 312 fps, EPIC and LOW unchanged (~136 / ~420).
+    Forcing a 4.5 ms budget dropped the resolution to 51 % and the GPU to 4.1 ms (from 6.8): that is what a slower card
+    gets instead of a lower frame rate.
