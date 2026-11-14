@@ -1,86 +1,3200 @@
 {
-  "format": "full-throttle.skills/1",
-  "about": "Skill points and upgrades for the KESTREL-88. The same file drives the Unreal build (Content/Data/skills.json) and the web app (app/skills.js). Points are earned when a level ends and spent on the GARAGE screen between levels. Every upgrade adds its effects once per rank. A stat of kind 'mul' is a multiplier (1 + the sum of its effects, never below 0.2); kind 'add' is a plain count. The coming skill tree adds entries to 'upgrades' with a 'branch', a 'tier' and 'requires' (other upgrades and the rank they need); the points, the save and the screen stay the same.",
-  "points": {
-    "wrap": 2,
-    "escape": 1,
-    "perRating": 1,
-    "noRetakes": 1
+ "format": "full-throttle.skills/2",
+ "about": "FULL THROTTLE progression (design v6, 14 Nov 2026): driver levels and XP, the skill tree, the garage, the asset library, the paycheck tuning and per-level data. Written by Tools/spec_to_skills.py from the spec pack; the Unreal build reads it from Content/Data/skills.json. Format 2 replaces format 1 (2.3's four point-bought upgrades): skill points now buy the tree, cash buys the garage.",
+ "tuning": {
+  "CarnageFactor": 2,
+  "CarnageCap": 3,
+  "CarnageFactorScorched": 2.5,
+  "CarnageCapScorched": 3.5,
+  "TotalCarnageShare": 0.95,
+  "TotalCarnageBonus": 25000,
+  "StyleStep": 0.05,
+  "StyleCap": 1.75,
+  "StyleStepCrowd": 0.06,
+  "StyleCapCrowd": 1.9,
+  "RatingMult": [
+   1,
+   1.25,
+   1.5,
+   1.75
+  ],
+  "RetakePenalty": 0.1,
+  "GotAwaySkill": 0.75,
+  "BigFinishStep": 0.05,
+  "BigFinishMax": 0.5,
+  "BigFinishCash": 10000,
+  "ScheduleRate": 200,
+  "ScheduleCap": 20000,
+  "ScheduleRateAhead": 300,
+  "ScheduleCapAhead": 30000,
+  "ArmorPayPerPct": 10,
+  "CivilianPenalty": 500,
+  "NoteCash": 2000,
+  "BarrelCash": 100,
+  "SequelPay": 1.5,
+  "SequelArmor": 1.3,
+  "SequelBars": 1.35,
+  "MphPerSu": 0.31,
+  "SlideFactor": 0.5,
+  "SlideReturnMin": 60,
+  "BossClockDivisor": 250,
+  "BossClockMinRate": 0.5,
+  "LastChanceSeconds": 8,
+  "LastChanceClearPx": 75,
+  "MultiKillWindow": 0.7,
+  "HoldToBuy": 0.5,
+  "HoldToSkip": 1,
+  "PxToUU": 13.71
+ },
+ "extras": {
+  "greenlight": 75000,
+  "film": 10000,
+  "filmMax": 2,
+  "sequel": 150000,
+  "respec": 25000
+ },
+ "tiers": [
+  {
+   "tier": 1,
+   "sp": 1,
+   "level": 1,
+   "greenlight": false
   },
-  "pointLabels": {
-    "wrap": "THAT'S A WRAP",
-    "escape": "THE TARGET GOT AWAY",
-    "perRating": "DIRECTOR'S RATING",
-    "noRetakes": "NO RETAKES"
+  {
+   "tier": 2,
+   "sp": 2,
+   "level": 3,
+   "greenlight": false
   },
-  "stats": {
-    "steer": { "label": "steering response", "kind": "mul" },
-    "driftCharge": { "label": "drift charge", "kind": "mul" },
-    "turboBurn": { "label": "turbo burn", "kind": "mul" },
-    "turboRegen": { "label": "turbo recharge", "kind": "mul" },
-    "damageTaken": { "label": "damage taken", "kind": "mul" },
-    "gunDamage": { "label": "gun damage", "kind": "mul" },
-    "missiles": { "label": "missiles", "kind": "add" }
+  {
+   "tier": 3,
+   "sp": 2,
+   "level": 6,
+   "greenlight": false
   },
-  "upgrades": [
+  {
+   "tier": 4,
+   "sp": 3,
+   "level": 10,
+   "greenlight": false
+  },
+  {
+   "tier": 5,
+   "sp": 3,
+   "level": 14,
+   "greenlight": false
+  },
+  {
+   "tier": 6,
+   "sp": 4,
+   "level": 18,
+   "greenlight": true
+  }
+ ],
+ "driverLevels": [
+  {
+   "level": 1,
+   "totalXP": 0,
+   "xpToNext": 1200,
+   "sp": 0,
+   "unlock": ""
+  },
+  {
+   "level": 2,
+   "totalXP": 1200,
+   "xpToNext": 1680,
+   "sp": 1,
+   "unlock": ""
+  },
+  {
+   "level": 3,
+   "totalXP": 2880,
+   "xpToNext": 2220,
+   "sp": 1,
+   "unlock": "Skill tier 2"
+  },
+  {
+   "level": 4,
+   "totalXP": 5100,
+   "xpToNext": 2820,
+   "sp": 1,
+   "unlock": ""
+  },
+  {
+   "level": 5,
+   "totalXP": 7920,
+   "xpToNext": 3480,
+   "sp": 2,
+   "unlock": ""
+  },
+  {
+   "level": 6,
+   "totalXP": 11400,
+   "xpToNext": 4200,
+   "sp": 1,
+   "unlock": "Skill tier 3"
+  },
+  {
+   "level": 7,
+   "totalXP": 15600,
+   "xpToNext": 4980,
+   "sp": 1,
+   "unlock": ""
+  },
+  {
+   "level": 8,
+   "totalXP": 20580,
+   "xpToNext": 5820,
+   "sp": 1,
+   "unlock": ""
+  },
+  {
+   "level": 9,
+   "totalXP": 26400,
+   "xpToNext": 6720,
+   "sp": 1,
+   "unlock": ""
+  },
+  {
+   "level": 10,
+   "totalXP": 33120,
+   "xpToNext": 7680,
+   "sp": 2,
+   "unlock": "Skill tier 4; garage rank 2"
+  },
+  {
+   "level": 11,
+   "totalXP": 40800,
+   "xpToNext": 8700,
+   "sp": 1,
+   "unlock": ""
+  },
+  {
+   "level": 12,
+   "totalXP": 49500,
+   "xpToNext": 9780,
+   "sp": 1,
+   "unlock": ""
+  },
+  {
+   "level": 13,
+   "totalXP": 59280,
+   "xpToNext": 10920,
+   "sp": 1,
+   "unlock": ""
+  },
+  {
+   "level": 14,
+   "totalXP": 70200,
+   "xpToNext": 12120,
+   "sp": 1,
+   "unlock": "Skill tier 5; garage rank 3 (+ feat)"
+  },
+  {
+   "level": 15,
+   "totalXP": 82320,
+   "xpToNext": 13380,
+   "sp": 2,
+   "unlock": ""
+  },
+  {
+   "level": 16,
+   "totalXP": 95700,
+   "xpToNext": 14700,
+   "sp": 1,
+   "unlock": ""
+  },
+  {
+   "level": 17,
+   "totalXP": 110400,
+   "xpToNext": 16080,
+   "sp": 1,
+   "unlock": ""
+  },
+  {
+   "level": 18,
+   "totalXP": 126480,
+   "xpToNext": 17520,
+   "sp": 1,
+   "unlock": "Capstones (tier 6)"
+  },
+  {
+   "level": 19,
+   "totalXP": 144000,
+   "xpToNext": 19020,
+   "sp": 1,
+   "unlock": ""
+  },
+  {
+   "level": 20,
+   "totalXP": 163020,
+   "xpToNext": 20580,
+   "sp": 2,
+   "unlock": ""
+  },
+  {
+   "level": 21,
+   "totalXP": 183600,
+   "xpToNext": 22200,
+   "sp": 1,
+   "unlock": ""
+  },
+  {
+   "level": 22,
+   "totalXP": 205800,
+   "xpToNext": 23880,
+   "sp": 1,
+   "unlock": ""
+  },
+  {
+   "level": 23,
+   "totalXP": 229680,
+   "xpToNext": 25620,
+   "sp": 1,
+   "unlock": ""
+  },
+  {
+   "level": 24,
+   "totalXP": 255300,
+   "xpToNext": 27420,
+   "sp": 1,
+   "unlock": ""
+  },
+  {
+   "level": 25,
+   "totalXP": 282720,
+   "xpToNext": 29280,
+   "sp": 2,
+   "unlock": ""
+  },
+  {
+   "level": 26,
+   "totalXP": 312000,
+   "xpToNext": 31200,
+   "sp": 1,
+   "unlock": ""
+  },
+  {
+   "level": 27,
+   "totalXP": 343200,
+   "xpToNext": 33180,
+   "sp": 1,
+   "unlock": ""
+  },
+  {
+   "level": 28,
+   "totalXP": 376380,
+   "xpToNext": 35220,
+   "sp": 1,
+   "unlock": ""
+  },
+  {
+   "level": 29,
+   "totalXP": 411600,
+   "xpToNext": 37320,
+   "sp": 1,
+   "unlock": ""
+  },
+  {
+   "level": 30,
+   "totalXP": 448920,
+   "xpToNext": 0,
+   "sp": 2,
+   "unlock": "Max level"
+  }
+ ],
+ "notes": [
+  {
+   "id": "L1-boss40",
+   "level": 1,
+   "text": "Wreck THE JUGGERNAUT in under 40 seconds"
+  },
+  {
+   "id": "L1-roof",
+   "level": 1,
+   "text": "Land a ROOF LANDING"
+  },
+  {
+   "id": "L1-clean",
+   "level": 1,
+   "text": "Wrap with no civilians hit"
+  },
+  {
+   "id": "L2-pipe",
+   "level": 2,
+   "text": "Get through The Toxic Run's triple pipe"
+  },
+  {
+   "id": "L2-shock5",
+   "level": 2,
+   "text": "Dodge 5 shock waves"
+  },
+  {
+   "id": "L2-grav2",
+   "level": 2,
+   "text": "GRAVITY CHECK two henchmen at once"
+  },
+  {
+   "id": "L3-slam10",
+   "level": 3,
+   "text": "Slam 10 Snake Eyes bikers"
+  },
+  {
+   "id": "L3-air",
+   "level": 3,
+   "text": "TURBO AIR over The Dry Wash and the big wash at Last Chance Gas"
+  },
+  {
+   "id": "L3-boss60",
+   "level": 3,
+   "text": "Wreck THE BIG DEALER in under 60 seconds (he leaves at 90)"
+  }
+ ],
+ "branches": [
+  {
+   "code": "DEM",
+   "name": "DEMOLITION",
+   "about": "guns, missiles, wreckage; the destruction-pay branch"
+  },
+  {
+   "code": "WHL",
+   "name": "WHEELMAN",
+   "about": "driving, drift, turbo"
+  },
+  {
+   "code": "STN",
+   "name": "STUNT DOUBLE",
+   "about": "style, combo"
+  },
+  {
+   "code": "CAR",
+   "name": "STAR CAR",
+   "about": "survival"
+  },
+  {
+   "code": "GET",
+   "name": "GETAWAY",
+   "about": "speed: leave the Syndicate behind, catch the boss"
+  }
+ ],
+ "skillNodes": [
+  {
+   "id": "DEM1",
+   "branch": "DEM",
+   "tier": 1,
+   "name": "Tracer Rounds",
+   "desc": "Bullets bend up to 4° toward the nearest Syndicate vehicle ahead. Works with every load: standard, AP and HE.",
+   "sp": 1,
+   "level": 1,
+   "greenlight": false
+  },
+  {
+   "id": "DEM2",
+   "branch": "DEM",
+   "tier": 2,
+   "name": "Heavy Rounds",
+   "desc": "Every 4th standard round hits for 2 instead of 1 (≈ +25% gun damage). AP and HE rounds keep their own damage and do not advance the 4-round count.",
+   "sp": 2,
+   "level": 3,
+   "greenlight": false
+  },
+  {
+   "id": "DEM3",
+   "branch": "DEM",
+   "tier": 3,
+   "name": "Cluster Missiles",
+   "desc": "Missile blast radius 46 → 64 px; splash damage 3 → 4. (The missile's direct hit stays 9.)",
+   "sp": 2,
+   "level": 6,
+   "greenlight": false
+  },
+  {
+   "id": "DEM4",
+   "branch": "DEM",
+   "tier": 4,
+   "name": "Chain Reaction",
+   "desc": "A wrecked Syndicate vehicle blows up like a barrel: 4 damage to everything within 60 px (box test: \\",
+   "sp": 3,
+   "level": 10,
+   "greenlight": false
+  },
+  {
+   "id": "DEM5",
+   "branch": "DEM",
+   "tier": 5,
+   "name": "Scorched Earth",
+   "desc": "Carnage = 1 + 2.5 × w², cap ×3.0 → ×3.5. Every barrel or drum the player blows up pays +$100 cash on the paycheck, whatever set it off (gun, missile, HE blast, Chain Reaction). (A gun or missile hit on a barrel already scores 50 points.)",
+   "sp": 3,
+   "level": 14,
+   "greenlight": false
+  },
+  {
+   "id": "DEM6",
+   "branch": "DEM",
+   "tier": 6,
+   "name": "BIG FINISH",
+   "desc": "Each DOUBLE KILL or better adds +0.05 to that level's Skill multiplier (max +0.5, added after the rest of Skill is computed). Wrecking the boss pays +$10,000 cash.",
+   "sp": 4,
+   "level": 18,
+   "greenlight": true
+  },
+  {
+   "id": "WHL1",
+   "branch": "WHL",
+   "tier": 1,
+   "name": "Quick Hands",
+   "desc": "Steering rate 9 → 12 a second (≈ 0.11 → 0.08 s to full lock, about 30% faster turn-in). A drift press is remembered 0.25 → 0.35 s.",
+   "sp": 1,
+   "level": 1,
+   "greenlight": false
+  },
+  {
+   "id": "WHL2",
+   "branch": "WHL",
+   "tier": 2,
+   "name": "Early Spark",
+   "desc": "Drift charge marks 0.65 / 1.45 / 2.35 → 0.55 / 1.25 / 2.05 (blue / orange / pink). The charge fills at 0.65 a second, up to 1.2 a second steering into the slide, so pink comes 0.3 to 0.5 s sooner.",
+   "sp": 2,
+   "level": 3,
+   "greenlight": false
+  },
+  {
+   "id": "WHL3",
+   "branch": "WHL",
+   "tier": 3,
+   "name": "Nitro Refund",
+   "desc": "Every near miss refunds 5 turbo; every stunt refunds 10 turbo (capped at the tank size).",
+   "sp": 2,
+   "level": 6,
+   "greenlight": false
+  },
+  {
+   "id": "WHL4",
+   "branch": "WHL",
+   "tier": 4,
+   "name": "Hot Release",
+   "desc": "Drift boosts last 0.55 / 0.95 / 1.45 → 0.70 / 1.15 / 1.75 s. A pink release refills 30 turbo (was 24). A pink drift boost is +320, as fast as turbo, so it can carry the player past the Syndicate and save the tank.",
+   "sp": 3,
+   "level": 10,
+   "greenlight": false
+  },
+  {
+   "id": "WHL5",
+   "branch": "WHL",
+   "tier": 5,
+   "name": "Slipstream",
+   "desc": "Near misses on turbo score ×3 base (300 points; was ×2, 200) and add +1 to the combo. Without it, only wrecks raise the combo; a near miss only resets the 3 s combo timer.",
+   "sp": 3,
+   "level": 14,
+   "greenlight": false
+  },
+  {
+   "id": "WHL6",
+   "branch": "WHL",
+   "tier": 6,
+   "name": "ROLLING THUNDER",
+   "desc": "On turbo or a drift boost, rams cost the player no armor (today 3 each), and the boss is no longer a wall: ramming him hits HIM for 6 instead of shoving the player back for 10 damage.",
+   "sp": 4,
+   "level": 18,
+   "greenlight": true
+  },
+  {
+   "id": "STN1",
+   "branch": "STN",
+   "tier": 1,
+   "name": "Showboat",
+   "desc": "Combo timer 3.0 → 3.75 s.",
+   "sp": 1,
+   "level": 1,
+   "greenlight": false
+  },
+  {
+   "id": "STN2",
+   "branch": "STN",
+   "tier": 2,
+   "name": "Hang Time",
+   "desc": "Air stunts (BIG AIR, TURBO AIR, RAMP JUMP, TURBO JUMP, ROOF LANDING) +25% points. AIRBORNE KILL 500 → 750.",
+   "sp": 2,
+   "level": 3,
+   "greenlight": false
+  },
+  {
+   "id": "STN3",
+   "branch": "STN",
+   "tier": 3,
+   "name": "Crowd Pleaser",
+   "desc": "Style +0.06 per distinct stunt type (was 0.05); cap ×1.75 → ×1.9. RUN DOWN counts as a type.",
+   "sp": 2,
+   "level": 6,
+   "greenlight": false
+  },
+  {
+   "id": "STN4",
+   "branch": "STN",
+   "tier": 4,
+   "name": "Death Wish",
+   "desc": "UPSIDE-DOWN KILL 600 → 900; GRAVITY CHECK 600 → 900; LOOP THE LOOP, TURBO LOOP, CORKSCREW, PIPE RUN +20% points.",
+   "sp": 3,
+   "level": 10,
+   "greenlight": false
+  },
+  {
+   "id": "STN5",
+   "branch": "STN",
+   "tier": 5,
+   "name": "Encore",
+   "desc": "Combo cap ×5 → ×6.",
+   "sp": 3,
+   "level": 14,
+   "greenlight": false
+  },
+  {
+   "id": "STN6",
+   "branch": "STN",
+   "tier": 6,
+   "name": "STAR POWER",
+   "desc": "Hold a ×5 combo for 8 s to start STAR TIME: 6 s in which every wreck also scores as a 300-point stunt and plays in slow motion. Once per scene.",
+   "sp": 4,
+   "level": 18,
+   "greenlight": true
+  },
+  {
+   "id": "CAR1",
+   "branch": "CAR",
+   "tier": 1,
+   "name": "Crash Pads",
+   "desc": "Bump damage −25%: traffic 9 → 7, trucks and buses 14 → 10, a charging rammer 18 → 13, a boss's wall shove 10 → 8. (Scraping the rail does no damage, with or without it.)",
+   "sp": 1,
+   "level": 1,
+   "greenlight": false
+  },
+  {
+   "id": "CAR2",
+   "branch": "CAR",
+   "tier": 2,
+   "name": "Pit Crew",
+   "desc": "Wrenches repair 30 → 45 armor. Missile crates also repair 10 armor.",
+   "sp": 2,
+   "level": 3,
+   "greenlight": false
+  },
+  {
+   "id": "CAR3",
+   "branch": "CAR",
+   "tier": 3,
+   "name": "Shake It Off",
+   "desc": "Henchmen punch for 3 instead of 4, and fall off by themselves after 5 s on the car (counts as a HENCHMAN wreck: points and XP, no stunt).",
+   "sp": 2,
+   "level": 6,
+   "greenlight": false
+  },
+  {
+   "id": "CAR4",
+   "branch": "CAR",
+   "tier": 4,
+   "name": "Extra Reel",
+   "desc": "Film for retakes 3 → 4 reels.",
+   "sp": 3,
+   "level": 10,
+   "greenlight": false
+  },
+  {
+   "id": "CAR5",
+   "branch": "CAR",
+   "tier": 5,
+   "name": "Second Wind",
+   "desc": "Below 25% of max armor: guns fire 20% faster (fire interval ÷ 1.2: stock 0.085 → 0.071 s; applied to whatever interval Gun Barrels set) and the combo timer gets +1 s. Applies to every load.",
+   "sp": 3,
+   "level": 14,
+   "greenlight": false
+  },
+  {
+   "id": "CAR6",
+   "branch": "CAR",
+   "tier": 6,
+   "name": "LAST TAKE",
+   "desc": "Once per level, the wreck that would cost a reel instead leaves the player at 25 armor with 2 s of invincibility; no reel spent. Director: \"Keep rolling!\"",
+   "sp": 4,
+   "level": 18,
+   "greenlight": true
+  },
+  {
+   "id": "GET1",
+   "branch": "GET",
+   "tier": 1,
+   "name": "Heavy Foot",
+   "desc": "Holding SPEED UP adds 20 more speed (470 → 490 su, 146 → 152 MPH; stacks on any Big-Block V8 rank). The turbo punch (instant +90) fires after 0.6 s off the turbo instead of 1 s.",
+   "sp": 1,
+   "level": 1,
+   "greenlight": false
+  },
+  {
+   "id": "GET2",
+   "branch": "GET",
+   "tier": 2,
+   "name": "Drafting",
+   "desc": "In the wake of a Syndicate car or the boss (behind it, within 150 px of its tail and 20 px of its line), the turbo refills 15 a second faster. \"DRAFT\" shows on the HUD. Behind the boss the player is also under his guns and in the path of his barrels.",
+   "sp": 2,
+   "level": 3,
+   "greenlight": false
+  },
+  {
+   "id": "GET3",
+   "branch": "GET",
+   "tier": 3,
+   "name": "Clean Pass",
+   "desc": "Leaving a Syndicate car behind without touching it refunds 8 turbo. Near misses count out to 24 px (was 14).",
+   "sp": 2,
+   "level": 6,
+   "greenlight": false
+  },
+  {
+   "id": "GET4",
+   "branch": "GET",
+   "tier": 4,
+   "name": "Slingshot",
+   "desc": "Pulling out of a draft and lighting the turbo within 0.5 s fires the punch even if the turbo was on a moment ago; the punch is 60 bigger and its cap 60 higher (on top of the Gearbox values).",
+   "sp": 3,
+   "level": 10,
+   "greenlight": false
+  },
+  {
+   "id": "GET5",
+   "branch": "GET",
+   "tier": 5,
+   "name": "Ahead of Schedule",
+   "desc": "SCHEDULE pays $300 a second under par instead of $200; cap $30,000 a level instead of $20,000.",
+   "sp": 3,
+   "level": 14,
+   "greenlight": false
+  },
+  {
+   "id": "GET6",
+   "branch": "GET",
+   "tier": 6,
+   "name": "OUTRUN",
+   "desc": "The turbo no longer locks out when the tank runs dry: while still held, it gives half boost (+160) until released.",
+   "sp": 4,
+   "level": 18,
+   "greenlight": true
+  }
+ ],
+ "garage": [
+  {
+   "key": "armor",
+   "name": "Armor Plating",
+   "row": "ARMOR",
+   "ranks": [
     {
-      "id": "handling",
-      "name": "HANDLING",
-      "branch": "drive",
-      "tier": 0,
-      "color": "#36F2FF",
-      "desc": "Quicker hands on the wheel and a drift that charges faster.",
-      "maxRank": 5,
-      "cost": [1, 1, 2, 2, 3],
-      "requires": [],
-      "effects": [
-        { "stat": "steer", "perRank": 0.10 },
-        { "stat": "driftCharge", "perRank": 0.12 }
-      ]
+     "name": "Kevlar Door Liners",
+     "price": 20000,
+     "level": 1,
+     "feat": null
     },
     {
-      "id": "turbo",
-      "name": "TURBO",
-      "branch": "drive",
-      "tier": 0,
-      "color": "#FF4FA6",
-      "desc": "A bigger burn from the same tank, and it refills faster.",
-      "maxRank": 5,
-      "cost": [1, 1, 2, 2, 3],
-      "requires": [],
-      "effects": [
-        { "stat": "turboBurn", "perRank": -0.08 },
-        { "stat": "turboRegen", "perRank": 0.12 }
-      ]
+     "name": "Ceramic Composite",
+     "price": 50000,
+     "level": 10,
+     "feat": null
     },
     {
-      "id": "armor",
-      "name": "ARMOR",
-      "branch": "body",
-      "tier": 0,
-      "color": "#5BFF73",
-      "desc": "Thicker plate: every hit takes less off the armor bar.",
-      "maxRank": 5,
-      "cost": [1, 1, 2, 2, 3],
-      "requires": [],
-      "effects": [
-        { "stat": "damageTaken", "perRank": -0.07 }
-      ]
-    },
-    {
-      "id": "weapons",
-      "name": "WEAPONS",
-      "branch": "arms",
-      "tier": 0,
-      "color": "#FFD140",
-      "desc": "Hotter rounds for the guns and one more missile in the pods.",
-      "maxRank": 5,
-      "cost": [1, 1, 2, 2, 3],
-      "requires": [],
-      "effects": [
-        { "stat": "gunDamage", "perRank": 0.10 },
-        { "stat": "missiles", "perRank": 1 }
-      ]
+     "name": "Ablative Hull",
+     "price": 110000,
+     "level": 14,
+     "feat": {
+      "t": "armorWrap",
+      "text": "Wrap a level with 50%+ armor left"
+     }
     }
-  ]
+   ],
+   "values": {
+    "maxArmor": [
+     100,
+     115,
+     130,
+     150
+    ]
+   }
+  },
+  {
+   "key": "guns",
+   "name": "Gun Barrels",
+   "row": "WEAPONS",
+   "ranks": [
+    {
+     "name": "Fluted Barrels",
+     "price": 25000,
+     "level": 1,
+     "feat": null
+    },
+    {
+     "name": "Twin-Feed Receivers",
+     "price": 60000,
+     "level": 10,
+     "feat": null
+    },
+    {
+     "name": "Rotary Feed",
+     "price": 120000,
+     "level": 14,
+     "feat": {
+      "t": "wrecks",
+      "n": 500,
+      "text": "500 Syndicate wrecks"
+     }
+    }
+   ],
+   "values": {
+    "fireInterval": [
+     0.085,
+     0.08,
+     0.075,
+     0.07
+    ]
+   }
+  },
+  {
+   "key": "missiles",
+   "name": "Missile Racks",
+   "row": "WEAPONS",
+   "ranks": [
+    {
+     "name": "Extended Pod",
+     "price": 15000,
+     "level": 1,
+     "feat": null
+    },
+    {
+     "name": "Quad Rack",
+     "price": 40000,
+     "level": 10,
+     "feat": null
+    },
+    {
+     "name": "Hydra Rack",
+     "price": 90000,
+     "level": 14,
+     "feat": {
+      "t": "trucks",
+      "n": 25,
+      "text": "Wreck 25 armored trucks"
+     }
+    }
+   ],
+   "values": {
+    "missileStart": [
+     6,
+     7,
+     8,
+     9
+    ],
+    "missileCap": [
+     9,
+     10,
+     11,
+     12
+    ]
+   }
+  },
+  {
+   "key": "super",
+   "name": "Supercharger",
+   "row": "ENGINE",
+   "ranks": [
+    {
+     "name": "Ported Blower",
+     "price": 20000,
+     "level": 1,
+     "feat": null
+    },
+    {
+     "name": "Twin-Screw Blower",
+     "price": 50000,
+     "level": 10,
+     "feat": null
+    },
+    {
+     "name": "Hyperblower",
+     "price": 110000,
+     "level": 14,
+     "feat": {
+      "t": "feat",
+      "names": [
+       "TURBO AIR"
+      ],
+      "text": "Land TURBO AIR"
+     }
+    }
+   ],
+   "values": {
+    "turboTank": [
+     100,
+     115,
+     130,
+     150
+    ],
+    "turboRefill": [
+     13,
+     15,
+     17,
+     20
+    ],
+    "burnSeconds": [
+     2.6,
+     3,
+     3.4,
+     3.9
+    ],
+    "flameLength": [
+     10,
+     11,
+     12,
+     13
+    ]
+   }
+  },
+  {
+   "key": "bullbar",
+   "name": "Bull Bar",
+   "row": "ARMOR",
+   "ranks": [
+    {
+     "name": "Steel Push Bar",
+     "price": 15000,
+     "level": 1,
+     "feat": null
+    },
+    {
+     "name": "Reinforced Ram",
+     "price": 40000,
+     "level": 10,
+     "feat": null
+    },
+    {
+     "name": "Siege Ram",
+     "price": 90000,
+     "level": 14,
+     "feat": {
+      "t": "featsAll",
+      "names": [
+       "TURBO RAM",
+       "SIDESWIPE",
+       "WALL SMASH"
+      ],
+      "text": "Land TURBO RAM, SIDESWIPE and WALL SMASH"
+     }
+    }
+   ],
+   "values": {
+    "ramDamage": [
+     6,
+     7,
+     8,
+     10
+    ],
+    "ramDamageBig": [
+     4,
+     5,
+     6,
+     7
+    ],
+    "bumpDamage": [
+     1,
+     2,
+     2,
+     3
+    ]
+   }
+  },
+  {
+   "key": "tyres",
+   "name": "Race Tyres",
+   "row": "TYRES",
+   "ranks": [
+    {
+     "name": "Street Slicks",
+     "price": 20000,
+     "level": 1,
+     "feat": null
+    },
+    {
+     "name": "Soft Compound",
+     "price": 50000,
+     "level": 10,
+     "feat": null
+    },
+    {
+     "name": "Qualifier Slicks",
+     "price": 110000,
+     "level": 14,
+     "feat": {
+      "t": "feat",
+      "names": [
+       "ULTRA DRIFT"
+      ],
+      "text": "Land ULTRA DRIFT"
+     }
+    }
+   ],
+   "values": {
+    "driftChargeMult": [
+     1.0,
+     1.08,
+     1.16,
+     1.25
+    ],
+    "bendPullMult": [
+     1.0,
+     0.9,
+     0.8,
+     0.7
+    ]
+   }
+  },
+  {
+   "key": "engine",
+   "name": "Big-Block V8",
+   "row": "ENGINE",
+   "ranks": [
+    {
+     "name": "Hot Cam",
+     "price": 20000,
+     "level": 1,
+     "feat": null
+    },
+    {
+     "name": "Stroker Kit",
+     "price": 50000,
+     "level": 10,
+     "feat": null
+    },
+    {
+     "name": "Big-Block 572",
+     "price": 110000,
+     "level": 14,
+     "feat": {
+      "t": "underParAny",
+      "text": "Wrap any level under par"
+     }
+    }
+   ],
+   "values": {
+    "speedUpAdd": [
+     90,
+     115,
+     140,
+     170
+    ],
+    "speedUpTop": [
+     470,
+     495,
+     520,
+     550
+    ],
+    "speedUpMph": [
+     146,
+     153,
+     161,
+     171
+    ],
+    "turboTop": [
+     790,
+     815,
+     840,
+     870
+    ],
+    "turboMph": [
+     245,
+     253,
+     260,
+     270
+    ]
+   }
+  },
+  {
+   "key": "gearbox",
+   "name": "Close-Ratio Gearbox",
+   "row": "ENGINE",
+   "ranks": [
+    {
+     "name": "Short Shifter",
+     "price": 15000,
+     "level": 1,
+     "feat": null
+    },
+    {
+     "name": "Close-Ratio Box",
+     "price": 40000,
+     "level": 10,
+     "feat": null
+    },
+    {
+     "name": "Dog-Ring Sequential",
+     "price": 90000,
+     "level": 14,
+     "feat": {
+      "t": "leftBehind",
+      "n": 25,
+      "text": "Leave 25 Syndicate cars behind"
+     }
+    }
+   ],
+   "values": {
+    "accel": [
+     420,
+     480,
+     540,
+     620
+    ],
+    "accelHot": [
+     900,
+     960,
+     1020,
+     1100
+    ],
+    "punchAdd": [
+     90,
+     110,
+     130,
+     150
+    ],
+    "punchCap": [
+     700,
+     720,
+     740,
+     760
+    ]
+   }
+  },
+  {
+   "key": "ap",
+   "name": "AP Rounds",
+   "row": "AMMO",
+   "ranks": [
+    {
+     "name": "Steel-Core AP",
+     "price": 25000,
+     "level": 3,
+     "feat": {
+      "t": "trucks",
+      "n": 1,
+      "text": "Wreck an armored truck"
+     }
+    },
+    {
+     "name": "Tungsten-Core AP",
+     "price": 60000,
+     "level": 10,
+     "feat": null
+    },
+    {
+     "name": "Sabot Penetrator",
+     "price": 120000,
+     "level": 14,
+     "feat": {
+      "t": "bossesAll",
+      "n": 1,
+      "text": "Wreck all three bosses"
+     }
+    }
+   ],
+   "values": {
+    "rounds": [
+     0,
+     40,
+     60,
+     80
+    ]
+   }
+  },
+  {
+   "key": "he",
+   "name": "HE Rounds",
+   "row": "AMMO",
+   "ranks": [
+    {
+     "name": "Frag Rounds",
+     "price": 25000,
+     "level": 6,
+     "feat": {
+      "t": "feat",
+      "names": [
+       "DOUBLE KILL"
+      ],
+      "text": "Land a DOUBLE KILL"
+     }
+    },
+    {
+     "name": "High-Explosive Rounds",
+     "price": 60000,
+     "level": 10,
+     "feat": null
+    },
+    {
+     "name": "Showstopper Rounds",
+     "price": 120000,
+     "level": 14,
+     "feat": {
+      "t": "feat",
+      "names": [
+       "MASSACRE"
+      ],
+      "text": "Land a MASSACRE"
+     }
+    }
+   ],
+   "values": {
+    "blastRadius": [
+     0,
+     24,
+     32,
+     40
+    ],
+    "rounds": [
+     0,
+     40,
+     60,
+     80
+    ],
+    "blastDamage": [
+     0,
+     1,
+     1,
+     2
+    ]
+   }
+  }
+ ],
+ "cosmetics": [
+  {
+   "id": "p-kestrel-red",
+   "name": "Kestrel Red",
+   "shop": "PAINT",
+   "group": "Stock",
+   "slot": "paint",
+   "tier": 0,
+   "price": 0,
+   "level": 1,
+   "feat": null,
+   "how": "Stock",
+   "look": "The red the game ships with",
+   "swatch": "#c8102e",
+   "wave": 1
+  },
+  {
+   "id": "p-bayshore-blue",
+   "name": "Bayshore Blue",
+   "shop": "PAINT",
+   "group": "Solid",
+   "slot": "paint",
+   "tier": 1,
+   "price": 10000,
+   "level": 1,
+   "feat": null,
+   "how": "Recolour",
+   "look": "deep ocean blue",
+   "swatch": "#1f4fbf",
+   "wave": 1
+  },
+  {
+   "id": "p-lifeguard-yellow",
+   "name": "Lifeguard Yellow",
+   "shop": "PAINT",
+   "group": "Solid",
+   "slot": "paint",
+   "tier": 1,
+   "price": 10000,
+   "level": 1,
+   "feat": null,
+   "how": "Recolour",
+   "look": "tower yellow",
+   "swatch": "#ffd23f",
+   "wave": 1
+  },
+  {
+   "id": "p-sunset-orange",
+   "name": "Sunset Orange",
+   "shop": "PAINT",
+   "group": "Solid",
+   "slot": "paint",
+   "tier": 1,
+   "price": 10000,
+   "level": 1,
+   "feat": null,
+   "how": "Recolour",
+   "look": "burnt orange",
+   "swatch": "#ff7a1a",
+   "wave": 1
+  },
+  {
+   "id": "p-miami-mint",
+   "name": "Miami Mint",
+   "shop": "PAINT",
+   "group": "Solid",
+   "slot": "paint",
+   "tier": 1,
+   "price": 10000,
+   "level": 1,
+   "feat": null,
+   "how": "Recolour",
+   "look": "pale mint, like the Bayshore hotels",
+   "swatch": "#8fe3c8",
+   "wave": 1
+  },
+  {
+   "id": "p-hotel-pink",
+   "name": "Hotel Pink",
+   "shop": "PAINT",
+   "group": "Solid",
+   "slot": "paint",
+   "tier": 1,
+   "price": 10000,
+   "level": 1,
+   "feat": null,
+   "how": "Recolour",
+   "look": "flamingo pink",
+   "swatch": "#ff6fae",
+   "wave": 1
+  },
+  {
+   "id": "p-lavender-haze",
+   "name": "Lavender Haze",
+   "shop": "PAINT",
+   "group": "Solid",
+   "slot": "paint",
+   "tier": 1,
+   "price": 10000,
+   "level": 1,
+   "feat": null,
+   "how": "Recolour",
+   "look": "soft violet",
+   "swatch": "#b59cf0",
+   "wave": 1
+  },
+  {
+   "id": "p-desert-sand",
+   "name": "Desert Sand",
+   "shop": "PAINT",
+   "group": "Solid",
+   "slot": "paint",
+   "tier": 1,
+   "price": 10000,
+   "level": 1,
+   "feat": null,
+   "how": "Recolour",
+   "look": "Nevada tan",
+   "swatch": "#d8b98a",
+   "wave": 1
+  },
+  {
+   "id": "p-midnight-black",
+   "name": "Midnight Black",
+   "shop": "PAINT",
+   "group": "Solid",
+   "slot": "paint",
+   "tier": 1,
+   "price": 10000,
+   "level": 1,
+   "feat": null,
+   "how": "Recolour",
+   "look": "gloss black",
+   "swatch": "#121218",
+   "wave": 1
+  },
+  {
+   "id": "p-arctic-white",
+   "name": "Arctic White",
+   "shop": "PAINT",
+   "group": "Solid",
+   "slot": "paint",
+   "tier": 1,
+   "price": 10000,
+   "level": 1,
+   "feat": null,
+   "how": "Recolour",
+   "look": "gloss white",
+   "swatch": "#f2f4f8",
+   "wave": 1
+  },
+  {
+   "id": "p-racing-green",
+   "name": "Racing Green",
+   "shop": "PAINT",
+   "group": "Solid",
+   "slot": "paint",
+   "tier": 1,
+   "price": 10000,
+   "level": 1,
+   "feat": null,
+   "how": "Recolour",
+   "look": "dark British green",
+   "swatch": "#145a32",
+   "wave": 1
+  },
+  {
+   "id": "p-gunmetal-metallic",
+   "name": "Gunmetal Metallic",
+   "shop": "PAINT",
+   "group": "Metallic & pearl",
+   "slot": "paint",
+   "tier": 2,
+   "price": 30000,
+   "level": 3,
+   "feat": null,
+   "how": "Recolour + sheen setting",
+   "look": "dark grey flake",
+   "swatch": "#4a4f5a",
+   "wave": 1
+  },
+  {
+   "id": "p-candy-apple",
+   "name": "Candy Apple",
+   "shop": "PAINT",
+   "group": "Metallic & pearl",
+   "slot": "paint",
+   "tier": 2,
+   "price": 40000,
+   "level": 3,
+   "feat": null,
+   "how": "Recolour + sheen setting",
+   "look": "deep candy red over silver",
+   "swatch": "#b3001b",
+   "wave": 1
+  },
+  {
+   "id": "p-pearl-white",
+   "name": "Pearl White",
+   "shop": "PAINT",
+   "group": "Metallic & pearl",
+   "slot": "paint",
+   "tier": 2,
+   "price": 40000,
+   "level": 6,
+   "feat": null,
+   "how": "Recolour + sheen setting",
+   "look": "white with a pink pearl in the sheen",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "p-electric-cyan-pearl",
+   "name": "Electric Cyan Pearl",
+   "shop": "PAINT",
+   "group": "Metallic & pearl",
+   "slot": "paint",
+   "tier": 2,
+   "price": 40000,
+   "level": 6,
+   "feat": null,
+   "how": "Recolour + sheen setting",
+   "look": "the HUD cyan, pearl coat",
+   "swatch": "#2de2e6",
+   "wave": 1
+  },
+  {
+   "id": "p-neon-magenta-pearl",
+   "name": "Neon Magenta Pearl",
+   "shop": "PAINT",
+   "group": "Metallic & pearl",
+   "slot": "paint",
+   "tier": 2,
+   "price": 40000,
+   "level": 6,
+   "feat": null,
+   "how": "Recolour + sheen setting",
+   "look": "the underglow pink, pearl coat",
+   "swatch": "#ff2e88",
+   "wave": 1
+  },
+  {
+   "id": "p-toxic-green-candy",
+   "name": "Toxic Green Candy",
+   "shop": "PAINT",
+   "group": "Metallic & pearl",
+   "slot": "paint",
+   "tier": 2,
+   "price": 45000,
+   "level": 6,
+   "feat": {
+    "t": "wrapped",
+    "k": 1,
+    "text": "Wrap level 2"
+   },
+   "how": "Recolour + sheen setting",
+   "look": "Volta Chemical green",
+   "swatch": "#39ff6a",
+   "wave": 1
+  },
+  {
+   "id": "p-gold-rush-metallic",
+   "name": "Gold Rush Metallic",
+   "shop": "PAINT",
+   "group": "Metallic & pearl",
+   "slot": "paint",
+   "tier": 2,
+   "price": 45000,
+   "level": 6,
+   "feat": {
+    "t": "wrapped",
+    "k": 2,
+    "text": "Wrap level 3"
+   },
+   "how": "Recolour + sheen setting",
+   "look": "casino gold flake",
+   "swatch": "#d4a017",
+   "wave": 1
+  },
+  {
+   "id": "p-matte-stealth",
+   "name": "Matte Stealth",
+   "shop": "PAINT",
+   "group": "Metallic & pearl",
+   "slot": "paint",
+   "tier": 2,
+   "price": 45000,
+   "level": 6,
+   "feat": null,
+   "how": "Recolour + sheen setting",
+   "look": "flat black, the moving sheen switched off",
+   "swatch": "#26272b",
+   "wave": 1
+  },
+  {
+   "id": "p-sunburst-fade",
+   "name": "Sunburst Fade",
+   "shop": "PAINT",
+   "group": "Metallic & pearl",
+   "slot": "paint",
+   "tier": 2,
+   "price": 50000,
+   "level": 6,
+   "feat": null,
+   "how": "Recolour + sheen setting",
+   "look": "orange at the nose fading to pink at the wing",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "p-chameleon",
+   "name": "Chameleon",
+   "shop": "PAINT",
+   "group": "Metallic & pearl",
+   "slot": "paint",
+   "tier": 2,
+   "price": 50000,
+   "level": 6,
+   "feat": {
+    "t": "ratingAll",
+    "n": 1,
+    "text": "Rated Action Hero on all 3 levels"
+   },
+   "how": "Recolour + sheen setting",
+   "look": "cyan to violet as the car turns (follows the frame angle)",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "p-le-mans-stripes",
+   "name": "Le Mans Stripes",
+   "shop": "PAINT",
+   "group": "Livery",
+   "slot": "paint",
+   "tier": 3,
+   "price": 100000,
+   "level": 10,
+   "feat": null,
+   "how": "New renders (3 body sheets)",
+   "look": "twin white stripes over the deck and wing",
+   "swatch": null,
+   "wave": 3
+  },
+  {
+   "id": "p-flame-job",
+   "name": "Flame Job",
+   "shop": "PAINT",
+   "group": "Livery",
+   "slot": "paint",
+   "tier": 3,
+   "price": 100000,
+   "level": 10,
+   "feat": {
+    "t": "wrecks",
+    "n": 250,
+    "text": "250 Syndicate wrecks"
+   },
+   "how": "New renders (3 body sheets)",
+   "look": "hot-rod flames licking back from the doors",
+   "swatch": null,
+   "wave": 3
+  },
+  {
+   "id": "p-agency-interceptor",
+   "name": "Agency Interceptor",
+   "shop": "PAINT",
+   "group": "Livery",
+   "slot": "paint",
+   "tier": 3,
+   "price": 100000,
+   "level": 10,
+   "feat": {
+    "t": "notes",
+    "n": 3,
+    "text": "3 Director's Notes"
+   },
+   "how": "New renders (3 body sheets)",
+   "look": "black and white, AGENCY on the wing",
+   "swatch": null,
+   "wave": 3
+  },
+  {
+   "id": "p-checkered-flag",
+   "name": "Checkered Flag",
+   "shop": "PAINT",
+   "group": "Livery",
+   "slot": "paint",
+   "tier": 3,
+   "price": 100000,
+   "level": 10,
+   "feat": {
+    "t": "underParAny",
+    "text": "Wrap any level under par"
+   },
+   "how": "New renders (3 body sheets)",
+   "look": "chequer down the rear deck",
+   "swatch": null,
+   "wave": 3
+  },
+  {
+   "id": "p-lightning-bolt",
+   "name": "Lightning Bolt",
+   "shop": "PAINT",
+   "group": "Livery",
+   "slot": "paint",
+   "tier": 3,
+   "price": 100000,
+   "level": 10,
+   "feat": {
+    "t": "garage",
+    "line": "super",
+    "n": 1,
+    "text": "Own Supercharger rank 1"
+   },
+   "how": "New renders (3 body sheets)",
+   "look": "yellow bolt along each flank",
+   "swatch": null,
+   "wave": 3
+  },
+  {
+   "id": "p-tiger-stripe",
+   "name": "Tiger Stripe",
+   "shop": "PAINT",
+   "group": "Livery",
+   "slot": "paint",
+   "tier": 3,
+   "price": 100000,
+   "level": 10,
+   "feat": {
+    "t": "carnageAny",
+    "n": 85,
+    "text": "85% Carnage on any level"
+   },
+   "how": "New renders (3 body sheets)",
+   "look": "orange and black slashes",
+   "swatch": null,
+   "wave": 3
+  },
+  {
+   "id": "p-bayshore-sunset",
+   "name": "Bayshore Sunset",
+   "shop": "PAINT",
+   "group": "Livery",
+   "slot": "paint",
+   "tier": 3,
+   "price": 100000,
+   "level": 10,
+   "feat": {
+    "t": "ratingLevel",
+    "n": 2,
+    "k": 0,
+    "text": "Blockbuster on level 1"
+   },
+   "how": "New renders (3 body sheets)",
+   "look": "palm silhouettes on a sunset fade",
+   "swatch": null,
+   "wave": 3
+  },
+  {
+   "id": "p-toxic-hazard",
+   "name": "Toxic Hazard",
+   "shop": "PAINT",
+   "group": "Livery",
+   "slot": "paint",
+   "tier": 3,
+   "price": 100000,
+   "level": 10,
+   "feat": {
+    "t": "ratingLevel",
+    "n": 2,
+    "k": 1,
+    "text": "Blockbuster on level 2"
+   },
+   "how": "New renders (3 body sheets)",
+   "look": "yellow-black hazard bands",
+   "swatch": null,
+   "wave": 3
+  },
+  {
+   "id": "p-high-roller",
+   "name": "High Roller",
+   "shop": "PAINT",
+   "group": "Livery",
+   "slot": "paint",
+   "tier": 3,
+   "price": 100000,
+   "level": 10,
+   "feat": {
+    "t": "ratingLevel",
+    "n": 2,
+    "k": 2,
+    "text": "Blockbuster on level 3"
+   },
+   "how": "New renders (3 body sheets)",
+   "look": "dice and cards across the wing",
+   "swatch": null,
+   "wave": 3
+  },
+  {
+   "id": "p-synthwave-grid",
+   "name": "Synthwave Grid",
+   "shop": "PAINT",
+   "group": "Livery",
+   "slot": "paint",
+   "tier": 3,
+   "price": 100000,
+   "level": 10,
+   "feat": {
+    "t": "ratingAll",
+    "n": 2,
+    "text": "Blockbuster on all 3 levels"
+   },
+   "how": "New renders (3 body sheets)",
+   "look": "pink laser grid and a striped sun on the wing",
+   "swatch": null,
+   "wave": 3
+  },
+  {
+   "id": "p-stunt-team",
+   "name": "Stunt Team",
+   "shop": "PAINT",
+   "group": "Livery",
+   "slot": "paint",
+   "tier": 3,
+   "price": 100000,
+   "level": 10,
+   "feat": {
+    "t": "stuntTypes",
+    "n": 15,
+    "text": "Land 15 stunt types (ever)"
+   },
+   "how": "New renders (3 body sheets)",
+   "look": "racing numbers and crew decals",
+   "swatch": null,
+   "wave": 3
+  },
+  {
+   "id": "p-desert-camo",
+   "name": "Desert Camo",
+   "shop": "PAINT",
+   "group": "Livery",
+   "slot": "paint",
+   "tier": 3,
+   "price": 100000,
+   "level": 10,
+   "feat": {
+    "t": "snakeEyes",
+    "n": 100,
+    "text": "100 Snake Eyes wrecked"
+   },
+   "how": "New renders (3 body sheets)",
+   "look": "sand and khaki camo",
+   "swatch": null,
+   "wave": 3
+  },
+  {
+   "id": "p-total-carnage",
+   "name": "Total Carnage",
+   "shop": "PAINT",
+   "group": "Signature",
+   "slot": "paint",
+   "tier": 4,
+   "price": 200000,
+   "level": 14,
+   "feat": {
+    "t": "carnageAny",
+    "n": 95,
+    "text": "TOTAL CARNAGE on any level"
+   },
+   "how": "New renders (3 body sheets) + sheen setting",
+   "look": "scorched black and gold with tally marks",
+   "swatch": null,
+   "wave": 3
+  },
+  {
+   "id": "p-wanted-poster",
+   "name": "Wanted Poster",
+   "shop": "PAINT",
+   "group": "Signature",
+   "slot": "paint",
+   "tier": 4,
+   "price": 200000,
+   "level": 14,
+   "feat": {
+    "t": "bossesAll",
+    "n": 5,
+    "text": "Wreck each boss 5 times"
+   },
+   "how": "New renders (3 body sheets) + sheen setting",
+   "look": "bounty-poster art of the three bosses",
+   "swatch": null,
+   "wave": 3
+  },
+  {
+   "id": "p-chrome-kestrel",
+   "name": "Chrome Kestrel",
+   "shop": "PAINT",
+   "group": "Signature",
+   "slot": "paint",
+   "tier": 4,
+   "price": 250000,
+   "level": 20,
+   "feat": {
+    "t": "driverLevel",
+    "n": 20,
+    "text": "Driver level 20"
+   },
+   "how": "New renders (3 body sheets) + sheen setting",
+   "look": "mirror chrome: the sheen at full strength",
+   "swatch": null,
+   "wave": 3
+  },
+  {
+   "id": "p-director-s-cut",
+   "name": "Director's Cut",
+   "shop": "PAINT",
+   "group": "Signature",
+   "slot": "paint",
+   "tier": 4,
+   "price": 250000,
+   "level": 18,
+   "feat": {
+    "t": "ratingAll",
+    "n": 3,
+    "text": "Legendary Director on all 3 levels"
+   },
+   "how": "New renders (3 body sheets) + sheen setting",
+   "look": "gold film strip running nose to wing",
+   "swatch": null,
+   "wave": 3
+  },
+  {
+   "id": "r-gold-five-hole",
+   "name": "Gold Five-Hole",
+   "shop": "RIMS",
+   "group": "Stock",
+   "slot": "rims",
+   "tier": 0,
+   "price": 0,
+   "level": 1,
+   "feat": null,
+   "how": "Stock",
+   "look": "the gold five-hole rim the game ships with",
+   "swatch": "#d4a017",
+   "wave": 1
+  },
+  {
+   "id": "r-chrome-five-hole",
+   "name": "Chrome Five-Hole",
+   "shop": "RIMS",
+   "group": "Finish",
+   "slot": "rims",
+   "tier": 1,
+   "price": 8000,
+   "level": 1,
+   "feat": null,
+   "how": "Recolour (rim mask)",
+   "look": "polished chrome",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "r-gunmetal-five-hole",
+   "name": "Gunmetal Five-Hole",
+   "shop": "RIMS",
+   "group": "Finish",
+   "slot": "rims",
+   "tier": 1,
+   "price": 8000,
+   "level": 1,
+   "feat": null,
+   "how": "Recolour (rim mask)",
+   "look": "dark grey",
+   "swatch": "#4a4f5a",
+   "wave": 1
+  },
+  {
+   "id": "r-matte-black-five-hole",
+   "name": "Matte Black Five-Hole",
+   "shop": "RIMS",
+   "group": "Finish",
+   "slot": "rims",
+   "tier": 1,
+   "price": 8000,
+   "level": 1,
+   "feat": null,
+   "how": "Recolour (rim mask)",
+   "look": "flat black",
+   "swatch": "#1b1b1f",
+   "wave": 1
+  },
+  {
+   "id": "r-white-five-hole",
+   "name": "White Five-Hole",
+   "shop": "RIMS",
+   "group": "Finish",
+   "slot": "rims",
+   "tier": 1,
+   "price": 8000,
+   "level": 1,
+   "feat": null,
+   "how": "Recolour (rim mask)",
+   "look": "gloss white",
+   "swatch": "#f2f4f8",
+   "wave": 1
+  },
+  {
+   "id": "r-hot-pink-five-hole",
+   "name": "Hot Pink Five-Hole",
+   "shop": "RIMS",
+   "group": "Finish",
+   "slot": "rims",
+   "tier": 1,
+   "price": 8000,
+   "level": 1,
+   "feat": null,
+   "how": "Recolour (rim mask)",
+   "look": "underglow pink",
+   "swatch": "#ff2e88",
+   "wave": 1
+  },
+  {
+   "id": "r-electric-cyan-five-hole",
+   "name": "Electric Cyan Five-Hole",
+   "shop": "RIMS",
+   "group": "Finish",
+   "slot": "rims",
+   "tier": 1,
+   "price": 8000,
+   "level": 1,
+   "feat": null,
+   "how": "Recolour (rim mask)",
+   "look": "HUD cyan",
+   "swatch": "#2de2e6",
+   "wave": 1
+  },
+  {
+   "id": "r-police-steelie",
+   "name": "Police Steelie",
+   "shop": "RIMS",
+   "group": "Design",
+   "slot": "rims",
+   "tier": 2,
+   "price": 20000,
+   "level": 3,
+   "feat": null,
+   "how": "New renders (2 wheel sheets)",
+   "look": "black steel wheel with a small chrome cap",
+   "swatch": "#1b1b1f",
+   "wave": 2
+  },
+  {
+   "id": "r-phone-dial",
+   "name": "Phone Dial",
+   "shop": "RIMS",
+   "group": "Design",
+   "slot": "rims",
+   "tier": 2,
+   "price": 25000,
+   "level": 3,
+   "feat": null,
+   "how": "New renders (2 wheel sheets)",
+   "look": "round holes in a ring, 80s classic",
+   "swatch": "#c0c6d0",
+   "wave": 2
+  },
+  {
+   "id": "r-star-five",
+   "name": "Star Five",
+   "shop": "RIMS",
+   "group": "Design",
+   "slot": "rims",
+   "tier": 2,
+   "price": 25000,
+   "level": 3,
+   "feat": null,
+   "how": "New renders (2 wheel sheets)",
+   "look": "five-point star spokes",
+   "swatch": "#c0c6d0",
+   "wave": 2
+  },
+  {
+   "id": "r-turbofan-disc",
+   "name": "Turbofan Disc",
+   "shop": "RIMS",
+   "group": "Design",
+   "slot": "rims",
+   "tier": 2,
+   "price": 25000,
+   "level": 6,
+   "feat": null,
+   "how": "New renders (2 wheel sheets)",
+   "look": "flat aero disc with fan blades",
+   "swatch": "#f2f4f8",
+   "wave": 2
+  },
+  {
+   "id": "r-cross-lace-mesh",
+   "name": "Cross-Lace Mesh",
+   "shop": "RIMS",
+   "group": "Design",
+   "slot": "rims",
+   "tier": 2,
+   "price": 30000,
+   "level": 6,
+   "feat": null,
+   "how": "New renders (2 wheel sheets)",
+   "look": "fine crossed mesh, gold centre",
+   "swatch": "#d4a017",
+   "wave": 2
+  },
+  {
+   "id": "r-blade-six",
+   "name": "Blade Six",
+   "shop": "RIMS",
+   "group": "Design",
+   "slot": "rims",
+   "tier": 2,
+   "price": 30000,
+   "level": 6,
+   "feat": null,
+   "how": "New renders (2 wheel sheets)",
+   "look": "six twisted blades",
+   "swatch": "#9aa3b5",
+   "wave": 2
+  },
+  {
+   "id": "r-deep-dish-split",
+   "name": "Deep-Dish Split",
+   "shop": "RIMS",
+   "group": "Design",
+   "slot": "rims",
+   "tier": 2,
+   "price": 30000,
+   "level": 6,
+   "feat": null,
+   "how": "New renders (2 wheel sheets)",
+   "look": "deep polished lip, bolted centre",
+   "swatch": null,
+   "wave": 2
+  },
+  {
+   "id": "r-wire-spoke",
+   "name": "Wire Spoke",
+   "shop": "RIMS",
+   "group": "Design",
+   "slot": "rims",
+   "tier": 2,
+   "price": 30000,
+   "level": 6,
+   "feat": null,
+   "how": "New renders (2 wheel sheets)",
+   "look": "laced chrome wires",
+   "swatch": null,
+   "wave": 2
+  },
+  {
+   "id": "r-carbon-aero",
+   "name": "Carbon Aero",
+   "shop": "RIMS",
+   "group": "Design",
+   "slot": "rims",
+   "tier": 3,
+   "price": 60000,
+   "level": 10,
+   "feat": {
+    "t": "underParAny",
+    "text": "Wrap any level under par"
+   },
+   "how": "New renders (2 wheel sheets)",
+   "look": "carbon fibre covers",
+   "swatch": null,
+   "wave": 2
+  },
+  {
+   "id": "r-forged-monoblock",
+   "name": "Forged Monoblock",
+   "shop": "RIMS",
+   "group": "Design",
+   "slot": "rims",
+   "tier": 3,
+   "price": 60000,
+   "level": 10,
+   "feat": {
+    "t": "carnageAny",
+    "n": 85,
+    "text": "85% Carnage on any level"
+   },
+   "how": "New renders (2 wheel sheets)",
+   "look": "heavy forged five-spoke",
+   "swatch": "#6d717a",
+   "wave": 2
+  },
+  {
+   "id": "r-saw-blade",
+   "name": "Saw Blade",
+   "shop": "RIMS",
+   "group": "Design",
+   "slot": "rims",
+   "tier": 3,
+   "price": 60000,
+   "level": 10,
+   "feat": {
+    "t": "wrecks",
+    "n": 300,
+    "text": "300 Syndicate wrecks"
+   },
+   "how": "New renders (2 wheel sheets)",
+   "look": "serrated edge (looks only: it cuts nothing)",
+   "swatch": "#9aa3b5",
+   "wave": 2
+  },
+  {
+   "id": "r-tri-blade-turbine",
+   "name": "Tri-Blade Turbine",
+   "shop": "RIMS",
+   "group": "Design",
+   "slot": "rims",
+   "tier": 3,
+   "price": 60000,
+   "level": 10,
+   "feat": {
+    "t": "garage",
+    "line": "engine",
+    "n": 2,
+    "text": "Own Big-Block V8 rank 2"
+   },
+   "how": "New renders (2 wheel sheets)",
+   "look": "three swept turbine blades",
+   "swatch": "#4a4f5a",
+   "wave": 2
+  },
+  {
+   "id": "r-chrome-deep-dish",
+   "name": "Chrome Deep Dish",
+   "shop": "RIMS",
+   "group": "Design",
+   "slot": "rims",
+   "tier": 3,
+   "price": 60000,
+   "level": 10,
+   "feat": {
+    "t": "ratingAny",
+    "n": 2,
+    "text": "Blockbuster on any level"
+   },
+   "how": "New renders (2 wheel sheets)",
+   "look": "mirror deep dish",
+   "swatch": null,
+   "wave": 2
+  },
+  {
+   "id": "r-neon-ring",
+   "name": "Neon Ring",
+   "shop": "RIMS",
+   "group": "Design",
+   "slot": "rims",
+   "tier": 3,
+   "price": 60000,
+   "level": 10,
+   "feat": {
+    "t": "cleanWrap",
+    "text": "Wrap a level with no civilians hit"
+   },
+   "how": "New renders (2 wheel sheets) + glow",
+   "look": "a glowing ring round each rim in your underglow colour",
+   "swatch": null,
+   "wave": 2
+  },
+  {
+   "id": "r-golden-reel",
+   "name": "Golden Reel",
+   "shop": "RIMS",
+   "group": "Signature",
+   "slot": "rims",
+   "tier": 4,
+   "price": 120000,
+   "level": 14,
+   "feat": {
+    "t": "ratingAny",
+    "n": 3,
+    "text": "Legendary Director on any level"
+   },
+   "how": "New renders (2 wheel sheets) + effect",
+   "look": "a gold film reel, its holes spinning like a projector",
+   "swatch": "#d4a017",
+   "wave": 2
+  },
+  {
+   "id": "r-molten",
+   "name": "Molten",
+   "shop": "RIMS",
+   "group": "Signature",
+   "slot": "rims",
+   "tier": 4,
+   "price": 120000,
+   "level": 14,
+   "feat": {
+    "t": "carnageAny",
+    "n": 95,
+    "text": "TOTAL CARNAGE on any level"
+   },
+   "how": "New renders (2 wheel sheets) + effect",
+   "look": "orange-hot spokes that shed embers at speed",
+   "swatch": null,
+   "wave": 2
+  },
+  {
+   "id": "r-diamond-cut",
+   "name": "Diamond Cut",
+   "shop": "RIMS",
+   "group": "Signature",
+   "slot": "rims",
+   "tier": 4,
+   "price": 150000,
+   "level": 14,
+   "feat": {
+    "t": "stuntTypes",
+    "n": 20,
+    "text": "Land 20 stunt types (ever)"
+   },
+   "how": "New renders (2 wheel sheets) + effect",
+   "look": "faceted face that throws sparkles in the sun",
+   "swatch": null,
+   "wave": 2
+  },
+  {
+   "id": "r-hologram",
+   "name": "Hologram",
+   "shop": "RIMS",
+   "group": "Signature",
+   "slot": "rims",
+   "tier": 4,
+   "price": 150000,
+   "level": 20,
+   "feat": {
+    "t": "driverLevel",
+    "n": 20,
+    "text": "Driver level 20"
+   },
+   "how": "New renders (2 wheel sheets) + effect",
+   "look": "see-through cyan with scanlines",
+   "swatch": null,
+   "wave": 2
+  },
+  {
+   "id": "s-kestrel-pink",
+   "name": "Kestrel Pink",
+   "shop": "SFX",
+   "group": "Neon underglow",
+   "slot": "neon",
+   "tier": 0,
+   "price": 0,
+   "level": 1,
+   "feat": null,
+   "how": "Stock",
+   "look": "the pink pool under the car",
+   "swatch": "#ff4fb8",
+   "wave": 1
+  },
+  {
+   "id": "s-cyan-neon",
+   "name": "Cyan Neon",
+   "shop": "SFX",
+   "group": "Neon underglow",
+   "slot": "neon",
+   "tier": 1,
+   "price": 15000,
+   "level": 1,
+   "feat": null,
+   "how": "Code only",
+   "look": "a new colour for the glow",
+   "swatch": "#2de2e6",
+   "wave": 1
+  },
+  {
+   "id": "s-lime-neon",
+   "name": "Lime Neon",
+   "shop": "SFX",
+   "group": "Neon underglow",
+   "slot": "neon",
+   "tier": 1,
+   "price": 15000,
+   "level": 1,
+   "feat": null,
+   "how": "Code only",
+   "look": "a new colour for the glow",
+   "swatch": "#b6ff3b",
+   "wave": 1
+  },
+  {
+   "id": "s-sunset-orange-neon",
+   "name": "Sunset Orange Neon",
+   "shop": "SFX",
+   "group": "Neon underglow",
+   "slot": "neon",
+   "tier": 1,
+   "price": 15000,
+   "level": 1,
+   "feat": null,
+   "how": "Code only",
+   "look": "a new colour for the glow",
+   "swatch": "#ff7a1a",
+   "wave": 1
+  },
+  {
+   "id": "s-ultraviolet-neon",
+   "name": "Ultraviolet Neon",
+   "shop": "SFX",
+   "group": "Neon underglow",
+   "slot": "neon",
+   "tier": 1,
+   "price": 15000,
+   "level": 1,
+   "feat": null,
+   "how": "Code only",
+   "look": "a new colour for the glow",
+   "swatch": "#8a2be2",
+   "wave": 1
+  },
+  {
+   "id": "s-ice-white-neon",
+   "name": "Ice White Neon",
+   "shop": "SFX",
+   "group": "Neon underglow",
+   "slot": "neon",
+   "tier": 1,
+   "price": 15000,
+   "level": 1,
+   "feat": null,
+   "how": "Code only",
+   "look": "a new colour for the glow",
+   "swatch": "#eaf6ff",
+   "wave": 1
+  },
+  {
+   "id": "s-gold-neon",
+   "name": "Gold Neon",
+   "shop": "SFX",
+   "group": "Neon underglow",
+   "slot": "neon",
+   "tier": 1,
+   "price": 15000,
+   "level": 1,
+   "feat": null,
+   "how": "Code only",
+   "look": "a new colour for the glow",
+   "swatch": "#ffc93c",
+   "wave": 1
+  },
+  {
+   "id": "s-blood-red-neon",
+   "name": "Blood Red Neon",
+   "shop": "SFX",
+   "group": "Neon underglow",
+   "slot": "neon",
+   "tier": 1,
+   "price": 15000,
+   "level": 1,
+   "feat": null,
+   "how": "Code only",
+   "look": "a new colour for the glow",
+   "swatch": "#e0102a",
+   "wave": 1
+  },
+  {
+   "id": "s-toxic-green-neon",
+   "name": "Toxic Green Neon",
+   "shop": "SFX",
+   "group": "Neon underglow",
+   "slot": "neon",
+   "tier": 1,
+   "price": 15000,
+   "level": 1,
+   "feat": null,
+   "how": "Code only",
+   "look": "a new colour for the glow",
+   "swatch": "#39ff6a",
+   "wave": 1
+  },
+  {
+   "id": "s-pulse",
+   "name": "Pulse",
+   "shop": "SFX",
+   "group": "Neon underglow",
+   "slot": "neon",
+   "tier": 2,
+   "price": 30000,
+   "level": 3,
+   "feat": null,
+   "how": "Code only",
+   "look": "breathes once a second, faster on turbo",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-police-strobe",
+   "name": "Police Strobe",
+   "shop": "SFX",
+   "group": "Neon underglow",
+   "slot": "neon",
+   "tier": 2,
+   "price": 45000,
+   "level": 6,
+   "feat": {
+    "t": "wraps",
+    "n": 3,
+    "text": "Wrap 3 levels"
+   },
+   "how": "Code only",
+   "look": "red and blue, alternating",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-colour-cycle",
+   "name": "Colour Cycle",
+   "shop": "SFX",
+   "group": "Neon underglow",
+   "slot": "neon",
+   "tier": 3,
+   "price": 60000,
+   "level": 10,
+   "feat": null,
+   "how": "Code only",
+   "look": "slowly runs through every colour you own",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-carnage-meter",
+   "name": "Carnage Meter",
+   "shop": "SFX",
+   "group": "Neon underglow",
+   "slot": "neon",
+   "tier": 4,
+   "price": 100000,
+   "level": 14,
+   "feat": {
+    "t": "carnageAny",
+    "n": 95,
+    "text": "TOTAL CARNAGE on any level"
+   },
+   "how": "Code only",
+   "look": "cyan, then pink, then gold as the level's Carnage share climbs to 95%",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-hot-pink-nitro",
+   "name": "Hot Pink Nitro",
+   "shop": "SFX",
+   "group": "Nitro colour",
+   "slot": "nitro",
+   "tier": 0,
+   "price": 0,
+   "level": 1,
+   "feat": null,
+   "how": "Stock",
+   "look": "turbo flames #ff4fb8 with a #fff3a8 core",
+   "swatch": "#ff4fb8",
+   "wave": 1
+  },
+  {
+   "id": "s-blue-flame",
+   "name": "Blue Flame",
+   "shop": "SFX",
+   "group": "Nitro colour",
+   "slot": "nitro",
+   "tier": 1,
+   "price": 20000,
+   "level": 1,
+   "feat": null,
+   "how": "Code only",
+   "look": "gas-ring blue",
+   "swatch": "#3d7bff",
+   "wave": 1
+  },
+  {
+   "id": "s-methanol-green",
+   "name": "Methanol Green",
+   "shop": "SFX",
+   "group": "Nitro colour",
+   "slot": "nitro",
+   "tier": 1,
+   "price": 20000,
+   "level": 1,
+   "feat": null,
+   "how": "Code only",
+   "look": "pale racing green",
+   "swatch": "#9dff8a",
+   "wave": 1
+  },
+  {
+   "id": "s-white-hot",
+   "name": "White Hot",
+   "shop": "SFX",
+   "group": "Nitro colour",
+   "slot": "nitro",
+   "tier": 2,
+   "price": 30000,
+   "level": 3,
+   "feat": null,
+   "how": "Code only",
+   "look": "white with a blue edge",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-purple-haze",
+   "name": "Purple Haze",
+   "shop": "SFX",
+   "group": "Nitro colour",
+   "slot": "nitro",
+   "tier": 2,
+   "price": 30000,
+   "level": 3,
+   "feat": null,
+   "how": "Code only",
+   "look": "violet",
+   "swatch": "#9b4dff",
+   "wave": 1
+  },
+  {
+   "id": "s-liquid-gold",
+   "name": "Liquid Gold",
+   "shop": "SFX",
+   "group": "Nitro colour",
+   "slot": "nitro",
+   "tier": 2,
+   "price": 40000,
+   "level": 6,
+   "feat": {
+    "t": "wrapped",
+    "k": 2,
+    "text": "Wrap level 3"
+   },
+   "how": "Code only",
+   "look": "gold",
+   "swatch": "#ffc93c",
+   "wave": 1
+  },
+  {
+   "id": "s-rainbow-nitro",
+   "name": "Rainbow Nitro",
+   "shop": "SFX",
+   "group": "Nitro colour",
+   "slot": "nitro",
+   "tier": 3,
+   "price": 75000,
+   "level": 14,
+   "feat": {
+    "t": "feat",
+    "names": [
+     "TURBO AIR"
+    ],
+    "text": "Land TURBO AIR"
+   },
+   "how": "Code only",
+   "look": "each flame a different colour",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-long-flames",
+   "name": "Long Flames",
+   "shop": "SFX",
+   "group": "Exhaust",
+   "slot": "exhaust",
+   "tier": 2,
+   "price": 30000,
+   "level": 3,
+   "feat": null,
+   "how": "Code only",
+   "look": "turbo flames half as long again",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-backfire-pops",
+   "name": "Backfire Pops",
+   "shop": "SFX",
+   "group": "Exhaust",
+   "slot": "exhaust",
+   "tier": 2,
+   "price": 40000,
+   "level": 6,
+   "feat": {
+    "t": "garage",
+    "line": "engine",
+    "n": 1,
+    "text": "Own Big-Block V8 rank 1"
+   },
+   "how": "Code only",
+   "look": "three pops and a bang when you let off the turbo",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-afterburner-rings",
+   "name": "Afterburner Rings",
+   "shop": "SFX",
+   "group": "Exhaust",
+   "slot": "exhaust",
+   "tier": 3,
+   "price": 60000,
+   "level": 10,
+   "feat": {
+    "t": "garage",
+    "line": "super",
+    "n": 2,
+    "text": "Own Supercharger rank 2"
+   },
+   "how": "Code only",
+   "look": "shock diamonds in the flame",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-dragon-breath",
+   "name": "Dragon Breath",
+   "shop": "SFX",
+   "group": "Exhaust",
+   "slot": "exhaust",
+   "tier": 3,
+   "price": 90000,
+   "level": 14,
+   "feat": {
+    "t": "garage",
+    "line": "gearbox",
+    "n": 2,
+    "text": "Own Close-Ratio Gearbox rank 2"
+   },
+   "how": "Code only",
+   "look": "a fireball out of the pipes on every turbo punch",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-rocket-plume",
+   "name": "Rocket Plume",
+   "shop": "SFX",
+   "group": "Exhaust",
+   "slot": "exhaust",
+   "tier": 4,
+   "price": 150000,
+   "level": 18,
+   "feat": {
+    "t": "underParAll",
+    "text": "Wrap all 3 levels under par"
+   },
+   "how": "Code only",
+   "look": "a long white-hot plume with a smoke trail",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-tail-light-streaks",
+   "name": "Tail-Light Streaks",
+   "shop": "SFX",
+   "group": "Trails",
+   "slot": "trail",
+   "tier": 2,
+   "price": 25000,
+   "level": 3,
+   "feat": null,
+   "how": "Code only",
+   "look": "red light ribbons off the tail lamps",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-neon-ribbon",
+   "name": "Neon Ribbon",
+   "shop": "SFX",
+   "group": "Trails",
+   "slot": "trail",
+   "tier": 2,
+   "price": 40000,
+   "level": 6,
+   "feat": null,
+   "how": "Code only",
+   "look": "a ribbon in your underglow colour",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-laser-grid",
+   "name": "Laser Grid",
+   "shop": "SFX",
+   "group": "Trails",
+   "slot": "trail",
+   "tier": 3,
+   "price": 60000,
+   "level": 10,
+   "feat": {
+    "t": "garage",
+    "line": "engine",
+    "n": 2,
+    "text": "Own Big-Block V8 rank 2"
+   },
+   "how": "Code only",
+   "look": "pink grid lines laid on the road behind you",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-lightning-trail",
+   "name": "Lightning Trail",
+   "shop": "SFX",
+   "group": "Trails",
+   "slot": "trail",
+   "tier": 3,
+   "price": 90000,
+   "level": 14,
+   "feat": {
+    "t": "leftBehind",
+    "n": 50,
+    "text": "Leave 50 Syndicate cars behind"
+   },
+   "how": "Code only",
+   "look": "crackling arcs off the rear wheels",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-time-warp",
+   "name": "Time Warp",
+   "shop": "SFX",
+   "group": "Trails",
+   "slot": "trail",
+   "tier": 4,
+   "price": 180000,
+   "level": 18,
+   "feat": {
+    "t": "underParAll",
+    "text": "Wrap all 3 levels under par"
+   },
+   "how": "Code only",
+   "look": "fading afterimages of the KESTREL",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-pink-smoke",
+   "name": "Pink Smoke",
+   "shop": "SFX",
+   "group": "Tyre smoke",
+   "slot": "smoke",
+   "tier": 1,
+   "price": 10000,
+   "level": 1,
+   "feat": null,
+   "how": "Code only",
+   "look": "drift smoke in pink",
+   "swatch": "#ff9ccc",
+   "wave": 1
+  },
+  {
+   "id": "s-cyan-smoke",
+   "name": "Cyan Smoke",
+   "shop": "SFX",
+   "group": "Tyre smoke",
+   "slot": "smoke",
+   "tier": 1,
+   "price": 10000,
+   "level": 1,
+   "feat": null,
+   "how": "Code only",
+   "look": "drift smoke in cyan",
+   "swatch": "#9ff3f5",
+   "wave": 1
+  },
+  {
+   "id": "s-yellow-smoke",
+   "name": "Yellow Smoke",
+   "shop": "SFX",
+   "group": "Tyre smoke",
+   "slot": "smoke",
+   "tier": 1,
+   "price": 10000,
+   "level": 1,
+   "feat": null,
+   "how": "Code only",
+   "look": "drift smoke in yellow",
+   "swatch": "#ffe88a",
+   "wave": 1
+  },
+  {
+   "id": "s-green-smoke",
+   "name": "Green Smoke",
+   "shop": "SFX",
+   "group": "Tyre smoke",
+   "slot": "smoke",
+   "tier": 1,
+   "price": 10000,
+   "level": 1,
+   "feat": null,
+   "how": "Code only",
+   "look": "drift smoke in green",
+   "swatch": "#a8ffb8",
+   "wave": 1
+  },
+  {
+   "id": "s-neon-skids",
+   "name": "Neon Skids",
+   "shop": "SFX",
+   "group": "Tyre smoke",
+   "slot": "smoke",
+   "tier": 2,
+   "price": 35000,
+   "level": 6,
+   "feat": {
+    "t": "feat",
+    "names": [
+     "ULTRA DRIFT"
+    ],
+    "text": "Land ULTRA DRIFT"
+   },
+   "how": "Code only",
+   "look": "skid marks that glow for a second",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-fire-tracks",
+   "name": "Fire Tracks",
+   "shop": "SFX",
+   "group": "Tyre smoke",
+   "slot": "smoke",
+   "tier": 3,
+   "price": 70000,
+   "level": 10,
+   "feat": {
+    "t": "garage",
+    "line": "tyres",
+    "n": 2,
+    "text": "Own Race Tyres rank 2"
+   },
+   "how": "Code only",
+   "look": "skid marks that burn briefly, like a scorch",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-blue-fire",
+   "name": "Blue Fire",
+   "shop": "SFX",
+   "group": "Wreck FX",
+   "slot": "wreck",
+   "tier": 2,
+   "price": 45000,
+   "level": 6,
+   "feat": {
+    "t": "wrecks",
+    "n": 300,
+    "text": "300 Syndicate wrecks"
+   },
+   "how": "Tinted copy of the fireball sheet",
+   "look": "cold blue fireballs",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-toxic-blast",
+   "name": "Toxic Blast",
+   "shop": "SFX",
+   "group": "Wreck FX",
+   "slot": "wreck",
+   "tier": 2,
+   "price": 45000,
+   "level": 6,
+   "feat": {
+    "t": "wrapped",
+    "k": 1,
+    "text": "Wrap level 2"
+   },
+   "how": "Tinted copy of the fireball sheet",
+   "look": "green fireballs and bubbling smoke",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-ka-boom-lettering",
+   "name": "KA-BOOM Lettering",
+   "shop": "SFX",
+   "group": "Wreck FX",
+   "slot": "wreck",
+   "tier": 3,
+   "price": 60000,
+   "level": 10,
+   "feat": {
+    "t": "wrecks",
+    "n": 500,
+    "text": "500 Syndicate wrecks"
+   },
+   "how": "Code only",
+   "look": "comic-book words on big wrecks",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-confetti-pop",
+   "name": "Confetti Pop",
+   "shop": "SFX",
+   "group": "Wreck FX",
+   "slot": "wreck",
+   "tier": 3,
+   "price": 70000,
+   "level": 10,
+   "feat": {
+    "t": "feat",
+    "names": [
+     "MASSACRE"
+    ],
+    "text": "Land MASSACRE"
+   },
+   "how": "Code only",
+   "look": "wrap-party confetti in the blast",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-gold-rush",
+   "name": "Gold Rush",
+   "shop": "SFX",
+   "group": "Wreck FX",
+   "slot": "wreck",
+   "tier": 3,
+   "price": 90000,
+   "level": 14,
+   "feat": {
+    "t": "wrecks",
+    "n": 1000,
+    "text": "1,000 Syndicate wrecks"
+   },
+   "how": "Code only",
+   "look": "a shower of gold glitter (looks only: nothing to pick up)",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-film-burn",
+   "name": "Film Burn",
+   "shop": "SFX",
+   "group": "Wreck FX",
+   "slot": "wreck",
+   "tier": 4,
+   "price": 150000,
+   "level": 18,
+   "feat": {
+    "t": "ratingAny",
+    "n": 3,
+    "text": "Legendary Director on any level"
+   },
+   "how": "Code only",
+   "look": "MASSACRE wrecks burn through the film frame for a moment",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-director-s-pyro",
+   "name": "Director's Pyro",
+   "shop": "SFX",
+   "group": "Wreck FX",
+   "slot": "wreck",
+   "tier": 4,
+   "price": 200000,
+   "level": 18,
+   "feat": {
+    "t": "carnageAll",
+    "n": 95,
+    "text": "TOTAL CARNAGE on all 3 levels"
+   },
+   "how": "Code only",
+   "look": "at a x5 combo every wreck throws a second, harmless blast 0.4 s later",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-fireworks-finale",
+   "name": "Fireworks Finale",
+   "shop": "SFX",
+   "group": "Boss finisher",
+   "slot": "finisher",
+   "tier": 3,
+   "price": 100000,
+   "level": 10,
+   "feat": {
+    "t": "bossesAll",
+    "n": 1,
+    "text": "Wreck all 3 bosses"
+   },
+   "how": "Code only",
+   "look": "fireworks over the boss wreck before the reel",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-the-end-card",
+   "name": "THE END Card",
+   "shop": "SFX",
+   "group": "Boss finisher",
+   "slot": "finisher",
+   "tier": 3,
+   "price": 100000,
+   "level": 10,
+   "feat": {
+    "t": "ratingAll",
+    "n": 2,
+    "text": "Blockbuster on all 3 levels"
+   },
+   "how": "Code only",
+   "look": "THE END burns in over the wreck, then the reel",
+   "swatch": null,
+   "wave": 1
+  },
+  {
+   "id": "s-supernova",
+   "name": "Supernova",
+   "shop": "SFX",
+   "group": "Boss finisher",
+   "slot": "finisher",
+   "tier": 4,
+   "price": 250000,
+   "level": 18,
+   "feat": {
+    "t": "runDownAll",
+    "text": "RUN DOWN all 3 bosses"
+   },
+   "how": "Code only",
+   "look": "the whole sky flashes white and the wreck goes up in a fire column",
+   "swatch": null,
+   "wave": 1
+  }
+ ],
+ "levels": [
+  {
+   "id": "L1",
+   "title": "The Highway Assassination",
+   "scenes": 16,
+   "vehicles": 114,
+   "henchmen": 14,
+   "road": 122500,
+   "allowance": 40,
+   "par": 300,
+   "fee": 5000,
+   "killFee": 2500,
+   "wrapXP": 250,
+   "bars": [
+    90000,
+    160000,
+    230000
+   ],
+   "notes": [
+    "L1-boss40",
+    "L1-roof",
+    "L1-clean"
+   ]
+  },
+  {
+   "id": "L2",
+   "title": "The Formula",
+   "scenes": 8,
+   "vehicles": 51,
+   "henchmen": 10,
+   "road": 69000,
+   "allowance": 40,
+   "par": 185,
+   "fee": 6000,
+   "killFee": 3000,
+   "wrapXP": 300,
+   "bars": [
+    50000,
+    90000,
+    130000
+   ],
+   "notes": [
+    "L2-pipe",
+    "L2-shock5",
+    "L2-grav2"
+   ]
+  },
+  {
+   "id": "L3",
+   "title": "All In",
+   "scenes": 9,
+   "vehicles": 66,
+   "henchmen": 10,
+   "road": 78000,
+   "allowance": 55,
+   "par": 220,
+   "fee": 8000,
+   "killFee": 4000,
+   "wrapXP": 350,
+   "bars": [
+    80000,
+    150000,
+    210000
+   ],
+   "notes": [
+    "L3-slam10",
+    "L3-air",
+    "L3-boss60"
+   ]
+  }
+ ],
+ "bosses": [
+  {
+   "name": "THE JUGGERNAUT",
+   "level": 1,
+   "armor": 120,
+   "spot": 128,
+   "escape": 70,
+   "pace": 520,
+   "flee": 720,
+   "points": 3000
+  },
+  {
+   "name": "THE ALCHEMIST",
+   "level": 2,
+   "armor": 120,
+   "spot": 128,
+   "escape": 70,
+   "pace": 540,
+   "flee": 740,
+   "points": 3000
+  },
+  {
+   "name": "THE BIG DEALER",
+   "level": 3,
+   "armor": 200,
+   "spot": 170,
+   "escape": 90,
+   "pace": 560,
+   "flee": 760,
+   "points": 3000
+  }
+ ],
+ "kinds": [
+  {
+   "kind": "Moto",
+   "name": "Biker",
+   "armor": 2,
+   "class": "LIGHT",
+   "points": 150,
+   "xp": 15,
+   "keepsUp": false,
+   "pace": 500,
+   "heightPx": 32
+  },
+  {
+   "kind": "Hog",
+   "name": "Snake Eyes",
+   "armor": 3,
+   "class": "LIGHT",
+   "points": 300,
+   "xp": 30,
+   "keepsUp": false,
+   "pace": 520,
+   "heightPx": 38
+  },
+  {
+   "kind": "Rammer",
+   "name": "Rammer",
+   "armor": 5,
+   "class": "LIGHT",
+   "points": 250,
+   "xp": 25,
+   "keepsUp": false,
+   "pace": 520,
+   "heightPx": 54
+  },
+  {
+   "kind": "Suv",
+   "name": "Gunship SUV",
+   "armor": 10,
+   "class": "MEDIUM",
+   "points": 400,
+   "xp": 40,
+   "keepsUp": false,
+   "pace": 490,
+   "heightPx": 64
+  },
+  {
+   "kind": "Truck",
+   "name": "Armored truck",
+   "armor": 26,
+   "class": "HEAVY",
+   "points": 900,
+   "xp": 90,
+   "keepsUp": false,
+   "pace": 480,
+   "heightPx": 104
+  },
+  {
+   "kind": "Heli",
+   "name": "Syndicate chopper",
+   "armor": 40,
+   "class": "HEAVY",
+   "points": 1000,
+   "xp": 100,
+   "keepsUp": true,
+   "pace": 0,
+   "heightPx": 0
+  },
+  {
+   "kind": "Henchman",
+   "name": "Henchman",
+   "armor": 1,
+   "class": "NONE",
+   "points": 200,
+   "xp": 20
+  }
+ ],
+ "xp": {
+  "sceneFirstTake": 50,
+  "wrap": [
+   250,
+   300,
+   350
+  ],
+  "rating": [
+   0,
+   100,
+   250,
+   500
+  ],
+  "firstStunt": 100,
+  "note": 300,
+  "bossFirst": 500
+ }
 }

@@ -1,6 +1,9 @@
 #include "FTGameInstance.h"
 #include "FTCore.h"
-#include "FTSkills.h"
+#include "FTProgress.h"
+#include "Containers/Ticker.h"
+#include "UnrealClient.h"
+#include "Misc/OutputDeviceRedirector.h"
 #include "GameFramework/GameUserSettings.h"
 #include "Engine/Engine.h"
 #include "AudioDevice.h"
@@ -16,7 +19,7 @@
 
 const TCHAR* UFTGameInstance::ActionName(int32 A)
 {
-	static const TCHAR* N[] = { TEXT("STEER LEFT"), TEXT("STEER RIGHT"), TEXT("THROTTLE UP"), TEXT("BRAKE"), TEXT("DRIFT"), TEXT("TURBO"), TEXT("FIRE GUNS"), TEXT("MISSILE") };
+	static const TCHAR* N[] = { TEXT("STEER LEFT"), TEXT("STEER RIGHT"), TEXT("THROTTLE UP"), TEXT("BRAKE"), TEXT("DRIFT"), TEXT("TURBO"), TEXT("FIRE GUNS"), TEXT("MISSILE"), TEXT("AMMO") };
 	return N[FMath::Clamp(A, 0, NumActions - 1)];
 }
 
@@ -28,8 +31,9 @@ bool UFTGameInstance::IsReserved(const FKey& K)
 
 void UFTGameInstance::ResetBinds()
 {
-	const FKey W[NumActions] = { EKeys::A, EKeys::D, EKeys::W, EKeys::S, EKeys::LeftShift, EKeys::SpaceBar, EKeys::J, EKeys::K };
-	const FKey R[NumActions] = { EKeys::Left, EKeys::Right, EKeys::Up, EKeys::Down, EKeys::LeftShift, EKeys::SpaceBar, EKeys::Z, EKeys::X };
+	// 2.6: AMMO is L on the WASD layout and C on the arrows layout (06 §5)
+	const FKey W[NumActions] = { EKeys::A, EKeys::D, EKeys::W, EKeys::S, EKeys::LeftShift, EKeys::SpaceBar, EKeys::J, EKeys::K, EKeys::L };
+	const FKey R[NumActions] = { EKeys::Left, EKeys::Right, EKeys::Up, EKeys::Down, EKeys::LeftShift, EKeys::SpaceBar, EKeys::Z, EKeys::X, EKeys::C };
 	for (int32 a = 0; a < NumActions; ++a) { Binds[a][0] = W[a]; Binds[a][1] = R[a]; }
 }
 
@@ -81,6 +85,28 @@ void UFTGameInstance::Init()
 #endif
 	ResetBinds();
 	LoadSettings();
+	// the career (spec 09): loaded after the settings, so a save with no career gets the back-catalogue bonus
+	if (UFTCareerSubsystem* CS = GetSubsystem<UFTCareerSubsystem>())
+	{
+		FString Slot;
+		if (FParse::Value(FCommandLine::Get(), TEXT("ftslot="), Slot) && Slot == TEXT("pie")) CS->Slot = TEXT("career_pie");
+		CS->Load();
+	}
+	{
+		FString ExecFile;
+		if (FParse::Value(FCommandLine::Get(), TEXT("ftexec="), ExecFile))
+		{
+			FString Text;
+			if (FFileHelper::LoadFileToString(Text, *ExecFile))
+			{
+				Text.ParseIntoArrayLines(ExecLines);
+				bExecScript = true; ExecIdx = 0; ExecWaitUntil = FPlatformTime::Seconds() + 4.0;
+				FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &UFTGameInstance::TickExec));
+				UE_LOG(LogFT, Display, TEXT("FT EXEC file=%s lines=%d"), *ExecFile, ExecLines.Num());
+			}
+			else { UE_LOG(LogFT, Error, TEXT("FT EXEC cannot read %s"), *ExecFile); }
+		}
+	}
 
 	FString Bench;
 	bAutoDrive = FParse::Param(FCommandLine::Get(), TEXT("ftauto"));
@@ -151,112 +177,12 @@ void UFTGameInstance::LoadSettings()
 			if (!O) continue;
 			BestScore[i] = O->GetIntegerField(TEXT("score"));
 			BestTitle[i] = O->GetStringField(TEXT("title"));
+			O->TryGetNumberField(TEXT("lv"), BestLv[i]);
 		}
 	}
+	J->TryGetBoolField(TEXT("reducedMotion"), bReducedMotion);
 	const TSharedPtr<FJsonObject>* Sk;
-	if (J->TryGetObjectField(TEXT("skills"), Sk))
-	{
-		(*Sk)->TryGetNumberField(TEXT("points"), SkillPoints);
-		(*Sk)->TryGetNumberField(TEXT("earned"), SkillEarned);
-		SkillPoints = FMath::Max(0, SkillPoints);
-		const TSharedPtr<FJsonObject>* Ranks;
-		if ((*Sk)->TryGetObjectField(TEXT("ranks"), Ranks))
-		{
-			const FFTSkillData& D = FFTSkillData::Get();
-			for (const auto& KV : (*Ranks)->Values)
-			{
-				const FFTUpgradeDef* U = D.Find(FName(*KV.Key));
-				// an upgrade that left the data keeps its rank in the save (it may come back in the tree)
-				SkillRanks.Add(FName(*KV.Key), FMath::Clamp((int32)KV.Value->AsNumber(), 0, U ? U->MaxRank : 99));
-			}
-		}
-	}
-}
-
-// --------------------------------------------------------------------------------------------- skill points
-float UFTGameInstance::Stat(FName StatId) const
-{
-	const FFTSkillData& D = FFTSkillData::Get();
-	float Sum = 0.f;
-	for (const FFTUpgradeDef& U : D.Upgrades)
-	{
-		const int32 R = Rank(U.Id);
-		if (R <= 0) continue;
-		for (const FFTSkillEffect& E : U.Effects) if (E.Stat == StatId) Sum += E.PerRank * R;
-	}
-	const FFTStatDef* S = D.Stats.Find(StatId);
-	if (S && S->bAdd) return Sum;
-	return FMath::Max(0.2f, 1.f + Sum);
-}
-
-bool UFTGameInstance::IsLocked(int32 Idx, FString* Why) const
-{
-	const FFTSkillData& D = FFTSkillData::Get();
-	if (!D.Upgrades.IsValidIndex(Idx)) return true;
-	for (const FFTSkillReq& Q : D.Upgrades[Idx].Requires)
-	{
-		if (Rank(Q.Id) >= Q.Rank) continue;
-		if (Why) { const FFTUpgradeDef* U = D.Find(Q.Id); *Why = FString::Printf(TEXT("NEEDS %s RANK %d"), U ? *U->Name : *Q.Id.ToString().ToUpper(), Q.Rank); }
-		return true;
-	}
-	return false;
-}
-
-int32 UFTGameInstance::NextCost(int32 Idx) const
-{
-	const FFTSkillData& D = FFTSkillData::Get();
-	if (!D.Upgrades.IsValidIndex(Idx)) return -1;
-	const FFTUpgradeDef& U = D.Upgrades[Idx];
-	const int32 R = Rank(U.Id);
-	return R >= U.MaxRank ? -1 : U.CostOf(R + 1);
-}
-
-bool UFTGameInstance::CanBuy(int32 Idx) const
-{
-	const int32 C = NextCost(Idx);
-	return C >= 0 && C <= SkillPoints && !IsLocked(Idx);
-}
-
-bool UFTGameInstance::Buy(int32 Idx)
-{
-	if (!CanBuy(Idx)) return false;
-	const FFTUpgradeDef& U = FFTSkillData::Get().Upgrades[Idx];
-	SkillPoints -= NextCost(Idx);
-	SkillRanks.FindOrAdd(U.Id)++;
-	SaveSettings();
-	return true;
-}
-
-bool UFTGameInstance::CanRefund(int32 Idx) const
-{
-	const FFTSkillData& D = FFTSkillData::Get();
-	if (!D.Upgrades.IsValidIndex(Idx)) return false;
-	const FFTUpgradeDef& U = D.Upgrades[Idx];
-	const int32 R = Rank(U.Id);
-	if (R <= 0) return false;
-	// not below a rank another bought upgrade stands on
-	for (const FFTUpgradeDef& O : D.Upgrades)
-		if (Rank(O.Id) > 0)
-			for (const FFTSkillReq& Q : O.Requires) if (Q.Id == U.Id && Q.Rank >= R) return false;
-	return true;
-}
-
-bool UFTGameInstance::Refund(int32 Idx)
-{
-	if (!CanRefund(Idx)) return false;
-	const FFTUpgradeDef& U = FFTSkillData::Get().Upgrades[Idx];
-	const int32 R = Rank(U.Id);
-	SkillPoints += U.CostOf(R);
-	SkillRanks.Add(U.Id, R - 1);
-	SaveSettings();
-	return true;
-}
-
-void UFTGameInstance::AddSkillPoints(int32 N)
-{
-	if (N <= 0) return;
-	SkillPoints += N; SkillEarned += N;
-	SaveSettings();
+	if (J->TryGetObjectField(TEXT("skills"), Sk)) LegacySkills = *Sk;   // 2.3's points and ranks: kept as they are
 }
 
 void UFTGameInstance::SaveSettings()
@@ -283,16 +209,12 @@ void UFTGameInstance::SaveSettings()
 		TSharedRef<FJsonObject> O = MakeShared<FJsonObject>();
 		O->SetNumberField(TEXT("score"), BestScore[i]);
 		O->SetStringField(TEXT("title"), BestTitle[i]);
+		O->SetNumberField(TEXT("lv"), BestLv[i]);
 		Best.Add(MakeShared<FJsonValueObject>(O));
 	}
 	J->SetArrayField(TEXT("best"), Best);
-	TSharedRef<FJsonObject> Sk = MakeShared<FJsonObject>();
-	Sk->SetNumberField(TEXT("points"), SkillPoints);
-	Sk->SetNumberField(TEXT("earned"), SkillEarned);
-	TSharedRef<FJsonObject> Ranks = MakeShared<FJsonObject>();
-	for (const TPair<FName, int32>& R : SkillRanks) if (R.Value > 0) Ranks->SetNumberField(R.Key.ToString(), R.Value);
-	Sk->SetObjectField(TEXT("ranks"), Ranks);
-	J->SetObjectField(TEXT("skills"), Sk);
+	J->SetBoolField(TEXT("reducedMotion"), bReducedMotion);
+	if (LegacySkills.IsValid()) J->SetObjectField(TEXT("skills"), LegacySkills);
 	FString Out;
 	FJsonSerializer::Serialize(J, TJsonWriterFactory<>::Create(&Out));
 	IFileManager::Get().MakeDirectory(*SaveDir(), true);
@@ -343,4 +265,84 @@ void UFTGameInstance::ApplyMute()
 	{
 		if (FAudioDeviceHandle Dev = GEngine->GetMainAudioDevice()) Dev->SetTransientPrimaryVolume(bMuted ? 0.f : 1.f);
 	}
+}
+
+// --------------------------------------------------------------------------------------------- -ftexec test runner
+namespace
+{
+	/** Keeps the FT log lines for "waitfor" (the runner's only view of the game). */
+	class FFTLogTap : public FOutputDevice
+	{
+	public:
+		FCriticalSection Lock;
+		TArray<FString> Lines;
+		virtual void Serialize(const TCHAR* V, ELogVerbosity::Type Verbosity, const FName& Category) override
+		{
+			if (!V || FCString::Strncmp(V, TEXT("FT "), 3) != 0) return;
+			FScopeLock L(&Lock);
+			Lines.Add(V);
+		}
+	};
+	FFTLogTap* GTap = nullptr;
+}
+
+void UFTGameInstance::Shutdown()
+{
+	if (GTap) { GLog->RemoveOutputDevice(GTap); delete GTap; GTap = nullptr; }
+	Super::Shutdown();
+}
+
+bool UFTGameInstance::TickExec(float Dt)
+{
+	if (!bExecScript) return false;
+	if (!GTap) { GTap = new FFTLogTap(); GLog->AddOutputDevice(GTap); }
+	const double Now = FPlatformTime::Seconds();
+	if (Now < ExecWaitUntil) return true;
+	if (!ExecWaitFor.IsEmpty())
+	{
+		bool bFound = false;
+		{
+			FScopeLock L(&GTap->Lock);
+			for (int32 i = ExecWaitFrom; i < GTap->Lines.Num() && !bFound; ++i) bFound = !GTap->Lines[i].StartsWith(TEXT("FT EXEC")) && !GTap->Lines[i].StartsWith(TEXT("FT HARNESS")) && GTap->Lines[i].Contains(ExecWaitFor);
+		}
+		if (!bFound && Now < ExecWaitForUntil) return true;
+		UE_LOG(LogFT, Display, TEXT("FT EXEC waitfor=\"%s\" result=%s"), *ExecWaitFor, bFound ? TEXT("found") : TEXT("timeout"));
+		ExecWaitFor.Reset();
+	}
+	UWorld* W = GetWorld();
+	if (!W || !GEngine) return true;
+	while (ExecIdx < ExecLines.Num())
+	{
+		FString Line = ExecLines[ExecIdx++].TrimStartAndEnd();
+		if (Line.IsEmpty() || Line.StartsWith(TEXT("#"))) continue;
+		UE_LOG(LogFT, Display, TEXT("FT EXEC line=%d cmd=%s"), ExecIdx, *Line);
+		if (Line.StartsWith(TEXT("wait ")))
+		{
+			ExecWaitUntil = Now + FCString::Atof(*Line.RightChop(5));
+			return true;
+		}
+		if (Line.StartsWith(TEXT("waitfor ")))
+		{
+			FString Rest = Line.RightChop(8), Text = Rest; float Timeout = 30.f;
+			int32 Bar = INDEX_NONE;
+			if (Rest.FindLastChar(TEXT('|'), Bar)) { Text = Rest.Left(Bar).TrimEnd(); Timeout = FCString::Atof(*Rest.RightChop(Bar + 1)); }
+			// lines since the last command count, so a fast event is never missed
+			ExecWaitFor = Text; ExecWaitForUntil = Now + Timeout;
+			return true;
+		}
+		if (Line.StartsWith(TEXT("shot ")))
+		{
+			FScreenshotRequest::RequestScreenshot(FPaths::Combine(SaveDir(), TEXT("shots"), Line.RightChop(5) + TEXT(".png")), true, false);
+			ExecWaitUntil = Now + 0.5;
+			return true;
+		}
+		if (Line == TEXT("quit")) { FPlatformMisc::RequestExit(false); return false; }
+		{ FScopeLock L(&GTap->Lock); ExecWaitFrom = GTap->Lines.Num(); }
+		GEngine->Exec(W, *Line);
+		ExecWaitUntil = Now + 0.15;   // one command, then a few frames
+		return true;
+	}
+	UE_LOG(LogFT, Display, TEXT("FT EXEC done"));
+	bExecScript = false;
+	return false;
 }

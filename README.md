@@ -1,4 +1,4 @@
-# FULL THROTTLE 2.5: the Unreal Engine 5.9 game
+# FULL THROTTLE 2.6.0: the Unreal Engine 5.9 game
 
 The 80s spy car chase (web app `full-throttle`, 1.7.2) rebuilt as a native Unreal Engine 5.9 game for Windows,
 C++ plus Blueprints. WispOS opens the packaged build as the native app `full-throttle-unreal`
@@ -6,14 +6,37 @@ C++ plus Blueprints. WispOS opens the packaged build as the native app `full-thr
 
 ## Folders (WispOS Work together sections)
 
-| Section | Folder | What is in it |
-|---|---|---|
-| Maps | `Content/Maps/Bayshore`, `ChemicalWorks`, `Nevada`, `Volcano`, `ThemePark`, `Glacier`, `Abyss`, `Metro` | one folder per level: the map, its props (Nanite meshes) and its sky/material instances |
-| Characters | `Content/Characters` | the vehicles: `Kestrel` (the player car, its 7 detachable parts, wheels, missile), `Syndicate`, `Choppers`, `SnakeEyes`, `Traffic`, `Bosses`, `Pickups` |
-| UI | `Content/UI` | `BP_FTHUD` (the canvas HUD: title, clapper, dashboard, director, menus, rebinding) |
-| Code | `Source`, `FullThrottle.uproject` | `FullThrottle` (game) and `FullThrottleEditor` (editor tools) modules |
-| Config | `Config` | renderer (Lumen, Nanite, VSM, TSR), physics substepping, vehicle cvars, packaging |
-| (add if wanted) | `Content/FX`, `Content/Audio`, `Content/Core`, `Content/Python`, `Tools` | Niagara and Chaos destruction assets, music and SFX, shared materials and the game mode, the editor scripts that built the art |
+The sections are the game's parts, not its folders (2026-11-14). Leads are from design doc v1.2; anyone may take any section.
+Paths are under `full-throttle-unreal/`; a file in two sections' folders belongs to the one naming it most closely.
+
+| Section | Part | Lead | What is in it |
+|---|---|---|---|
+| Bayshore (level 1) | Levels | Matt | `Content/Maps/Bayshore`, `Content/Python/ft_city.py` |
+| Chemical Works (level 2) | Levels | Matt | `Content/Maps/ChemicalWorks`, `Content/Python/ft_chem.py` |
+| Nevada (level 3) | Levels | Matt | `Content/Maps/Nevada`, `Content/Python/ft_desert.py` |
+| Volcano (level 4) | Levels | Matt | `Content/Maps/Volcano` (built by `Content/Python/ft_v25.py`) |
+| Theme Park (level 5) | Levels | Matt | `Content/Maps/ThemePark` (built by `Content/Python/ft_v25.py`) |
+| Ice Mountain: Glacier (level 6) | Levels | Matt | `Content/Maps/Glacier` (built by `Content/Python/ft_v25.py`) |
+| Under the Sea: Abyss (level 7) | Levels | Matt | `Content/Maps/Abyss` (built by `Content/Python/ft_v25.py`) |
+| City Center: Metro (level 8) | Levels | Matt | `Content/Maps/Metro` (built by `Content/Python/ft_v25.py`) |
+| Track & road builder | Levels | Matt | `FTTrack.*`, `FTData.cpp`, `Content/Python/ft_level.py` |
+| Driving: the KESTREL and how it handles | Vehicles & driving | Matt | `Content/Characters/Kestrel`, `FTPlayerCar.*`, `FTPlayerController.*`, `Config/DefaultInput.ini`, `ft_car.py` |
+| Enemies, bosses & traffic | Characters | Matt | `Content/Characters/{Syndicate,Choppers,SnakeEyes,Bosses,Traffic,Projectiles}`, `ft_fleet.py`, `ft_heli.py` |
+| Environment: materials, sky & the cel look | Environment | Justin | `Content/Core/Materials`, `Content/Core/Palette`, `ft_mats.py`, `ft_cel.py`, `ft_art.py` |
+| Effects: fire, smoke & explosions | Effects | Justin | `Content/FX`, `ft_fx.py`, `ft_v26.py` (2.6) |
+| UI & HUD | UI | Brad | `Content/UI`, `FTHUD.*` |
+| Skills, garage & money | Gameplay | Brad | `Content/Data`, `FTSkills.*`, `FTGameInstance.*`, `ft_skilltest.py`, `FTProgress.*` (2.6) |
+| Game rules & director | Gameplay | Keenan | `Content/Core/BP_FTGameMode`, `Content/Characters/Pickups`, `FTGameMode.*`, `FTEntity.*`, `FTCore.h`, `FTFlow.cpp` (2.6) |
+| Audio | Audio | Keenan | `Content/Audio`, `Tools/sfx_synth.py` |
+| Code base & build files | Code | | the rest of `Source`, `FullThrottle.uproject` |
+| Tools & tests | Tools | | the rest of `Content/Python`, `Tools` |
+| Project settings | Settings | | `Config` (but `DefaultInput.ini`) |
+
+Levels 4-8 (2.5) share one art and map script, `Content/Python/ft_v25.py` (their props, the five new bosses, the boss
+projectiles, `M_Lava`/`MI_Lava`/`MI_Facade`), so it stays in Tools & tests rather than in one level's section.
+The five new bosses' meshes sit in `Content/Characters/Bosses` (Enemies) and `M_Lava`, `MI_Lava`, `MI_Facade` in `Content/Core/Materials` (Environment).
+
+No cutscenes section yet: there is no cutscene content in the Unreal game. When the first lands (say `Content/Cinematics`), add it as a section (Justin's, by the design doc).
 
 No file in the project is over 50 MB. `Binaries`, `Intermediate`, `Saved` and `DerivedDataCache` are made on each computer.
 
@@ -128,3 +151,39 @@ No file in the project is over 50 MB. `Binaries`, `Intermediate`, `Saved` and `D
   - *Title*: eight level cards, arrows or 1-8. Best takes saved for eight levels.
   - *Tests*: `../full-throttle-tests/v250/run_dev.sh <tag> <level 0-7> <seconds>` (Development package, autopilot; FTSET,
     FTGLUE, FTJUMP, FTRAIL, FTSTALL lines and shots in out/<tag>); `all.sh` runs all eight.
+
+- **2.5.1 (owner's queue): level one's cel-shaded look on every level.** (Environment section: `ft_cel.py`, plus each
+  level's `MI_PP_Cel_*`, `MI_Sky_*`, `MI_Road_*` and map.)
+  - `ft_cel.apply_level` gave Bayshore's grade only to day levels; the night levels kept the 2.0 grade (bloom 1.15 from
+    threshold 1.0, lens flare 0.6, colour tint) and 0.9-opacity volumetric fog, which glowed the cel bands and the ink away.
+  - Now every level gets the same grade, night levels get Bayshore's fog (`ft_v25.night_fog`, no volumetric), and
+    `NIGHT_CEL` is Key 1.1 / Bright 1.3 / EmisCut 6.
+  - The sun or moon lights the car from behind along each track's main heading, with the painted disc ahead (Volcano,
+    Glacier and Metro lights and the Theme Park / Metro moons were the wrong way round).
+  - Check the look with `-ftshots=N` in a packaged build (real viewport, post-process included):
+    `../full-throttle-tests/v251/run_ship.sh`.
+
+- **2.6.0 (owner's queue): the progression of design v6** (spec pack `full-throttle-spec`, 14 Nov 2026, files 00-12).
+  - *Data*: `Content/Data/skills.json` is now format `full-throttle.skills/2`, written by `Tools/spec_to_skills.py` from the
+    spec's Markdown tables (it checks the spec's totals: 30 levels to 448,920 XP, 35 SP; 30 nodes, 75 SP; garage $1,770,000;
+    108 cosmetics, 104 for sale, $6,378,000; 114 / 51 / 66 Syndicate; par 300 / 185 / 220). It replaces format 1 (2.3's
+    four point-bought upgrades); `FTSkills.*` is gone, `FTProgress.*` reads it. Run:
+    `python -I Tools/spec_to_skills.py <spec dir> Content/Data/skills.json`.
+  - *Career* (`FTProgress.*`, `UFTCareerSubsystem`): the spec 09 JSON as `career.json` beside `settings.json` (test slot
+    `career_pie.json`, `-ftslot=pie`); XP and driver levels, the skill tree with pending nodes, greenlights and respecs, the
+    garage, the asset library, extras, feats, Director's Notes, stats, the back-catalogue bonus (best takes / 30) and the
+    load integrity rules. The paycheck is one function, `FTPay::Compute`, with the automation test `FT.Paycheck.Examples`
+    (03 §7: $40,450 / $46,830 / $93,950).
+  - *Race* (`FTGameMode.cpp`, `FTFlow.cpp`): XP beside every award, Carnage tags (script spawns; boss adds at half pay and
+    XP), the scene checkpoint for all level counters, car stats from the garage and skills at ACTION!, the 05 speed model
+    (the governor now reaches its target at 420 / 900 su/s), the Syndicate's road paces with the slide and LEFT BEHIND, the
+    boss escape clock (rate), GAP bar, LAST CHANCE and RUN DOWN, AP / HE ammo, all 30 skill-node behaviours, 3 retakes.
+  - *Screens* (`FTHUD.cpp`): the reel holds on its last shot until CONTINUE and skips only on a 1 s hold; THE DAILIES then
+    the PAYCHECK; PRE-PRODUCTION (SKILLS, GARAGE, CUSTOM, SFX DEPT, EXTRAS; G on the title); the AMMO line and pips; the
+    900 su speed arc; REDUCED MOTION in OPTIONS.
+  - *Effects* (`ft_v26.py`): recoloured copies of the turbo flame, tyre smoke, fireball and sparks for the SFX DEPT (the
+    stock systems are stateless and expose no colour).
+  - *Tests*: `../full-throttle-tests/v260/run.sh <career|preprod|race1|speed|flow|skills|ram>` runs `scripts/<name>.txt`
+    in the Development package through `-ftexec=<file>` (the FT* harness of spec 12 §9, "wait", "waitfor <text>|<s>",
+    "shot <name>"); `real_input_260.py <exe>` plays the owner's flow with real Windows keyboard and mouse input.
+

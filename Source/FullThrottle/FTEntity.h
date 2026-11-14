@@ -30,6 +30,9 @@ public:
 	void SetGlow(float Amount);   // rev lights, chain wind-up, brake flare
 	void Animate(float Dt, float Speed);
 	static UStaticMesh* MeshFor(EFTKind Kind, int32 Variant, int32 Level);
+	/** 2.6 ammo: an AP (blue-white, thinner) or HE (orange) tracer; standard rounds keep the stock look. */
+	void SetTracer(const FLinearColor& Colour, float Width, bool bSpecial);
+	bool bTracerColoured = false;
 };
 
 /** A dead vehicle: a real Chaos rigid body that tumbles down the road burning, then goes. */

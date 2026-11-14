@@ -36,7 +36,10 @@ private:
 	void DrawCut(AFTGameMode* G);
 	void DrawReel(AFTGameMode* G);
 	void DrawRating(AFTGameMode* G);
-	void DrawGarage(AFTGameMode* G);
+	void DrawPaycheck(AFTGameMode* G);
+	void DrawPreProduction(AFTGameMode* G);
+	void DrawFx(AFTGameMode* G);
+	void Ring(float Cx, float Cy, float Rad, float Frac, const FLinearColor& C, float Th);
 	void DrawReelContinue(AFTGameMode* G);
 	/** A neon button: returns its rect (for the mouse). bArmed false = drawn dim; bHot = selected or hovered. */
 	FBox2D Button(float Cx, float Cy, float Wd, float Ht, const FString& Label, const FString& Sub, bool bArmed, bool bHot);

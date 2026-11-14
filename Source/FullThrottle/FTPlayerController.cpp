@@ -154,8 +154,9 @@ void AFTPlayerController::PlayerTick(float Dt)
 	In.RawSteer = Raw;
 	// ease: 9/s growing, 16/s coming back
 	const float Rate = (FMath::Abs(Raw) > FMath::Abs(In.Steer) && FMath::Sign(Raw) == FMath::Sign(In.Steer)) || In.Steer == 0.f ? 9.f : 16.f;
-	// HANDLING upgrades (skills.json stat "steer") quicken the hands on the wheel
-	const float SteerMul = GI->Stat(TEXT("steer"));
+	// Quick Hands (WHL1): steering rate 9 -> 12 a second
+	const AFTGameMode* GM = GetWorld() ? GetWorld()->GetAuthGameMode<AFTGameMode>() : nullptr;
+	const float SteerMul = (GM && GM->Stats.Has(TEXT("WHL1"))) ? 12.f / 9.f : 1.f;
 	In.Steer = FMath::FInterpConstantTo(In.Steer, Raw, RealDt, Rate * (In.bPad ? 1.f : 0.6f) * SteerMul);
 	if (In.bPad && FMath::Abs(Raw) > 0.f) In.Steer = FMath::FInterpTo(In.Steer, Raw, RealDt, 14.f * SteerMul);
 
@@ -170,6 +171,7 @@ void AFTPlayerController::PlayerTick(float Dt)
 	const bool bPadM = IsInputKeyDown(EKeys::Gamepad_FaceButton_Right);
 	In.bMissile = BindHit((int32)EFTAction::Missile, L) || WasInputKeyJustPressed(EKeys::RightMouseButton) || (bPadM && !bPrevPadMissile);
 	bPrevPadMissile = bPadM;
+	In.bAmmo = bRaceInput && (BindHit((int32)EFTAction::Ammo, L) || WasInputKeyJustPressed(EKeys::Gamepad_FaceButton_Top) || WasInputKeyJustPressed(EKeys::MiddleMouseButton));
 }
 
 bool AFTPlayerController::MenuLeft() const

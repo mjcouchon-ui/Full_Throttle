@@ -14,6 +14,7 @@ struct FFTInput
 	float RawSteer = 0.f;
 	bool bUp = false, bDown = false, bDrift = false, bTurbo = false, bFire = false;
 	bool bMissile = false;  // this frame
+	bool bAmmo = false;     // 2.6: AMMO cycles the load, this frame (L / C, pad Y, middle click)
 	bool bDriftPressed = false;
 	bool bPad = false;
 };

@@ -444,7 +444,7 @@ void AFTPlayerCar::Tick(float Dt)
 			{
 				bWasAir = false;
 				// lift = chassis height over the road minus ride height (negative: pressed down past the springs)
-				if (AirT0 > 0.25f) UE_LOG(LogFT, Display, TEXT("FTJUMP kind=%s from D=%.0f air=%.2fs rise=%.0f dist=%.0f lift=%.0f..%.0f"), Kind, D0, AirT0, ZMax - Z0, D - D0, LiftMin, LiftMax);
+				if (AirT0 > 0.25f) { UE_LOG(LogFT, Display, TEXT("FTJUMP kind=%s from D=%.0f air=%.2fs rise=%.0f dist=%.0f lift=%.0f..%.0f"), Kind, D0, AirT0, ZMax - Z0, D - D0, LiftMin, LiftMax); }
 			}
 			GlueT += Dt;
 			if (GlueT > 5.f)
@@ -810,7 +810,9 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 
 	if (bGrounded)
 	{
-		const float A = FMath::Clamp(Gap * 2.6f, bInSet ? 0.f : -3800.f, Drive.Accel);
+		// 2.6 (spec 05 §1): speed moves toward the target at the stated rate (420 / 900 su/s, by the Gearbox), both
+		// ways; a stiff gain so it reaches the target instead of settling under it
+		const float A = FMath::Clamp(Gap * 8.f, bInSet ? 0.f : -Drive.Accel, Drive.Accel);
 		if (AM & 1) Chassis->AddForce(Cf * A, NAME_None, true);
 
 		// grip: remove sideways slip unless sliding on purpose

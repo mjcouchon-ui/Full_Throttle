@@ -9,7 +9,7 @@
 #include "FTGameInstance.generated.h"
 
 UENUM()
-enum class EFTAction : uint8 { Left, Right, Up, Down, Drift, Turbo, Fire, Missile, Count };
+enum class EFTAction : uint8 { Left, Right, Up, Down, Drift, Turbo, Fire, Missile, Ammo, Count };
 
 UCLASS()
 class FULLTHROTTLE_API UFTGameInstance : public UGameInstance
@@ -18,7 +18,7 @@ class FULLTHROTTLE_API UFTGameInstance : public UGameInstance
 public:
 	virtual void Init() override;
 
-	static constexpr int32 NumActions = 8;
+	static constexpr int32 NumActions = 9;   // 2.6: AMMO (06 §5)
 	FKey Binds[NumActions][2];
 	int32 Layout = 0;            // 0 WASD, 1 arrows
 	bool bMuted = false;
@@ -28,23 +28,25 @@ public:
 	static constexpr int32 MaxLevels = 8;
 	int32 BestScore[MaxLevels] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 	FString BestTitle[MaxLevels];
+	int32 BestLv[MaxLevels] = { 0, 0, 0, 0, 0, 0, 0, 0 };   // 2.6 (09 §3): the driver level each best take was set at
+	bool bReducedMotion = false;                             // 2.6 option: skips Film Burn and Supernova's flash (07 §1)
+	/** 2.3's skill points and upgrade ranks, kept in the settings file untouched (the career replaces them). */
+	TSharedPtr<class FJsonObject> LegacySkills;
 
-	// skill points (2.3): the bank, everything ever earned, and the rank of each upgrade (ids from skills.json).
-	// Saved with the settings, so the upgrades are a career that carries across levels and runs.
-	int32 SkillPoints = 0;
-	int32 SkillEarned = 0;
-	TMap<FName, int32> SkillRanks;
-	int32 Rank(FName Id) const { const int32* R = SkillRanks.Find(Id); return R ? *R : 0; }
-	/** Value of a stat from skills.json: kind "mul" = max(0.2, 1 + sum of effects), kind "add" = the sum. */
-	float Stat(FName StatId) const;
-	bool IsLocked(int32 UpgradeIdx, FString* Why = nullptr) const;
-	/** Cost of the next rank, or -1 when maxed. */
-	int32 NextCost(int32 UpgradeIdx) const;
-	bool CanBuy(int32 UpgradeIdx) const;
-	bool Buy(int32 UpgradeIdx);
-	bool CanRefund(int32 UpgradeIdx) const;
-	bool Refund(int32 UpgradeIdx);
-	void AddSkillPoints(int32 N);
+	// 2.6 flow and test hooks
+	int32 PendingScene = 0;
+	bool bHarnessSequel = false;
+	bool bPendingPreProd = false;
+	FString TitleBanner;
+	// -ftexec=<file>: run FT* harness commands from a file (lines: a console command, "wait <s>", "waitfor <text> [s]",
+	// "shot <name>", "quit"), so the spec's checks run in a Development package
+	bool bExecScript = false;
+	TArray<FString> ExecLines;
+	int32 ExecIdx = 0;
+	double ExecWaitUntil = 0.0;
+	FString ExecWaitFor; double ExecWaitForUntil = 0.0; int32 ExecWaitFrom = 0;
+	bool TickExec(float Dt);
+	virtual void Shutdown() override;
 
 	// carried between maps
 	int32 PendingLevel = -1;

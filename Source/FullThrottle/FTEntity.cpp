@@ -88,6 +88,7 @@ AFTEntityActor::AFTEntityActor()
 void AFTEntityActor::Setup(EFTKind InKind, int32 InVariant, int32 Level)
 {
 	Kind = InKind; Variant = InVariant; Lvl = Level; AnimT = 0.f;
+	if (bTracerColoured) { Mesh->EmptyOverrideMaterials(); bTracerColoured = false; }
 	Mesh->SetStaticMesh(MeshFor(Kind, Variant, Level));
 	Mesh->SetRelativeTransform(FTransform::Identity);
 	Mesh->SetCastShadow(Kind != EFTKind::Bullet && Kind != EFTKind::Missile);
@@ -258,4 +259,18 @@ void AFTHazard::SetLook(const FLinearColor& Colour, float Intensity)
 	Plane->SetScalarParameterValueOnMaterials(TEXT("Intensity"), Intensity);
 	Light->SetLightColor(Colour);
 	Light->SetIntensity(Intensity * 300.f);
+}
+
+void AFTEntityActor::SetTracer(const FLinearColor& Colour, float Width, bool bSpecial)
+{
+	if (!bSpecial) return;
+	const FLinearColor Lin = Colour;
+	Mesh->SetVectorParameterValueOnMaterials(TEXT("Color"), FVector(Lin.R, Lin.G, Lin.B));
+	Mesh->SetVectorParameterValueOnMaterials(TEXT("Tint"), FVector(Lin.R, Lin.G, Lin.B));
+	bTracerColoured = true;
+	Mesh->SetRelativeScale3D(FVector(1.f, Width, Width));
+	Light->SetLightColor(Colour);
+	Light->SetIntensity(260.f); Light->SetAttenuationRadius(600.f);
+	Light->SetRelativeLocation(FVector::ZeroVector);
+	Light->SetVisibility(true);
 }

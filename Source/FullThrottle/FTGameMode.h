@@ -7,6 +7,7 @@
 #include "GameFramework/GameModeBase.h"
 #include "Camera/CameraTypes.h"
 #include "FTCore.h"
+#include "FTProgress.h"
 #include "FTGameMode.generated.h"
 
 class AFTTrack;
@@ -20,10 +21,13 @@ class UPointLightComponent;
 class USoundBase;
 
 UENUM()
-enum class EFTPhase : uint8 { Title, Card, Play, Wreck, Wrap, Reel, Rating, Garage };
+enum class EFTPhase : uint8 { Title, Card, Play, Wreck, Wrap, Reel, Rating, Paycheck, PreProduction };
 
 UENUM()
 enum class EFTOverlay : uint8 { None, Pause, Controls, Options };
+
+// 2.6 PRE-PRODUCTION tabs (spec 10 §4)
+enum class EFTTab : uint8 { Skills, Garage, Custom, Sfx, Extras, Count };
 
 struct FFTEnt
 {
@@ -44,6 +48,12 @@ struct FFTEnt
 	float Dmg = 0.f;
 	float PrevAhead = 0.f;
 	bool bDead = false, bBig = false, bAir = false, bHit = false, bNear = false, bNoNear = false;
+	// 2.6: script-spawned Syndicate (Carnage), a boss add (half pay and XP, outside Carnage), touched the player,
+	// the slide down the screen (design px, 05 §2), the load a player round carries and the ids it went through
+	bool bCarnage = false, bAdd = false, bTouched = false, bAutoSeen = false;
+	float Slide = 0.f;
+	int32 Load = 0;
+	TArray<int32> Hits;
 	float Glow = 0.f;
 	TWeakObjectPtr<AFTEntityActor> Proxy;
 };
@@ -63,6 +73,51 @@ struct FFTHazardState
 	int32 Thing = 0;    // 0 bomb, 1 snowball, 2 fish, 3 fireball, 4 lightning bolt
 	float FxT = 0.f;
 	TWeakObjectPtr<AFTHazard> Actor;
+};
+
+/** Per-level counters the scene checkpoint copies (a retake restores them in one assignment). */
+struct FFTLevelRun
+{
+	int32 XP = 0;
+	int32 Wrecked = 0, LeftBehind = 0, Civilians = 0, Trucks = 0, SnakeEyes = 0, Barrels = 0, MultiKills = 0;
+	int64 BossAddPts = 0;
+	TArray<FString> Types;       // distinct stunt types landed this level (Style)
+	TArray<FString> NewFeats;    // types landed for the first time ever (career.feats gets them at the paycheck)
+	int32 Rounds[2] = { 0, 0 };  // AP, HE
+	int32 Shock = 0, Slams = 0;
+	bool bRoof = false, bPipe3 = false, bGrav2 = false;
+	uint8 AirWash = 0;           // L3-air: bit 0 The Dry Wash, bit 1 Last Chance Gas
+	int32 FirstTakeScenes = 0;
+	bool bHeMulti = false;
+};
+
+/** The KESTREL's numbers for this level: garage ranks and skills, filled at ACTION! (04, 02, 05). */
+struct FFTCarStats
+{
+	float MaxArmor = 100.f, FireInterval = 0.085f;
+	int32 MissileStart = 6, MissileCap = 9, Reels = 3;
+	float TurboTank = 100.f, TurboRefill = 13.f, FlameLen = 10.f;
+	float RamDmg = 6.f, RamDmgBig = 4.f, BumpDmg = 1.f;
+	float DriftChargeMul = 1.f, BendPullMul = 1.f;
+	float SpeedUpAdd = 90.f, Accel = 420.f, AccelHot = 900.f, PunchAdd = 90.f, PunchCap = 700.f, PunchOff = 1.f;
+	int32 ApRank = 0, HeRank = 0, ApRounds = 0, HeRounds = 0;
+	float HeRadius = 0.f, HeDamage = 0.f;
+	TSet<FName> Skills;
+	bool Has(const TCHAR* Id) const { return Skills.Contains(FName(Id)); }
+};
+
+/** A PRE-PRODUCTION tile (built each frame from the data and the career; the screen stores no state). */
+struct FFTTileView
+{
+	FString Id;          // node id, "garage:<key>:<rank>", cosmetic id, "film", "greenlight-DEM", "sequel", "respec"
+	int32 Col = 0, Row = 0;
+	FString Title, Sub, Desc, Group, Price;
+	EFTTile State = EFTTile::Locked;
+	FString Needs;
+	bool bCash = false, bSwatch = false;
+	FLinearColor Color = FLinearColor::White;
+	int64 Cost = 0;
+	FName Slot;
 };
 
 struct FFTPopup { FString Text; FLinearColor Col; float T = 0.f; float Big = 1.f; };
@@ -144,7 +199,52 @@ public:
 	float GarageFlashT = -10.f; int32 GarageFlashIdx = -1; bool bGarageDenied = false;
 	TArray<FBox2D> GarageRects;       // the HUD's card rects, then the START button
 	FVector2D GarageMouse = FVector2D(-1, -1);
-	int32 MissileCap() const;
+	int32 MissileCap() const { return Stats.MissileCap; }
+	// ---- 2.6 progression (spec v6)
+	FFTCarStats Stats;
+	FFTLevelRun Run, RunCk;
+	float LevelClock = 0.f, ClockLogT = 0.f;
+	int32 ScriptTotal = 1;
+	float MaxHp() const { return Stats.MaxArmor; }
+	float HpPct() const { return Stats.MaxArmor > 0.f ? Hp / Stats.MaxArmor * 100.f : 0.f; }
+	int32 ReelsLeft() const { return FMath::Max(0, Stats.Reels - Retakes); }
+	int32 AmmoLoad = 0;          // 0 STANDARD, 1 AP, 2 HE
+	int32 AmmoMag(int32 L) const { return L == 1 ? Stats.ApRounds : (L == 2 ? Stats.HeRounds : 0); }
+	bool bDraft = false;
+	float BossClock = 0.f, BossRate = 1.f, BossEscapeT = 70.f, BossFightT = 0.f, LastChanceT = 0.f, BossOffset = 0.f;
+	bool bLastChance = false, bRunDown = false;
+	bool bSequelRun = false;
+	FString TitleBanner; float TitleBannerT = -10.f;
+	// highlight reel (10 §2): hold to skip mid-reel, CONTINUE once it has played
+	float ReelHoldT = 0.f; bool bReelDone = false;
+	// THE DAILIES + PAYCHECK
+	FFTCommitOut Pay; bool bPayValid = false; int32 PayNext = 0; // 0 next level, 1 same level, 2 title
+	// PRE-PRODUCTION
+	EFTTab Tab = EFTTab::Skills;
+	int32 TabSel[(int32)EFTTab::Count] = { 0, 0, 0, 0, 0 };
+	int32 TabScroll[(int32)EFTTab::Count] = { 0, 0, 0, 0, 0 };
+	TArray<FFTTileView> Tiles;
+	TArray<FBox2D> TileRects; FBox2D ReadyRect = FBox2D(ForceInit), BuyRect = FBox2D(ForceInit), UndoRect = FBox2D(ForceInit); TArray<FBox2D> TabRects;
+	float BuyHoldT = 0.f; bool bBuyHoldDone = false;
+	int32 PPNextLevel = 0; bool bPPFromTitle = false;
+	FString PPMsg; float PPMsgT = -10.f; bool bPPMsgBad = false;
+	FVector2D PPMouse = FVector2D(-1, -1);
+	void BuildTiles();
+	FString PPHeader() const;
+	int32 SelIndex() const { return TabSel[(int32)Tab]; }
+	// cosmetics in the race (07): looks only
+	float CosT = 0.f;
+	// test harness (spec 12 §9; development builds)
+	struct FFTHold { bool bUp = false, bTurbo = false, bDown = false, bDrift = false, bFire = false; } Held;
+	bool bHarnessInvuln = false;
+	int32 AutoWreck = -1, AutoLeave = 0; float AutoWrapAt = -1.f; int32 AutoTurbo = 0; bool bAutoRun = false;
+	void HarnessCmd(const FString& Cmd, const TArray<FString>& Args);
+	void StartLevelAt(int32 L, int32 SceneIdx, bool bSequel);
+	static FString KindName(EFTKind K);
+	float RealClockNow() const { return RealClock; }
+	FVector FinisherAt = FVector::ZeroVector; float FireworkT = 0.f;
+	// wreck FX and boss finishers (07): HUD overlays
+	FString KaBoom; float KaBoomT = -10.f; float FilmBurnT = -10.f; float FinisherT = -10.f; FName Finisher; float FlashT = -10.f;
 	float Timecode = 0.f;
 	int32 HenchOn[2] = { 0, 0 };
 
@@ -189,29 +289,51 @@ protected:
 	void Wreck();
 	void Wrap(bool bEscape);
 	void FinishRating();
-	void EnterGarage();
-	void TickGarage(float RDt);
-	void LeaveGarage();
+	void EnterPaycheck();
+	void TickPaycheck(float RDt);
+	void EnterPreProduction(int32 NextLevel, bool bFromTitle);
+	void TickPreProduction(float RDt);
+	void LeavePreProduction();
+	bool PPActivate(int32 Idx, bool bHoldDone);
+	void PPSay(const FString& M, bool bBad);
+	void CommitLevel();
+	void ApplyStats();
+	void ApplyCosmetics(float RDt);
+	void TickBossClock(FFTEnt& B, float Dt, float& Want);
+	void TickSlide(FFTEnt& E, float Dt);
+	float SlideLeavePx(const FFTEnt& E) const;
+	float SlideCm(const FFTEnt& E) const;
+	void LeftBehindEnt(FFTEnt& E);
+	void AddXP(int32 N, const TCHAR* Source);
+	void LandType(const FString& Name);
+	void CycleAmmo();
+	void BulletHit(FFTEnt& B, FFTEnt& O);
+	void HeBlast(const FFTEnt& Direct, float D, float X);
+	void ChainBlast(const FFTEnt& E);
+	void Checkpoint();
+	void Restore();
 	void GoToLevel(int32 L, bool bStart);
 
 	// entities
 	FFTEnt& Spawn(EFTKind K, float Ahead, float Xc, int32 Variant = 0);
 	void SpawnGroup(const TArray<EFTKind>& Kinds);
-	void Kill(FFTEnt& E, int32 Cause); // 0 gun, 1 missile, 2 ram, 3 other
+	void Kill(FFTEnt& E, int32 Cause); // 0 gun, 1 missile, 2 ram, 3 other (not the player), 4 splash (missile splash, HE blast), 5 chain/barrel blast, 6 the wrap
 	void HurtEnt(FFTEnt& E, float Dmg, int32 Cause);
 	void HurtPlayer(float Dmg, const TCHAR* Line = nullptr, float PushX = 0.f);
-	void Explode(const FVector& At, float Size);
+	void Explode(const FVector& At, float Size, bool bPlayerWreck = false);
+	void WreckExtras(FName Fx, const FVector& At, float Size);
 	void Release(FFTEnt& E);
 	void ClearEnts();
 	FTransform EntTransform(const FFTEnt& E) const;
-	void FireBullet(int32 InOwner, float D, float X, float H, float VD, float VX, int32 Variant = 0);
+	void FireBullet(int32 InOwner, float D, float X, float H, float VD, float VX, int32 Variant = 0, int32 LoadIdx = 0);
 	void FireMissile();
 	void DropPickup(const FFTEnt& E, EFTKind K);
 	FFTEnt* FindEnt(int32 Id);
 
 	// scoring and voice
-	void AddScore(int64 Pts, int32 Bucket);
-	void Stunt(const FString& Name, int32 Pts, const TCHAR* Say = nullptr, float ReelScore = 3.f);
+	/** Score; BasePts >= 0 also counts XP = BasePts / 10 (the points before the combo, 01 §1); bAdd halves it (boss adds). */
+	void AddScore(int64 Pts, int32 Bucket, int64 BasePts = -1, const TCHAR* Source = nullptr, bool bAdd = false);
+	void Stunt(const FString& Name, int32 Pts, const TCHAR* Say = nullptr, float ReelScore = 3.f, bool bType = true);
 	void Popup(const FString& T, const FLinearColor& C, float Big = 1.f);
 	void Say(const FName& Key, int32 Pri, float Cooldown = 0.f);
 	void SayText(const FString& T, int32 Pri);
@@ -256,6 +378,9 @@ protected:
 
 	// player
 	float Steer = 0.f, Vx = 0.f;
+	float DraftOutT = 10.f, StarHoldT = 0.f, StarT = 0.f, SpeedLogT = 0.f, HenchOnT[2] = { 0, 0 };
+	bool bStarUsed = false, bLastTakeUsed = false, bOutrun = false, bWasDraft = false, bApNagged = false; int32 BoostLvl = 0, HeavyCount = 0; float BaseRoadFollow = 0.55f;
+	int32 SpeedLogState = -1; float LastSpeedLog = -1.f;
 	float TurboOffT = 10.f, DriftT = 0.f, DriftPressBuf = 0.f, Invuln = 0.f, FireT = 0.f, MissileCd = 0.f;
 	float NoFireT = 0.f, NoMissileT = 10.f, NoTurboT = 0.f, NoNearT = 0.f, NoRailT = 0.f, NoDriftT = 0.f, LastFireT = 10.f;
 	int32 DriftDir = 0; float DriftKickT = 0.f;
@@ -266,6 +391,7 @@ protected:
 	float HenchPunch[2] = { 0, 0 };
 	float HenchHangT = 0.f;
 	float WallRideT = 0.f; int32 WallRideSection = -1;
+	int32 SetPieceRolls = 0;
 	int32 SetPieceSection = -1; bool bSetPieceHot = false; float SetPieceTurns = 0.f; uint16 SetPieceFlag = 0;
 	bool bWasAir = false, bGapAir = false;
 	float RampAirT = 0.f;
@@ -279,6 +405,8 @@ protected:
 	// checkpoint for retakes
 	int64 CkScore = 0, CkDest = 0, CkNear = 0, CkStunts = 0, CkColl = 0; int32 CkKills = 0, CkNearN = 0, CkStuntN = 0, CkCollN = 0;
 	float CkHp = 100.f; int32 CkMissiles = 6;
+	bool bSpawningAdds = false;
+	int32 HitLoad = 0;
 
 	// time
 	float SlowT = 0.f, SlowScale = 1.f, SlowCool = 0.f, FreezeT = 0.f, TimeScale = 1.f;
