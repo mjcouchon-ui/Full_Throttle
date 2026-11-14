@@ -39,14 +39,23 @@ UStaticMesh* AFTEntityActor::MeshFor(EFTKind Kind, int32 Variant, int32 Level)
 	case EFTKind::Barrel: P = Level == 1 ? TEXT("/Game/Characters/Pickups/SM_DrumGreen") : TEXT("/Game/Characters/Pickups/SM_Barrel"); break;
 	case EFTKind::Henchman: P = TEXT("/Game/Characters/Syndicate/SM_Henchman"); break;
 	case EFTKind::Boss:
-		P = Level == 0 ? TEXT("/Game/Characters/Bosses/SM_Juggernaut") : (Level == 1 ? TEXT("/Game/Characters/Bosses/SM_Tanker") : TEXT("/Game/Characters/Bosses/SM_Carrier"));
+	{
+		static const TCHAR* B[8] = { TEXT("SM_Juggernaut"), TEXT("SM_Tanker"), TEXT("SM_Carrier"), TEXT("SM_FireTruck"), TEXT("SM_ClownCar"), TEXT("SM_Yeti"), TEXT("SM_SharkCar"), TEXT("SM_Limo") };
+		P = FString(TEXT("/Game/Characters/Bosses/")) + B[FMath::Clamp(Level, 0, 7)];
 		break;
-	case EFTKind::Bullet: P = TEXT("/Game/FX/SM_Tracer"); break;
+	}
+	// 2.5: the boss's bullets look like the boss: fish from the shark, fireballs from the fire truck, the limo's heavy tracers
+	case EFTKind::Bullet:
+		P = Variant == 1 ? TEXT("/Game/Characters/Projectiles/SM_Swordfish") : (Variant == 2 ? TEXT("/Game/Characters/Projectiles/SM_Fireball") : (Variant == 3 ? TEXT("/Game/Characters/Projectiles/SM_BigTracer") : TEXT("/Game/FX/SM_Tracer")));
+		break;
 	case EFTKind::Missile: P = TEXT("/Game/Characters/Kestrel/SM_Missile"); break;
 	default: return nullptr;
 	}
 	if (UStaticMesh** F = Cache.Find(P)) return *F;
 	UStaticMesh* M = Load<UStaticMesh>(P);
+	// a missing 2.5 model falls back to the 1.x one rather than an invisible foe
+	if (!M && Kind == EFTKind::Bullet) M = Load<UStaticMesh>(TEXT("/Game/FX/SM_Tracer"));
+	if (!M && Kind == EFTKind::Boss) M = Load<UStaticMesh>(TEXT("/Game/Characters/Bosses/SM_Juggernaut"));
 	// the cache is invisible to the garbage collector: root the mesh, or the 61 s GC pass frees a mesh no
 	// proxy is showing at that moment and the next Setup/wreck uses a dangling pointer
 	if (M) M->AddToRoot();
@@ -78,7 +87,7 @@ AFTEntityActor::AFTEntityActor()
 
 void AFTEntityActor::Setup(EFTKind InKind, int32 InVariant, int32 Level)
 {
-	Kind = InKind; Variant = InVariant;
+	Kind = InKind; Variant = InVariant; Lvl = Level; AnimT = 0.f;
 	Mesh->SetStaticMesh(MeshFor(Kind, Variant, Level));
 	Mesh->SetRelativeTransform(FTransform::Identity);
 	Mesh->SetCastShadow(Kind != EFTKind::Bullet && Kind != EFTKind::Missile);
@@ -114,6 +123,13 @@ void AFTEntityActor::Setup(EFTKind InKind, int32 InVariant, int32 Level)
 	else if (Kind == EFTKind::Bullet)
 	{
 		Mesh->SetRelativeScale3D(FVector(1.f));
+		if (Variant == 2)
+		{
+			Light->SetLightColor(FLinearColor(1.f, 0.5f, 0.15f));
+			Light->SetIntensity(300.f); Light->SetAttenuationRadius(700.f);
+			Light->SetRelativeLocation(FVector::ZeroVector);
+			Light->SetVisibility(true);
+		}
 	}
 	else if (Kind == EFTKind::Crate || Kind == EFTKind::Wrench)
 	{
@@ -124,7 +140,9 @@ void AFTEntityActor::Setup(EFTKind InKind, int32 InVariant, int32 Level)
 	}
 	else if (Kind == EFTKind::Boss)
 	{
-		Light->SetLightColor(Level == 1 ? FLinearColor(0.4f, 1.f, 0.6f) : FLinearColor(1.f, 0.15f, 0.1f));
+		static const FLinearColor BC[8] = { FLinearColor(1.f, 0.15f, 0.1f), FLinearColor(0.4f, 1.f, 0.6f), FLinearColor(1.f, 0.15f, 0.1f), FLinearColor(1.f, 0.35f, 0.08f),
+			FLinearColor(1.f, 0.3f, 0.8f), FLinearColor(0.6f, 0.85f, 1.f), FLinearColor(0.3f, 0.9f, 1.f), FLinearColor(1.f, 0.8f, 0.3f) };
+		Light->SetLightColor(BC[FMath::Clamp(Level, 0, 7)]);
 		Light->SetIntensity(1500.f); Light->SetAttenuationRadius(2500.f);
 		Light->SetRelativeLocation(FVector(-600.f, 0, 300.f));
 		Light->SetVisibility(true);
@@ -139,6 +157,17 @@ void AFTEntityActor::SetGlow(float Amount)
 void AFTEntityActor::Animate(float Dt, float Speed)
 {
 	if (Kind == EFTKind::Heli && Extra) Extra->AddLocalRotation(FRotator(0.f, 1900.f * Dt, 0.f));
+	AnimT += Dt;
+	// 2.5 bosses with a bit of life: the yeti lopes, the clown car bounces and wobbles, the limo hovers
+	if (Kind == EFTKind::Boss)
+	{
+		if (Lvl == 5) Mesh->SetRelativeTransform(FTransform(FRotator(-6.f * FMath::Sin(AnimT * 6.f), 0.f, 4.f * FMath::Sin(AnimT * 3.f)), FVector(0, 0, 70.f * FMath::Abs(FMath::Sin(AnimT * 3.f)))));
+		else if (Lvl == 4) Mesh->SetRelativeTransform(FTransform(FRotator(0.f, 0.f, 7.f * FMath::Sin(AnimT * 4.f)), FVector(0, 0, 35.f * FMath::Abs(FMath::Sin(AnimT * 8.f)))));
+		else if (Lvl == 7) Mesh->SetRelativeTransform(FTransform(FRotator(2.f * FMath::Sin(AnimT * 1.3f), 0.f, 3.f * FMath::Sin(AnimT * 1.7f)), FVector(0, 0, 40.f * FMath::Sin(AnimT * 2.f))));
+		else if (Lvl == 6) Mesh->SetRelativeTransform(FTransform(FRotator(0.f, 3.f * FMath::Sin(AnimT * 5.f), 0.f), FVector::ZeroVector));
+	}
+	// fish wiggle on their way in
+	if (Kind == EFTKind::Bullet && Variant == 1) Mesh->SetRelativeRotation(FRotator(0.f, 18.f * FMath::Sin(AnimT * 18.f), 0.f));
 }
 
 // ------------------------------------------------------------------------------------------ wreck
@@ -148,6 +177,10 @@ AFTWreck::AFTWreck()
 	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
 	RootComponent = Mesh;
 	Mesh->SetCollisionProfileName(TEXT("PhysicsActor"));
+	// 2.5: the wreck tumbles on the road but never stops the KESTREL dead (in a half pipe they all roll down to
+	// the bottom of the U, right where the car drives, and the player stalled on them)
+	Mesh->SetCollisionResponseToChannel(ECC_Vehicle, ECR_Ignore);
+	Mesh->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
 	Mesh->BodyInstance.bUseCCD = true;
 	Fire = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Fire"));
 	Fire->SetupAttachment(Mesh);
@@ -192,6 +225,27 @@ AFTHazard::AFTHazard()
 	Light->SetIntensityUnits(ELightUnits::Candelas);
 	Light->SetAttenuationRadius(1600.f);
 	Light->SetRelativeLocation(FVector(0, 0, 150.f));
+	Thing = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Thing"));
+	Thing->SetupAttachment(Plane);
+	Thing->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Thing->SetUsingAbsoluteLocation(true); Thing->SetUsingAbsoluteRotation(true); Thing->SetUsingAbsoluteScale(true);
+	Thing->SetVisibility(false);
+}
+
+void AFTHazard::SetThing(UStaticMesh* M, const FTransform& WorldT)
+{
+	if (!M) { HideThing(); return; }
+	if (Thing->GetStaticMesh() != M) Thing->SetStaticMesh(M);
+	Thing->SetWorldTransform(WorldT);
+	Thing->SetVisibility(true);
+}
+
+void AFTHazard::HideThing() { Thing->SetVisibility(false); }
+
+void AFTHazard::SetActorHiddenInGame(bool bNewHidden)
+{
+	Super::SetActorHiddenInGame(bNewHidden);
+	if (bNewHidden && Thing) Thing->SetVisibility(false);
 }
 
 void AFTHazard::SetLook(const FLinearColor& Colour, float Intensity)

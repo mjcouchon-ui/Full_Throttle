@@ -91,7 +91,7 @@ void UFTGameInstance::Init()
 	{
 		bBench = true;
 		int32 L = 0; FParse::Value(FCommandLine::Get(), TEXT("ftlevel="), L);
-		PendingLevel = FMath::Clamp(L, 0, 2);
+		PendingLevel = FMath::Clamp(L, 0, FTData::NumLevels() - 1);
 		bStartRace = true;
 		FParse::Value(FCommandLine::Get(), TEXT("ftquality="), BenchQuality);
 		FParse::Value(FCommandLine::Get(), TEXT("ftseconds="), BenchSeconds);
@@ -145,7 +145,7 @@ void UFTGameInstance::LoadSettings()
 	const TArray<TSharedPtr<FJsonValue>>* Best;
 	if (J->TryGetArrayField(TEXT("best"), Best))
 	{
-		for (int32 i = 0; i < 3 && i < Best->Num(); ++i)
+		for (int32 i = 0; i < MaxLevels && i < Best->Num(); ++i)
 		{
 			const TSharedPtr<FJsonObject> O = (*Best)[i]->AsObject();
 			if (!O) continue;
@@ -278,7 +278,7 @@ void UFTGameInstance::SaveSettings()
 	J->SetBoolField(TEXT("fps"), bShowFps);
 	J->SetBoolField(TEXT("vsync"), bVSync);
 	TArray<TSharedPtr<FJsonValue>> Best;
-	for (int32 i = 0; i < 3; ++i)
+	for (int32 i = 0; i < MaxLevels; ++i)
 	{
 		TSharedRef<FJsonObject> O = MakeShared<FJsonObject>();
 		O->SetNumberField(TEXT("score"), BestScore[i]);

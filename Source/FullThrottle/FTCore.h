@@ -19,8 +19,11 @@ namespace FT
 	constexpr float BaseSpeed = 380.f * DU;  // 5210 cm/s (118 mph)
 }
 
+// 2.5: HalfPipe (a snowboard U: the road's sides curve up into walls), Coaster (two roller-coaster rails instead
+// of a road: side by side you can hop between them, then they split and go wild) and Building (the road runs
+// through the ground floor of a tower block).
 UENUM()
-enum class EFTSec : uint8 { Flat, Hill, Rise, Fall, Loop, Twist, Pipe, Jump };
+enum class EFTSec : uint8 { Flat, Hill, Rise, Fall, Loop, Twist, Pipe, Jump, HalfPipe, Coaster, Building };
 
 struct FFTSection
 {
@@ -47,7 +50,7 @@ struct FFTScene
 	TArray<FFTSpawn> Spawns;
 };
 
-enum class EFTBoss : uint8 { Juggernaut, Alchemist, Dealer };
+enum class EFTBoss : uint8 { Juggernaut, Alchemist, Dealer, FireTruck, Clown, Yeti, Shark, Limo };
 
 struct FFTLevelDef
 {
@@ -63,7 +66,19 @@ struct FFTLevelDef
 	float BossHp = 120.f, BossEscape = 70.f;
 	// look
 	FLinearColor RoadA, RoadB, Line, KerbA, KerbB, Rail, Neon2, Sky0, Sky1, Sky2, Fog;
+	FLinearColor Glow = FLinearColor(1.f, 0.31f, 0.72f);   // the car's underglow
+	FLinearColor Lamp = FLinearColor(1.f, 0.75f, 0.55f);   // road lamps
+	float LampCd = 7000.f;
 	TArray<FString> Gantries;
+	// 2.5 level features
+	float Slope = 0.f;            // radians added to the road's pitch everywhere (the ski level runs downhill)
+	bool bLava = false;           // lava under every jump gap and lava rivers beside the road
+	TArray<FVector2D> LavaBands;  // lava rivers: x from..to (cm) beside the road
+	bool bLightning = false;      // lightning in the sky (and the odd strike)
+	int32 BossBullet = 0;         // what the boss's bullets look like (0 tracer, 1 fish, 2 fireball, 3 big tracer)
+	FString Hint;                 // one line on the title card
+	FString Backdrop;             // a landmark mesh on the horizon (Las Vegas, the volcano, the sunken city)
+	float BackdropScale = 4.f;
 };
 
 namespace FTData

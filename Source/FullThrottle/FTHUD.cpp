@@ -105,21 +105,25 @@ void AFTHUD::DrawTitle(AFTGameMode* G)
 	Txt(TEXT("THROTTLE"), W * 0.5f, H * 0.1f + 74 * S, Pink * Pulse, 3.4f, 1, true);
 	Txt(TEXT("AN 80s SPY CAR CHASE  ·  STARRING YOU AS AGENT NOVA KANE"), W * 0.5f, H * 0.36f, Yellow, 1.f, 1);
 	const UFTGameInstance* GI = G->GI();
-	const float Cw = 300 * S, Gap = 24 * S, X0 = W * 0.5f - (Cw * 3 + Gap * 2) * 0.5f, Y0 = H * 0.45f;
-	for (int32 i = 0; i < 3; ++i)
+	// 2.5: eight levels, two rows of four
+	const int32 NL = FTData::NumLevels();
+	const float Cw = 270 * S, Ch = 112 * S, Gap = 18 * S, X0 = W * 0.5f - (Cw * 4 + Gap * 3) * 0.5f, Y0 = H * 0.42f;
+	for (int32 i = 0; i < NL; ++i)
 	{
 		const FFTLevelDef& L = FTData::Level(i);
-		const float X = X0 + i * (Cw + Gap);
+		const float X = X0 + (i % 4) * (Cw + Gap);
+		const float Y = Y0 + (i / 4) * (Ch + Gap);
 		const bool bSel = G->TitleSel == i;
-		Box(X, Y0, Cw, 150 * S, bSel ? FLinearColor(0.25f, 0.05f, 0.25f, 0.85f) : Ink);
-		Frame(X, Y0, Cw, 150 * S, bSel ? Yellow : FLinearColor(1, 1, 1, 0.25f), bSel ? 3.f : 1.5f);
-		Txt(FString::Printf(TEXT("LEVEL %d"), i + 1), X + 14 * S, Y0 + 10 * S, bSel ? Yellow : Grey, 0.9f);
-		Txt(L.Zone, X + 14 * S, Y0 + 34 * S, White, 1.15f, 0, true);
-		Txt(L.Title, X + 14 * S, Y0 + 72 * S, Pink, 0.95f);
-		if (GI && GI->BestScore[i] > 0) Txt(FString::Printf(TEXT("BEST TAKE  %s  ·  %s"), *Num(GI->BestScore[i]), *GI->BestTitle[i]), X + 14 * S, Y0 + 116 * S, Cyan, 0.75f);
+		Box(X, Y, Cw, Ch, bSel ? FLinearColor(0.25f, 0.05f, 0.25f, 0.85f) : Ink);
+		Frame(X, Y, Cw, Ch, bSel ? Yellow : FLinearColor(1, 1, 1, 0.25f), bSel ? 3.f : 1.5f);
+		Txt(FString::Printf(TEXT("LEVEL %d"), i + 1), X + 12 * S, Y + 8 * S, bSel ? Yellow : Grey, 0.8f);
+		Txt(L.Zone, X + 12 * S, Y + 28 * S, White, 1.0f, 0, true);
+		Txt(L.Title, X + 12 * S, Y + 60 * S, Pink, 0.82f);
+		if (GI && i < UFTGameInstance::MaxLevels && GI->BestScore[i] > 0) Txt(FString::Printf(TEXT("BEST  %s  ·  %s"), *Num(GI->BestScore[i]), *GI->BestTitle[i]), X + 12 * S, Y + 86 * S, Cyan, 0.65f);
+		else if (!L.Hint.IsEmpty()) Txt(L.Hint, X + 12 * S, Y + 86 * S, FLinearColor(1, 1, 1, 0.55f), 0.6f);
 	}
-	if (FMath::Fmod(T, 1.f) < 0.65f) Txt(TEXT("PRESS ENTER (A) TO ROLL CAMERA"), W * 0.5f, H * 0.71f, White, 1.3f, 1, true);
-	Txt(TEXT("◀ ▶  PICK THE LEVEL   ·   C  CONTROLS   ·   O  OPTIONS   ·   M  MUTE   ·   ESC  QUIT"), W * 0.5f, H * 0.79f, Grey, 0.85f, 1);
+	if (FMath::Fmod(T, 1.f) < 0.65f) Txt(TEXT("PRESS ENTER (A) TO ROLL CAMERA"), W * 0.5f, H * 0.735f, White, 1.3f, 1, true);
+	Txt(TEXT("◀ ▶ ▲ ▼  OR 1-8  PICK THE LEVEL   ·   C  CONTROLS   ·   O  OPTIONS   ·   M  MUTE   ·   ESC  QUIT"), W * 0.5f, H * 0.795f, Grey, 0.85f, 1);
 	if (GI)
 	{
 		const FString Lay = GI->Layout == 0 ? TEXT("WASD steer  ·  hold SHIFT + steer to drift  ·  SPACE turbo  ·  J guns  ·  K missile")
@@ -442,7 +446,7 @@ void AFTHUD::DrawGarage(AFTGameMode* G)
 	const AFTPlayerController* PC = Cast<AFTPlayerController>(GetOwningPlayerController());
 	Box(0, 0, W, H, FLinearColor(0.01f, 0.f, 0.03f, 0.72f));
 	Txt(TEXT("THE GARAGE"), W * 0.5f, H * 0.04f, Yellow, 2.2f, 1, true);
-	const FString Next = G->Level >= 2 ? FString(TEXT("NEXT: BACK TO THE TITLE"))
+	const FString Next = G->Level >= FTData::NumLevels() - 1 ? FString(TEXT("NEXT: BACK TO THE TITLE"))
 		: FString::Printf(TEXT("NEXT: LEVEL %d · %s"), G->Level + 2, *FTData::Level(G->Level + 1).Zone);
 	Txt(FString::Printf(TEXT("SPEND SKILL POINTS ON THE KESTREL-88   ·   %s"), *Next), W * 0.5f, H * 0.145f, White, 0.9f, 1);
 	Txt(FString::Printf(TEXT("SKILL POINTS  %d"), GI->SkillPoints), W * 0.5f, H * 0.19f, Cyan, 1.5f, 1, true);
@@ -506,7 +510,7 @@ void AFTHUD::DrawGarage(AFTGameMode* G)
 	// the confirm: the next level starts only from here
 	const bool bBtnHot = G->GarageSel == N || (PC && PC->MouseIn(G->GarageRects[N]));
 	G->GarageRects[N] = Button(W * 0.5f, H * 0.83f, 420 * S, 60 * S,
-		G->Level >= 2 ? TEXT("BACK TO THE TITLE  ▶") : FString::Printf(TEXT("START LEVEL %d  ▶"), G->Level + 2),
+		G->Level >= FTData::NumLevels() - 1 ? TEXT("BACK TO THE TITLE  ▶") : FString::Printf(TEXT("START LEVEL %d  ▶"), G->Level + 2),
 		TEXT("PAD START  ·  ENTER / A ON THIS BUTTON  ·  CLICK"), G->PhaseT > 0.4f, bBtnHot);
 	Txt(TEXT("←→ PICK   ·   ENTER / SPACE / A  BUY A RANK   ·   BACKSPACE / X  REFUND   ·   MOUSE: CLICK A CARD TO BUY, RIGHT-CLICK TO REFUND"), W * 0.5f, H * 0.91f, Grey, 0.72f, 1);
 	Txt(TEXT("Upgrades stay with the KESTREL across levels and runs. The full skill tree is coming."), W * 0.5f, H * 0.945f, FLinearColor(1, 1, 1, 0.45f), 0.68f, 1);

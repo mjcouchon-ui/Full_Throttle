@@ -77,7 +77,14 @@ float AFTGameMode::PlayerD() const { return Car ? Car->D : 0.f; }
 void AFTGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
-	Level = MapName.Contains(TEXT("Chemical")) ? 1 : (MapName.Contains(TEXT("Nevada")) ? 2 : 0);
+	// the level whose map this is (L_Bayshore ... L_Metro)
+	Level = 0;
+	for (int32 i = 0; i < FTData::NumLevels(); ++i)
+	{
+		FString Short = FTData::Level(i).Map.ToString();
+		Short = Short.RightChop(Short.Find(TEXT("/"), ESearchCase::IgnoreCase, ESearchDir::FromEnd) + 1);
+		if (MapName.Contains(Short)) { Level = i; break; }
+	}
 }
 
 void AFTGameMode::BeginPlay()
@@ -151,7 +158,7 @@ void AFTGameMode::SetupLevel()
 		L->RegisterComponent();
 		Flashes.Add(L);
 	}
-	const FLinearColor LampCol = Level == 1 ? FLinearColor(1.f, 0.62f, 0.25f) : (Level == 0 ? FLinearColor(1.f, 0.75f, 0.55f) : FLinearColor(1.f, 0.7f, 0.5f));
+	const FLinearColor LampCol = Def().Lamp;
 	for (int32 i = 0; i < 18; ++i)
 	{
 		UPointLightComponent* L = NewObject<UPointLightComponent>(this);
@@ -169,6 +176,18 @@ void AFTGameMode::SetupLevel()
 	if (Music) Music->bIsUISound = true;
 	Rotor = UGameplayStatics::CreateSound2D(this, Load<USoundBase>(TEXT("/Game/Audio/SFX/S_Rotor")), 0.f, 1.f, 0.f, nullptr, false, false);
 	if (Rotor && Rotor->Sound) Rotor->Play();
+
+	// 2.5: the lightning bolt (volcano) and the things bosses lob
+	BoltComp = NewObject<UStaticMeshComponent>(this, TEXT("FTBolt"));
+	BoltComp->SetupAttachment(Root);
+	BoltComp->SetMobility(EComponentMobility::Movable);
+	BoltComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	BoltComp->SetCastShadow(false);
+	BoltComp->SetStaticMesh(Load<UStaticMesh>(TEXT("/Game/Characters/Projectiles/SM_Bolt")));
+	BoltComp->SetVisibility(false);
+	BoltComp->RegisterComponent();
+	for (const TCHAR* Lp : { TEXT("SM_Bomb"), TEXT("SM_Snowball"), TEXT("SM_Fish"), TEXT("SM_Fireball"), TEXT("SM_Bolt") })
+		LobMeshes.Add(Load<UStaticMesh>(FString(TEXT("/Game/Characters/Projectiles/")) + Lp));
 }
 
 // --------------------------------------------------------------------------------------------- flow
@@ -234,6 +253,8 @@ void AFTGameMode::StartRace(bool bRetake)
 	CkKills = Kills; CkNearN = NearMisses; CkStuntN = StuntCount; CkCollN = Collateral; CkHp = Hp; CkMissiles = Missiles;
 	bShowKeys = !bRetake;
 	SceneStartClock = Clock;
+	HalfSection = -1; HalfSide = 0; BldgSection = -1; bOnCoaster = false; CoasterMode = -1; bHopAir = false;
+	if (BoltComp) BoltComp->SetVisibility(false);
 }
 
 void AFTGameMode::BeginPlayPhase()
@@ -360,9 +381,9 @@ void AFTGameMode::LeaveGarage()
 {
 	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->SetMenuMouse(false);
 	Sfx(TEXT("Clap"));
-	UE_LOG(LogFT, Display, TEXT("FTFLOW garage confirmed -> %s"), Level >= 2 ? TEXT("title") : TEXT("next level"));
+	UE_LOG(LogFT, Display, TEXT("FTFLOW garage confirmed -> %s"), Level >= FTData::NumLevels() - 1 ? TEXT("title") : TEXT("next level"));
 	// the next level starts only from here; after the last level the garage closes onto the title
-	if (Level >= 2) GoToLevel(0, false);
+	if (Level >= FTData::NumLevels() - 1) GoToLevel(0, false);
 	else GoToLevel(Level + 1, true);
 }
 
@@ -558,7 +579,7 @@ void AFTGameMode::Tick(float Dt)
 		for (int32 i = 0; i < RoadLights.Num(); ++i)
 		{
 			UPointLightComponent* L = RoadLights[i];
-			if (i < Idx.Num()) { L->SetWorldLocation(Spots[Idx[i]]); L->SetIntensity(Level == 2 ? 5000.f : 7000.f); L->SetAttenuationRadius(3600.f); }
+			if (i < Idx.Num()) { L->SetWorldLocation(Spots[Idx[i]]); L->SetIntensity(Def().LampCd); L->SetAttenuationRadius(3600.f); }
 			else L->SetIntensity(0.f);
 		}
 	}
@@ -570,11 +591,13 @@ void AFTGameMode::TickTitle(float RDt)
 {
 	AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController());
 	if (!PC) return;
-	if (PC->MenuLeft()) TitleSel = (TitleSel + 2) % 3;
-	if (PC->MenuRight()) TitleSel = (TitleSel + 1) % 3;
-	if (PC->Hit(EKeys::One)) TitleSel = 0;
-	if (PC->Hit(EKeys::Two)) TitleSel = 1;
-	if (PC->Hit(EKeys::Three)) TitleSel = 2;
+	// 2.5: eight levels on two rows of four
+	const int32 NL = FTData::NumLevels();
+	if (PC->MenuLeft()) TitleSel = (TitleSel + NL - 1) % NL;
+	if (PC->MenuRight()) TitleSel = (TitleSel + 1) % NL;
+	if (PC->MenuUp() || PC->MenuDown()) TitleSel = (TitleSel + 4) % NL;
+	static const FKey Num[8] = { EKeys::One, EKeys::Two, EKeys::Three, EKeys::Four, EKeys::Five, EKeys::Six, EKeys::Seven, EKeys::Eight };
+	for (int32 i = 0; i < NL && i < 8; ++i) if (PC->Hit(Num[i])) TitleSel = i;
 	if (PC->Hit(EKeys::C) || PC->Hit(EKeys::Gamepad_FaceButton_Top)) { Overlay = EFTOverlay::Controls; ControlsRow = 0; ControlsCol = GI() ? GI()->Layout : 0; return; }
 	if (PC->Hit(EKeys::O)) { Overlay = EFTOverlay::Options; OptionsRow = 0; return; }
 	if (PC->Hit(EKeys::Escape) && PhaseT > 1.f) { UKismetSystemLibrary::QuitGame(this, PC, EQuitPreference::Quit, false); return; }
@@ -666,6 +689,7 @@ void AFTGameMode::TickPlay(float Dt, float RDt)
 	TickEnts(Dt);
 	TickHazards(Dt);
 	TickStunts(Dt);
+	if (Def().bLightning) TickLightning(Dt);
 	TickSlowmo(RDt);
 	TickDirector(RDt);
 	RecordSnap(RDt);
@@ -725,6 +749,23 @@ void AFTGameMode::TickPlayer(float Dt)
 		In.bTurbo = Turbo > 95.f || bTurboOn;
 		In.bMissile = FMath::Fmod(Clock, 1.7f) < Dt;
 		if (G && G->bBench) Hp = TestHp() > 0.f ? TestHp() : 100.f;
+	}
+
+	// 2.5 coaster: the car rides its rail by itself; steering hard toward the other rail hops across where they sit
+	// side by side. (The autopilot hops now and then, so the tests cover it.)
+	if (Car->IsOnRails())
+	{
+		const bool bAuto = (G && (G->bBench || G->bAutoDrive)) || CVarFTAutopilot.GetValueOnGameThread() > 0;
+		int32 HopDir = FMath::Abs(In.RawSteer) > 0.55f ? (In.RawSteer > 0.f ? 1 : -1) : 0;
+		if (bAuto) HopDir = FMath::Fmod(Clock, 3.2f) < Dt ? (Car->CanRailHop(1) ? 1 : -1) : 0;
+		if (HopDir != 0 && Car->RailHop(HopDir))
+		{
+			bHopAir = true;
+			Sfx(TEXT("Jump")); Shout(TEXT("HOP!"));
+			UE_LOG(LogFT, Display, TEXT("FTRAIL hop dir=%d D=%.0f"), HopDir, Car->D);
+		}
+		In.Steer = 0.f;
+		In.bDrift = false; In.bDriftPressed = false;
 	}
 
 	Steer = In.Steer;
@@ -1008,7 +1049,9 @@ FTransform AFTGameMode::EntTransform(const FFTEnt& E) const
 	if (E.Kind == EFTKind::Missile) Yaw = FMath::RadiansToDegrees(E.Heading);
 	if (E.Kind == EFTKind::Heli) { Pitch = -8.f; Roll = FMath::Clamp(E.Vx / 60.f, -20.f, 20.f); }
 	if (E.Kind == EFTKind::Bullet && E.Owner == 1) Yaw = 180.f + FMath::RadiansToDegrees(FMath::Atan2(E.Vx, FMath::Max(1.f, Car->Speed - E.Sp)));
-	const FTransform Base = Track->TransformAt(E.D, E.X, E.H);
+	// 2.5: on a half pipe's walls everything rides the curve
+	const float Hs = (Track->FlagsAt(E.D) & FTFlag::HalfPipe) ? Track->SurfaceH(E.D, E.X) : 0.f;
+	const FTransform Base = Track->TransformAt(E.D, E.X, E.H + Hs);
 	return FTransform(FRotator(Pitch, Yaw, Roll)) * Base;
 }
 
@@ -1040,6 +1083,9 @@ void AFTGameMode::SpawnGroup(const TArray<EFTKind>& Kinds)
 		{
 			FFTEnt& E = Spawn(EFTKind::Boss, 16000.f, 0.f);
 			E.Ta = (Level == 2 ? 300.f : 342.f) * DU * 1.25f; E.T1 = 1.6f; E.T2 = 1.0f; E.T3 = 6.f;
+			// 2.5: the yeti runs right up close; the Chairman's limo hovers
+			if (Level == 5) E.Ta = 300.f * DU * 1.2f;
+			if (Level == 7) E.H = 240.f;
 			bBossSpawned = true; BossT = 0.f; bBossOn = true; BossLabel = Def().BossName;
 			Sfx(TEXT("BossIntro")); Duck(0.35f, 1.6f);
 			break;
@@ -1074,15 +1120,17 @@ void AFTGameMode::TickCivilians(float Dt)
 		if (!E.bDead && FMath::Abs(E.X - LaneX(Lane)) < 40.f * XU && E.D - Car->D > 13000.f) return;
 	const float r = FMath::FRand();
 	const int32 V = r < 0.5f ? FMath::RandRange(0, 2) : (r < 0.75f ? FMath::RandRange(3, 4) : (r < 0.93f ? FMath::RandRange(5, 6) : 7));
-	if (Track->FlagsAt(Car->D + 17000.f) & (FTFlag::Gap | FTFlag::Loop | FTFlag::Pipe | FTFlag::Twist)) return;
+	if (Track->FlagsAt(Car->D + 17000.f) & (FTFlag::Gap | FTFlag::Loop | FTFlag::Pipe | FTFlag::Twist | FTFlag::Coaster)) return;
+	if (Track->FlagsAt(Car->D) & FTFlag::Coaster) return;
 	FFTEnt& E = Spawn(EFTKind::Civ, 17000.f, LaneX(Lane), V);
 	E.Sp = (V == 7 ? 190.f : R(200.f, 270.f)) * DU;
 }
 
-void AFTGameMode::FireBullet(int32 InOwner, float D, float X, float H, float VD, float VX)
+void AFTGameMode::FireBullet(int32 InOwner, float D, float X, float H, float VD, float VX, int32 Variant)
 {
-	FFTEnt& B = Spawn(EFTKind::Bullet, D - Car->D, X);
+	FFTEnt& B = Spawn(EFTKind::Bullet, D - Car->D, X, Variant);
 	B.Owner = InOwner; B.H = H; B.Sp = VD; B.Vx = VX; B.T1 = InOwner == 0 ? 1.0f : 2.6f;
+	if (Variant == 1 || Variant == 2) { B.W = 90.f; B.H = FMath::Min(H, 120.f); }
 }
 
 void AFTGameMode::FireMissile()
@@ -1151,6 +1199,7 @@ void AFTGameMode::Kill(FFTEnt& E, int32 Cause)
 		C->SetRestCollection(GC);
 		C->ObjectType = EObjectStateTypeEnum::Chaos_Object_Dynamic;
 		C->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+		C->SetCollisionResponseToChannel(ECC_Vehicle, ECR_Ignore); // 2.5: debris never stops the car
 		UGameplayStatics::FinishSpawningActor(A, At);
 		C->CrumbleActiveClusters();
 		C->AddImpulse(Vel, NAME_None, true);
@@ -1511,9 +1560,9 @@ void AFTGameMode::TickEnts(float Dt)
 					}
 				}
 			}
-			else if (FMath::Abs(E.X - Px) < CarW / 2 && FMath::Abs(E.D - Pd) < CarL / 2 + FMath::Abs(E.Sp - Vp) * Dt)
+			else if (FMath::Abs(E.X - Px) < CarW / 2 + FMath::Max(0.f, E.W * 0.5f - 20.f) && FMath::Abs(E.D - Pd) < CarL / 2 + FMath::Abs(E.Sp - Vp) * Dt && (Car->bGrounded || Car->H - Car->SurfH < 260.f))
 			{
-				HurtPlayer(6.f);
+				HurtPlayer(E.Variant == 3 ? 5.f : 6.f);
 				Release(E);
 			}
 			break;
@@ -1566,6 +1615,8 @@ void AFTGameMode::TickEnts(float Dt)
 		E.D += E.Sp * Dt;
 		E.Vx = (E.X - PrevX) / FMath::Max(Dt, 1e-4f);
 		Ahead = E.D - Pd;
+		// 2.5: road traffic and foes don't follow the car onto the coaster rails
+		if (!E.bAir && E.Kind != EFTKind::Boss && E.Kind != EFTKind::Bullet && E.Kind != EFTKind::Missile && (Track->FlagsAt(E.D) & FTFlag::Coaster)) { Release(E); continue; }
 
 		// player contact (ground vehicles and pickups)
 		if (Phase == EFTPhase::Play && !E.bAir && E.Kind != EFTKind::Bullet && E.Kind != EFTKind::Missile && E.H < 300.f)
@@ -1769,6 +1820,11 @@ void AFTGameMode::TickBoss(FFTEnt& B, float Dt)
 			}
 		}
 	}
+	else if (Level == 3) TickBossFire(B, Dt, Ph, Want);
+	else if (Level == 4) TickBossClown(B, Dt, Ph, Want);
+	else if (Level == 5) TickBossYeti(B, Dt, Ph, Want);
+	else if (Level == 6) TickBossShark(B, Dt, Ph, Want);
+	else if (Level == 7) TickBossLimo(B, Dt, Ph, Want);
 	else
 	{
 		// THE BIG DEALER: a two-deck carrier that never stops sending Snake Eyes bikers
@@ -1816,8 +1872,345 @@ void AFTGameMode::TickBoss(FFTEnt& B, float Dt)
 		}
 	}
 	B.Sp = Vp + FMath::Clamp((Want - Ahead) * 1.4f, -6000.f, 6000.f);
-	if (!bEscapeWarned && BossT > Def().BossEscape - (Level == 2 ? 18.f : 15.f)) { bEscapeWarned = true; Say(TEXT("escape"), 3); }
+	if (!bEscapeWarned && BossT > Def().BossEscape - (Level >= 2 ? 18.f : 15.f)) { bEscapeWarned = true; Say(TEXT("escape"), 3); }
 	if (BossT > Def().BossEscape) { bBossOn = false; Release(B); Wrap(true); }
+}
+
+// --------------------------------------------------------------------------------------------- 2.5 bosses
+int32 AFTGameMode::LaneOf(float X) const
+{
+	int32 Best = 0;
+	for (int32 l = 1; l < 4; ++l) if (FMath::Abs(LaneX(l) - X) < FMath::Abs(LaneX(Best) - X)) Best = l;
+	return Best;
+}
+
+void AFTGameMode::BossPhaseLine(FFTEnt& B, int32 Ph, const TCHAR* L1, const TCHAR* C1, const TCHAR* L2, const TCHAR* C2)
+{
+	if (Ph == B.Phase) return;
+	B.Phase = Ph; B.Step = 0;
+	SayText(Ph == 1 ? L1 : L2, 3);
+	Caption = Ph == 1 ? C1 : C2; CaptionT = RealClock;
+	Sfx(TEXT("BossPhase")); Duck(0.45f, 0.8f);
+}
+
+FFTHazardState& AFTGameMode::Lob(int32 Thing, float FromAhead, float FromX, float FromH, float ToAhead, float ToX, float Flight, float Radius, float Arc, float Dmg)
+{
+	FFTHazardState& Hz = Hazards.AddDefaulted_GetRef();
+	Hz.Type = 5; Hz.Thing = Thing;
+	Hz.FromD = FromAhead; Hz.FromX = FromX; Hz.FromH = FromH;
+	Hz.D = ToAhead; Hz.X = FMath::Clamp(ToX, -RoadHalf, RoadHalf); Hz.W = Radius;
+	Hz.Warn = Flight; Hz.Live = 0.25f; Hz.Arc = Arc; Hz.Dmg = Dmg;
+	Hz.Style = Thing == 1 ? 1 : (Thing == 3 ? 2 : (Thing == 2 ? 3 : 0));
+	return Hz;
+}
+
+void AFTGameMode::FlameLane(float X, float Warn, float Live, float SweepV)
+{
+	FFTHazardState& Hz = Hazards.AddDefaulted_GetRef();
+	Hz.Type = 4; Hz.X = X; Hz.W = 36.f * XU; Hz.Warn = Warn; Hz.Live = Live; Hz.Vx = SweepV; Hz.Style = 2; Hz.Dmg = 13.f;
+}
+
+// A fan of boss bullets across the road, aimed around AimX, with a gap of two missing bullets at GapAt (-1 none).
+void AFTGameMode::BulletFan(const FFTEnt& B, int32 N, float Step, int32 GapAt, float Spd, float AimX)
+{
+	const float Vp = Car->Speed, Ahead = FMath::Max(1500.f, B.D - Car->D);
+	const float AimA = FMath::Atan2(AimX - B.X, Ahead);
+	for (int32 k = 0; k < N; ++k)
+	{
+		if (GapAt >= 0 && (k == GapAt || k == GapAt + 1)) continue;
+		const float A = AimA + (k - (N - 1) * 0.5f) * Step;
+		FireBullet(1, B.D - B.L / 2, B.X, 150.f, Vp - FMath::Cos(A) * Spd, FMath::Sin(A) * Spd, Def().BossBullet);
+	}
+}
+
+// ENGINE 13: a fire engine with a water cannon that throws fire. It hoses a lane (warned, then a wall of flame
+// down that lane), lobs fireballs onto marks around the car, and from phase two the hose sweeps across.
+void AFTGameMode::TickBossFire(FFTEnt& B, float Dt, int32 Ph, float& Want)
+{
+	const float Px = Car->X, Ahead = B.D - Car->D;
+	Want += 24.f * DU * FMath::Sin(0.7f * B.T);
+	B.X = FMath::FInterpTo(B.X, 66.f * XU * FMath::Sin(0.5f * B.T), Dt, 2.f);
+	BossPhaseLine(B, Ph, TEXT("He's swinging the hose! Keep moving!"), TEXT("THE HOSE IS SWEEPING!"),
+		TEXT("Everything's on fire! Dodge and SHOOT!"), TEXT("FIVE-ALARM FIRE!"));
+	B.T1 -= Dt;
+	if (B.T1 <= 0.f && Ahead < B.Ta + 3000.f)
+	{
+		const int32 Step = B.Step++;
+		const float Gap = Ph == 0 ? 2.5f : (Ph == 1 ? 2.1f : 1.7f);
+		if (Step % 3 != 2)
+		{
+			// the hose: the player's lane goes up in flames (in phase 2 a second lane too); from phase 1 it sweeps
+			const int32 Ln = LaneOf(Px);
+			const float Sweep = Ph >= 1 ? (FMath::RandBool() ? 1.f : -1.f) * 60.f * XU : 0.f;
+			FlameLane(LaneX(Ln), Ph == 0 ? 1.0f : 0.85f, Ph == 0 ? 0.8f : 1.1f, Sweep);
+			if (Ph == 2) FlameLane(LaneX((Ln + 2) % 4), 0.95f, 0.9f, -Sweep);
+			Say(TEXT("flameWarn"), 2); Sfx(TEXT("ZapWarn"), 0.8f, 0.7f);
+			B.T1 = Gap;
+		}
+		else
+		{
+			// fireballs onto marks round the car
+			const int32 N = 2 + Ph;
+			for (int32 k = 0; k < N; ++k)
+				Lob(3, Ahead, B.X, 420.f, R(-200.f, 600.f), Px + (k == 0 ? 0.f : R(-110.f, 110.f) * XU), 1.25f + 0.15f * k, 340.f, 900.f, 14.f);
+			Say(TEXT("lobWarn"), 2); Sfx(TEXT("EShotBig"), 0.8f, 0.8f);
+			B.T1 = Gap + 0.3f;
+		}
+	}
+	// burning barrels off the back in the last phase
+	B.T2 -= Dt;
+	if (Ph >= 1 && B.T2 <= 0.f)
+	{
+		B.T2 = Ph == 2 ? 2.4f : 3.4f;
+		FFTEnt& Bb = Spawn(EFTKind::Barrel, B.D - B.L / 2 - 200.f - Car->D, B.X); Bb.Sp = 0.f;
+	}
+	if (BossHpFrac < 0.2f && BossLineStep == 0) { BossLineStep = 1; SayText(TEXT("He's running dry! Finish him!"), 3); }
+}
+
+// MR. CHUCKLES: a clown car under a bunch of balloons. The balloons drift back over the road and drop their bombs
+// on warned marks; he throws pies (a slow fan of shots); in the last phase the bombs carpet three lanes of four.
+void AFTGameMode::TickBossClown(FFTEnt& B, float Dt, int32 Ph, float& Want)
+{
+	const float Px = Car->X, Ahead = B.D - Car->D;
+	Want += 30.f * DU * FMath::Sin(1.1f * B.T);
+	B.X = FMath::FInterpTo(B.X, 80.f * XU * FMath::Sin(0.8f * B.T) * FMath::Cos(0.37f * B.T), Dt, 2.5f);
+	BossPhaseLine(B, Ph, TEXT("More balloons! Watch the shadows!"), TEXT("HE'S LETTING THE BALLOONS GO!"),
+		TEXT("It's raining bombs! Find the empty lane!"), TEXT("BOMB PARADE!"));
+	B.T1 -= Dt;
+	if (B.T1 <= 0.f && Ahead < B.Ta + 3000.f)
+	{
+		const int32 Step = B.Step++;
+		const float Gap = Ph == 0 ? 2.4f : (Ph == 1 ? 2.0f : 1.8f);
+		if (Ph == 2 && Step % 2 == 0)
+		{
+			// bomb carpet: every lane but one
+			const int32 Free = FMath::RandRange(0, 3);
+			for (int32 l = 0; l < 4; ++l)
+				if (l != Free) Lob(0, Ahead, B.X + R(-30.f, 30.f) * XU, 1700.f, R(0.f, 400.f), LaneX(l), 1.5f + 0.1f * l, 320.f, 150.f, 15.f);
+			Say(TEXT("lobWarn"), 2); Shout(TEXT("BOMBS!"));
+			B.T1 = Gap + 0.4f;
+		}
+		else if (Step % 3 == 2)
+		{
+			// a fan of pies with a gap
+			BulletFan(B, 7, 0.12f, FMath::RandRange(1, 4), 280.f * DU, Px);
+			Sfx(TEXT("EShotBig"), 0.7f, 1.3f);
+			B.T1 = Gap;
+		}
+		else
+		{
+			const int32 N = 2 + Ph;
+			for (int32 k = 0; k < N; ++k)
+				Lob(0, Ahead, B.X + R(-40.f, 40.f) * XU, 1700.f, R(-100.f, 500.f), k == 0 ? Px : Px + R(-120.f, 120.f) * XU, 1.4f + 0.12f * k, 300.f, 200.f, 14.f);
+			Say(TEXT("lobWarn"), 2); Sfx(TEXT("HenchDrop"));
+			B.T1 = Gap;
+		}
+	}
+	if (BossHpFrac < 0.2f && BossLineStep == 0) { BossLineStep = 1; SayText(TEXT("He's out of balloons! Pop him!"), 3); }
+}
+
+// THE ABOMINABLE: a yeti running down the mountain ahead of you. He hurls snowballs at marks round the car, pounds
+// the ground so ice spikes shoot up a lane, and from phase one sets off avalanches that roll back down the road
+// (a wall of snow with one gap).
+void AFTGameMode::TickBossYeti(FFTEnt& B, float Dt, int32 Ph, float& Want)
+{
+	const float Px = Car->X, Ahead = B.D - Car->D;
+	Want += 20.f * DU * FMath::Sin(0.9f * B.T);
+	B.X = FMath::FInterpTo(B.X, 70.f * XU * FMath::Sin(0.6f * B.T), Dt, 2.2f);
+	BossPhaseLine(B, Ph, TEXT("Avalanche! Find the gap in the snow!"), TEXT("HE'S STARTING AVALANCHES!"),
+		TEXT("He's going berserk! Snow everywhere!"), TEXT("THE YETI IS BERSERK!"));
+	B.T1 -= Dt;
+	if (B.T1 <= 0.f && Ahead < B.Ta + 3000.f)
+	{
+		const int32 Step = B.Step++;
+		const float Gap = Ph == 0 ? 2.4f : (Ph == 1 ? 2.0f : 1.7f);
+		const int32 Kind = Ph == 0 ? (Step % 2) : (Step % 3);
+		if (Kind == 0)
+		{
+			const int32 N = 2 + Ph;
+			for (int32 k = 0; k < N; ++k)
+				Lob(1, Ahead, B.X + (k % 2 ? 1.f : -1.f) * 160.f, 520.f, R(-100.f, 500.f), k == 0 ? Px : Px + R(-120.f, 120.f) * XU, 1.2f + 0.12f * k, 380.f, 700.f, 15.f);
+			Say(TEXT("lobWarn"), 2); Sfx(TEXT("EShotBig"), 0.8f, 0.6f);
+			B.T1 = Gap;
+		}
+		else if (Kind == 1)
+		{
+			// ground pound: ice spikes up the player's lane (and a second in phase 2)
+			const int32 Ln = LaneOf(Px);
+			TArray<int32> Lanes = { Ln };
+			if (Ph == 2) Lanes.Add(FMath::Clamp(Ln + (Ln < 2 ? 2 : -2), 0, 3));
+			for (int32 L : Lanes) { FFTHazardState& Hz = Hazards.AddDefaulted_GetRef(); Hz.Type = 0; Hz.X = LaneX(L); Hz.Warn = Ph == 0 ? 1.0f : 0.85f; Hz.Live = 0.45f; Hz.Style = 1; }
+			SayText(TEXT("He's pounding the ice! Out of that lane!"), 2); Shout(TEXT("ICE!")); Sfx(TEXT("ZapWarn"), 0.8f, 0.6f); Shake(0.5f);
+			B.T1 = Gap;
+		}
+		else
+		{
+			FFTHazardState& Hz = Hazards.AddDefaulted_GetRef(); Hz.Type = 2; Hz.Style = 1;
+			const int32 GapLane = FMath::RandRange(0, 3);
+			Hz.X = LaneX(GapLane); Hz.Gap = (Ph == 2 ? 66.f : 78.f) * XU * 1.3f;
+			Hz.Warn = 0.8f; Hz.D = Ahead; Hz.W = (Ph == 2 ? 320.f : 290.f) * DU;
+			SayText(TEXT("AVALANCHE! Get to the gap!"), 2); Shout(TEXT("AVALANCHE!")); Sfx(TEXT("RingWarn"), 0.9f, 0.6f);
+			B.T1 = Gap + 0.5f;
+		}
+	}
+	if (BossHpFrac < 0.2f && BossLineStep == 0) { BossLineStep = 1; SayText(TEXT("He's slowing down! Take the shot!"), 3); }
+}
+
+// THE GREAT WHITE: a shark built into a car. It fires swordfish down the road (a fan with a gap), lobs flying
+// fish onto marks, and from phase one lunges back at you with its jaws open (brake check, a bite if it lands).
+void AFTGameMode::TickBossShark(FFTEnt& B, float Dt, int32 Ph, float& Want)
+{
+	const float Px = Car->X, Ahead = B.D - Car->D;
+	Want += 22.f * DU * FMath::Sin(0.8f * B.T);
+	B.X = FMath::FInterpTo(B.X, 72.f * XU * FMath::Sin(0.55f * B.T), Dt, 2.2f);
+	BossPhaseLine(B, Ph, TEXT("It's lunging! Watch the jaws!"), TEXT("FEEDING TIME!"),
+		TEXT("Feeding frenzy! Fish everywhere!"), TEXT("FEEDING FRENZY!"));
+	B.T1 -= Dt;
+	if (B.T1 <= 0.f && Ahead < B.Ta + 3000.f)
+	{
+		const int32 Step = B.Step++;
+		const float Gap = Ph == 0 ? 2.3f : (Ph == 1 ? 1.9f : 1.6f);
+		if (Step % 2 == 0)
+		{
+			BulletFan(B, Ph == 0 ? 7 : 9, 0.075f, FMath::RandRange(1, Ph == 0 ? 4 : 6), 300.f * DU, Px);
+			Say(TEXT("bulletWarn"), 2); Sfx(TEXT("Missile"), 0.7f, 1.3f);
+			B.T1 = Gap;
+		}
+		else
+		{
+			const int32 N = 2 + Ph;
+			for (int32 k = 0; k < N; ++k)
+				Lob(2, Ahead, B.X, 260.f, R(-100.f, 500.f), k == 0 ? Px : Px + R(-120.f, 120.f) * XU, 1.15f + 0.12f * k, 320.f, 1000.f, 13.f);
+			Say(TEXT("lobWarn"), 2); Sfx(TEXT("HenchDrop"), 0.8f, 1.2f);
+			B.T1 = Gap;
+		}
+	}
+	// the lunge (like the Dealer's brake check): it glows, then drops back hard at the car
+	if (Ph >= 1)
+	{
+		B.T3 -= Dt;
+		if (B.State == 0 && B.T3 <= 0.f) { B.State = 1; B.T2 = 0.f; SayText(TEXT("JAWS! Get out of its lane!"), 2); Shout(TEXT("JAWS!")); Sfx(TEXT("BrakeWarn")); }
+		if (B.State == 1)
+		{
+			B.T2 += Dt; B.Glow = 1.f;
+			if (B.T2 > 0.9f) Want = B.Ta - 160.f * DU * 1.4f;
+			if (B.T2 > 2.3f) { B.State = 0; B.Glow = 0.f; B.T3 = Ph == 2 ? 5.f : 7.f; }
+		}
+	}
+	if (BossHpFrac < 0.2f && BossLineStep == 0) { BossLineStep = 1; SayText(TEXT("It's belly up! Finish it!"), 3); }
+}
+
+// THE CHAIRMAN: an executive limo with jet pods, hovering. A lot of bullets, always with a way through: walls of
+// shots across the road with a gap, a stream that follows you (keep moving), aimed bursts, and rocket strikes
+// (lock-on rings). Every pattern is readable: the shots are slow enough to weave, and there is always a gap.
+void AFTGameMode::TickBossLimo(FFTEnt& B, float Dt, int32 Ph, float& Want)
+{
+	const float Px = Car->X, Ahead = B.D - Car->D;
+	Want += 20.f * DU * FMath::Sin(0.6f * B.T);
+	B.X = FMath::FInterpTo(B.X, 76.f * XU * FMath::Sin(0.42f * B.T), Dt, 2.f);
+	B.H = 240.f + 60.f * FMath::Sin(1.4f * B.T);
+	BossPhaseLine(B, Ph, TEXT("He's opened the sunroof guns! Weave!"), TEXT("THE CHAIRMAN IS ANGRY!"),
+		TEXT("Everything he's got! Thread the needle, Kane!"), TEXT("HOSTILE TAKEOVER!"));
+	// the stream: in phase 1+ a steady line of shots that trails the car
+	if (Ph >= 1)
+	{
+		B.T3 -= Dt;
+		if (B.T3 <= 0.f && Ahead < B.Ta + 3000.f)
+		{
+			B.T3 = Ph == 2 ? 0.14f : 0.2f;
+			B.Tx = FMath::FInterpConstantTo(B.Tx == 0.f ? B.X : B.Tx, Px, 0.2f, 70.f * XU); // lags behind where you are
+			const float A = FMath::Atan2(B.Tx - B.X, FMath::Max(1500.f, Ahead));
+			FireBullet(1, B.D - B.L / 2, B.X, 150.f, Car->Speed - FMath::Cos(A) * 320.f * DU, FMath::Sin(A) * 320.f * DU, 3);
+		}
+	}
+	B.T1 -= Dt;
+	if (B.T1 <= 0.f && Ahead < B.Ta + 3000.f)
+	{
+		const int32 Step = B.Step++;
+		const float Gap = Ph == 0 ? 2.2f : (Ph == 1 ? 1.9f : 1.6f);
+		const int32 Pick = Step % (Ph == 0 ? 3 : 4);
+		if (Pick == 0 || Pick == 3)
+		{
+			// a wall of shots across the whole road with one gap
+			BulletFan(B, 15, 0.055f, FMath::RandRange(3, 10), 290.f * DU, 0.f);
+			Say(TEXT("bulletWarn"), 2); Sfx(TEXT("EShotBig"));
+			B.T1 = Gap;
+		}
+		else if (Pick == 1)
+		{
+			// aimed bursts: three quick volleys of three at you
+			for (int32 v = 0; v < 3; ++v)
+			{
+				FTimerHandle Th;
+				GetWorldTimerManager().SetTimer(Th, FTimerDelegate::CreateWeakLambda(this, [this, Id = B.Id]()
+				{
+					if (FFTEnt* Bp = FindEnt(Id)) if (!Bp->bDead && Phase == EFTPhase::Play) { BulletFan(*Bp, 3, 0.05f, -1, 340.f * DU, Car->X); Sfx(TEXT("EShot"), 0.7f); }
+				}), 0.05f + v * 0.32f, false);
+			}
+			B.T1 = Gap;
+		}
+		else
+		{
+			// rockets: lock-on strikes round the car
+			const int32 N = 2 + Ph;
+			for (int32 k = 0; k < N; ++k)
+			{
+				FFTHazardState& Hz = Hazards.AddDefaulted_GetRef(); Hz.Type = 1; Hz.Style = 2;
+				const float Off = k == 0 ? 0.f : (k % 2 ? 1.f : -1.f) * R(80.f, 115.f) * XU;
+				Hz.X = FMath::Clamp(Px + Off, -RoadHalf, RoadHalf); Hz.D = 0.f; Hz.Track = k == 0 ? 0.5f : 0.f;
+				Hz.Warn = 1.05f + 0.2f * k; Hz.Live = 0.3f; Hz.W = 36.f * XU * 1.4f;
+			}
+			Say(TEXT("zoneWarn"), 2); Sfx(TEXT("ZoneWarn"));
+			B.T1 = Gap + 0.3f;
+		}
+	}
+	if (BossHpFrac < 0.66f && B.Count == 0) { B.Count = 1; SpawnGroup({ EFTKind::Suv }); }
+	if (BossHpFrac < 0.33f && B.Count == 1) { B.Count = 2; SpawnGroup({ EFTKind::Heli }); }
+	if (BossHpFrac < 0.2f && BossLineStep == 0) { BossLineStep = 1; SayText(TEXT("His board just fired him! Finish it!"), 3); }
+}
+
+// MOUNT KALDERA's sky: bolts of lightning in the ash cloud, a flash, thunder; now and then one hits the road
+// (a warned strike ring, like the Alchemist's).
+void AFTGameMode::TickLightning(float Dt)
+{
+	BoltT -= Dt;
+	if (BoltComp && BoltComp->IsVisible() && BoltT < BoltNext - 0.22f)
+	{
+		BoltComp->SetVisibility(false);
+		if (Flashes.IsValidIndex(BoltFlash)) { Flashes[BoltFlash]->SetIntensity(0.f); Flashes[BoltFlash]->SetLightColor(FLinearColor(1.f, 0.6f, 0.25f)); }
+		BoltFlash = -1;
+	}
+	// the flash flickers while the bolt is up
+	if (Flashes.IsValidIndex(BoltFlash)) Flashes[BoltFlash]->SetIntensity(FMath::FRand() < 0.5f ? 260000.f : 60000.f);
+	if (BoltT > 0.f) return;
+	BoltNext = R(2.2f, 5.5f);
+	BoltT = BoltNext;
+	const float Pd = Car->D;
+	const FVector At = Track->ToWorld(Pd + R(14000.f, 40000.f), R(-1.f, 1.f) > 0.f ? R(4000.f, 22000.f) : -R(4000.f, 22000.f), 0.f);
+	if (BoltComp && BoltComp->GetStaticMesh())
+	{
+		BoltComp->SetWorldTransform(FTransform(FRotator(0.f, R(0.f, 360.f), R(-8.f, 8.f)), At + FVector(0, 0, -600.f), FVector(R(1.6f, 2.6f))));
+		BoltComp->SetVisibility(true);
+	}
+	int32 BestI = 0;
+	for (int32 i = 0; i < Flashes.Num(); ++i) if (Flashes[i]->Intensity < Flashes[BestI]->Intensity) BestI = i;
+	UPointLightComponent* Best = Flashes[BestI];
+	BoltFlash = BestI;
+	Best->SetWorldLocation(At + FVector(0, 0, 6000.f));
+	Best->SetLightColor(FLinearColor(0.75f, 0.8f, 1.f));
+	Best->SetAttenuationRadius(40000.f);
+	Best->SetIntensity(260000.f);
+	Sfx(TEXT("Strike"), 0.55f, R(0.55f, 0.75f));
+	Shake(0.25f);
+	if (FMath::FRand() < 0.15f) Say(TEXT("thunder"), 0, 12.f);
+	// a strike on the road now and then (not during the boss: he has his own fire)
+	if (!bBossSpawned && FMath::FRand() < 0.3f && !(Track->FlagsAt(Pd) & FTFlag::SetPiece))
+	{
+		FFTHazardState& Hz = Hazards.AddDefaulted_GetRef(); Hz.Type = 1; Hz.Style = 0; Hz.Thing = 4;
+		Hz.X = FMath::Clamp(Car->X + R(-60.f, 60.f) * XU, -RoadHalf, RoadHalf); Hz.D = R(800.f, 1600.f); Hz.Track = 0.f;
+		Hz.Warn = 1.1f; Hz.Live = 0.3f; Hz.W = 36.f * XU * 1.3f;
+		Say(TEXT("zoneWarn"), 1, 6.f);
+	}
 }
 
 void AFTGameMode::TickHazards(float Dt)
@@ -1836,21 +2229,81 @@ void AFTGameMode::TickHazards(float Dt)
 		}
 		const bool bLive = Hz.T >= Hz.Warn;
 		const float Blink = bLive ? 6.f : (FMath::Fmod(Hz.T, 0.2f) < 0.1f ? 1.6f : 0.6f);
+		// 2.5 looks: 0 electric (the Alchemist), 1 ice and snow (the yeti), 2 fire, 3 water
+		static const FLinearColor LiveCol[4] = { FLinearColor(0.7f, 0.9f, 1.f), FLinearColor(0.85f, 0.95f, 1.f), FLinearColor(1.f, 0.55f, 0.1f), FLinearColor(0.3f, 0.8f, 1.f) };
+		const FLinearColor LC = LiveCol[FMath::Clamp(Hz.Style, 0, 3)];
+		const FLinearColor WarnC = Hz.Style == 1 ? FLinearColor(0.2f, 0.45f, 1.f) : FLinearColor(1.f, 0.2f, 0.2f);
+		auto Hs = [this](float D, float X) { return (Track->FlagsAt(D) & FTFlag::HalfPipe) ? Track->SurfaceH(D, X) : 0.f; };
 		if (Hz.Type == 0)
 		{
 			// a lane goes live down the road from the tanker to behind the car
 			const float L = 9000.f;
-			A->SetActorTransform(FTransform(FRotator::ZeroRotator, FVector::ZeroVector, FVector(L / 100.f, 64.f * XU / 100.f, 1.f)) * Track->TransformAt(Pd + L * 0.35f, Hz.X, 6.f));
-			A->SetLook(bLive ? FLinearColor(0.7f, 0.9f, 1.f) : FLinearColor(1.f, 0.2f, 0.2f), Blink);
-			if (bLive && !Hz.bHit) { Hz.bHit = true; Sfx(TEXT("Zap")); if (FMath::Abs(Px - Hz.X) < 39.f * XU) { HurtPlayer(16.f); Say(TEXT("shock"), 2); } else { Say(TEXT("dodge"), 1, 2.f); } }
+			A->SetActorTransform(FTransform(FRotator::ZeroRotator, FVector::ZeroVector, FVector(L / 100.f, 64.f * XU / 100.f, 1.f)) * Track->TransformAt(Pd + L * 0.35f, Hz.X, 6.f + Hs(Pd, Hz.X)));
+			A->SetLook(bLive ? LC : WarnC, Blink);
+			if (bLive && !Hz.bHit)
+			{
+				Hz.bHit = true; Sfx(Hz.Style == 1 ? TEXT("Strike") : TEXT("Zap"));
+				if (Hz.Style == 1) for (int32 k = 0; k < 4; ++k) Explode(Track->ToWorld(Pd + 1500.f * k - 1000.f, Hz.X, 40.f), 0.35f);
+				if (FMath::Abs(Px - Hz.X) < 39.f * XU) { HurtPlayer(16.f); Say(Hz.Style == 1 ? TEXT("hit") : TEXT("shock"), 2); } else { Say(TEXT("dodge"), 1, 2.f); }
+			}
 			if (Hz.T > Hz.Warn + Hz.Live) Hz.bDone = true;
 		}
 		else if (Hz.Type == 1)
 		{
 			if (Hz.T < Hz.Track) Hz.X = FMath::FInterpConstantTo(Hz.X, Px, Dt, 70.f * XU);
-			A->SetActorTransform(FTransform(FRotator::ZeroRotator, FVector::ZeroVector, FVector(Hz.W / 50.f, Hz.W / 50.f, 1.f)) * Track->TransformAt(Pd + Hz.D, Hz.X, 6.f));
-			A->SetLook(bLive ? FLinearColor(0.7f, 0.9f, 1.f) : FLinearColor(1.f, 0.15f, 0.2f), Blink);
+			A->SetActorTransform(FTransform(FRotator::ZeroRotator, FVector::ZeroVector, FVector(Hz.W / 50.f, Hz.W / 50.f, 1.f)) * Track->TransformAt(Pd + Hz.D, Hz.X, 6.f + Hs(Pd + Hz.D, Hz.X)));
+			A->SetLook(bLive ? LC : WarnC, Blink);
+			// a lightning strike: the bolt stands on the ring while it is live
+			if (Hz.Thing == 4 && bLive && LobMeshes.IsValidIndex(4) && LobMeshes[4]) A->SetThing(LobMeshes[4], FTransform(FRotator(0.f, R(0.f, 360.f), 0.f), Track->ToWorld(Pd + Hz.D, Hz.X, 0.f), FVector(0.45f)));
 			if (bLive && !Hz.bHit) { Hz.bHit = true; Sfx(TEXT("Strike")); Explode(Track->ToWorld(Pd + Hz.D, Hz.X, 50.f), 0.5f); if (FMath::Abs(Px - Hz.X) < Hz.W && FMath::Abs(Hz.D) < Hz.W) { HurtPlayer(18.f); Say(TEXT("shock"), 2); } }
+			if (Hz.T > Hz.Warn + Hz.Live) Hz.bDone = true;
+		}
+		else if (Hz.Type == 4)
+		{
+			// 2.5 flame lane: the fire truck's hose. Warned in red, then a wall of fire down the lane (it can sweep)
+			if (bLive) Hz.X = FMath::Clamp(Hz.X + Hz.Vx * Dt, -RoadHalf, RoadHalf);
+			const float L = 9000.f;
+			A->SetActorTransform(FTransform(FRotator::ZeroRotator, FVector::ZeroVector, FVector(L / 100.f, 2.f * Hz.W / 100.f, 1.f)) * Track->TransformAt(Pd + L * 0.35f, Hz.X, 6.f));
+			A->SetLook(bLive ? LC : WarnC, bLive ? 5.f + 2.f * FMath::Sin(Hz.T * 40.f) : Blink);
+			if (bLive)
+			{
+				Hz.FxT -= Dt;
+				if (Hz.FxT <= 0.f)
+				{
+					Hz.FxT = 0.09f;
+					if (UNiagaraSystem* S = Load<UNiagaraSystem>(TEXT("/Game/FX/NS_Fire")))
+						for (int32 k = 0; k < 3; ++k)
+							UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, S, Track->ToWorld(Pd + R(-1200.f, 5000.f), Hz.X + R(-0.7f, 0.7f) * Hz.W, 30.f), FRotator::ZeroRotator, FVector(1.4f), true, true, ENCPoolMethod::AutoRelease);
+				}
+				if (!Hz.bHit) { Hz.bHit = true; Sfx(TEXT("Explode"), 0.5f, 0.6f); }
+				if (FMath::Abs(Px - Hz.X) < Hz.W + CarW * 0.35f && Car->bGrounded) { HurtPlayer(Hz.Dmg); Say(TEXT("hit"), 2, 2.f); }
+			}
+			if (Hz.T > Hz.Warn + Hz.Live) { if (FMath::Abs(Px - Hz.X) > Hz.W + CarW) Say(TEXT("dodge"), 1, 3.f); Hz.bDone = true; }
+		}
+		else if (Hz.Type == 5)
+		{
+			// 2.5 lobbed thing: a mark on the road (it rides with the car, like a lock-on); the thing flies in from the
+			// boss on an arc and lands on it when the warning runs out
+			const float U = FMath::Clamp(Hz.T / FMath::Max(Hz.Warn, 0.05f), 0.f, 1.f);
+			A->SetActorTransform(FTransform(FRotator::ZeroRotator, FVector::ZeroVector, FVector(Hz.W / 50.f, Hz.W / 50.f, 1.f)) * Track->TransformAt(Pd + Hz.D, Hz.X, 6.f + Hs(Pd + Hz.D, Hz.X)));
+			A->SetLook(bLive ? LC : WarnC, bLive ? 6.f : (0.6f + 1.4f * U) * (FMath::Fmod(Hz.T, 0.16f) < 0.08f ? 1.f : 0.6f));
+			if (!bLive)
+			{
+				const float Dd = FMath::Lerp(Hz.FromD, Hz.D, U), Xx = FMath::Lerp(Hz.FromX, Hz.X, U);
+				const float Hh = FMath::Lerp(Hz.FromH, 60.f, U) + Hz.Arc * 4.f * U * (1.f - U);
+				static const float Sc[5] = { 1.f, 1.2f, 1.f, 1.1f, 1.f };
+				const int32 Ti = FMath::Clamp(Hz.Thing, 0, 4);
+				if (LobMeshes.IsValidIndex(Ti) && LobMeshes[Ti])
+					A->SetThing(LobMeshes[Ti], FTransform(FRotator(-360.f * U * (Ti == 2 ? 0.5f : 1.f), 180.f, Ti == 1 ? 540.f * U : 0.f), Track->ToWorld(Pd + Dd, Xx, Hh + Hs(Pd + Dd, Xx)), FVector(Sc[Ti])));
+			}
+			else if (!Hz.bHit)
+			{
+				Hz.bHit = true;
+				A->HideThing();
+				Explode(Track->ToWorld(Pd + Hz.D, Hz.X, 60.f), Hz.Thing == 1 ? 0.6f : 0.8f);
+				if (FMath::Abs(Px - Hz.X) < Hz.W + CarW * 0.3f && FMath::Abs(Hz.D) < Hz.W + CarL * 0.3f && (Car->bGrounded || Car->H - Car->SurfH < 300.f)) { HurtPlayer(Hz.Dmg); Say(TEXT("hit"), 2, 2.f); }
+				else if (FMath::Abs(Px - Hz.X) < Hz.W * 2.2f) { AddScore(150, 2); Popup(TEXT("DODGED! +150"), CGreen); Say(TEXT("dodge"), 1, 3.f); }
+			}
 			if (Hz.T > Hz.Warn + Hz.Live) Hz.bDone = true;
 		}
 		else if (Hz.Type == 2)
@@ -1858,7 +2311,20 @@ void AFTGameMode::TickHazards(float Dt)
 			// the shock wave rolls down the road toward the car; a green gap lane lets you through
 			if (bLive) Hz.D -= Hz.W * Dt;
 			A->SetActorTransform(FTransform(FRotator::ZeroRotator, FVector::ZeroVector, FVector(3.f, 2.f * FT::Edge / 100.f, 1.f)) * Track->TransformAt(Pd + Hz.D, 0.f, 8.f));
-			A->SetLook(bLive ? FLinearColor(0.6f, 0.85f, 1.f) : FLinearColor(1.f, 0.25f, 0.2f), Blink);
+			A->SetLook(bLive ? (Hz.Style == 1 ? LiveCol[1] : FLinearColor(0.6f, 0.85f, 1.f)) : WarnC, Blink);
+			// the avalanche: a rolling wall of snow, except the gap
+			if (bLive && Hz.Style == 1)
+			{
+				Hz.FxT -= Dt;
+				if (Hz.FxT <= 0.f)
+				{
+					Hz.FxT = 0.1f;
+					if (UNiagaraSystem* S = Load<UNiagaraSystem>(TEXT("/Game/FX/NS_ExplosionSmoke")))
+						for (int32 l = 0; l < 4; ++l)
+							if (FMath::Abs(LaneX(l) - Hz.X) > Hz.Gap * 0.5f)
+								UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, S, Track->ToWorld(Pd + Hz.D, LaneX(l), 60.f), FRotator::ZeroRotator, FVector(1.3f), true, true, ENCPoolMethod::AutoRelease);
+				}
+			}
 			if (bLive && !Hz.bHit && Hz.D <= CarL * 0.5f)
 			{
 				Hz.bHit = true;
@@ -1923,16 +2389,63 @@ void AFTGameMode::TickStunts(float Dt)
 		WallRideT += Dt;
 		if (WallRideT >= 1.2f && WallRideT - Dt < 1.2f) Stunt(TEXT("WALL RIDE"), 600, TEXT("Riding the wall! Gorgeous!"), 2.f);
 	}
+	// 2.5 half pipe: up the wall high is a stunt (once per wall per pipe)
+	if ((F.Flags & FTFlag::HalfPipe) && Car->bGrounded && Car->SurfH > 380.f)
+	{
+		const int32 Side = Car->X > 0.f ? 1 : -1;
+		if (HalfSection != F.Section || HalfSide != Side)
+		{
+			HalfSection = F.Section; HalfSide = Side;
+			Stunt(TEXT("HALF PIPE"), 450, nullptr, 3.f);
+			Say(TEXT("halfPipe"), 1, 3.f); Shout(TEXT("SHRED!"));
+		}
+	}
+	// 2.5 straight through a tower block
+	if (F.Flags & FTFlag::Building) BldgSection = F.Section;
+	else if (BldgSection >= 0)
+	{
+		BldgSection = -1;
+		Stunt(TEXT("THROUGH THE LOBBY"), 500, nullptr, 3.f);
+		Say(TEXT("bldgIn"), 1, 4.f);
+	}
+	// 2.5 the coaster: a hop between rails, the split, and the whole ride
+	{
+		const bool bCo = (F.Flags & FTFlag::Coaster) != 0;
+		if (bCo && !bOnCoaster) { bOnCoaster = true; CoasterT = 0.f; CoasterMode = -1; }
+		if (bCo)
+		{
+			CoasterT += Dt;
+			const FFTSection* S = Track->SectionAt(Car->D);
+			const int32 Mode = S ? FMath::RoundToInt(FMath::Abs(S->A)) : 0;
+			if (Mode != CoasterMode)
+			{
+				if (Mode != 0 && CoasterMode >= 0) { Say(TEXT("railsSplit"), 2); Shout(Mode == 3 ? TEXT("CROSSOVER!") : (Mode == 2 ? TEXT("HELIX!") : TEXT("SPLIT!"))); }
+				CoasterMode = Mode;
+			}
+		}
+		if (!bCo && bOnCoaster)
+		{
+			bOnCoaster = false;
+			if (CoasterT > 3.f) { Stunt(TEXT("COASTER RIDE"), 1500, TEXT("What a ride! Print it, print it, PRINT IT!"), 8.f); Shout(TEXT("WHAT A RIDE!")); }
+		}
+		if (bHopAir && Car->bGrounded && !Car->IsLaunched())
+		{
+			bHopAir = false;
+			if (bCo) { Stunt(TEXT("RAIL HOP"), 600, nullptr, 5.f); Say(TEXT("railHop"), 2, 2.f); }
+		}
+	}
 	// set pieces ahead
 	struct FAheadKey { uint16 Flag; const TCHAR* Pool; };
-	static const FAheadKey Keys[] = { { FTFlag::Loop, TEXT("aheadLoop") }, { FTFlag::Gap, TEXT("aheadJump") }, { FTFlag::Twist, TEXT("aheadTwist") }, { FTFlag::Pipe, TEXT("aheadPipe") }, { FTFlag::Wall, TEXT("aheadWall") } };
+	static const FAheadKey Keys[] = { { FTFlag::Loop, TEXT("aheadLoop") }, { FTFlag::Gap, TEXT("aheadJump") }, { FTFlag::Twist, TEXT("aheadTwist") }, { FTFlag::Pipe, TEXT("aheadPipe") }, { FTFlag::Wall, TEXT("aheadWall") },
+		{ FTFlag::HalfPipe, TEXT("aheadHalf") }, { FTFlag::Coaster, TEXT("aheadCoaster") }, { FTFlag::Building, TEXT("aheadBldg") } };
 	for (const FAheadKey& K : Keys)
 	{
 		const float At = Track->NextFlagStart(Car->D, K.Flag, 1150.f * DU);
 		if (At > 0.f)
 		{
 			const FString Key = FString::Printf(TEXT("%s%d"), K.Pool, FMath::RoundToInt(At / 1000.f));
-			if (!AheadSaid.Contains(Key)) { AheadSaid.Add(Key); Say(K.Pool, 2); break; }
+			const TCHAR* LinePool = (K.Flag == FTFlag::Gap && Def().bLava) ? TEXT("aheadLava") : K.Pool;
+			if (!AheadSaid.Contains(Key)) { AheadSaid.Add(Key); Say(LinePool, 2); break; }
 		}
 	}
 	// the boss shows up at the finale

@@ -25,8 +25,9 @@ public:
 	int32 Quality = -1;          // -1 auto, 0 low .. 3 epic, 4 cinematic
 	bool bShowFps = false;
 	bool bVSync = true;
-	int32 BestScore[3] = { 0, 0, 0 };
-	FString BestTitle[3];
+	static constexpr int32 MaxLevels = 8;
+	int32 BestScore[MaxLevels] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+	FString BestTitle[MaxLevels];
 
 	// skill points (2.3): the bank, everything ever earned, and the rank of each upgrade (ids from skills.json).
 	// Saved with the settings, so the upgrades are a career that carries across levels and runs.

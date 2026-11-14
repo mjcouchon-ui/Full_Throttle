@@ -1,4 +1,4 @@
-# FULL THROTTLE 2.4: the Unreal Engine 5.9 game
+# FULL THROTTLE 2.5: the Unreal Engine 5.9 game
 
 The 80s spy car chase (web app `full-throttle`, 1.7.2) rebuilt as a native Unreal Engine 5.9 game for Windows,
 C++ plus Blueprints. WispOS opens the packaged build as the native app `full-throttle-unreal`
@@ -8,7 +8,7 @@ C++ plus Blueprints. WispOS opens the packaged build as the native app `full-thr
 
 | Section | Folder | What is in it |
 |---|---|---|
-| Maps | `Content/Maps/Bayshore`, `ChemicalWorks`, `Nevada` | one folder per level: the map, its props (Nanite meshes) and its sky/material instances |
+| Maps | `Content/Maps/Bayshore`, `ChemicalWorks`, `Nevada`, `Volcano`, `ThemePark`, `Glacier`, `Abyss`, `Metro` | one folder per level: the map, its props (Nanite meshes) and its sky/material instances |
 | Characters | `Content/Characters` | the vehicles: `Kestrel` (the player car, its 7 detachable parts, wheels, missile), `Syndicate`, `Choppers`, `SnakeEyes`, `Traffic`, `Bosses`, `Pickups` |
 | UI | `Content/UI` | `BP_FTHUD` (the canvas HUD: title, clapper, dashboard, director, menus, rebinding) |
 | Code | `Source`, `FullThrottle.uproject` | `FullThrottle` (game) and `FullThrottleEditor` (editor tools) modules |
@@ -97,3 +97,34 @@ No file in the project is over 50 MB. `Binaries`, `Intermediate`, `Saved` and `D
   (the autopilot drives, then `bench/bench_L<level>_<PRESET>.json` is written to the app's data folder and the game quits),
   `-ftauto` (autopilot), `-ftshots=N` (a screenshot every N s), `-ftquit=N`. `Tools/bench.sh` runs a set of benches.
 - Shipping builds open only from WispOS (launch ticket); a development build or the editor opens anywhere.
+
+- **2.5 (owner's queue): the car sticks to the road, keeps its speed through set pieces, and five new levels.**
+  - *Stick* (`AFTPlayerCar::ApplyArcade`): on everything but a real jump, any speed away from the road is taken out as
+    soon as the car lifts 4 cm over ride height, and a car more than `StickMaxLift` (40 cm) up with every wheel off is put
+    back down (at most 35 cm a frame, so a bad height reading can't push it through the deck). In pipes, loops and
+    corkscrews it can't leave the ribbon sideways (put back 1.5 m inside the barrier). A car wedged under 600 cm/s with
+    the throttle open for 1.2 s is put back on the road just ahead, rolling (`FTSTALL`). Lesson: the first 2.5 build
+    turned the upward speed along the road keeping its size; a bounce off a pipe barrier came back as 14,000 cm/s
+    sideways and threw the car out of the Chem double-roll pipe. Only remove it.
+  - *Speed through set pieces*: entering a loop, corkscrew, pipe or coaster the way-in speed (at least cruising) becomes a
+    floor held all the way through (a turbo inside raises it); the governor never brakes in there and keeps pushing
+    off the wheels. In 2.4 the Chem corkscrew took the car from 4,932 to 292 cm/s; now 98-100 % is kept (`FTSET` logs
+    entry/min/exit per set piece). Jumps: off the kicker at 6,800 cm/s or more (2.4 fell short of the gaps at ~5,000).
+  - *New track shapes* (`FTData.cpp` section strings): `half` (snowboard half pipe: flat floor, quarter circles up to 68
+    degrees at the barrier; `AFTTrack::SurfaceH` gives height and slope across, the car glues to its normal), `coaster:mode:hills`
+    (two rails instead of a road; mode 0 side by side, hop across by steering hard; 1 split high/low and wide; 2 double
+    helix; 3 cross-over; `AFTTrack::RailsAt`; the car follows its rail by continuity, `RailHop`), `bldg:height` (the
+    road runs through a tower's ground floor: facade `MI_Facade`, lobby, ceiling lights). Level fields: `Slope` (the ski
+    level runs downhill), `bLava` + `LavaBands` (lava lakes under every jump gap, lava rivers; `MI_Lava`), `bLightning`.
+  - *Levels* 4-8: VOLCANO (Mount Kaldera, boss ENGINE 13: flame lanes that sweep, fireballs, burning barrels), THEME PARK
+    (Coaster Cove, tighter and tighter turns, then the coaster; boss MR. CHUCKLES: balloon bombs onto warned marks, a
+    carpet of bombs with one free lane, pie fans), ICE MOUNTAIN (Frostbite Peak, downhill all the way, half pipes; boss
+    THE ABOMINABLE: snowballs, ice-spike lanes, avalanches with one gap), UNDER THE SEA (to the sunken city of Nereida,
+    glass tunnels; boss THE GREAT WHITE: swordfish fans, flying fish, the jaws lunge), CITY CENTER (Midtown, hairpins,
+    through the towers; boss THE CHAIRMAN, a hovering limo gunship: walls of shots with one gap, a trailing stream,
+    aimed bursts, rocket rings; every pattern has a way through). Art and maps: `Content/Python/ft_v25.py`
+    (`materials(); export(); build_maps()`). New hazard types: 4 flame lane, 5 lobbed thing (bomb, snowball, fish,
+    fireball) flying in from the boss onto a warned ring.
+  - *Title*: eight level cards, arrows or 1-8. Best takes saved for eight levels.
+  - *Tests*: `../full-throttle-tests/v250/run_dev.sh <tag> <level 0-7> <seconds>` (Development package, autopilot; FTSET,
+    FTGLUE, FTJUMP, FTRAIL, FTSTALL lines and shots in out/<tag>); `all.sh` runs all eight.

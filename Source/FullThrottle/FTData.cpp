@@ -37,6 +37,9 @@ static TArray<FFTSection> ParseSections(const TCHAR* Src)
 				else if (K == TEXT("twist")) S.Shape = EFTSec::Twist;
 				else if (K == TEXT("pipe")) S.Shape = EFTSec::Pipe;
 				else if (K == TEXT("jump")) S.Shape = EFTSec::Jump;
+				else if (K == TEXT("half")) S.Shape = EFTSec::HalfPipe;
+				else if (K == TEXT("coaster")) S.Shape = EFTSec::Coaster;
+				else if (K == TEXT("bldg")) S.Shape = EFTSec::Building;
 				continue;
 			}
 			const float V = FCString::Atof(*K);
@@ -82,7 +85,7 @@ static TArray<FFTLevelDef> BuildLevels()
 {
 	using namespace FTData;
 	TArray<FFTLevelDef> L;
-	L.SetNum(3);
+	L.SetNum(8);
 
 	// ---------------------------------------------------------------- L1 BAYSHORE
 	{
@@ -135,6 +138,7 @@ static TArray<FFTLevelDef> BuildLevels()
 		V.KerbA = Hex(TEXT("ff4fb8")); V.KerbB = Hex(TEXT("fffaf0")); V.Rail = Hex(TEXT("2ee6ff")); V.Neon2 = Hex(TEXT("ff4fb8"));
 		V.Sky0 = Hex(TEXT("0b0826")); V.Sky1 = Hex(TEXT("3a1a6e")); V.Sky2 = Hex(TEXT("ff4f9a")); V.Fog = Hex(TEXT("5a2a7a"));
 		V.Gantries = { TEXT("BAYSHORE"), TEXT("PIER 2 MI"), TEXT("SUNSET STRIP"), TEXT("ROUTE 9 NORTH"), TEXT("MARINA EXIT 4"), TEXT("NEON MILE"), TEXT("LIGHTHOUSE PT"), TEXT("CAUSEWAY") };
+		V.Glow = FLinearColor(1.f, 0.31f, 0.72f); V.Lamp = FLinearColor(1.f, 0.75f, 0.55f); V.LampCd = 7000.f;
 	}
 	// ---------------------------------------------------------------- L2 VOLTA CHEMICAL WORKS
 	{
@@ -170,6 +174,7 @@ static TArray<FFTLevelDef> BuildLevels()
 		V.KerbA = Hex(TEXT("ffd23f")); V.KerbB = Hex(TEXT("1c1f4a")); V.Rail = Hex(TEXT("ff9e3d")); V.Neon2 = Hex(TEXT("5ff0ff"));
 		V.Sky0 = Hex(TEXT("05041a")); V.Sky1 = Hex(TEXT("2a2470")); V.Sky2 = Hex(TEXT("c25bd6")); V.Fog = Hex(TEXT("3a2476"));
 		V.Gantries = { TEXT("VOLTA CHEMICAL WORKS"), TEXT("DANGER HIGH VOLTAGE"), TEXT("REACTOR"), TEXT("NO SMOKING"), TEXT("TANK FARM B"), TEXT("AUTHORISED ONLY") };
+		V.Glow = FLinearColor(0.37f, 0.94f, 1.f); V.Lamp = FLinearColor(1.f, 0.62f, 0.25f); V.LampCd = 7000.f;
 	}
 	// ---------------------------------------------------------------- L3 NEVADA
 	{
@@ -205,6 +210,174 @@ static TArray<FFTLevelDef> BuildLevels()
 		V.KerbA = Hex(TEXT("ff7a3d")); V.KerbB = Hex(TEXT("fff1d6")); V.Rail = Hex(TEXT("2ee6ff")); V.Neon2 = Hex(TEXT("ff7a3d"));
 		V.Sky0 = Hex(TEXT("100a30")); V.Sky1 = Hex(TEXT("5a2380")); V.Sky2 = Hex(TEXT("ff6a5a")); V.Fog = Hex(TEXT("7a3a6a"));
 		V.Gantries = { TEXT("LAS VEGAS 38"), TEXT("US 93 NORTH"), TEXT("LAST GAS 50 MI"), TEXT("JACKPOT JUNCTION"), TEXT("LOOSEST SLOTS IN NEVADA"), TEXT("LAS VEGAS 12"), TEXT("WELCOME TO NEVADA"), TEXT("THE STRIP EXIT 7") };
+		V.Glow = FLinearColor(1.f, 0.48f, 0.24f); V.Lamp = FLinearColor(1.f, 0.7f, 0.5f); V.LampCd = 5000.f;
+		V.Backdrop = TEXT("/Game/Maps/Nevada/Props/SM_Vegas"); V.BackdropScale = 4.f;
+	}
+	// ---------------------------------------------------------------- L4 MOUNT KALDERA (2.5)
+	{
+		FFTLevelDef& V = L[3];
+		V.Index = 3; V.Zone = TEXT("VOLCANO"); V.Title = TEXT("BAPTISM OF FIRE");
+		V.Place = TEXT("MOUNT KALDERA PASS · 18:40 HRS"); V.Map = TEXT("/Game/Maps/Volcano/L_Volcano");
+		V.Hint = TEXT("Jump the lava flows. Dodge the fire hose.");
+		V.Opening = ParseSections(TEXT(
+			"1400|1500:.4:.15:hill:.05:2|1200:-.6:-.25|600:rise:.12|1100:jump:.24:.30|500|1400:.9:.4|1200:-.9:-.4:hill:.08:1|"
+			"900:rise:.2|1700:jump:.32:.40|500|1600:1.6:.95|600|1300:twist:1|1000:-.6:-.25:fall:.15|600:rise:.12|1100:jump:.24:.30|"
+			"500|2100:loop|400|1400:.8:.35:hill:.07:2|1400:-.8:-.35|600:rise:.12|1100:jump:.24:.30|600:rise:.12|1100:jump:.24:.30|"
+			"500|1700:-1.6:-.95|600|1000:rise:.27|400|2000:jump:.36:.45|600|1500:.6:.25:hill:.06:2|1300:twist:-1|800:fall:.15|"
+			"1200:1:.45|1200:-1:-.45|600:rise:.12|1100:jump:.24:.30|500|2100:loop|500|1500:-.5:-.2:hill:.06:1|900:rise:.2|1700:jump:.32:.40|"
+			"600|1600:1.5:.9|1300:twist:1|1000:-.8:-.35|600:rise:.12|1100:jump:.24:.30|600:rise:.12|1100:jump:.24:.30|500|2100:loop|900:.3:.1|1500"));
+		V.Arena = ParseSections(TEXT("5000|4000:.25:.1:hill:.03:1|4000:-.25:-.1|5000|4000:.3:.12|4000:-.3:-.12|6000|4000:.2:.08|4000:-.2:-.08"));
+		V.Circuit = ParseSections(TEXT("1500:.6:.25|600:rise:.12|1100:jump:.24:.30|600|1500:-.6:-.25|2000"));
+		V.FinaleD = 60800.f;
+		V.Scenes = {
+			Scene(TEXT("THE ASH ROAD"), 0, TEXT("1500:mm 3200:r 6500:s"), TEXT("Scene four. The volcano is blowing its top. Drive right through it!"), TEXT("Through the ash and over the lava. Keep it floored!")),
+			Scene(TEXT("LAVA JUMPS"), 8500, TEXT("8500:mm 11500:rs 13600:c 14000:h"), TEXT("Lava across the road! Hit the lip fast and FLY over it!"), TEXT("Jump the lava. Don't you dare land short!")),
+			Scene(TEXT("THE CALDERA"), 18200, TEXT("18200:rr 21200:mm 22600:t 23200:w"), TEXT("Loop it on the rim of the crater! Three lava jumps after!"), TEXT("Round the rim and over the lava!")),
+			Scene(TEXT("FIRE AND BRIMSTONE"), 27400, TEXT("27400:ss 29600:h 33600:rm 34200:wc"), TEXT("Lightning in the ash cloud! Keep moving, keep shooting!"), TEXT("Gunships in the lightning. Light them up!")),
+			Scene(TEXT("THE MAGMA RUN"), 37800, TEXT("37800:mmr 39000:s 41900:tm 44500:c 45000:h"), TEXT("A lava jump, a loop and the big one. Give me fire on film!"), TEXT("The magma run. Fly it, loop it, fly it again!")),
+			Scene(TEXT("OBSIDIAN PASS"), 49100, TEXT("49100:rrr 52600:sm 57000:wc"), TEXT("Black glass canyon! Ride the wall and corkscrew out!"), TEXT("Wall, corkscrew, two jumps and a loop. Go!")),
+			Scene(TEXT("THE FINALE"), 60800, TEXT("60800:B"), TEXT("Engine 13! He's hosing the road with fire. Take him DOWN!"), TEXT("Final shot. Dodge the flames and crack his tank!")),
+		};
+		V.Rating[1] = 80000; V.Rating[2] = 145000; V.Rating[3] = 210000;
+		V.Boss = EFTBoss::FireTruck; V.BossName = TEXT("ENGINE 13"); V.BossHp = 150.f; V.BossEscape = 80.f; V.BossBullet = 2;
+		V.RoadA = Hex(TEXT("2c2230")); V.RoadB = Hex(TEXT("28202c")); V.Line = Hex(TEXT("ffd23f"));
+		V.KerbA = Hex(TEXT("ff5a1f")); V.KerbB = Hex(TEXT("2c2230")); V.Rail = Hex(TEXT("ff7a2a")); V.Neon2 = Hex(TEXT("ffd23f"));
+		V.Sky0 = Hex(TEXT("120608")); V.Sky1 = Hex(TEXT("4a1410")); V.Sky2 = Hex(TEXT("ff5a1f")); V.Fog = Hex(TEXT("5a2010"));
+		V.Glow = FLinearColor(1.f, 0.42f, 0.1f); V.Lamp = FLinearColor(1.f, 0.5f, 0.2f); V.LampCd = 6000.f;
+		V.Gantries = { TEXT("MOUNT KALDERA"), TEXT("DANGER LAVA"), TEXT("EVACUATION ROUTE"), TEXT("OBSIDIAN PASS"), TEXT("NO STOPPING") };
+		V.bLava = true; V.LavaBands = { FVector2D(-5200.f, -3800.f), FVector2D(4600.f, 6100.f) }; V.bLightning = true;
+		V.Backdrop = TEXT("/Game/Maps/Volcano/Props/SM_Volcano"); V.BackdropScale = 4.f;
+	}
+	// ---------------------------------------------------------------- L5 COASTER COVE (2.5)
+	{
+		FFTLevelDef& V = L[4];
+		V.Index = 4; V.Zone = TEXT("THEME PARK"); V.Title = TEXT("THE LAST RIDE");
+		V.Place = TEXT("COASTER COVE AMUSEMENT PARK · 21:00 HRS"); V.Map = TEXT("/Game/Maps/ThemePark/L_ThemePark");
+		V.Hint = TEXT("Tighter and tighter. Then ride the coaster rails.");
+		V.Opening = ParseSections(TEXT(
+			"1400|1300:.6:.25|1300:-.6:-.25|1200:.9:.4:hill:.05:1|1200:-.9:-.4|600|1400:1.4:.8|500|1300:twist:1|1000:-1:-.45|"
+			"1000:1.8:.9|900:-1.8:-.9|500|900:rise:.2|1700:jump:.32:.40|600|1100:2.1:1.0|1000:-2.1:-1.0|500|2100:loop|400|"
+			"900:rise:.15|600|2400:coaster:0:.18|2600:coaster:1:.12|1800:coaster:0:.2|2600:coaster:2:0|1600:coaster:0:.15|2800:coaster:3:.1|"
+			"1800:coaster:0:.2|2400:coaster:1:.1|1200:coaster:0:.1|600|800:fall:.15|"
+			"1000:2.2:1.0|800:-2.4:-1.0|800:2.4:1.0|500|1300:twist:-1|900:-2:-.9|900:2:.9|500|2100:loop|500|1000:-2.2:-1.0|1000:2.2:1.0|"
+			"1000:rise:.27|400|2000:jump:.36:.45|600|900:-1.8:-.8|900:1.8:.8|1500"));
+		V.Arena = ParseSections(TEXT("5000|4000:.35:.15|4000:-.35:-.15|5000:hill:.03:1|4000:.3:.12|4000:-.3:-.12|6000|4000:.25:.1|4000:-.25:-.1"));
+		V.Circuit = ParseSections(TEXT("1000:1.8:.9|1000:-1.8:-.9|600|2100:loop|600|1200:1.2:.5|1200:-1.2:-.5|1500"));
+		V.FinaleD = 61400.f;
+		V.Scenes = {
+			Scene(TEXT("OPENING NIGHT"), 0, TEXT("1500:mm 3200:c 5200:r 7000:s"), TEXT("Scene five. The park's open late and the clowns are armed!"), TEXT("Opening night. Make it a show!")),
+			Scene(TEXT("THE MIDWAY"), 8400, TEXT("8400:rr 11200:mm 13100:s 15000:w"), TEXT("The turns get tighter from here. Hug the inside and drift!"), TEXT("Drift the midway. Tighter!")),
+			Scene(TEXT("HAIRPIN ALLEY"), 16200, TEXT("16200:rm 18900:sm 20400:h"), TEXT("Hairpins and a loop! Drift it or wear it!"), TEXT("Hairpins. Drift them all!")),
+			Scene(TEXT("THE COASTER"), 22800, TEXT(""), TEXT("THE COASTER! Foot down. Hop across when the rails meet!"), TEXT("Ride the rails. Hop when they're side by side!")),
+			Scene(TEXT("WILD MOUSE"), 42600, TEXT("42600:mmm 44000:r 46600:sm 49800:h"), TEXT("Back on the road and it's all hairpins! Steer, Kane, STEER!"), TEXT("Wild mouse. Every corner is a hairpin!")),
+			Scene(TEXT("THE FUNHOUSE"), 52800, TEXT("52800:rr 54300:s 56300:wc 58700:mm"), TEXT("Crazy turns, a big jump, then the clown himself!"), TEXT("The funhouse. Jump it and get ready!")),
+			Scene(TEXT("THE FINALE"), 61400, TEXT("61400:B"), TEXT("Mr. Chuckles! His balloons are full of bombs. Watch the shadows!"), TEXT("Final shot. Dodge the bombs, pop the clown!")),
+		};
+		V.Rating[1] = 75000; V.Rating[2] = 140000; V.Rating[3] = 200000;
+		V.Boss = EFTBoss::Clown; V.BossName = TEXT("MR. CHUCKLES"); V.BossHp = 140.f; V.BossEscape = 80.f; V.BossBullet = 0;
+		V.RoadA = Hex(TEXT("2a2546")); V.RoadB = Hex(TEXT("262140")); V.Line = Hex(TEXT("fff1d6"));
+		V.KerbA = Hex(TEXT("ff4fb8")); V.KerbB = Hex(TEXT("ffd23f")); V.Rail = Hex(TEXT("ffd23f")); V.Neon2 = Hex(TEXT("2ee6ff"));
+		V.Sky0 = Hex(TEXT("0b0826")); V.Sky1 = Hex(TEXT("3a1a6e")); V.Sky2 = Hex(TEXT("ff4f9a")); V.Fog = Hex(TEXT("4a2a6a"));
+		V.Glow = FLinearColor(1.f, 0.82f, 0.25f); V.Lamp = FLinearColor(1.f, 0.8f, 0.5f); V.LampCd = 7000.f;
+		V.Gantries = { TEXT("COASTER COVE"), TEXT("YOU MUST BE THIS TALL"), TEXT("THE MIDWAY"), TEXT("FUNHOUSE"), TEXT("NO RE-ENTRY") };
+		V.Backdrop = TEXT("/Game/Maps/ThemePark/Props/SM_ParkSkyline"); V.BackdropScale = 4.f;
+	}
+	// ---------------------------------------------------------------- L6 FROSTBITE PEAK (2.5)
+	{
+		FFTLevelDef& V = L[5];
+		V.Index = 5; V.Zone = TEXT("ICE MOUNTAIN"); V.Title = TEXT("WHITE OUT");
+		V.Place = TEXT("FROSTBITE PEAK SKI RUN · 07:30 HRS"); V.Map = TEXT("/Game/Maps/Glacier/L_Glacier");
+		V.Hint = TEXT("Downhill all the way. Ride the half pipe walls.");
+		V.Opening = ParseSections(TEXT(
+			"1500:.5:.2|1300:-.7:-.3|1300:.9:.4:hill:.05:2|1200:-1.1:-.5|600|1400:1.3:.6|1400:-1.3:-.6|500|3000:half:1|500|1200:1:.45|1200:-1:-.45|"
+			"900:rise:.15|1700:jump:.3:.5|600|1300:twist:1|1000:1.6:.9|1000:-1.6:-.9|600|3200:half:1|600|1100:1.2:.5|1100:-1.2:-.5|1100:1.2:.5:hill:.06:2|500|2100:loop|500|"
+			"1300:-1.5:-.8|1300:1.5:.8|800:rise:.15|1700:jump:.3:.5|600|1300:twist:-1|900:-.9:-.4|900:.9:.4|600|3600:half:1|600|1200:-1.4:-.6|1200:1.4:.6|1200:-1.4:-.6|500|2100:loop|400|"
+			"1300:twist:1|800|1600:1.6:.95|1600:-1.6:-.95|900:rise:.15|1700:jump:.3:.5|600|3000:half:1|800|1500"));
+		V.Arena = ParseSections(TEXT("5000:.3:.12|4000:-.35:-.15|4000:.35:.15|5000:-.25:-.1|4000:.3:.12|4000:-.3:-.12|6000|4000:.25:.1|4000:-.25:-.1"));
+		V.Circuit = ParseSections(TEXT("1300:1.2:.5|1300:-1.2:-.5|600|3000:half:1|600|1500"));
+		V.FinaleD = 65200.f;
+		V.Scenes = {
+			Scene(TEXT("FIRST TRACKS"), 0, TEXT("1500:mm 3200:r 5300:s 7300:c"), TEXT("Scene six. Top of the mountain, and it's downhill all the way!"), TEXT("First tracks. Carve it!")),
+			Scene(TEXT("THE HALF PIPE"), 8700, TEXT("8700:mm 12700:rs 14400:w"), TEXT("Half pipe! Ride the walls like a snowboarder. Higher!"), TEXT("Up the walls! Higher!")),
+			Scene(TEXT("AVALANCHE CHUTE"), 17700, TEXT("17700:rr 19600:sm 21000:h"), TEXT("Corkscrew down the chute! Keep the speed up!"), TEXT("Corkscrew, then the big pipe!")),
+			Scene(TEXT("THE SUPER PIPE"), 21600, TEXT("21600:s 25400:mm 26000:wc"), TEXT("A bigger pipe! Up the wall, top of the world!"), TEXT("The super pipe. Ride it high!")),
+			Scene(TEXT("BLACK DIAMOND"), 29300, TEXT("29300:rrr 31900:t 33700:p 35000:h 37500:cw"), TEXT("Black diamond run! Loop, jump, roll. Don't fall!"), TEXT("Black diamond. Hold it together!")),
+			Scene(TEXT("THE WHITEOUT"), 41200, TEXT("41200:mm 45400:sr 47200:h 49600:wc 52200:mm 53900:rs 57000:c"), TEXT("Whiteout! Every gate on the mountain. Hold your line!"), TEXT("Whiteout. Gates, pipe, loop, jump!")),
+			Scene(TEXT("THE FINALE"), 65200, TEXT("65200:B"), TEXT("THE ABOMINABLE! He's real and he's ANGRY. Dodge the snowballs!"), TEXT("Final shot. Dodge the snow and take the yeti down!")),
+		};
+		V.Rating[1] = 85000; V.Rating[2] = 150000; V.Rating[3] = 215000;
+		V.Boss = EFTBoss::Yeti; V.BossName = TEXT("THE ABOMINABLE"); V.BossHp = 150.f; V.BossEscape = 80.f; V.BossBullet = 0;
+		V.RoadA = Hex(TEXT("3a4a6a")); V.RoadB = Hex(TEXT("364563")); V.Line = Hex(TEXT("ffffff"));
+		V.KerbA = Hex(TEXT("ff3355")); V.KerbB = Hex(TEXT("ffffff")); V.Rail = Hex(TEXT("5ff0ff")); V.Neon2 = Hex(TEXT("ff3355"));
+		V.Sky0 = Hex(TEXT("3f8fdf")); V.Sky1 = Hex(TEXT("bfe3ff")); V.Sky2 = Hex(TEXT("fff4f0")); V.Fog = Hex(TEXT("dbeeff"));
+		V.Glow = FLinearColor(0.37f, 0.94f, 1.f); V.Lamp = FLinearColor(1.f, 0.95f, 0.9f); V.LampCd = 4000.f;
+		V.Gantries = { TEXT("FROSTBITE PEAK"), TEXT("EXPERTS ONLY"), TEXT("AVALANCHE ZONE"), TEXT("SUPER PIPE"), TEXT("BLACK DIAMOND") };
+		V.Slope = -0.07f;
+		V.Backdrop = TEXT("/Game/Maps/Glacier/Props/SM_Peak"); V.BackdropScale = 5.f;
+	}
+	// ---------------------------------------------------------------- L7 THE DEEP (2.5)
+	{
+		FFTLevelDef& V = L[6];
+		V.Index = 6; V.Zone = TEXT("UNDER THE SEA"); V.Title = TEXT("SINK OR SWIM");
+		V.Place = TEXT("SEABED ROUTE 7 TO NEREIDA · 300 FATHOMS"); V.Map = TEXT("/Game/Maps/Abyss/L_Abyss");
+		V.Hint = TEXT("The road to the sunken city. Glass tunnels all the way.");
+		V.Opening = ParseSections(TEXT(
+			"1500|1500:.5:.2:hill:.06:2|1300:-.6:-.25|600|1800:pipe:1:1|500|1300:.9:.4|1300:-.9:-.4|1500:hill:.08:2|600|2400:pipe:-1:2|500|"
+			"1200:1.1:.5|1200:-1.1:-.5|900:rise:.2|1700:jump:.32:.40|600|1300:twist:1|1000:-.6:-.25:fall:.15|500|2100:loop|500|1800:pipe:1:1|500|"
+			"1400:1.5:.9|1400:-1.5:-.9|1600:hill:.07:2|600|2800:pipe:1:3|500|1200:.8:.35|1200:-.8:-.35|900:rise:.2|1700:jump:.32:.40|600|1300:twist:-1|"
+			"1000:1:.45|1000:-1:-.45|600|2400:pipe:-1:2|500|2100:loop|500|1500:.6:.25:hill:.06:1|1500:-.6:-.25|600|1800:pipe:1:1|800|1500"));
+		V.Arena = ParseSections(TEXT("5000|4000:.25:.1|4000:-.25:-.1|5000|4000:.3:.12|4000:-.3:-.12|6000|4000:.2:.08|4000:-.2:-.08"));
+		V.Circuit = ParseSections(TEXT("1200:1:.45|1200:-1:-.45|600|1800:pipe:1:1|600|1500"));
+		V.FinaleD = 57900.f;
+		V.Scenes = {
+			Scene(TEXT("THE DESCENT"), 0, TEXT("1500:mm 3000:r 4300:s 6700:c"), TEXT("Scene seven. Three hundred fathoms down, and the road keeps going!"), TEXT("The descent. Lights on, foot down!")),
+			Scene(TEXT("THE GLASS TUNNEL"), 7200, TEXT("7200:mm 9800:rs 11300:w 14300:sm"), TEXT("Into the glass tunnel! The whole ocean is on the other side!"), TEXT("Round the tunnel. Don't crack the glass!")),
+			Scene(TEXT("THE KELP FOREST"), 14800, TEXT("14800:rr 16000:sm 19800:t 22700:c"), TEXT("Kelp on both sides and a corkscrew dead ahead!"), TEXT("The kelp forest. Jump, roll, loop!")),
+			Scene(TEXT("THE TRENCH"), 25300, TEXT("25300:mmm 27600:s 28100:rr 30900:wc"), TEXT("The trench! Down into the dark. Guns up!"), TEXT("The trench. Three times round the tube!")),
+			Scene(TEXT("THE CORAL REEF"), 35900, TEXT("35900:ss 37600:mr 41400:t 43300:wc"), TEXT("Coral everywhere! Don't scratch my star car!"), TEXT("The reef. Jump it and roll it!")),
+			Scene(TEXT("THE CITY GATES"), 45300, TEXT("45300:rrm 48300:sm 50900:mm 52900:wc 54400:rs"), TEXT("There it is! The sunken city of Nereida! Lights, camera, ACTION!"), TEXT("The city gates. Loop it into town!")),
+			Scene(TEXT("THE FINALE"), 57900, TEXT("57900:B"), TEXT("THE GREAT WHITE! A shark on wheels! Dodge the fish!"), TEXT("Final shot. Dodge the fish and harpoon the shark!")),
+		};
+		V.Rating[1] = 75000; V.Rating[2] = 140000; V.Rating[3] = 200000;
+		V.Boss = EFTBoss::Shark; V.BossName = TEXT("THE GREAT WHITE"); V.BossHp = 150.f; V.BossEscape = 80.f; V.BossBullet = 1;
+		V.RoadA = Hex(TEXT("1e2f50")); V.RoadB = Hex(TEXT("1b2a48")); V.Line = Hex(TEXT("9ff0ff"));
+		V.KerbA = Hex(TEXT("2ee6ff")); V.KerbB = Hex(TEXT("1e2f50")); V.Rail = Hex(TEXT("2ee6ff")); V.Neon2 = Hex(TEXT("ff7ad9"));
+		V.Sky0 = Hex(TEXT("020a1e")); V.Sky1 = Hex(TEXT("06305a")); V.Sky2 = Hex(TEXT("2a9ac0")); V.Fog = Hex(TEXT("0a3a5a"));
+		V.Glow = FLinearColor(0.2f, 0.8f, 1.f); V.Lamp = FLinearColor(0.5f, 0.9f, 1.f); V.LampCd = 6000.f;
+		V.Gantries = { TEXT("NEREIDA 20 LEAGUES"), TEXT("SEABED ROUTE 7"), TEXT("THE TRENCH"), TEXT("CORAL REEF"), TEXT("WELCOME TO NEREIDA") };
+		V.Backdrop = TEXT("/Game/Maps/Abyss/Props/SM_City"); V.BackdropScale = 4.f;
+	}
+	// ---------------------------------------------------------------- L8 MIDTOWN (2.5)
+	{
+		FFTLevelDef& V = L[7];
+		V.Index = 7; V.Zone = TEXT("CITY CENTER"); V.Title = TEXT("HOSTILE TAKEOVER");
+		V.Place = TEXT("MIDTOWN · FIFTH AND MAIN · 23:59 HRS"); V.Map = TEXT("/Game/Maps/Metro/L_Metro");
+		V.Hint = TEXT("Tight corners, straight through the towers. Then the Chairman.");
+		V.Opening = ParseSections(TEXT(
+			"1400|1000:1.2:.5|1000:-1.2:-.5|600|1600:.3:.1:bldg:52|600|900:2.4:1.0|900:-2.4:-1.0|500|1400:bldg:70|500|1300:twist:1|1000:2.6:1.0|"
+			"800|1800:-.3:-.1:bldg:60|800|900:-2.8:-1.0|900:2.8:1.0|500|900:rise:.2|1700:jump:.32:.40|600|1200:bldg:45|600|2100:loop|500|1000:-2.6:-1.0|"
+			"1000:2.6:1.0|600|2000:.25:.1:bldg:85|600|900:3:1.0|700|900:-3:-1.0|500|1300:twist:-1|800:2.2:.9|800:-2.2:-.9|600|1600:bldg:58|600|1000:rise:.27|400|2000:jump:.36:.45|"
+			"600|1000:2.8:1.0|1000:-2.8:-1.0|600|1800:-.3:-.1:bldg:66|600|2100:loop|600|900:-2.4:-1.0|900:2.4:1.0|1400:bldg:50|800|1500"));
+		V.Arena = ParseSections(TEXT("5000|4000:.3:.12|4000:-.3:-.12|3000:bldg:60|5000|4000:.35:.15|4000:-.35:-.15|6000|4000:.25:.1|4000:-.25:-.1"));
+		V.Circuit = ParseSections(TEXT("900:2.4:1.0|900:-2.4:-1.0|600|1600:bldg:55|600|1500"));
+		V.FinaleD = 55900.f;
+		V.Scenes = {
+			Scene(TEXT("RUSH HOUR"), 0, TEXT("1400:mm 2400:r 3400:s 5600:c"), TEXT("The last scene. Midtown at midnight. Straight through the towers!"), TEXT("Rush hour. Through the lobby, go!")),
+			Scene(TEXT("THE LOBBY"), 8000, TEXT("8000:rr 9900:sm 12700:h"), TEXT("Right through the building! Mind the doorman!"), TEXT("Through the lobby and roll it!")),
+			Scene(TEXT("ROOFTOP ALLEY"), 15300, TEXT("15300:mmm 17900:s 21000:wc"), TEXT("Hard left, hard right! This town is all corners!"), TEXT("Corners! Drift them!")),
+			Scene(TEXT("THE PLAZA"), 22800, TEXT("22800:rr 25500:t 28000:sm 30600:h"), TEXT("Loop it in the plaza, then straight through the tower!"), TEXT("The plaza. Loop, then the tower!")),
+			Scene(TEXT("WALL STREET"), 33700, TEXT("33700:rrr 36300:s 39300:wc 40900:p 43300:mm"), TEXT("The money district! Every corner's a hairpin!"), TEXT("Wall Street. Hairpins and a big jump!")),
+			Scene(TEXT("PENTHOUSE ROW"), 45900, TEXT("45900:ss 48300:h 51000:rrm 52500:wc 54800:mm"), TEXT("Last stretch! Through the towers, round the loop!"), TEXT("Penthouse row. Make it count!")),
+			Scene(TEXT("THE FINALE"), 55900, TEXT("55900:B"), TEXT("THE CHAIRMAN! His limo's a gunship. Dodge the lead and take him DOWN!"), TEXT("Final shot. Thread the bullets and finish the Chairman!")),
+		};
+		V.Rating[1] = 90000; V.Rating[2] = 165000; V.Rating[3] = 240000;
+		V.Boss = EFTBoss::Limo; V.BossName = TEXT("THE CHAIRMAN"); V.BossHp = 220.f; V.BossEscape = 95.f; V.BossBullet = 3;
+		V.RoadA = Hex(TEXT("26243a")); V.RoadB = Hex(TEXT("222035")); V.Line = Hex(TEXT("ffd23f"));
+		V.KerbA = Hex(TEXT("ffd23f")); V.KerbB = Hex(TEXT("26243a")); V.Rail = Hex(TEXT("ff4fb8")); V.Neon2 = Hex(TEXT("2ee6ff"));
+		V.Sky0 = Hex(TEXT("080614")); V.Sky1 = Hex(TEXT("2a1f4a")); V.Sky2 = Hex(TEXT("ff6a3d")); V.Fog = Hex(TEXT("3a2a4a"));
+		V.Glow = FLinearColor(1.f, 0.82f, 0.25f); V.Lamp = FLinearColor(1.f, 0.85f, 0.6f); V.LampCd = 6000.f;
+		V.Gantries = { TEXT("FIFTH AND MAIN"), TEXT("MIDTOWN TUNNEL"), TEXT("WALL STREET"), TEXT("CHAIRMAN TOWER"), TEXT("ONE WAY") };
+		V.Backdrop = TEXT("/Game/Maps/Metro/Props/SM_Spire"); V.BackdropScale = 4.f;
 	}
 	return L;
 }
@@ -215,7 +388,7 @@ const FFTLevelDef& FTData::Level(int32 Index)
 	return Levels[FMath::Clamp(Index, 0, Levels.Num() - 1)];
 }
 
-int32 FTData::NumLevels() { return 3; }
+int32 FTData::NumLevels() { return 8; }
 
 static TMap<FName, TArray<FString>> BuildLines()
 {
@@ -275,6 +448,19 @@ static TMap<FName, TArray<FString>> BuildLines()
 	A(TEXT("lowHpAmb"), { TEXT("The car's smoking. Careful, that's our only one!"), TEXT("Keep it together. We need that car!") });
 	A(TEXT("inverted"), { TEXT("Shoot upside down! Make it look easy!"), TEXT("Hang on up there!") });
 	A(TEXT("escape"), { TEXT("He's getting away! Faster! Take him out, NOW!") });
+	// 2.5
+	A(TEXT("aheadHalf"), { TEXT("Half pipe ahead! Steer up the walls, ride it high!"), TEXT("Here comes the pipe! Carve the walls like a snowboarder!") });
+	A(TEXT("aheadCoaster"), { TEXT("The coaster! Just hold the gas. Hop across when the rails meet!"), TEXT("Rails ahead! Steer hard to hop to the other track!") });
+	A(TEXT("aheadBldg"), { TEXT("Straight through that building! Through the lobby, GO!"), TEXT("The road goes through the tower! Don't stop!") });
+	A(TEXT("aheadLava"), { TEXT("Lava across the road! Hit the lip fast!"), TEXT("Lava flow ahead! Fly over it!") });
+	A(TEXT("railHop"), { TEXT("Track to track! Gorgeous!"), TEXT("Hopped the rails! The crew is screaming!") });
+	A(TEXT("railsSplit"), { TEXT("The rails split! Hang on!"), TEXT("Here they go! Hold on to your lunch!") });
+	A(TEXT("halfPipe"), { TEXT("Higher! Ride that wall!"), TEXT("Up the pipe! The camera loves it!") });
+	A(TEXT("bldgIn"), { TEXT("Through the lobby! Somebody get the doorman!"), TEXT("Right through the building! Print it!") });
+	A(TEXT("lobWarn"), { TEXT("Incoming! Watch the marks on the road!"), TEXT("Something's coming down! Get out of the ring!"), TEXT("Look at the road, Kane! MOVE!") });
+	A(TEXT("flameWarn"), { TEXT("He's aiming the hose! Get out of that lane!"), TEXT("Fire in your lane! MOVE!"), TEXT("Flames! Change lanes!") });
+	A(TEXT("bulletWarn"), { TEXT("Here comes the lead! Find the gap!"), TEXT("He's opening up! Weave, Kane, weave!"), TEXT("Bullets! Thread them!") });
+	A(TEXT("thunder"), { TEXT("Lightning! The sky's on fire!"), TEXT("Did you see that bolt?! Keep driving!") });
 	return M;
 }
 

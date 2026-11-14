@@ -85,7 +85,19 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Car|Tuning") float Downforce = 0.8f;
 	UPROPERTY(EditAnywhere, Category = "Car|Tuning") float GlueK = 150.f;
 	UPROPERTY(EditAnywhere, Category = "Car|Tuning") float GlueDamp = 24.5f;
-	bool IsLaunched() const { return LaunchT > 0.f; }
+	bool IsLaunched() const { return LaunchT > 0.f || HopT >= 0.f; }
+	// 2.5 "stick to the road": anything over this much lift off the road (not on a real jump) is put back on it
+	UPROPERTY(EditAnywhere, Category = "Car|Tuning") float StickMaxLift = 40.f;
+	// 2.5 coaster: the spring that keeps the car on its rail (1/s^2) and its damping (1/s)
+	UPROPERTY(EditAnywhere, Category = "Car|Tuning") float RailK = 36.f;
+	UPROPERTY(EditAnywhere, Category = "Car|Tuning") float RailDamp = 12.f;
+	bool IsOnRails() const { return bRailInit; }
+	/** On a coaster where the rails sit side by side: hop to the other rail. Dir = -1 left, +1 right. */
+	bool RailHop(int32 Dir);
+	bool CanRailHop(int32 Dir) const;
+	/** Speed held through the set piece the car is in (0 outside one). */
+	float SetPieceFloor() const { return bInSet ? SetFloor : 0.f; }
+	float SurfH = 0.f;   // height of the surface under the car over the road's frame (half pipe, coaster rail)
 
 	void SetTrack(AFTTrack* InTrack) { Track = InTrack; }
 	void SetDrive(const FFTDrive& In) { Drive = In; }
@@ -128,6 +140,17 @@ protected:
 	float DriftBlend = 0.f;
 	float CapsizeT = 0.f;
 	float LaunchT = 0.f;   // a ramp launch is in the air: no glue until it lands
+	// 2.5 set pieces: speed at the way in, held as a floor all the way through; telemetry
+	bool bInSet = false; uint16 SetKind = 0; float SetEntry = 0.f, SetFloor = 0.f, SetMin = 0.f, SetMaxLift = 0.f, SetAir = 0.f, SetD0 = 0.f; int32 SetSnaps = 0;
+	// 2.5 coaster: the rail the car rides (followed by continuity: the rail point nearest the last one)
+	bool bRailInit = false; FVector2D RailPt = FVector2D::ZeroVector; float HopCd = 0.f;
+	FVector SurfN = FVector::UpVector;
+	float StallT = 0.f;
+	// 2.5 coaster: a hop's arc (HopT < 0: not hopping) from where it left
+	float HopT = -1.f; FVector2D HopFrom = FVector2D::ZeroVector;
+	static constexpr float HopDur = 0.85f;
+	// 2.5 tests: what the car last hit (stall reports)
+	FString LastHit; float LastHitT = 0.f;
 	TArray<FTransform> PartRest;
 	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> LooseParts;
 };

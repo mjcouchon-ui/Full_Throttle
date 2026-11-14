@@ -24,6 +24,8 @@ public:
 
 	EFTKind Kind = EFTKind::None;
 	int32 Variant = 0;
+	int32 Lvl = 0;
+	float AnimT = 0.f;
 	void Setup(EFTKind InKind, int32 InVariant, int32 Level);
 	void SetGlow(float Amount);   // rev lights, chain wind-up, brake flare
 	void Animate(float Dt, float Speed);
@@ -53,5 +55,10 @@ public:
 	AFTHazard();
 	UPROPERTY(VisibleAnywhere) TObjectPtr<UStaticMeshComponent> Plane;
 	UPROPERTY(VisibleAnywhere) TObjectPtr<UPointLightComponent> Light;
+	/** 2.5: what is flying in to land on the mark (a bomb, a snowball, a fish, a fireball, a lightning bolt). */
+	UPROPERTY(VisibleAnywhere) TObjectPtr<UStaticMeshComponent> Thing;
 	void SetLook(const FLinearColor& Colour, float Intensity);
+	void SetThing(UStaticMesh* M, const FTransform& WorldT);
+	void HideThing();
+	virtual void SetActorHiddenInGame(bool bNewHidden) override;
 };

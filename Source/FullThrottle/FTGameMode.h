@@ -50,11 +50,18 @@ struct FFTEnt
 
 struct FFTHazardState
 {
-	int32 Type = 0;     // 0 lane arc, 1 lock-on, 2 shock wave, 3 landing mark
+	int32 Type = 0;     // 0 lane arc, 1 lock-on, 2 shock wave, 3 landing mark, 4 flame lane (2.5), 5 lobbed thing (2.5)
 	float D = 0.f, X = 0.f, W = 0.f, Gap = 0.f;
 	float Warn = 1.f, Live = 0.4f, T = 0.f;
 	bool bHit = false, bDone = false;
 	float Track = 0.f;  // lock-on: seconds it follows the car
+	// 2.5: look (0 electric, 1 ice/snow, 2 fire, 3 water), a lane that sweeps (cm/s), and for a lobbed thing:
+	// where it starts (track space, relative to the car) and how high it arcs, and which mesh flies
+	int32 Style = 0;
+	float Vx = 0.f;
+	float FromD = 0.f, FromX = 0.f, FromH = 0.f, Arc = 600.f, Dmg = 14.f;
+	int32 Thing = 0;    // 0 bomb, 1 snowball, 2 fish, 3 fireball, 4 lightning bolt
+	float FxT = 0.f;
 	TWeakObjectPtr<AFTHazard> Actor;
 };
 
@@ -159,6 +166,19 @@ protected:
 	void TickPlayer(float Dt);
 	void TickEnts(float Dt);
 	void TickBoss(FFTEnt& B, float Dt);
+	// 2.5 bosses
+	void TickBossFire(FFTEnt& B, float Dt, int32 Ph, float& Want);
+	void TickBossClown(FFTEnt& B, float Dt, int32 Ph, float& Want);
+	void TickBossYeti(FFTEnt& B, float Dt, int32 Ph, float& Want);
+	void TickBossShark(FFTEnt& B, float Dt, int32 Ph, float& Want);
+	void TickBossLimo(FFTEnt& B, float Dt, int32 Ph, float& Want);
+	void BossPhaseLine(FFTEnt& B, int32 Ph, const TCHAR* L1, const TCHAR* C1, const TCHAR* L2, const TCHAR* C2);
+	/** Something lobbed from (fromAhead, fromX, fromH) onto a warned mark on the road (car-relative, like the lock-ons). */
+	FFTHazardState& Lob(int32 Thing, float FromAhead, float FromX, float FromH, float ToAhead, float ToX, float Flight, float Radius, float Arc, float Dmg);
+	void FlameLane(float X, float Warn, float Live, float SweepV);
+	void BulletFan(const FFTEnt& B, int32 N, float Step, int32 GapAt, float Spd, float AimX);
+	void TickLightning(float Dt);
+	int32 LaneOf(float X) const;
 	void TickHazards(float Dt);
 	void TickDirector(float RDt);
 	void TickSlowmo(float RDt);
@@ -184,7 +204,7 @@ protected:
 	void Release(FFTEnt& E);
 	void ClearEnts();
 	FTransform EntTransform(const FFTEnt& E) const;
-	void FireBullet(int32 InOwner, float D, float X, float H, float VD, float VX);
+	void FireBullet(int32 InOwner, float D, float X, float H, float VD, float VX, int32 Variant = 0);
 	void FireMissile();
 	void DropPickup(const FFTEnt& E, EFTKind K);
 	FFTEnt* FindEnt(int32 Id);
@@ -218,6 +238,13 @@ protected:
 	UPROPERTY(Transient) TArray<TObjectPtr<UPointLightComponent>> Flashes;
 	UPROPERTY(Transient) TArray<TObjectPtr<UPointLightComponent>> RoadLights;
 	UPROPERTY(Transient) TMap<FName, TObjectPtr<USoundBase>> Sounds;
+	// 2.5: the lightning bolt in the volcano's sky, and the meshes things are lobbed as
+	UPROPERTY(Transient) TObjectPtr<class UStaticMeshComponent> BoltComp;
+	UPROPERTY(Transient) TArray<TObjectPtr<class UStaticMesh>> LobMeshes;
+	float BoltT = 0.f, BoltNext = 3.f; int32 BoltFlash = -1;
+	// 2.5 set-piece bookkeeping for the new stunts
+	int32 HalfSection = -1, HalfSide = 0; int32 BldgSection = -1; bool bOnCoaster = false; int32 CoasterMode = -1; bool bHopAir = false;
+	float CoasterT = 0.f;
 
 	TArray<FFTEnt> Ents;
 	TArray<FFTEnt> PendingEnts; // spawned this frame; joins Ents at the next entity tick

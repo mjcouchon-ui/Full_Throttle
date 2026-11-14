@@ -15,8 +15,20 @@ class UStaticMesh;
 
 namespace FTFlag
 {
-	enum : uint16 { Gap = 1, Loop = 2, Twist = 4, Pipe = 8, Wall = 16, Kicker = 32, Landing = 64, Warn = 128, Inverted = 256, Arena = 512 };
+	enum : uint16 { Gap = 1, Loop = 2, Twist = 4, Pipe = 8, Wall = 16, Kicker = 32, Landing = 64, Warn = 128, Inverted = 256, Arena = 512,
+		HalfPipe = 1024, Coaster = 2048, Building = 4096 };
+	// the set pieces the car is held to and keeps its speed through (2.5)
+	constexpr uint16 SetPiece = Loop | Twist | Pipe;
 }
+
+/** 2.5: the two coaster rails at one point: centre x and height over the road's frame (cm), and whether you can
+ *  hop across (they sit side by side at the same height). */
+struct FFTRails
+{
+	float XL = 0.f, HL = 0.f, XR = 0.f, HR = 0.f;
+	bool bAdjacent = true;
+	static constexpr float HalfW = 300.f; // half the width of one rail's deck
+};
 
 struct FFTFrame
 {
@@ -93,6 +105,13 @@ public:
 	/** Distance where the next set piece of this kind starts, or -1. */
 	float NextFlagStart(float FromD, uint16 Flag, float Within) const;
 	const TArray<FVector>& LightSpots() const { return LampSpots; }
+	/** 2.5: height of the driving surface over the road's frame at (d, x), and its slope across (dH/dx).
+	 *  Flat road: 0. Half pipe: the U's curve. Coaster: the nearest rail's deck; bSolid = false over thin air. */
+	float SurfaceH(float D, float X, float* OutSlope = nullptr, bool* bSolid = nullptr) const;
+	/** 2.5: the coaster rails at d (only meaningful where FlagsAt(d) has Coaster). */
+	FFTRails RailsAt(float D) const;
+	/** The section a distance falls in, and that section's shape data. */
+	const FFTSection* SectionAt(float D, float* OutU = nullptr) const;
 
 	static constexpr float Step = 200.f; // cm between samples
 
@@ -109,6 +128,7 @@ protected:
 
 	TArray<FFTFrame> Frames;
 	TArray<float> SectionStart; // cm
+	TArray<FFTSection> Sections;
 	TArray<FVector> LampSpots;
 
 	UPROPERTY(Transient) TArray<TObjectPtr<UProceduralMeshComponent>> Chunks;
