@@ -145,6 +145,7 @@ static TArray<FFTLevelDef> BuildLevels()
 		FFTLevelDef& V = L[1];
 		V.Index = 1; V.Zone = TEXT("CHEMICAL PLANT"); V.Title = TEXT("THE FORMULA");
 		V.Place = TEXT("VOLTA CHEMICAL WORKS · 23:00 HRS"); V.Map = TEXT("/Game/Maps/ChemicalWorks/L_ChemicalWorks");
+		V.Music = TEXT("/Game/Audio/Music/M_FactoryCombatLoop");
 		V.Opening = ParseSections(TEXT(
 			"1000|1100:.9:.4|1100:-.9:-.4|1100:1.1:.5:hill:.06:1|1100:-1.1:-.5|600|1600:pipe:1:1|"
 			"400|1000:.6:.25|1200:-.8:-.35:rise:.18|1200:.9:.4|500|2400:pipe:-1:2|500|"
@@ -181,6 +182,7 @@ static TArray<FFTLevelDef> BuildLevels()
 		FFTLevelDef& V = L[2];
 		V.Index = 2; V.Zone = TEXT("NEVADA DESERT"); V.Title = TEXT("ALL IN");
 		V.Place = TEXT("HIGHWAY 93 TO LAS VEGAS · 21:30 HRS"); V.Map = TEXT("/Game/Maps/Nevada/L_Nevada");
+		V.Music = TEXT("/Game/Audio/Music/M_DesertFrontier");
 		V.Opening = ParseSections(TEXT(
 			"1500|2400:hill:.05:3|1600:.35:.12|1600:-.35:-.12|1400:hill:.06:1|1200|"
 			"900:rise:.2|1700:jump:.32:.40|600|2000:hill:.05:2|1400:.6:.25|1400:-.6:-.25|1800|"
@@ -218,6 +220,7 @@ static TArray<FFTLevelDef> BuildLevels()
 		FFTLevelDef& V = L[3];
 		V.Index = 3; V.Zone = TEXT("VOLCANO"); V.Title = TEXT("BAPTISM OF FIRE");
 		V.Place = TEXT("MOUNT KALDERA PASS · 18:40 HRS"); V.Map = TEXT("/Game/Maps/Volcano/L_Volcano");
+		V.Music = TEXT("/Game/Audio/Music/M_InfernoLevel");
 		V.Hint = TEXT("Jump the lava flows. Dodge the fire hose.");
 		V.Opening = ParseSections(TEXT(
 			"1400|1500:.4:.15:hill:.05:2|1200:-.6:-.25|600:rise:.12|1100:jump:.24:.30|500|1400:.9:.4|1200:-.9:-.4:hill:.08:1|"
@@ -253,6 +256,7 @@ static TArray<FFTLevelDef> BuildLevels()
 		FFTLevelDef& V = L[4];
 		V.Index = 4; V.Zone = TEXT("THEME PARK"); V.Title = TEXT("THE LAST RIDE");
 		V.Place = TEXT("COASTER COVE AMUSEMENT PARK · 21:00 HRS"); V.Map = TEXT("/Game/Maps/ThemePark/L_ThemePark");
+		V.Music = TEXT("/Game/Audio/Music/M_CarnivalChaos");
 		V.Hint = TEXT("Tighter and tighter. Then ride the coaster rails.");
 		V.Opening = ParseSections(TEXT(
 			"1400|1300:.6:.25|1300:-.6:-.25|1200:.9:.4:hill:.05:1|1200:-.9:-.4|600|1400:1.4:.8|500|1300:twist:1|1000:-1:-.45|"
@@ -287,6 +291,7 @@ static TArray<FFTLevelDef> BuildLevels()
 		FFTLevelDef& V = L[5];
 		V.Index = 5; V.Zone = TEXT("ICE MOUNTAIN"); V.Title = TEXT("WHITE OUT");
 		V.Place = TEXT("FROSTBITE PEAK SKI RUN · 07:30 HRS"); V.Map = TEXT("/Game/Maps/Glacier/L_Glacier");
+		V.Music = TEXT("/Game/Audio/Music/M_BlizzardRun");
 		V.Hint = TEXT("Downhill all the way. Ride the half pipe walls.");
 		V.Opening = ParseSections(TEXT(
 			"1500:.5:.2|1300:-.7:-.3|1300:.9:.4:hill:.05:2|1200:-1.1:-.5|600|1400:1.3:.6|1400:-1.3:-.6|500|3000:half:1|500|1200:1:.45|1200:-1:-.45|"
@@ -320,6 +325,7 @@ static TArray<FFTLevelDef> BuildLevels()
 		FFTLevelDef& V = L[6];
 		V.Index = 6; V.Zone = TEXT("UNDER THE SEA"); V.Title = TEXT("SINK OR SWIM");
 		V.Place = TEXT("SEABED ROUTE 7 TO NEREIDA · 300 FATHOMS"); V.Map = TEXT("/Game/Maps/Abyss/L_Abyss");
+		V.Music = TEXT("/Game/Audio/Music/M_ToTheCityInTheSea");
 		V.Hint = TEXT("The road to the sunken city. Glass tunnels all the way.");
 		V.Opening = ParseSections(TEXT(
 			"1500|1500:.5:.2:hill:.06:2|1300:-.6:-.25|600|1800:pipe:1:1|500|1300:.9:.4|1300:-.9:-.4|1500:hill:.08:2|600|2400:pipe:-1:2|500|"
@@ -352,6 +358,7 @@ static TArray<FFTLevelDef> BuildLevels()
 		FFTLevelDef& V = L[7];
 		V.Index = 7; V.Zone = TEXT("CITY CENTER"); V.Title = TEXT("HOSTILE TAKEOVER");
 		V.Place = TEXT("MIDTOWN · FIFTH AND MAIN · 23:59 HRS"); V.Map = TEXT("/Game/Maps/Metro/L_Metro");
+		V.Music = TEXT("/Game/Audio/Music/M_UrbanChase");
 		V.Hint = TEXT("Tight corners, straight through the towers. Then the Chairman.");
 		V.Opening = ParseSections(TEXT(
 			"1400|1000:1.2:.5|1000:-1.2:-.5|600|1600:.3:.1:bldg:52|600|900:2.4:1.0|900:-2.4:-1.0|500|1400:bldg:70|500|1300:twist:1|1000:2.6:1.0|"

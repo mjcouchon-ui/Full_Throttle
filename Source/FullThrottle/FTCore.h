@@ -78,6 +78,7 @@ struct FFTLevelDef
 	int32 BossBullet = 0;         // what the boss's bullets look like (0 tracer, 1 fish, 2 fireball, 3 big tracer)
 	FString Hint;                 // one line on the title card
 	FString Backdrop;             // a landmark mesh on the horizon (Las Vegas, the volcano, the sunken city)
+	FString Music = TEXT("/Game/Audio/Music/M_PixelAdventure"); // 2.6.1: the level's own looping track (Bayshore keeps Pixel Adventure)
 	float BackdropScale = 4.f;
 };
 

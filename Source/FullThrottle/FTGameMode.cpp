@@ -187,7 +187,7 @@ void AFTGameMode::SetupLevel()
 		L->RegisterComponent();
 		RoadLights.Add(L);
 	}
-	Music = UGameplayStatics::CreateSound2D(this, Load<USoundBase>(TEXT("/Game/Audio/Music/M_PixelAdventure")), 0.34f, 1.f, 0.f, nullptr, false, false);
+	Music = UGameplayStatics::CreateSound2D(this, Load<USoundBase>(*Def().Music), 0.34f, 1.f, 0.f, nullptr, false, false);
 	if (Music) Music->bIsUISound = true;
 	Rotor = UGameplayStatics::CreateSound2D(this, Load<USoundBase>(TEXT("/Game/Audio/SFX/S_Rotor")), 0.f, 1.f, 0.f, nullptr, false, false);
 	if (Rotor && Rotor->Sound) Rotor->Play();
@@ -299,9 +299,12 @@ void AFTGameMode::BeginPlayPhase()
 	}
 	if (Music && (!Music->IsPlaying() || Take <= 1))
 	{
-		Music->SetSound(Load<USoundBase>(TEXT("/Game/Audio/Music/M_PixelAdventure")));
+		USoundBase* LevelTrack = Load<USoundBase>(*Def().Music);
+		if (!LevelTrack) LevelTrack = Load<USoundBase>(TEXT("/Game/Audio/Music/M_PixelAdventure"));
+		Music->SetSound(LevelTrack);
 		Music->SetVolumeMultiplier(MusicVol);
 		Music->Play();
+		UE_LOG(LogFT, Display, TEXT("FTMUSIC level=%d track=%s"), Level, LevelTrack ? *LevelTrack->GetName() : TEXT("none"));
 	}
 }
 

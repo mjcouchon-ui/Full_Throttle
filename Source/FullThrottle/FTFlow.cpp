@@ -19,6 +19,7 @@
 #include "Components/PointLightComponent.h"
 #include "Components/AudioComponent.h"
 #include "Sound/SoundBase.h"
+#include "Sound/SoundWave.h"
 #include "Components/StaticMeshComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "HAL/IConsoleManager.h"
@@ -1056,6 +1057,10 @@ void AFTGameMode::HarnessCmd(const FString& Cmd, const TArray<FString>& A)
 		FString Ty = FString::Join(Run.Types, TEXT(","));
 		UE_LOG(LogFT, Display, TEXT("FT LEVEL dump level=L%d scene=%d take=%d retakes=%d xp=%d wrecked=%d total=%d leftBehind=%d score=%lld clock=%.1f types=%d [%s] ap=%d he=%d load=%d hp=%.0f/%.0f missiles=%d"),
 			Level + 1, Scene + 1, Take, Retakes, Run.XP, Run.Wrecked, ScriptTotal, Run.LeftBehind, Score, LevelClock, Run.Types.Num(), *Ty, Run.Rounds[0], Run.Rounds[1], AmmoLoad, Hp, Stats.MaxArmor, Missiles);
+		// 2.6.1: which track the level's music component is really playing
+		const USoundWave* MW = Music ? Cast<USoundWave>(Music->Sound) : nullptr;
+		UE_LOG(LogFT, Display, TEXT("FTMUSIC dump level=L%d track=%s playing=%d looping=%d vol=%.2f"),
+			Level + 1, Music && Music->Sound ? *Music->Sound->GetName() : TEXT("none"), Music && Music->IsPlaying() ? 1 : 0, MW && MW->bLooping ? 1 : 0, Music ? Music->VolumeMultiplier : 0.f);
 	}
 	else if (Cmd == TEXT("FTDumpSkills") || Cmd == TEXT("FTDumpGarage") || Cmd == TEXT("FTDumpShop"))
 	{

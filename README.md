@@ -1,4 +1,4 @@
-# FULL THROTTLE 2.6.0: the Unreal Engine 5.9 game
+# FULL THROTTLE 2.6.1: the Unreal Engine 5.9 game
 
 The 80s spy car chase (web app `full-throttle`, 1.7.2) rebuilt as a native Unreal Engine 5.9 game for Windows,
 C++ plus Blueprints. WispOS opens the packaged build as the native app `full-throttle-unreal`
@@ -187,3 +187,17 @@ No file in the project is over 50 MB. `Binaries`, `Intermediate`, `Saved` and `D
     in the Development package through `-ftexec=<file>` (the FT* harness of spec 12 §9, "wait", "waitfor <text>|<s>",
     "shot <name>"); `real_input_260.py <exe>` plays the owner's flow with real Windows keyboard and mouse input.
 
+
+- **2.6.1 (owner's queue): every level has its own music.** (Audio section: `Content/Audio/Music`; the level → track
+  table is `FFTLevelDef::Music` in `FTData.cpp`.)
+  - Bayshore keeps "Pixel Adventure" (`M_PixelAdventure`) and the title keeps "Bit-Beast Dash" (`M_TitleTheme`); neither
+    asset was touched.
+  - New looping SoundWaves, imported from the owner's mp3s (48 kHz stereo, compression 80 like Pixel Adventure):
+    Chemical Works `M_FactoryCombatLoop` ("Factory Combat Loop"), Nevada `M_DesertFrontier` ("Desert Frontier"), Volcano
+    `M_InfernoLevel` ("Inferno Level"), Theme Park `M_CarnivalChaos` ("Carnival Chaos"), Glacier `M_BlizzardRun`
+    ("Blizzard Run"), Abyss `M_ToTheCityInTheSea` ("To the city in the sea"), Metro `M_UrbanChase` ("Urban Chase").
+  - `AFTGameMode` loads `Def().Music` where it used to hard-code Pixel Adventure (falls back to it if a track is missing)
+    and logs `FTMUSIC level=N track=...` at ACTION!. Same volume (0.34) and ducking as before.
+  - *Tests*: `../full-throttle-tests/v261/run.sh music` (all eight levels via `FTStartLevel`) and `run.sh pick1` ... `pick8`
+    (picks the level on the title with the Right arrow and Enter); `FTDumpLevel` now also prints
+    `FTMUSIC dump level=Ln track=... playing=1 looping=1`.
