@@ -954,7 +954,8 @@ void AFTGameMode::HarnessCmd(const FString& Cmd, const TArray<FString>& A)
 		SpawnScene = Last; SpawnIdx = Def().Scenes[Last].Spawns.Num();
 		Car->PlaceOnTrack(Def().FinaleD * DU + 100.f, Car->X, Car->Speed);
 		SpawnGroup({ EFTKind::Boss });
-		if (PendingEnts.Num()) { FFTEnt& B = PendingEnts.Last(); B.D = Car->D + B.Ta; B.State = 0; }
+		// 2.8: the yeti keeps his real entrance (chasing in from behind); the others start on their spot
+		if (PendingEnts.Num() && Level != 5) { FFTEnt& B = PendingEnts.Last(); B.D = Car->D + B.Ta; B.State = 0; B.Heading = 0.f; }
 		Flush();
 	}
 	else if (Cmd == TEXT("FTSpawn") || Cmd == TEXT("FTSpawnAdd") || Cmd == TEXT("FTSpawnCivilian") || Cmd == TEXT("FTSpawnBarrel"))

@@ -250,7 +250,14 @@ void UFTGameInstance::ApplyQuality(int32 Q, bool bSave)
 			if (IConsoleVariable* V = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DynamicRes.MaxScreenPercentage"))) V->Set(Top, ECVF_SetByGameSetting);
 			if (IConsoleVariable* V = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DynamicRes.MinScreenPercentage"))) V->Set(FMath::Min(Top, 50.f), ECVF_SetByGameSetting);
 		}
-		UE_LOG(LogFT, Display, TEXT("FTQUALITY applied=%d overall=%d dynres=%d"), Q, S->GetOverallScalabilityLevel(), bDyn ? 1 : 0);
+		// 2.8: anti-aliasing per preset. TSR was a third of the GPU frame at MEDIUM and LOW (0.4 of 1.4 ms at LOW on
+		// this PC, far more on a small card); TAA does the same job (and the same dynamic-resolution upscale) for a
+		// fraction of it. HIGH and EPIC keep TSR. -fttsr keeps TSR everywhere (before/after checks).
+		int32 Aa = 4;
+		if (IConsoleVariable* AQ = IConsoleManager::Get().FindConsoleVariable(TEXT("sg.AntiAliasingQuality")))
+			if (AQ->GetInt() <= 1 && !FParse::Param(FCommandLine::Get(), TEXT("fttsr"))) Aa = 2;
+		if (IConsoleVariable* V = IConsoleManager::Get().FindConsoleVariable(TEXT("r.AntiAliasingMethod"))) V->Set(Aa, ECVF_SetByCode);
+		UE_LOG(LogFT, Display, TEXT("FTQUALITY applied=%d overall=%d dynres=%d aa=%s"), Q, S->GetOverallScalabilityLevel(), bDyn ? 1 : 0, Aa == 4 ? TEXT("TSR") : TEXT("TAA"));
 	}
 	if (bSave) SaveSettings();
 }

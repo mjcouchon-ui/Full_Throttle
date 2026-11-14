@@ -33,6 +33,10 @@ public:
 	/** 2.6 ammo: an AP (blue-white, thinner) or HE (orange) tracer; standard rounds keep the stock look. */
 	void SetTracer(const FLinearColor& Colour, float Width, bool bSpecial);
 	bool bTracerColoured = false;
+	/** 2.8: the yeti's charge (0..1): he leans in and flails faster. Set by the game mode each frame. */
+	float Charge = 0.f;
+	float YetiPhase = 0.f;
+	static constexpr float YetiShoulderZ = 820.f;   // where SM_YetiArms pivots (ft_v28.py SHOULDER_Z)
 };
 
 /** A dead vehicle: a real Chaos rigid body that tumbles down the road burning, then goes. */

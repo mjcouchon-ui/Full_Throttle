@@ -1173,6 +1173,8 @@ FTransform AFTGameMode::EntTransform(const FFTEnt& E) const
 	Yaw = FMath::RadiansToDegrees(FMath::Atan2(E.Vx, Rel)) * 0.8f;
 	if (E.Kind == EFTKind::Moto || E.Kind == EFTKind::Hog) Roll = FMath::Clamp(E.Vx / 40.f, -28.f, 28.f);
 	if (E.Kind == EFTKind::Missile) Yaw = FMath::RadiansToDegrees(E.Heading);
+	// 2.8: the yeti faces you (his model looks back up the run); while he chases in from behind he faces downhill
+	if (E.Kind == EFTKind::Boss && Level == 5) Yaw += E.Heading;
 	if (E.Kind == EFTKind::Heli) { Pitch = -8.f; Roll = FMath::Clamp(E.Vx / 60.f, -20.f, 20.f); }
 	if (E.Kind == EFTKind::Bullet && E.Owner == 1) Yaw = 180.f + FMath::RadiansToDegrees(FMath::Atan2(E.Vx, FMath::Max(1.f, Car->Speed - E.Sp)));
 	// 2.5: on a half pipe's walls everything rides the curve
@@ -1213,7 +1215,18 @@ void AFTGameMode::SpawnGroup(const TArray<EFTKind>& Kinds)
 			FFTEnt& E = Spawn(EFTKind::Boss, 16000.f, 0.f);
 			E.Ta = (Level == 2 ? 300.f : 342.f) * DU * 1.25f; E.T1 = 1.6f; E.T2 = 1.0f; E.T3 = 6.f;
 			// 2.5: the yeti runs right up close; the Chairman's limo hovers
-			if (Level == 5) E.Ta = 300.f * DU * 1.2f;
+			if (Level == 5)
+			{
+				E.Ta = 300.f * DU * 1.2f;
+				// 2.8: THE ABOMINABLE comes from BEHIND: he chases you down the run, bounds past in the next lane and
+				// only then turns round to face you (State 10 = the chase in; Heading = his facing, degrees)
+				E.D = Car->D - 2600.f; E.PrevAhead = -2600.f;
+				E.X = (Car->X > 0.f ? -1.f : 1.f) * 78.f * XU;
+				E.State = 10; E.Heading = 180.f; E.T1 = 0.f;
+				SayText(TEXT("Something's coming down the mountain behind us! RUN!"), 4);
+				Shout(TEXT("IT'S CHASING US!"));
+				Caption = TEXT("THE ABOMINABLE IS ON YOUR TAIL!"); CaptionT = RealClock;
+			}
 			if (Level == 7) E.H = 240.f;
 			bBossSpawned = true; BossT = 0.f; bBossOn = true; BossLabel = Def().BossName;
 			BossClock = 0.f; BossRate = 1.f; BossFightT = 0.f; bLastChance = false; BossOffset = 0.f;
@@ -1398,6 +1411,8 @@ void AFTGameMode::Kill(FFTEnt& E, int32 Cause)
 		C->ObjectType = EObjectStateTypeEnum::Chaos_Object_Dynamic;
 		C->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
 		C->SetCollisionResponseToChannel(ECC_Vehicle, ECR_Ignore); // 2.5: debris never stops the car
+		C->bAffectDistanceFieldLighting = false;   // 2.8 perf: flying debris stays out of the distance fields and Lumen
+		C->bAffectDynamicIndirectLighting = false;
 		UGameplayStatics::FinishSpawningActor(A, At);
 		C->CrumbleActiveClusters();
 		C->AddImpulse(Vel, NAME_None, true);
@@ -1861,7 +1876,8 @@ void AFTGameMode::TickEnts(float Dt)
 		if (Phase == EFTPhase::Play && !E.bAir && E.Kind != EFTKind::Bullet && E.Kind != EFTKind::Missile && E.H < 300.f)
 		{
 			const float Dx = E.X - Px;
-			const bool bTouch = FMath::Abs(Dx) < (CarW + E.W) / 2 && FMath::Abs(Ahead) < (CarL + E.L) / 2;
+			// 2.8: the yeti bounding past in the next lane on his way in is no wall (State 10/11)
+			const bool bTouch = FMath::Abs(Dx) < (CarW + E.W) / 2 && FMath::Abs(Ahead) < (CarL + E.L) / 2 && !(E.Kind == EFTKind::Boss && E.State >= 10);
 			if (bTouch)
 			{
 				if (E.Kind == EFTKind::Crate)
@@ -2297,8 +2313,56 @@ void AFTGameMode::TickBossClown(FFTEnt& B, float Dt, int32 Ph, float& Want)
 void AFTGameMode::TickBossYeti(FFTEnt& B, float Dt, int32 Ph, float& Want)
 {
 	const float Px = Car->X, Ahead = B.D - Car->D;
+	AFTEntityActor* YA = B.Proxy.Get();
+	// 2.8: the chase in. He comes down the run behind you, gaining (~17 m/s faster than you), bounds past in the
+	// next lane, then spins round to face you, arms up, and the fight starts
+	if (B.State == 10)
+	{
+		// on a clock, not a speed, so whatever the car is doing he takes ~4.5 s to come past: gaining from behind,
+		// level with you, then pulling ahead (smoothstep from 26 m behind to his fighting spot)
+		B.T1 += Dt;
+		const float U = FMath::Clamp(B.T1 / 4.5f, 0.f, 1.f);
+		B.D = Car->D + FMath::Lerp(-2600.f, B.Ta - 900.f, U * U * (3.f - 2.f * U));
+		Want = Ahead;            // B.Sp = the car's speed, so the move above isn't fought
+		B.X = FMath::FInterpTo(B.X, (B.X >= 0.f ? 1.f : -1.f) * 78.f * XU, Dt, 3.f);
+		if (YA) YA->Charge = 1.f;
+		if (B.D - Car->D > -200.f && B.Step == 0) { B.Step = 1; Shout(TEXT("ROOOAAARRR!")); Sfx(TEXT("BossPhase"), 1.f, 0.55f); Shake(0.6f); UE_LOG(LogFT, Display, TEXT("FT BOSS yeti=alongside t=%.1f"), B.T1); }
+		if (U >= 1.f)
+		{
+			B.State = 11; B.T1 = 0.f; B.Step = 0;
+			UE_LOG(LogFT, Display, TEXT("FT BOSS yeti=turned ahead=%.0f"), Ahead);
+		}
+		return;
+	}
+	if (B.State == 11)
+	{
+		// the turn: 180 -> 0 degrees in 0.7 s, then a roar, and the snowballs start
+		B.T1 += Dt;
+		B.Heading = 180.f * FMath::Clamp(1.f - B.T1 / 0.7f, 0.f, 1.f);
+		if (YA) YA->Charge = FMath::Max(0.f, 1.f - B.T1);
+		B.X = FMath::FInterpTo(B.X, 0.f, Dt, 1.5f);
+		if (B.T1 > 0.7f)
+		{
+			B.State = 0; B.Heading = 0.f; B.T1 = 1.2f; B.T3 = 8.f;
+			SayText(TEXT("He's turned round! He's coming for us! Light him up!"), 3); Shout(TEXT("ROOOAAARRR!")); Shake(0.5f);
+		}
+		return;
+	}
 	Want += 20.f * DU * FMath::Sin(0.9f * B.T);
 	B.X = FMath::FInterpTo(B.X, 70.f * XU * FMath::Sin(0.6f * B.T), Dt, 2.2f);
+	// 2.8: and he keeps CHASING you: every few seconds he charges back up the run at the car, arms up, roaring
+	// (like the shark's lunge: a lean and a glow is the warning, then he closes in; get out of his lane)
+	B.T3 -= Dt;
+	if (B.State == 0 && B.T3 <= 0.f) { B.State = 1; B.T2 = 0.f; UE_LOG(LogFT, Display, TEXT("FT BOSS yeti=charge phase=%d"), Ph); SayText(TEXT("HE'S CHARGING! Get out of his way!"), 2); Shout(TEXT("HE'S CHARGING!")); Sfx(TEXT("BrakeWarn"), 1.f, 0.6f); }
+	if (B.State == 1)
+	{
+		B.T2 += Dt; B.Glow = 1.f;
+		B.X = FMath::FInterpTo(B.X, Px, Dt, B.T2 < 0.8f ? 0.6f : 1.6f);
+		if (B.T2 > 0.8f) Want = B.Ta - 170.f * DU * 1.4f;
+		if (YA) YA->Charge = FMath::Min(1.f, B.T2 / 0.5f);
+		if (B.T2 > 2.4f) { B.State = 0; B.Glow = 0.f; B.T3 = Ph == 0 ? 9.f : (Ph == 1 ? 7.f : 5.5f); }
+	}
+	else if (YA) YA->Charge = FMath::FInterpTo(YA->Charge, 0.f, Dt, 3.f);
 	BossPhaseLine(B, Ph, TEXT("Avalanche! Find the gap in the snow!"), TEXT("HE'S STARTING AVALANCHES!"),
 		TEXT("He's going berserk! Snow everywhere!"), TEXT("THE YETI IS BERSERK!"));
 	B.T1 -= Dt;

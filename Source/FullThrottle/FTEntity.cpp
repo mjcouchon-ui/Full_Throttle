@@ -51,6 +51,17 @@ UStaticMesh* AFTEntityActor::MeshFor(EFTKind Kind, int32 Variant, int32 Level)
 	case EFTKind::Missile: P = TEXT("/Game/Characters/Kestrel/SM_Missile"); break;
 	default: return nullptr;
 	}
+	// 2.8: every level dresses its Syndicate its own way (Themed/L<n>/SM_<kind>, built by ft_v28.py); Bayshore
+	// keeps the classic purple Syndicate, and a level without a themed model falls back to the classic one
+	if (Level >= 1 && Level <= 7 && (Kind == EFTKind::Moto || Kind == EFTKind::Rammer || Kind == EFTKind::Suv || Kind == EFTKind::Truck || Kind == EFTKind::Heli || Kind == EFTKind::Henchman))
+	{
+		FString Leaf; P.Split(TEXT("/"), nullptr, &Leaf, ESearchCase::IgnoreCase, ESearchDir::FromEnd);
+		const FString Th = FString::Printf(TEXT("/Game/Characters/Themed/L%d/%s"), Level, *Leaf);
+		UStaticMesh** TF = Cache.Find(Th);
+		UStaticMesh* TM = TF ? *TF : Load<UStaticMesh>(Th);
+		if (!TF) { if (TM) TM->AddToRoot(); Cache.Add(Th, TM); }
+		if (TM) return TM;
+	}
 	if (UStaticMesh** F = Cache.Find(P)) return *F;
 	UStaticMesh* M = Load<UStaticMesh>(P);
 	// a missing 2.5 model falls back to the 1.x one rather than an invisible foe
@@ -71,9 +82,16 @@ AFTEntityActor::AFTEntityActor()
 	Mesh->SetupAttachment(RootComponent);
 	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	Mesh->SetGenerateOverlapEvents(false);
+	// 2.8 perf: foes, bullets and pickups move every frame. Kept out of the distance fields and the Lumen scene
+	// they no longer force a global distance field update and Lumen card captures every frame (0.3-0.6 ms at
+	// EPIC on this PC); the cel pass bands their light the same either way
+	Mesh->bAffectDistanceFieldLighting = false;
+	Mesh->bAffectDynamicIndirectLighting = false;
 	Extra = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Extra"));
 	Extra->SetupAttachment(Mesh);
 	Extra->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Extra->bAffectDistanceFieldLighting = false;
+	Extra->bAffectDynamicIndirectLighting = false;
 	Extra->SetVisibility(false);
 	Trail = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Trail"));
 	Trail->SetupAttachment(Mesh);
@@ -93,9 +111,21 @@ void AFTEntityActor::Setup(EFTKind InKind, int32 InVariant, int32 Level)
 	Mesh->SetRelativeTransform(FTransform::Identity);
 	Mesh->SetCastShadow(Kind != EFTKind::Bullet && Kind != EFTKind::Missile);
 	Extra->SetVisibility(false);
+	Extra->SetRelativeTransform(FTransform::Identity);
+	Charge = 0.f; YetiPhase = 0.f;
 	Trail->Deactivate();
 	Light->SetVisibility(false);
 	SetActorHiddenInGame(false);
+	// 2.8: THE ABOMINABLE's arms are their own model, pivoting at the shoulders, so he can wave them over his head
+	if (Kind == EFTKind::Boss && Level == 5)
+	{
+		if (UStaticMesh* Arms = Load<UStaticMesh>(TEXT("/Game/Characters/Bosses/SM_YetiArms")))
+		{
+			Extra->SetStaticMesh(Arms);
+			Extra->SetRelativeLocation(FVector(0.f, 0.f, YetiShoulderZ));
+			Extra->SetVisibility(true);
+		}
+	}
 	if (Kind == EFTKind::Heli)
 	{
 		Extra->SetStaticMesh(Load<UStaticMesh>(TEXT("/Game/Characters/Choppers/SM_HeliRotor")));
@@ -162,7 +192,16 @@ void AFTEntityActor::Animate(float Dt, float Speed)
 	// 2.5 bosses with a bit of life: the yeti lopes, the clown car bounces and wobbles, the limo hovers
 	if (Kind == EFTKind::Boss)
 	{
-		if (Lvl == 5) Mesh->SetRelativeTransform(FTransform(FRotator(-6.f * FMath::Sin(AnimT * 6.f), 0.f, 4.f * FMath::Sin(AnimT * 3.f)), FVector(0, 0, 70.f * FMath::Abs(FMath::Sin(AnimT * 3.f)))));
+		if (Lvl == 5)
+		{
+			// 2.8: a big loping bound with a sway, both arms up over his head and flailing; faster and leaning in
+			// when he charges at you
+			YetiPhase += Dt * (1.f + 0.7f * Charge);
+			const float A = YetiPhase;
+			Mesh->SetRelativeTransform(FTransform(FRotator(-5.f * FMath::Sin(A * 6.f) - 9.f * Charge, 0.f, 5.f * FMath::Sin(A * 3.f)), FVector(0, 0, 90.f * FMath::Abs(FMath::Sin(A * 3.f)))));
+			if (Extra->IsVisible())
+				Extra->SetRelativeRotation(FRotator(14.f * FMath::Sin(A * 6.f + 0.8f) + 12.f * Charge, 0.f, 16.f * FMath::Sin(A * 3.f + 0.4f)));
+		}
 		else if (Lvl == 4) Mesh->SetRelativeTransform(FTransform(FRotator(0.f, 0.f, 7.f * FMath::Sin(AnimT * 4.f)), FVector(0, 0, 35.f * FMath::Abs(FMath::Sin(AnimT * 8.f)))));
 		else if (Lvl == 7) Mesh->SetRelativeTransform(FTransform(FRotator(2.f * FMath::Sin(AnimT * 1.3f), 0.f, 3.f * FMath::Sin(AnimT * 1.7f)), FVector(0, 0, 40.f * FMath::Sin(AnimT * 2.f))));
 		else if (Lvl == 6) Mesh->SetRelativeTransform(FTransform(FRotator(0.f, 3.f * FMath::Sin(AnimT * 5.f), 0.f), FVector::ZeroVector));
@@ -183,6 +222,8 @@ AFTWreck::AFTWreck()
 	Mesh->SetCollisionResponseToChannel(ECC_Vehicle, ECR_Ignore);
 	Mesh->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
 	Mesh->BodyInstance.bUseCCD = true;
+	Mesh->bAffectDistanceFieldLighting = false;   // 2.8 perf (see AFTEntityActor)
+	Mesh->bAffectDynamicIndirectLighting = false;
 	Fire = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Fire"));
 	Fire->SetupAttachment(Mesh);
 	Fire->SetAutoActivate(false);
@@ -231,6 +272,10 @@ AFTHazard::AFTHazard()
 	Thing->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	Thing->SetUsingAbsoluteLocation(true); Thing->SetUsingAbsoluteRotation(true); Thing->SetUsingAbsoluteScale(true);
 	Thing->SetVisibility(false);
+	Thing->bAffectDistanceFieldLighting = false;   // 2.8 perf
+	Thing->bAffectDynamicIndirectLighting = false;
+	Plane->bAffectDistanceFieldLighting = false;
+	Plane->bAffectDynamicIndirectLighting = false;
 }
 
 void AFTHazard::SetThing(UStaticMesh* M, const FTransform& WorldT)

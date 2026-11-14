@@ -1,4 +1,4 @@
-# FULL THROTTLE 2.7.0: the Unreal Engine 5.9 game
+# FULL THROTTLE 2.8.0: the Unreal Engine 5.9 game
 
 The 80s spy car chase (web app `full-throttle`, 1.7.2) rebuilt as a native Unreal Engine 5.9 game for Windows,
 C++ plus Blueprints. WispOS opens the packaged build as the native app `full-throttle-unreal`
@@ -21,7 +21,7 @@ Paths are under `full-throttle-unreal/`; a file in two sections' folders belongs
 | City Center: Metro (level 8) | Levels | Matt | `Content/Maps/Metro` (built by `Content/Python/ft_v25.py`) |
 | Track & road builder | Levels | Matt | `FTTrack.*`, `FTData.cpp`, `Content/Python/ft_level.py` |
 | Driving: the KESTREL and how it handles | Vehicles & driving | Matt | `Content/Characters/Kestrel`, `FTPlayerCar.*`, `FTPlayerController.*`, `Config/DefaultInput.ini`, `ft_car.py` |
-| Enemies, bosses & traffic | Characters | Matt | `Content/Characters/{Syndicate,Choppers,SnakeEyes,Bosses,Traffic,Projectiles}`, `ft_fleet.py`, `ft_heli.py` |
+| Enemies, bosses & traffic | Characters | Matt | `Content/Characters/{Syndicate,Choppers,SnakeEyes,Bosses,Traffic,Projectiles,Themed}`, `ft_fleet.py`, `ft_heli.py`, `ft_v28.py` (2.8) |
 | Environment: materials, sky & the cel look | Environment | Justin | `Content/Core/Materials`, `Content/Core/Palette`, `ft_mats.py`, `ft_cel.py`, `ft_art.py` |
 | Effects: fire, smoke & explosions | Effects | Justin | `Content/FX`, `ft_fx.py`, `ft_v26.py` (2.6) |
 | UI & HUD | UI | Brad | `Content/UI`, `FTHUD.*` |
@@ -228,3 +228,43 @@ No file in the project is over 50 MB. `Binaries`, `Intermediate`, `Saved` and `D
     `v270/bench.sh`): HIGH 200 → 261 fps (GPU 4.3 → 3.5 ms), MEDIUM 249 → 312 fps, EPIC and LOW unchanged (~136 / ~420).
     Forcing a 4.5 ms budget dropped the resolution to 51 % and the GPU to 4.1 ms (from 6.8): that is what a slower card
     gets instead of a lower frame rate.
+
+- **2.8.0 (owner's queue): the second performance pass, a new yeti, and every level's Syndicate in its own look.**
+  (Settings, Enemies and Game rules sections: `Config/DefaultScalability.ini`, `FTGameInstance.cpp`, `FTEntity.*`,
+  `FTGameMode.cpp`, `FTFlow.cpp`, `Content/Python/ft_v28.py`, `Content/Characters/{Bosses,Themed}`.)
+  - *Where the frame went* (`profilegpu` in a Development build, `../full-throttle-tests/v280/prof.sh` + `gpusum.py`):
+    at EPIC, Lumen's screen-probe gather 2.5-5.1 ms and Lumen reflections up to 2.4 ms (Metro's glass); TSR a third of
+    the frame at HIGH and MEDIUM (1.2 / 0.8 ms) and a quarter at LOW; two SSAO passes at HIGH; and every moving foe,
+    bullet, wreck and piece of debris forcing a global distance field update and Lumen card captures each frame.
+    Draw calls were never the problem (Nanite: ~860 a frame), and every model is Nanite, so it LODs itself.
+  - *Changes*: EPIC runs Lumen at the HIGH preset's gather settings (screen probes 1/32, half-res reflections, no Lumen
+    translucency volume, slower scene updates) and TSR history at 100 % (`DefaultScalability.ini`); HIGH keeps TSR
+    without flicker detection and one SSAO pass; MEDIUM and LOW use TAA instead of TSR (`ApplyQuality`, cvar
+    `r.AntiAliasingMethod`; `-fttsr` keeps TSR for comparisons) and no SSAO; LOW no motion blur. Foes, bullets, pickups,
+    hazards, wrecks and Chaos debris are out of the distance fields and the Lumen scene (`bAffectDistanceFieldLighting`,
+    `bAffectDynamicIndirectLighting`); the cel pass bands their light the same either way.
+  - *Bench* (Shipping, this PC's RTX 5060 Ti, 1920×1080 window, autopilot 30 s, `../full-throttle-tests/v270/bench.sh`,
+    2.7.0 → 2.8.0, GPU ms per frame): EPIC Bayshore 6.40 → 4.68, Metro 7.92 → 5.56, Abyss 6.36 → 4.66 (−27 to −30 %);
+    HIGH 3.0-3.2 → 2.7-2.8 (−10 %); MEDIUM 2.1-2.2 → 1.6-1.7 (−23 to −26 %); LOW 0.85-0.95 → 0.67-0.76 (−20 %).
+    Frame rate EPIC 147 → 199 (Bayshore), 122 → 171 (Metro); MEDIUM 435 → 527. A slower card gains the same share.
+    Look checked side by side (EPIC Metro, MEDIUM Bayshore): same bands, ink and glow (`../full-throttle-tests/v280/look_*`).
+  - *THE ABOMINABLE* (`ft_v28.yeti`, `yeti_arms`): a new original yeti in the spirit of the old ski-game snowman: huge,
+    white and shaggy (fur tufts all over), a small head sunk in his shoulders, a grey-blue face with angry brows and a
+    roaring mouth, both arms thrown up over his head with black claws. The arms are their own mesh
+    (`SM_YetiArms` on the boss's Extra component, pivot `AFTEntityActor::YetiShoulderZ`) and flail as he lopes. He now
+    *chases*: he arrives 26 m behind the car, bounds past in the next lane over 4.5 s (`FT BOSS yeti=alongside`), turns
+    round to face you (`yeti=turned`), and then keeps charging back up the run at the car with his arms up
+    (`yeti=charge`, every 9 / 7 / 5.5 s by phase; a hit is the boss wall). Snowballs, ice spikes and avalanches as before.
+    `FTBossNow` keeps his real entrance.
+  - *Themed Syndicate* (`ft_v28.THEMES`, `Content/Characters/Themed/L<n>/SM_{Moto,Rammer,Suv,Truck,Heli,Henchman}`,
+    picked in `AFTEntityActor::MeshFor`, the classic model if one is missing): Bayshore keeps the classic purple
+    Syndicate; Chemical Works HAZMAT CREW (hazard yellow, gas masks, glowing toxic drums, a sprayer turret); Nevada DUST
+    DEVILS (rust and sand, dusters, goggles and bandanas, bull horns, a roll cage, a cowboy hat); Volcano MAGMA CORPS
+    (charcoal with glowing lava cracks, silver fire suits, gold visors, heat shields); Theme Park CARNIVAL CREW (jesters,
+    a bumper car, a popcorn wagon, a circus wagon, a chopper with balloons, clowns); Glacier ICE PATROL (snowmobiles on a
+    ski and a track, parkas with fur ruffs, a plough, a snowcat); Abyss DEEP DIVERS (brass diving helmets, yellow
+    mini-subs with portholes, propellers, a periscope); Metro THE SUITS (gloss black and gold, mirrored visors, a cash
+    truck with a vault door). Same footprints as the classic models, so hit boxes are unchanged.
+  - *Tests* (Development package): `../full-throttle-tests/v280/run.sh yeti` (the real finale spawn on the Glacier,
+    shots of the chase, the turn and a charge) and `run.sh crews` (every level's crew on its own road, 24 shots);
+    0 errors, 0 missing material usage flags.
