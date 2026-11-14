@@ -1,0 +1,86 @@
+{
+  "format": "full-throttle.skills/1",
+  "about": "Skill points and upgrades for the KESTREL-88. The same file drives the Unreal build (Content/Data/skills.json) and the web app (app/skills.js). Points are earned when a level ends and spent on the GARAGE screen between levels. Every upgrade adds its effects once per rank. A stat of kind 'mul' is a multiplier (1 + the sum of its effects, never below 0.2); kind 'add' is a plain count. The coming skill tree adds entries to 'upgrades' with a 'branch', a 'tier' and 'requires' (other upgrades and the rank they need); the points, the save and the screen stay the same.",
+  "points": {
+    "wrap": 2,
+    "escape": 1,
+    "perRating": 1,
+    "noRetakes": 1
+  },
+  "pointLabels": {
+    "wrap": "THAT'S A WRAP",
+    "escape": "THE TARGET GOT AWAY",
+    "perRating": "DIRECTOR'S RATING",
+    "noRetakes": "NO RETAKES"
+  },
+  "stats": {
+    "steer": { "label": "steering response", "kind": "mul" },
+    "driftCharge": { "label": "drift charge", "kind": "mul" },
+    "turboBurn": { "label": "turbo burn", "kind": "mul" },
+    "turboRegen": { "label": "turbo recharge", "kind": "mul" },
+    "damageTaken": { "label": "damage taken", "kind": "mul" },
+    "gunDamage": { "label": "gun damage", "kind": "mul" },
+    "missiles": { "label": "missiles", "kind": "add" }
+  },
+  "upgrades": [
+    {
+      "id": "handling",
+      "name": "HANDLING",
+      "branch": "drive",
+      "tier": 0,
+      "color": "#36F2FF",
+      "desc": "Quicker hands on the wheel and a drift that charges faster.",
+      "maxRank": 5,
+      "cost": [1, 1, 2, 2, 3],
+      "requires": [],
+      "effects": [
+        { "stat": "steer", "perRank": 0.10 },
+        { "stat": "driftCharge", "perRank": 0.12 }
+      ]
+    },
+    {
+      "id": "turbo",
+      "name": "TURBO",
+      "branch": "drive",
+      "tier": 0,
+      "color": "#FF4FA6",
+      "desc": "A bigger burn from the same tank, and it refills faster.",
+      "maxRank": 5,
+      "cost": [1, 1, 2, 2, 3],
+      "requires": [],
+      "effects": [
+        { "stat": "turboBurn", "perRank": -0.08 },
+        { "stat": "turboRegen", "perRank": 0.12 }
+      ]
+    },
+    {
+      "id": "armor",
+      "name": "ARMOR",
+      "branch": "body",
+      "tier": 0,
+      "color": "#5BFF73",
+      "desc": "Thicker plate: every hit takes less off the armor bar.",
+      "maxRank": 5,
+      "cost": [1, 1, 2, 2, 3],
+      "requires": [],
+      "effects": [
+        { "stat": "damageTaken", "perRank": -0.07 }
+      ]
+    },
+    {
+      "id": "weapons",
+      "name": "WEAPONS",
+      "branch": "arms",
+      "tier": 0,
+      "color": "#FFD140",
+      "desc": "Hotter rounds for the guns and one more missile in the pods.",
+      "maxRank": 5,
+      "cost": [1, 1, 2, 2, 3],
+      "requires": [],
+      "effects": [
+        { "stat": "gunDamage", "perRank": 0.10 },
+        { "stat": "missiles", "perRank": 1 }
+      ]
+    }
+  ]
+}

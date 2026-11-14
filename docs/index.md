@@ -6,7 +6,7 @@ You are Agent Nova Kane in an over-the-top spy movie, driving the armed KESTREL-
 - **Level 2: the Chemical Plant, THE FORMULA.** Eight scenes through the Volta Chemical Works at night: twisty S-bends, banked helix ramps, loops and glass **pipes** you drive all the way round inside. Take down **THE ALCHEMIST**'s tesla tanker at the end, and dodge his lightning (see *The bosses* below).
 - **Level 3: the Nevada Desert, ALL IN** (new in 1.5). Nine scenes down Highway 93 at sunset, with the neon of Las Vegas lit up dead ahead on the horizon, getting bigger as you go: The State Line, The Dry Wash, Snake Eyes, Joshua Flats, Red Rock Pass, Last Chance Gas, Jackpot Junction, The City Lights and The Finale. Fight off the **SNAKE EYES** biker gang and take down **THE BIG DEALER**'s motorcycle carrier at the end (see *Level 3* below).
 
-Wrap a level and Enter on the rating screen takes you straight on to the next one (R reshoots the same level instead). On the title, the number keys 1, 2 and 3 pick a level too.
+Wrap a level and Enter on the rating screen takes you to **THE GARAGE**, where you spend the skill points the level paid; its **START LEVEL** button takes you on to the next one (R on the rating screen reshoots the same level instead). On the title, the number keys 1, 2 and 3 pick a level too.
 
 The camera rides just behind and above your car: the highway runs away to the horizon, and traffic and the Syndicate come up out of the distance.
 
@@ -54,7 +54,9 @@ The open road to Las Vegas at dusk: a synthwave sunset with the sun going down b
 
 ## The highlight reel (1.3)
 
-Wrap a level and, before the rating, the movie plays you its own highlights: the best five moments of your run, in the order they happened, then the boss going down twice from two angles. It's about forty seconds, in scope letterbox with film titles. Each clip gets its own camera (a low **bumper** camera, a **tracking** shot alongside, a **crane** that swoops down, an **aerial**, a **dolly** that slides across, a **kill cam** that swings onto what's exploding, or the chase camera) and slows right down on the money shot. Only takes that made it are used: a scene you wrecked and reshot only shows the take that worked. Press Enter (or click, or tap) to skip to the rating.
+Wrap a level and, before the rating, the movie plays you its own highlights: the best five moments of your run, in the order they happened, then the boss going down twice from two angles. It's about forty seconds, in scope letterbox with film titles. Each clip gets its own camera (a low **bumper** camera, a **tracking** shot alongside, a **crane** that swoops down, an **aerial**, a **dolly** that slides across, a **kill cam** that swings onto what's exploding, or the chase camera) and slows right down on the money shot. Only takes that made it are used: a scene you wrecked and reshot only shows the take that worked.
+
+Since 1.8 the reel isn't skipped by accident: a click on the picture, Space, Esc or any other key does nothing, and when the last shot is done it plays again **from the top**. To move on, press the **CONTINUE** button at the bottom of the screen: click it (or tap it), press **Enter**, or press **Start** on a gamepad.
 
 ## Explosions and damage (1.3)
 
@@ -96,7 +98,7 @@ Rather steer with the arrow keys? That's the other layout: your right hand steer
 | C (on the title or pause screen) | Y | CONTROLS button | The controls screen |
 | M | — | — | Sound on or off (the music too) |
 
-Enter or Space moves the menus on (A or Start on a gamepad). On the title, the left and right arrows (or the d-pad) pick the level.
+Enter or Space moves the menus on (A or Start on a gamepad). The highlight reel is the exception: only its CONTINUE button (Enter, Start, or a click on it) moves on, and the garage moves on only from its START LEVEL button. On the title, the left and right arrows (or the d-pad) pick the level.
 
 ### The controls screen (1.7)
 
@@ -126,6 +128,19 @@ Any standard gamepad (Xbox, PlayStation and most others) works as soon as you pr
   - Below two thirds of his health he overcharges (two lanes at once, faster warnings). Below a third it's a meltdown: shock waves back to back, three lock-ons, double arcs. Damage costs you armor as usual.
 - **Civilians**: dodge them. Wrecking one costs 300.
 - **Car carrier**: drive up its ramp for a jump (with turbo for a bigger one).
+
+## The garage and skill points (1.8)
+
+Each level you finish pays **skill points**, shown on the rating screen: 2 for a wrap (1 if the boss got away), 1 more for each star of the director's rating past B-Movie, and 1 more if you never needed a retake. Running out of film pays nothing. The points are banked straight away, so reshooting the level or going back to the title keeps them.
+
+Then Enter on the rating screen opens **THE GARAGE**, and the next level starts only when you press its **START LEVEL** button (after level 3 it says **BACK TO TITLE**). Spend the points on four upgrades for the KESTREL-88, five ranks each (1, 1, 2, 2 and 3 points):
+
+- **HANDLING**: +10% steering response and +12% drift charge per rank.
+- **TURBO**: the turbo burns 8% slower and refills 12% faster per rank.
+- **ARMOR**: every hit takes 7% less off the armor bar per rank.
+- **WEAPONS**: +10% gun damage and one more missile per rank (you start with 6 + the rank, and the crates top you up to 9 + the rank).
+
+Each card shows what it does now and at the next rank, and what the next rank costs. Pick a card with the arrow keys (or WASD, or the d-pad or stick) and press **Enter** (or **A**) to buy a rank; **Backspace** (or **X** on a pad) refunds one, so you can move points around at any time. With the mouse, click a card to buy and right-click to refund; on a phone, tap a card. **Start** on a gamepad starts the level from anywhere on the screen. Esc and stray keys do nothing here. Your points and ranks are a career: they are saved on this computer and carry on into every run.
 
 ## Scoring and the rating
 

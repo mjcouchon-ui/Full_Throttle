@@ -5,6 +5,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/HUD.h"
+#include "Math/Box2D.h"
 #include "FTHUD.generated.h"
 
 class AFTGameMode;
@@ -35,6 +36,11 @@ private:
 	void DrawCut(AFTGameMode* G);
 	void DrawReel(AFTGameMode* G);
 	void DrawRating(AFTGameMode* G);
+	void DrawGarage(AFTGameMode* G);
+	void DrawReelContinue(AFTGameMode* G);
+	/** A neon button: returns its rect (for the mouse). bArmed false = drawn dim; bHot = selected or hovered. */
+	FBox2D Button(float Cx, float Cy, float Wd, float Ht, const FString& Label, const FString& Sub, bool bArmed, bool bHot);
+	TArray<FString> WrapText(const FString& Str, float MaxW, float Scale);
 	void DrawPause(AFTGameMode* G);
 	void DrawControls(AFTGameMode* G);
 	void DrawOptions(AFTGameMode* G);

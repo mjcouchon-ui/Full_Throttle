@@ -14,8 +14,9 @@
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "HAL/IConsoleManager.h"
 
-// which arcade assists run on top of Chaos (bits): 1 speed governor, 2 grip, 4 yaw, 8 anti-flip, 16 track gravity, 32 air control
-static TAutoConsoleVariable<int32> CVarFTArcade(TEXT("ft.Arcade"), 63, TEXT("FULL THROTTLE: arcade assist bitmask on the Chaos car"));
+// which arcade assists run on top of Chaos (bits): 1 speed governor, 2 grip, 4 yaw, 8 anti-flip, 16 track gravity, 32 air control,
+// 64 road glue (2.4 downforce)
+static TAutoConsoleVariable<int32> CVarFTArcade(TEXT("ft.Arcade"), 127, TEXT("FULL THROTTLE: arcade assist bitmask on the Chaos car"));
 
 namespace
 {
@@ -173,7 +174,7 @@ AFTPlayerCar::AFTPlayerCar()
 		return N;
 	};
 	SmokeFX = FX(TEXT("SmokeFX"), FVector(-110, 0, 120));
-	FireFX = FX(TEXT("FireFX"), FVector(-120, 0, 110));
+	FireFX = FX(TEXT("FireFX"), FVector(-115, 0, 82)); // 2.4: on the engine deck, not floating over the roof
 	SparksFX = FX(TEXT("SparksFX"), FVector(-210, 0, 8));
 	TurboFX = FX(TEXT("TurboFX"), FVector(-232, 0, 30));
 	DriftFX = FX(TEXT("DriftFX"), FVector(-133, 0, 10));
@@ -204,7 +205,8 @@ void AFTPlayerCar::BeginPlay()
 	for (UStaticMeshComponent* Hm : Henchmen) if (!Hm->GetStaticMesh()) Hm->SetStaticMesh(HM);
 	auto SetFX = [](UNiagaraComponent* C, const TCHAR* P) { if (!C->GetAsset()) C->SetAsset(Load<UNiagaraSystem>(P)); };
 	SetFX(SmokeFX, TEXT("/Game/FX/NS_Smoke"));
-	SetFX(FireFX, TEXT("/Game/FX/NS_Fire"));
+	// 2.4: the car burns with its own flat cel fire (NS_CarFire, MI_Fire_Car); NS_Fire's white-hot puffs hid it
+	SetFX(FireFX, TEXT("/Game/FX/NS_CarFire"));
 	SetFX(SparksFX, TEXT("/Game/FX/NS_Sparks"));
 	SetFX(TurboFX, TEXT("/Game/FX/NS_TurboFlame"));
 	SetFX(DriftFX, TEXT("/Game/FX/NS_TyreSmoke"));
@@ -240,6 +242,7 @@ void AFTPlayerCar::PlaceOnTrack(float InD, float InX, float InSpeed)
 	Chassis->SetPhysicsAngularVelocityInRadians(FVector::ZeroVector);
 	// (no ResetVehicle: it rebuilds the physics vehicle and asserts if called mid-spawn; a teleport is enough)
 	D = InD; X = InX; H = 0.f;
+	LaunchT = 0.f;
 	bWrecked = false;
 	Chassis->SetSimulatePhysics(true);
 }
@@ -247,6 +250,8 @@ void AFTPlayerCar::PlaceOnTrack(float InD, float InX, float InSpeed)
 void AFTPlayerCar::Shove(const FVector& WorldDir, float CmPerSec, float SpinRad)
 {
 	Chassis->AddImpulse(WorldDir * CmPerSec, NAME_None, true);
+	// an upward kick (the car-carrier ramp) is a real jump: let it fly
+	if (FVector::DotProduct(WorldDir, RoadUp) * CmPerSec > 400.f) LaunchT = 1.6f;
 	if (SpinRad != 0.f) Chassis->AddAngularImpulseInRadians(RoadUp * SpinRad, NAME_None, true);
 }
 
@@ -265,7 +270,8 @@ void AFTPlayerCar::SetDamageLook(float Hp)
 	{
 		if (bFire && !FireFX->IsActive()) FireFX->Activate(true);
 		if (!bFire && FireFX->IsActive()) FireFX->Deactivate();
-		FireFX->SetVariableFloat(TEXT("User.Size"), Hp < 18.f ? 1.6f : 1.f);
+		// the stateless emitter has no User.Size; it scales with the component (ApplyOwnerScaleToAttributes)
+		FireFX->SetRelativeScale3D(FVector(Hp < 18.f ? 1.3f : 1.f));
 	}
 	Body->SetScalarParameterValueOnMaterials(TEXT("Soot"), FMath::Clamp((85.f - Hp) / 85.f * 0.8f, 0.f, 0.8f));
 	for (UStaticMeshComponent* P : Parts) P->SetScalarParameterValueOnMaterials(TEXT("Soot"), FMath::Clamp((85.f - Hp) / 85.f * 0.8f, 0.f, 0.8f));
@@ -324,7 +330,7 @@ void AFTPlayerCar::Wreck()
 	Chassis->AddAngularImpulseInRadians(FVector(FMath::FRandRange(-4.f, 4.f), FMath::FRandRange(-3.f, 3.f), FMath::FRandRange(-2.f, 2.f)), NAME_None, true);
 	Vehicle->SetThrottleInput(0.f);
 	Vehicle->SetBrakeInput(1.f);
-	if (FireFX->GetAsset()) { FireFX->SetVariableFloat(TEXT("User.Size"), 2.f); FireFX->Activate(true); }
+	if (FireFX->GetAsset()) { FireFX->SetRelativeScale3D(FVector(1.6f)); FireFX->Activate(true); }
 	if (SmokeFX->GetAsset()) { SmokeFX->SetVariableFloat(TEXT("User.Dark"), 1.f); SmokeFX->Activate(true); }
 	Underglow->SetVisibility(false);
 	HeadL->SetVisibility(false); HeadR->SetVisibility(false);
@@ -373,6 +379,37 @@ void AFTPlayerCar::Tick(float Dt)
 	if (!bScrape) WallImpact = 0.f;
 
 	ApplyArcade(Dt);
+	{
+		// 2.4 glue telemetry (autopilot runs): time off the road on ordinary road vs on real jumps, and how high
+		static float StrayAir = 0.f, StrayMaxH = 0.f, JumpAir = 0.f, JumpMaxH = 0.f, GlueT = 0.f;
+		static IConsoleVariable* AutoG = IConsoleManager::Get().FindConsoleVariable(TEXT("ft.Autopilot"));
+		if (AutoG && AutoG->GetInt() > 0 && !bWrecked && !Drive.bFrozen)
+		{
+			const bool bJumpNow = (F.Flags & (FTFlag::Kicker | FTFlag::Gap | FTFlag::Landing)) != 0 || LaunchT > 0.f;
+			if (!bGrounded) { if (bJumpNow) { JumpAir += Dt; JumpMaxH = FMath::Max(JumpMaxH, H); } else { StrayAir += Dt; StrayMaxH = FMath::Max(StrayMaxH, H); } }
+			// one line per flight longer than 0.25 s: what launched it, air time, rise over the take-off point, distance
+			static bool bWasAir = false; static float AirT0 = 0.f, Z0 = 0.f, ZMax = 0.f, D0 = 0.f, LiftMax = 0.f, LiftMin = 0.f; static const TCHAR* Kind = TEXT("");
+			const float Z = Chassis->GetComponentLocation().Z;
+			if (!bGrounded && !bWasAir)
+			{
+				bWasAir = true; AirT0 = 0.f; Z0 = ZMax = Z; D0 = D; LiftMax = LiftMin = H - ChassisZ;
+				Kind = LaunchT > 0.f ? TEXT("ramp") : ((F.Flags & (FTFlag::Kicker | FTFlag::Gap)) ? TEXT("gap") : TEXT("road"));
+			}
+			if (bWasAir) { AirT0 += Dt; ZMax = FMath::Max(ZMax, Z); LiftMax = FMath::Max(LiftMax, H - ChassisZ); LiftMin = FMath::Min(LiftMin, H - ChassisZ); }
+			if (bGrounded && bWasAir)
+			{
+				bWasAir = false;
+				// lift = chassis height over the road minus ride height (negative: pressed down past the springs)
+				if (AirT0 > 0.25f) UE_LOG(LogFT, Display, TEXT("FTJUMP kind=%s from D=%.0f air=%.2fs rise=%.0f dist=%.0f lift=%.0f..%.0f"), Kind, D0, AirT0, ZMax - Z0, D - D0, LiftMin, LiftMax);
+			}
+			GlueT += Dt;
+			if (GlueT > 5.f)
+			{
+				UE_LOG(LogFT, Display, TEXT("FTGLUE D=%.0f straysAir=%.2fs strayMaxH=%.0f jumpAir=%.2fs jumpMaxH=%.0f v=%.0f fps=%.0f"), D, StrayAir, StrayMaxH, JumpAir, JumpMaxH, Speed, 1.f / FMath::Max(Dt, 1e-4f));
+				StrayAir = StrayMaxH = JumpAir = JumpMaxH = GlueT = 0.f;
+			}
+		}
+	}
 	{
 		static int32 Burst = 0;
 		static IConsoleVariable* Auto = IConsoleManager::Get().FindConsoleVariable(TEXT("ft.Autopilot"));
@@ -467,6 +504,53 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 	const float GMag = 980.f * (bGrounded ? 1.f : AirGravityScale) + (bGrounded ? FMath::Clamp(FMath::Abs(Speed) - 5000.f, 0.f, 6000.f) * 0.12f : 0.f);
 	const int32 AM = CVarFTArcade.GetValueOnGameThread();
 	if (AM & 16) Chassis->AddForce(GDir * GMag + FVector(0, 0, 980.f), NAME_None, true);
+
+	// 2.4 glue: everywhere but a real jump the car is pressed onto the road like a slot car. Crests, bumps,
+	// kerbs, hits and landings can't lift it: speed away from the road is bled off within a few frames, and a
+	// lifted car is pulled back down hard. A jump section's kicker and gap, and a ramp launch, fly as before.
+	LaunchT = FMath::Max(0.f, LaunchT - Dt);
+	if (LaunchT < 1.3f && bGrounded) LaunchT = 0.f; // landed after a launch
+	const bool bRealJump = (F.Flags & (FTFlag::Kicker | FTFlag::Gap)) != 0 || ((F.Flags & FTFlag::Landing) && !bGrounded) || LaunchT > 0.f;
+	if ((AM & 64) && !bRealJump && H < 4000.f)
+	{
+		const FVector Vg = Chassis->GetPhysicsLinearVelocity();
+		const float Away = FVector::DotProduct(Vg, Up);
+		// lifted is judged by the chassis's height over the road, not by the wheels: pressed past the suspension's
+		// travel, the wheel traces start under the road and read "in the air", and a pull keyed to that kept the
+		// car pinned on its belly (first 2.4 build). Ride height is ~85 cm; nothing extra once it is down there.
+		const float Lift = H - ChassisZ;
+		float Pull = bGrounded && Lift > -12.f ? Downforce * 980.f : 0.f;
+		// a critically damped spring on the lift (GlueK, GlueDamp = 2 sqrt(GlueK)): hard down when high, easing off
+		// as it closes, and nothing extra while it is already coming down fast, so it lands on the springs instead of
+		// slamming through their 14 cm onto its belly (a flat 7 g pull did that, second 2.4 build). Never pushes up.
+		// Only above ride height: below it the springs are lifting the car back up, and that must not be fought.
+		if (Lift > -4.f)
+		{
+			// never take off more than the away speed itself in one step (stays stable at low frame rates)
+			float DampA = Away > 0.f ? FMath::Min(Away * GlueDamp, Away / FMath::Max(Dt, 1e-3f)) : Away * GlueDamp;
+			// in pipes, loops and twists the surface itself turns away from the car, so "coming toward the road"
+			// (Away < 0) says nothing about closing in on it: there the spring always pulls in full, up to 20 g
+			const bool bSet = (F.Flags & (FTFlag::Pipe | FTFlag::Loop | FTFlag::Twist)) != 0;
+			if (bSet) DampA = FMath::Max(DampA, 0.f);
+			Pull += FMath::Clamp(GlueK * FMath::Max(Lift, 0.f) + DampA, 0.f, bSet ? 20000.f : 12000.f);
+		}
+		// down on its belly (wheel traces start under the road and find nothing): lift it back onto its wheels
+		// instead of sitting there until the crew resets it 1.5 s later
+		if (Lift < -35.f && WheelsDown == 0) Pull = -2600.f;
+		// pipes, loops and twists: the road rolls under the car, and a car that loses its wheels there slid off the
+		// ribbon sideways (X past the barrier; the pull above is only along the road's normal). Hold it across too:
+		// a spring back from 2 m inside the paint's edge, and the sideways speed damped while it is off its wheels.
+		if (F.Flags & (FTFlag::Pipe | FTFlag::Loop | FTFlag::Twist))
+		{
+			const float VLatR = FVector::DotProduct(Vg, F.Right);
+			const float Over = FMath::Sign(X) * FMath::Max(FMath::Abs(X) - 900.f, 0.f);
+			// damp the sideways speed while off the wheels, and always when it is heading out past 9 m
+			const bool bOutward = Over * VLatR > 0.f;
+			const float LatA = GlueK * Over + ((!bGrounded || bOutward) ? GlueDamp * VLatR : 0.f);
+			if (LatA != 0.f) Chassis->AddForce(-F.Right * FMath::Clamp(LatA, -20000.f, 20000.f), NAME_None, true);
+		}
+		Chassis->AddForce(-Up * Pull, NAME_None, true);
+	}
 
 	const FVector CarF = Chassis->GetForwardVector();
 	const FVector Cf = (CarF - Up * FVector::DotProduct(CarF, Up)).GetSafeNormal();

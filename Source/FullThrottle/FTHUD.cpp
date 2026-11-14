@@ -2,6 +2,8 @@
 #include "FTGameMode.h"
 #include "FTGameInstance.h"
 #include "FTPlayerCar.h"
+#include "FTPlayerController.h"
+#include "FTSkills.h"
 #include "Engine/Canvas.h"
 #include "Engine/Font.h"
 #include "Engine/Engine.h"
@@ -78,6 +80,7 @@ void AFTHUD::DrawHUD()
 	case EFTPhase::Wreck: case EFTPhase::Wrap: DrawPlay(G); DrawCut(G); break;
 	case EFTPhase::Reel: DrawReel(G); break;
 	case EFTPhase::Rating: DrawRating(G); break;
+	case EFTPhase::Garage: DrawGarage(G); break;
 	}
 	switch (G->Overlay)
 	{
@@ -251,7 +254,7 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 	const UFTGameInstance* GI = G->GI();
 	auto KeyName = [GI](EFTAction A) { return GI && GI->Binds[(int32)A][GI->Layout].IsValid() ? GI->Binds[(int32)A][GI->Layout].GetDisplayName().ToString().ToUpper() : FString(TEXT("-")); };
 	Txt(FString::Printf(TEXT("MISSILES [%s]"), *KeyName(EFTAction::Missile)), Lx + 12 * S, Ly + 110 * S, White, 0.75f);
-	for (int32 i = 0; i < 9; ++i) Box(Lx + 12 * S + i * 18 * S, Ly + 130 * S, 12 * S, 8 * S, i < G->Missiles ? Amber : FLinearColor(1, 1, 1, 0.12f));
+	for (int32 i = 0, Cap = G->MissileCap(); i < Cap; ++i) Box(Lx + 12 * S + i * 18 * S, Ly + 130 * S, 12 * S, 8 * S, i < G->Missiles ? Amber : FLinearColor(1, 1, 1, 0.12f));
 	const TCHAR* TurboSt = G->bTurboOn ? TEXT("BURN") : (G->BoostT > 0 ? TEXT("BOOST") : (G->bTurboLock ? TEXT("RECHARGING") : (G->Turbo >= 99.f ? TEXT("READY") : TEXT("CHARGING"))));
 	Txt(FString::Printf(TEXT("TURBO [%s]  %s"), *KeyName(EFTAction::Turbo), TurboSt), Lx + 12 * S, Ly + 144 * S, White, 0.75f);
 	Box(Lx + 12 * S, Ly + 164 * S, 220 * S, 9 * S, FLinearColor(1, 1, 1, 0.12f));
@@ -333,13 +336,26 @@ void AFTHUD::DrawReel(AFTGameMode* G)
 		Txt(TEXT("ROADBURN PICTURES PRESENTS"), W * 0.5f, H * 0.36f, Grey, 0.9f, 1);
 		Txt(TEXT("THE HIGHLIGHTS"), W * 0.5f, H * 0.42f, Yellow, 2.4f, 1, true);
 		Txt(FString::Printf(TEXT("LEVEL %d: %s · %s"), L.Index + 1, *L.Zone, *L.Title), W * 0.5f, H * 0.56f, White, 1.f, 1);
+		DrawReelContinue(G);
 		return;
 	}
 	Txt(TEXT("● DAILIES · HIGHLIGHTS"), 24 * S, 10 * S, Red, 0.85f, 0, true);
 	Txt(FString::Printf(TEXT("SHOT %d / %d   %s"), G->ReelShot, G->ReelShots, *G->ReelCamName), W - 24 * S, 12 * S, White, 0.8f, 2);
 	Txt(G->ReelLabel, 40 * S, H - 80 * S, Yellow, 1.3f, 0, true);
 	if (G->bReelSlow) Txt(TEXT("▶▶ SLOW MOTION"), W - 40 * S, H - 74 * S, Pink, 0.9f, 2);
-	Txt(TEXT("ENTER TO SKIP"), W * 0.5f, H - 30 * S, Grey, 0.6f, 1);
+	if (T - G->ReelLoopT < 2.f) Txt(TEXT("AGAIN, FROM THE TOP"), W * 0.5f, H * 0.2f, FLinearColor(1, 1, 1, FMath::Clamp(2.f - (T - G->ReelLoopT), 0.f, 1.f)), 1.2f, 1, true);
+	DrawReelContinue(G);
+}
+
+void AFTHUD::DrawReelContinue(AFTGameMode* G)
+{
+	// the only way on: a clearly drawn CONTINUE button in the bottom letterbox bar
+	const float Bar = FMath::Max((H - W / 2.39f) * 0.5f, 70 * S);
+	const float Bh = FMath::Min(58 * S, Bar - 12 * S);
+	const bool bArmed = G->PhaseT > AFTGameMode::ReelArmT;
+	const AFTPlayerController* PC = Cast<AFTPlayerController>(GetOwningPlayerController());
+	const bool bHover = PC && bArmed && PC->MouseIn(G->ReelContinueRect);
+	G->ReelContinueRect = Button(W * 0.5f, H - Bar * 0.5f, 360 * S, Bh, TEXT("CONTINUE  ▶"), TEXT("ENTER  ·  PAD START  ·  CLICK HERE"), bArmed, bHover);
 }
 
 // ---------------------------------------------------------------------------------------------- dailies
@@ -375,8 +391,125 @@ void AFTHUD::DrawRating(AFTGameMode* G)
 		Txt(Stars, W * 0.5f, H * 0.8f, Cols[G->RatingIdx], 1.2f, 1);
 		Txt(G->RatingQuip, W * 0.5f, H * 0.86f, White, 0.9f, 1);
 	}
-	const bool bLast = G->Level >= 2 || G->bOutOfFilm;
-	Txt(bLast ? TEXT("ENTER  TITLE   ·   R  RESHOOT   ·   ESC  TITLE") : TEXT("ENTER  NEXT LEVEL   ·   R  RESHOOT   ·   ESC  TITLE"), W * 0.5f, H * 0.93f, Grey, 0.85f, 1);
+	if (G->PhaseT > 3.0f)
+	{
+		if (G->bOutOfFilm) Txt(TEXT("NO SKILL POINTS: OUT OF FILM"), W * 0.5f, H * 0.895f, Red, 0.85f, 1);
+		else
+		{
+			FString Why;
+			for (const TPair<FString, int32>& Ln : G->PointsLines) Why += FString::Printf(TEXT("%s%s +%d"), Why.IsEmpty() ? TEXT("") : TEXT("  ·  "), *Ln.Key, Ln.Value);
+			Txt(FString::Printf(TEXT("+%d SKILL POINTS    %s"), G->PointsEarned, *Why), W * 0.5f, H * 0.895f, Green, 0.85f, 1, true);
+		}
+	}
+	Txt(G->bOutOfFilm ? TEXT("ENTER  TITLE   ·   R  RESHOOT   ·   ESC  TITLE") : TEXT("ENTER  THE GARAGE (SPEND SKILL POINTS)   ·   R  RESHOOT   ·   ESC  TITLE"), W * 0.5f, H * 0.95f, Grey, 0.85f, 1);
+}
+
+// ---------------------------------------------------------------------------------------------- garage
+TArray<FString> AFTHUD::WrapText(const FString& Str, float MaxW, float Scale)
+{
+	TArray<FString> Words, Lines;
+	Str.ParseIntoArrayWS(Words);
+	FString Cur;
+	for (const FString& Wd : Words)
+	{
+		const FString Try = Cur.IsEmpty() ? Wd : Cur + TEXT(" ") + Wd;
+		if (!Cur.IsEmpty() && Measure(Try, Scale, false).X > MaxW) { Lines.Add(Cur); Cur = Wd; }
+		else Cur = Try;
+	}
+	if (!Cur.IsEmpty()) Lines.Add(Cur);
+	return Lines;
+}
+
+FBox2D AFTHUD::Button(float Cx, float Cy, float Wd, float Ht, const FString& Label, const FString& Sub, bool bArmed, bool bHot)
+{
+	const float X = Cx - Wd * 0.5f, Y = Cy - Ht * 0.5f;
+	const float Pulse = 0.5f + 0.5f * FMath::Sin(T * 5.f);
+	const FLinearColor Edge = !bArmed ? FLinearColor(1, 1, 1, 0.25f) : (bHot ? Yellow : FLinearColor(Pink.R, Pink.G, Pink.B, 0.65f + 0.35f * Pulse));
+	Box(X, Y, Wd, Ht, !bArmed ? FLinearColor(0.05f, 0.04f, 0.08f, 0.85f) : (bHot ? FLinearColor(0.42f, 0.08f, 0.32f, 0.95f) : FLinearColor(0.2f, 0.03f, 0.18f, 0.92f)));
+	Frame(X, Y, Wd, Ht, Edge, bHot ? 3.f : 2.f);
+	if (bArmed) Frame(X - 4 * S, Y - 4 * S, Wd + 8 * S, Ht + 8 * S, FLinearColor(Edge.R, Edge.G, Edge.B, 0.25f + 0.2f * Pulse), 1.f);
+	const FLinearColor Tc = bArmed ? (bHot ? Yellow : White) : FLinearColor(1, 1, 1, 0.35f);
+	Txt(Label, Cx, Y + Ht * 0.12f, Tc, 1.15f, 1, true);
+	if (!Sub.IsEmpty()) Txt(Sub, Cx, Y + Ht * 0.6f, bArmed ? FLinearColor(1.f, 0.97f, 0.92f, 0.95f) : FLinearColor(1, 1, 1, 0.3f), 0.8f, 1);
+	return FBox2D(FVector2D(X, Y), FVector2D(X + Wd, Y + Ht));
+}
+
+void AFTHUD::DrawGarage(AFTGameMode* G)
+{
+	const UFTGameInstance* GI = G->GI();
+	if (!GI) return;
+	const FFTSkillData& D = FFTSkillData::Get();
+	const AFTPlayerController* PC = Cast<AFTPlayerController>(GetOwningPlayerController());
+	Box(0, 0, W, H, FLinearColor(0.01f, 0.f, 0.03f, 0.72f));
+	Txt(TEXT("THE GARAGE"), W * 0.5f, H * 0.04f, Yellow, 2.2f, 1, true);
+	const FString Next = G->Level >= 2 ? FString(TEXT("NEXT: BACK TO THE TITLE"))
+		: FString::Printf(TEXT("NEXT: LEVEL %d · %s"), G->Level + 2, *FTData::Level(G->Level + 1).Zone);
+	Txt(FString::Printf(TEXT("SPEND SKILL POINTS ON THE KESTREL-88   ·   %s"), *Next), W * 0.5f, H * 0.145f, White, 0.9f, 1);
+	Txt(FString::Printf(TEXT("SKILL POINTS  %d"), GI->SkillPoints), W * 0.5f, H * 0.19f, Cyan, 1.5f, 1, true);
+	if (G->PointsEarned > 0)
+	{
+		FString Why;
+		for (const TPair<FString, int32>& Ln : G->PointsLines) Why += FString::Printf(TEXT("%s%s +%d"), Why.IsEmpty() ? TEXT("") : TEXT("  ·  "), *Ln.Key, Ln.Value);
+		Txt(FString::Printf(TEXT("+%d EARNED THIS LEVEL:  %s"), G->PointsEarned, *Why), W * 0.5f, H * 0.265f, Pink, 0.78f, 1);
+	}
+	if (!D.bLoaded) Txt(FString::Printf(TEXT("UPGRADE DATA MISSING: %s"), *D.Error), W * 0.5f, H * 0.45f, Red, 1.f, 1, true);
+
+	// one card per upgrade in skills.json
+	const int32 N = D.Upgrades.Num();
+	G->GarageRects.SetNum(N + 1);
+	const float Gap = 18 * S;
+	const float Cw = N > 0 ? FMath::Min(272 * S, (W - 60 * S - Gap * (N - 1)) / N) : 0.f;
+	const float Ch = 282 * S, Y0 = H * 0.32f, X0 = W * 0.5f - (Cw * N + Gap * (N - 1)) * 0.5f;
+	for (int32 i = 0; i < N; ++i)
+	{
+		const FFTUpgradeDef& U = D.Upgrades[i];
+		const float X = X0 + i * (Cw + Gap), Y = Y0;
+		const int32 Rk = GI->Rank(U.Id);
+		const bool bSel = G->GarageSel == i;
+		FString LockWhy; const bool bLocked = GI->IsLocked(i, &LockWhy);
+		const int32 Cost = GI->NextCost(i);
+		const bool bCan = GI->CanBuy(i);
+		Box(X, Y, Cw, Ch, bSel ? FLinearColor(0.25f, 0.05f, 0.25f, 0.9f) : Ink);
+		Box(X, Y, Cw, 5 * S, FLinearColor(U.Color.R, U.Color.G, U.Color.B, bLocked ? 0.3f : 1.f));
+		Frame(X, Y, Cw, Ch, bSel ? Yellow : FLinearColor(U.Color.R, U.Color.G, U.Color.B, 0.45f), bSel ? 3.f : 1.5f);
+		const float Flash = T - G->GarageFlashT;
+		if (G->GarageFlashIdx == i && Flash < 0.35f) Box(X, Y, Cw, Ch, G->bGarageDenied ? FLinearColor(1.f, 0.1f, 0.15f, 0.35f * (1.f - Flash / 0.35f)) : FLinearColor(1.f, 1.f, 0.8f, 0.45f * (1.f - Flash / 0.35f)));
+		const float P = 14 * S;
+		Txt(U.Name, X + P, Y + 14 * S, bLocked ? Grey : U.Color, 1.2f, 0, true);
+		Txt(FString::Printf(TEXT("RANK %d/%d"), Rk, U.MaxRank), X + Cw - P, Y + 20 * S, White, 0.72f, 2);
+		const TArray<FString> Desc = WrapText(U.Desc, Cw - P * 2, 0.72f);
+		for (int32 l = 0; l < Desc.Num() && l < 3; ++l) Txt(Desc[l], X + P, Y + 54 * S + l * 19 * S, Grey, 0.72f);
+		// rank pips
+		const float Pw = (Cw - P * 2 - 6 * S * (U.MaxRank - 1)) / U.MaxRank;
+		for (int32 r = 0; r < U.MaxRank; ++r)
+		{
+			const float Px = X + P + r * (Pw + 6 * S), Py = Y + 118 * S;
+			if (r < Rk) Box(Px, Py, Pw, 14 * S, U.Color);
+			else { Box(Px, Py, Pw, 14 * S, FLinearColor(1, 1, 1, 0.08f)); Frame(Px, Py, Pw, 14 * S, FLinearColor(U.Color.R, U.Color.G, U.Color.B, 0.5f), 1.f); }
+		}
+		// effects: now, and what the next rank brings
+		Txt(TEXT("NOW"), X + P, Y + 144 * S, Grey, 0.62f);
+		for (int32 e = 0; e < U.Effects.Num() && e < 3; ++e)
+			Txt(Rk > 0 ? D.EffectText(U.Effects[e], Rk) : (e == 0 ? FString(TEXT("stock")) : FString()), X + P, Y + 160 * S + e * 18 * S, White, 0.7f);
+		if (Rk < U.MaxRank)
+		{
+			Txt(TEXT("NEXT RANK"), X + P, Y + 200 * S, Grey, 0.62f);
+			for (int32 e = 0; e < U.Effects.Num() && e < 3; ++e) Txt(D.EffectText(U.Effects[e], Rk + 1), X + P, Y + 216 * S + e * 18 * S, U.Color, 0.7f);
+		}
+		// what it costs
+		const float By = Y + Ch - 30 * S;
+		if (bLocked) Txt(FString::Printf(TEXT("LOCKED: %s"), *LockWhy), X + Cw * 0.5f, By, Grey, 0.75f, 1);
+		else if (Cost < 0) Txt(TEXT("MAXED"), X + Cw * 0.5f, By - 2 * S, Yellow, 1.f, 1, true);
+		else Txt(FString::Printf(TEXT("%s %d PT%s"), bCan ? TEXT("BUY  ·") : TEXT("NEEDS"), Cost, Cost == 1 ? TEXT("") : TEXT("S")), X + Cw * 0.5f, By, bCan ? Green : Red, 0.85f, 1, true);
+		G->GarageRects[i] = FBox2D(FVector2D(X, Y), FVector2D(X + Cw, Y + Ch));
+	}
+	// the confirm: the next level starts only from here
+	const bool bBtnHot = G->GarageSel == N || (PC && PC->MouseIn(G->GarageRects[N]));
+	G->GarageRects[N] = Button(W * 0.5f, H * 0.83f, 420 * S, 60 * S,
+		G->Level >= 2 ? TEXT("BACK TO THE TITLE  ▶") : FString::Printf(TEXT("START LEVEL %d  ▶"), G->Level + 2),
+		TEXT("PAD START  ·  ENTER / A ON THIS BUTTON  ·  CLICK"), G->PhaseT > 0.4f, bBtnHot);
+	Txt(TEXT("←→ PICK   ·   ENTER / SPACE / A  BUY A RANK   ·   BACKSPACE / X  REFUND   ·   MOUSE: CLICK A CARD TO BUY, RIGHT-CLICK TO REFUND"), W * 0.5f, H * 0.91f, Grey, 0.72f, 1);
+	Txt(TEXT("Upgrades stay with the KESTREL across levels and runs. The full skill tree is coming."), W * 0.5f, H * 0.945f, FLinearColor(1, 1, 1, 0.45f), 0.68f, 1);
 }
 
 // ---------------------------------------------------------------------------------------------- menus

@@ -346,6 +346,18 @@
     };
   }
 
+  // 1.8: the GARAGE's upgrades (skills.js) reach the race as S.mods: multipliers, and extra missiles.
+  // The attract run and a plain create() use NOMODS, so they drive exactly as before.
+  var NOMODS = { steer: 1, driftCharge: 1, turboBurn: 1, turboRegen: 1, damageTaken: 1, gunDamage: 1, missiles: 0 };
+  function setMods(S, m) {
+    var o = {}; for (var k in NOMODS) o[k] = m && typeof m[k] === 'number' ? m[k] : NOMODS[k];
+    o.missiles = Math.max(0, Math.floor(o.missiles));
+    S.mods = o;
+    S.p.missiles = 6 + o.missiles; S.p.maxMissiles = 9 + o.missiles;
+    if (S.cp) S.cp.missiles = S.p.missiles;
+  }
+  function mods(S) { return S.mods || NOMODS; }
+
   function ev(S, o) { S.events.push(o); }
   function popup(S, x, y, text, color, big) { ev(S, { t: 'popup', x: x, y: y, text: text, color: color || '#ffd23f', big: !!big }); }
   function shake(S, a) { S.trauma = Math.min(1, S.trauma + a); }
@@ -412,6 +424,7 @@
   function hurtPlayer(S, d, x, y) {
     var p = S.p;
     if (p.inv > 0 || p.air > 0 || S.phase !== 'play') return;
+    d *= mods(S).damageTaken; // 1.8: ARMOR
     p.hp = Math.max(0, p.hp - d); p.inv = 0.6; S.counts.hits++;
     loosen(S);
     // 1.7: a hit knocks the drift's charge back about one colour instead of killing the slide outright
@@ -631,7 +644,8 @@
     var air = p.air > 0, playing = S.phase === 'play';
     // the wheel: quick to turn in, quicker to come back
     var growing = Math.abs(raw) > Math.abs(p.steerIn) && (raw * p.steerIn >= 0);
-    p.steerIn = approach(p.steerIn, raw, (growing ? 9 : 16) * dt);
+    var M = mods(S);
+    p.steerIn = approach(p.steerIn, raw, (growing ? 9 : 16) * M.steer * dt); // 1.8: HANDLING
     var steer = p.steerIn;
     // 1.7 drift, kart-style and forgiving. Hold DRIFT and turn the wheel, in either order:
     //  - a press is remembered for DRIFT_BUF seconds (held over while airborne), so press-then-steer
@@ -669,7 +683,7 @@
       target = D.dir * 70 + steer * 210;
       p.vx = approach(p.vx, target, (air ? 400 : 1300) * dt);
       D.t += dt;
-      if (!air) D.charge += dt * (0.65 + 0.55 * Math.max(0, into));
+      if (!air) D.charge += dt * (0.65 + 0.55 * Math.max(0, into)) * M.driftCharge;
       var lv = D.charge >= DRIFT_AT[2] ? 3 : D.charge >= DRIFT_AT[1] ? 2 : D.charge >= DRIFT_AT[0] ? 1 : 0;
       if (lv > D.lvl) { D.lvl = lv; ev(S, { t: 'driftLvl', lvl: lv, x: p.x, y: p.y }); }
       p.yawT = D.dir * (0.4 + 0.2 * Math.max(0, into)) - (into < 0 ? D.dir * 0.12 * -into : 0);
@@ -722,8 +736,8 @@
     if (p.turboLock && (!want && p.turbo > 25)) p.turboLock = false;
     var was = p.turboOn;
     p.turboOn = want && !p.turboLock && p.turbo > 0;
-    if (p.turboOn) p.turbo = Math.max(0, p.turbo - 38 * dt);
-    else p.turbo = Math.min(100, p.turbo + 13 * dt);
+    if (p.turboOn) p.turbo = Math.max(0, p.turbo - 38 * M.turboBurn * dt);
+    else p.turbo = Math.min(100, p.turbo + 13 * M.turboRegen * dt);
     p.turboEvT = (p.turboEvT || 0) - dt;
     if (p.turboOn && !was) {
       // the punch: a shove of speed the moment it lights, not just a slow climb. Only from a real
@@ -1221,7 +1235,7 @@
       if (k.pickup) {
         if (overlap(p, e, -6) && S.phase === 'play') {
           e.gone = true;
-          if (k.pickup === 'missiles') { p.missiles = Math.min(9, p.missiles + 3); popup(S, e.x, e.y, '+3 MISSILES', '#ff9e3d'); }
+          if (k.pickup === 'missiles') { p.missiles = Math.min(p.maxMissiles || 9, p.missiles + 3); popup(S, e.x, e.y, '+3 MISSILES', '#ff9e3d'); }
           else { p.hp = Math.min(p.maxHp, p.hp + 30); p.parts = partsFor(p.hp); popup(S, e.x, e.y, '+30 ARMOR', '#7dff9b'); }
           ev(S, { t: 'pickup', x: e.x, y: e.y, kind: k.pickup });
         }
@@ -1315,7 +1329,7 @@
         if (e.dead || e.gone || KIND[e.kind].pickup || e.kind === 'hench') continue; // a man on a rope is above the guns
         if (sweptHit(b.x, b.py, b.y, e, 1) && e.y + e.h / 2 > best) { best = e.y + e.h / 2; hit = e; }
       }
-      if (hit) { damage(S, hit, 1, 'gun', b.x, hit.y + hit.h / 2 - 2); S.bullets.splice(i, 1); continue; }
+      if (hit) { damage(S, hit, mods(S).gunDamage, 'gun', b.x, hit.y + hit.h / 2 - 2); S.bullets.splice(i, 1); continue; }
       if (b.y < -40) S.bullets.splice(i, 1);
     }
     for (i = S.missiles.length - 1; i >= 0; i--) {
@@ -1434,14 +1448,14 @@
     for (var i = 0; i < RATING_AT.length; i++) if (S.score >= RATING_AT[i]) idx = i;
     if (S.outcome === 'wrecked') idx = 0;
     if (S.outcome === 'escaped') idx = Math.min(idx, 1);
-    S.rating = RATINGS[idx];
+    S.rating = RATINGS[idx]; S.ratingIdx = idx;
     ev(S, { t: 'done', outcome: S.outcome, rating: S.rating.key });
   }
 
   root.FT_ENGINE = {
     create: create, step: step, retake: retake, SCENES: SCENES, REELS: REELS, KIND: KIND, SCENE: SCENE, RATINGS: RATINGS, RATING_AT: RATING_AT,
     H: H, LANES: LANES, ROAD_HALF: ROAD_HALF, EDGE: EDGE, SCENE_LEN: SCENE_LEN, PY: PY, mulberry32: mulberry32,
-    curveAt: curveAt, bankAt: bankAt, FEATS: TR.FEATS, LEVELS: LEVELS, useLevel: useLevel, level: 0
+    curveAt: curveAt, bankAt: bankAt, FEATS: TR.FEATS, LEVELS: LEVELS, useLevel: useLevel, level: 0, setMods: setMods, NOMODS: NOMODS
   };
   useLevel(0);
 })(typeof window !== 'undefined' ? window : this);

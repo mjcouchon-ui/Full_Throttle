@@ -18,11 +18,15 @@ def _dir(p):
 
 
 def new_material(path, name, blend=None, shading=None, two_sided=False):
+    """Make the material, or clear an existing one's graph and reuse it: deleting it would orphan the
+    palette instances parented to it and drop the usage flags the cooked game needs (2.2)."""
     _dir(path)
     full = path + '/' + name
     if AL.does_asset_exist(full):
-        AL.delete_asset(full)
-    m = AT.create_asset(name, path, unreal.Material, unreal.MaterialFactoryNew())
+        m = AL.load_asset(full)
+        MEL.delete_all_material_expressions(m)
+    else:
+        m = AT.create_asset(name, path, unreal.Material, unreal.MaterialFactoryNew())
     if blend is not None:
         m.set_editor_property('blend_mode', blend)
     if shading is not None:
@@ -108,11 +112,16 @@ float n = frac(sin(dot(floor(p), float3(12.9898, 78.233, 37.719))) * 43758.5453)
 float s = saturate(Soot * (0.75 + 0.5 * n));
 return lerp(Col, float3(0.025, 0.02, 0.022), s);
 """, [('Col', col, ''), ('Soot', soot, ''), ('WP', wp, '')], y=-200, desc='Soot')
+    # 2.2 cel look: the post-process cel pass reads light as scene colour / base colour, so keep paint mostly
+    # diffuse (the 1.0 toon art had no metal at all); MetalScale and RoughMin are the knobs.
+    mscale = sparam(m, 'MetalScale', 0.25, y=600)
+    rmin = sparam(m, 'RoughMin', 0.4, y=700)
     em = custom(m, "return Col * Glow * (Gain + Alert * Gain * 2.5);", [('Col', col, ''), ('Glow', glow, ''), ('Alert', alert, ''), ('Gain', gain, '')], y=0, desc='Glow')
-    rr = custom(m, "return saturate(Rough + Soot * 0.4);", [('Rough', rough, ''), ('Soot', soot, '')], out_type=unreal.CustomMaterialOutputType.CMOT_FLOAT1, y=200, desc='Rough')
+    rr = custom(m, "return saturate(max(Rough, RoughMin) + Soot * 0.4);", [('Rough', rough, ''), ('Soot', soot, ''), ('RoughMin', rmin, '')], out_type=unreal.CustomMaterialOutputType.CMOT_FLOAT1, y=200, desc='Rough')
+    mm = custom(m, "return Metal * MetalScale;", [('Metal', metal, ''), ('MetalScale', mscale, '')], out_type=unreal.CustomMaterialOutputType.CMOT_FLOAT1, y=100, desc='Metal')
     MEL.connect_material_property(base, '', unreal.MaterialProperty.MP_BASE_COLOR)
     MEL.connect_material_property(em, '', unreal.MaterialProperty.MP_EMISSIVE_COLOR)
-    MEL.connect_material_property(metal, '', unreal.MaterialProperty.MP_METALLIC)
+    MEL.connect_material_property(mm, '', unreal.MaterialProperty.MP_METALLIC)
     MEL.connect_material_property(rr, '', unreal.MaterialProperty.MP_ROUGHNESS)
     return finish(m)
 
@@ -124,7 +133,7 @@ float x = (u - 0.5) * 2742.0;
 float ax = abs(x);
 float2 g = floor(float2(u * 2600.0, v * 2600.0));
 float n = frac(sin(dot(g, float2(12.9898, 78.233))) * 43758.5453);
-float3 c = RoadA * (0.82 + 0.36 * n);
+float3 c = lerp(RoadA, Pastel, Lift) * (1.0 - Grain + 2.0 * Grain * n);
 float lw = 8.0;
 float dash = step(frac(v * 1.1), 0.36);
 float lines = max(step(abs(ax - 585.0), lw) * dash, step(ax, lw) * dash);
@@ -152,13 +161,19 @@ def road():
     kb = vparam(m, 'KerbB', (0.95, 0.93, 0.85, 1), y=200)
     ki = vparam(m, 'Kicker', (1.0, 0.1, 0.5, 1), y=300)
     wet = sparam(m, 'Wet', 0.28, y=400)
-    col = custom(m, ROAD_HLSL, [('UV', uv, ''), ('VC', vc, ''), ('RoadA', ra, ''), ('Line', ln, ''), ('KerbA', ka, ''), ('KerbB', kb, ''), ('Kicker', ki, '')], desc='Road')
+    # 2.2: the C++ track sets RoadA per level; a level's MI_Road_<Level> can lift it toward a pastel tone
+    # (Bayshore's 1.0 grey-violet) and calm the asphalt noise, which turns to speckle under cel bands.
+    pastel = vparam(m, 'RoadPastel', (0.11, 0.1, 0.17, 1), y=500)
+    lift = sparam(m, 'RoadLift', 0.0, y=600)
+    grain = sparam(m, 'Grain', 0.18, y=700)
+    col = custom(m, ROAD_HLSL, [('UV', uv, ''), ('VC', vc, ''), ('RoadA', ra, ''), ('Line', ln, ''), ('KerbA', ka, ''), ('KerbB', kb, ''), ('Kicker', ki, ''),
+                                ('Pastel', pastel, ''), ('Lift', lift, ''), ('Grain', grain, '')], desc='Road')
     rough = custom(m, """
 float x = abs((UV.x - 0.5) * 2742.0);
 float2 g = floor(float2(UV.x * 120.0, UV.y * 60.0));
 float puddle = frac(sin(dot(g, float2(41.31, 17.77))) * 9631.13);
-return lerp(Wet + 0.25 * puddle, 0.55, step(1172.0, x));
-""", [('UV', uv, ''), ('Wet', wet, '')], out_type=unreal.CustomMaterialOutputType.CMOT_FLOAT1, y=200, desc='Wet')
+return lerp(Wet + Puddles * puddle, 0.55, step(1172.0, x));
+""", [('UV', uv, ''), ('Wet', wet, ''), ('Puddles', sparam(m, 'Puddles', 0.25, y=800), '')], out_type=unreal.CustomMaterialOutputType.CMOT_FLOAT1, y=200, desc='Wet')
     MEL.connect_material_property(col, '', unreal.MaterialProperty.MP_BASE_COLOR)
     MEL.connect_material_property(rough, '', unreal.MaterialProperty.MP_ROUGHNESS)
     return finish(m)
@@ -249,10 +264,36 @@ col *= lerp(0.6, 1.0, saturate(h * 10.0 + 1.0));
 float3 p = floor(d * 520.0);
 float s = frac(sin(dot(p, float3(12.9898, 78.233, 37.719))) * 43758.5453);
 float tw = 0.6 + 0.4 * sin(T * 3.0 + s * 40.0);
-col += step(0.9978, s) * saturate(h * 3.0) * 2.5 * tw;
-float md = dot(d, normalize(MoonDir));
-col += saturate((md - 0.99955) * 6000.0) * float3(1.0, 0.94, 0.82) * 6.0;
-col += pow(saturate(md), 600.0) * float3(0.6, 0.55, 0.8) * 1.2;
+col += step(0.9978, s) * saturate(h * 3.0) * 2.5 * tw * Stars;
+float3 md3 = normalize(MoonDir.xyz);
+float md = dot(d, md3);
+// 2.4: the disc is drawn like the 1.x canvas sun and moon (render.js drawSky / drawNight), in its own flat
+// frame (q in disc radii, q.y up): a soft glow, slow rays, a pale halo ring, a pale upper half and a deeper
+// lower half below a chord, and four bands cut out of the lower half, each thicker than the last.
+float front = step(0.0, md);
+float3 upv = normalize(float3(0, 0, 1) - md3 * md3.z);
+float3 rtv = cross(upv, md3);
+float rad = sqrt(max(1.0 - DiscSize * DiscSize, 1e-6));
+float2 q = float2(dot(d, rtv), dot(d, upv)) / rad;
+float rr = length(q);
+float aa = max(fwidth(rr), 1e-4);
+float cut = 0.0;
+for (int b = 0; b < 4; b++)
+{
+    float top = -(0.22 + b * 0.2);
+    float bot = top - (0.05 + b * 0.025);
+    cut = max(cut, smoothstep(bot - aa, bot + aa, q.y) * (1.0 - smoothstep(top - aa, top + aa, q.y)));
+}
+cut *= Stripes;
+float disc = (1.0 - smoothstep(1.0 - aa, 1.0 + aa, rr)) * front * (1.0 - cut);
+float halo = (1.0 - smoothstep(1.45 - aa, 1.45 + aa, rr)) * front * (1.0 - cut * step(rr, 1.0)) * Halo;
+float ang = atan2(q.y, q.x) - T * 0.05;
+float ray = step(frac(ang / 0.5236), 0.172) * (1.0 - smoothstep(4.0, 9.0, rr)) * front * Rays;
+col += HaloCol.rgb * Glow * pow(saturate(1.0 - rr / 4.2), 2.0) * front;
+col = lerp(col, HaloCol.rgb, ray);
+col = lerp(col, HaloCol.rgb, halo);
+float3 dcol = lerp(DiscCol2.rgb, DiscCol.rgb, smoothstep(-0.149 - aa, -0.149 + aa, q.y));
+col = lerp(col, dcol, disc);
 return col * Gain;
 """
 
@@ -271,7 +312,20 @@ def sky():
     s2 = vparam(m, 'Sky2', (0.9, 0.12, 0.4, 1), y=500)
     md = vparam(m, 'MoonDir', (0.4, -0.6, 0.35, 0), y=600)
     g = sparam(m, 'Gain', 1.0, y=700)
-    c = custom(m, SKY_HLSL, [('WP', wp, ''), ('CP', cp, ''), ('T', t, ''), ('Sky0', s0, ''), ('Sky1', s1, ''), ('Sky2', s2, ''), ('MoonDir', md, ''), ('Gain', g, '')], desc='Sky')
+    # 2.2: Stars 0 for a day sky; the disc is the moon at night or the 1.0 striped 80s sun by day
+    st = sparam(m, 'Stars', 1.0, y=800)
+    ds = sparam(m, 'DiscSize', 0.99955, y=900)
+    dc = vparam(m, 'DiscCol', (6.0, 5.64, 4.92, 1), y=1000)
+    sp = sparam(m, 'Stripes', 0.0, y=1100)
+    # 2.4: the 1.x two-tone banded disc with halo, glow and rays (DiscCol upper half, DiscCol2 lower half)
+    dc2 = vparam(m, 'DiscCol2', (6.0, 5.64, 4.92, 1), y=1200)
+    hc = vparam(m, 'HaloCol', (1.0, 0.9, 0.6, 1), y=1300)
+    ha = sparam(m, 'Halo', 0.0, y=1400)
+    gl = sparam(m, 'Glow', 0.2, y=1500)
+    ry = sparam(m, 'Rays', 0.0, y=1600)
+    c = custom(m, SKY_HLSL, [('WP', wp, ''), ('CP', cp, ''), ('T', t, ''), ('Sky0', s0, ''), ('Sky1', s1, ''), ('Sky2', s2, ''), ('MoonDir', md, ''), ('Gain', g, ''),
+                             ('Stars', st, ''), ('DiscSize', ds, ''), ('DiscCol', dc, ''), ('Stripes', sp, ''), ('DiscCol2', dc2, ''),
+                             ('HaloCol', hc, ''), ('Halo', ha, ''), ('Glow', gl, ''), ('Rays', ry, '')], desc='Sky')
     MEL.connect_material_property(c, '', unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     return finish(m)
 

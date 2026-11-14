@@ -79,6 +79,13 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Car|Tuning") float AirGravityScale = 1.7f;
 	UPROPERTY(EditAnywhere, Category = "Car|Tuning") float RearFriction = 3.2f;
 	UPROPERTY(EditAnywhere, Category = "Car|Tuning") float DriftRearFriction = 1.25f;
+	// 2.4 "glued to the road": extra downforce (in g) on the wheels, and a critically damped spring that pulls a
+	// lifted car back onto the road (GlueK: cm/s^2 per cm of lift; GlueDamp: 1/s on the speed away from the road).
+	// Off on real jumps (the kicker and the gap of a jump section, and a ramp launch).
+	UPROPERTY(EditAnywhere, Category = "Car|Tuning") float Downforce = 0.8f;
+	UPROPERTY(EditAnywhere, Category = "Car|Tuning") float GlueK = 150.f;
+	UPROPERTY(EditAnywhere, Category = "Car|Tuning") float GlueDamp = 24.5f;
+	bool IsLaunched() const { return LaunchT > 0.f; }
 
 	void SetTrack(AFTTrack* InTrack) { Track = InTrack; }
 	void SetDrive(const FFTDrive& In) { Drive = In; }
@@ -120,6 +127,7 @@ protected:
 	float WallTimer = 0.f;
 	float DriftBlend = 0.f;
 	float CapsizeT = 0.f;
+	float LaunchT = 0.f;   // a ramp launch is in the air: no glue until it lands
 	TArray<FTransform> PartRest;
 	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> LooseParts;
 };

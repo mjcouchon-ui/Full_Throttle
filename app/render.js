@@ -2780,7 +2780,8 @@
     }
   }
   function missilePips(S, x, y, w) {
-    for (var i = 0; i < 9; i++) {
+    var cap = Math.max(9, S.p.maxMissiles || 9, S.p.missiles); // 1.8: WEAPONS ranks add pods
+    for (var i = 0; i < cap; i++) {
       var on = i < S.p.missiles, px = x + i * 14;
       if (px + 10 > x + w) break;
       c.fillStyle = on ? '#ff9e3d' : 'rgba(255,255,255,0.1)';
@@ -3234,10 +3235,22 @@
       else if (ui.newBest) { c.fillStyle = '#ffd23f'; c.font = font(11, 800, true); c.fillText('★ NEW BEST TAKE ★', cx, sy0 + 92 * sc); }
       c.globalAlpha = 1;
     }
+    // 1.8: the skill points this level paid, banked for the GARAGE
+    if (T > 3.2 && ui.earn) {
+      var ek = clamp((T - 3.2) / 0.3, 0, 1), er = ui.earn, ey = py + ph - 52 * sc;
+      c.globalAlpha = ek; c.textAlign = 'center'; c.textBaseline = 'middle';
+      if (er.total > 0) {
+        c.fillStyle = '#5bff73'; c.font = font(17, 900, true);
+        c.fillText('+' + er.total + ' SKILL POINT' + (er.total === 1 ? '' : 'S'), cx, ey - 9);
+        c.fillStyle = '#9fb3bd'; c.font = font(10, 800, true);
+        c.fillText(er.lines.map(function (l) { return l.label + ' +' + l.n; }).join('   \u00b7   '), cx, ey + 9, pw - 30);
+      } else { c.fillStyle = '#ff6a5e'; c.font = font(12, 800, true); c.fillText('NO SKILL POINTS: THE TAKE NEVER MADE IT TO THE CAN', cx, ey, pw - 30); }
+      c.globalAlpha = 1;
+    }
     if (T > 3.4) {
       c.fillStyle = Math.floor(t * 1.6) % 2 ? '#ffd23f' : '#fff'; c.font = font(14, 900); c.textAlign = 'center';
-      var nextLv = S.outcome === 'wrapped' && (S.level || 0) < E.LEVELS.length - 1;
-      c.fillText(ui.touch ? (nextLv ? 'TAP: ON TO LEVEL ' + (S.level + 2) : 'TAP: ANOTHER TAKE') : ui.pad ? (nextLv ? 'A: ON TO LEVEL ' + (S.level + 2) + '   ·   Y: RESHOOT   ·   B: TITLE' : 'A: ANOTHER TAKE   ·   B: TITLE') : (nextLv ? 'ENTER: ON TO LEVEL ' + (S.level + 2) + '   ·   R: RESHOOT   ·   ESC: TITLE' : 'ENTER: ANOTHER TAKE   ·   ESC: TITLE'), cx, py + ph - 22 * sc);
+      var gar = !!(ui.earn && ui.earn.total > 0);
+      c.fillText(ui.touch ? (gar ? 'TAP: TO THE GARAGE' : 'TAP: ANOTHER TAKE') : ui.pad ? (gar ? 'A: TO THE GARAGE   ·   Y: RESHOOT   ·   B: TITLE' : 'A: ANOTHER TAKE   ·   B: TITLE') : (gar ? 'ENTER: TO THE GARAGE   ·   R: RESHOOT   ·   ESC: TITLE' : 'ENTER: ANOTHER TAKE   ·   ESC: TITLE'), cx, py + ph - 22 * sc);
     }
     c.restore();
   }
@@ -3264,9 +3277,15 @@
     c.fillText(sh.camName + '     ' + timecode(T + 3600 * 0), viewW - 18, bar / 2);
     c.textAlign = 'left'; c.fillStyle = '#7f95a0';
     c.fillText('LEVEL ' + lv.n + '  \u00b7  ' + lv.title, 18, viewH - bar / 2);
-    c.textAlign = 'right'; c.fillStyle = Math.floor(t * 1.6) % 2 ? '#ffd23f' : '#c8dbe3';
-    c.fillText(ui.touch ? 'TAP: SKIP' : ui.pad ? 'A: SKIP' : 'ENTER / CLICK: SKIP', viewW - 18, viewH - bar / 2);
-    if (sh.slow) { c.textAlign = 'center'; c.fillStyle = '#e8f3f7'; c.fillText('\u25b6\u25b6  SLOW MOTION', viewW / 2, viewH - bar / 2); }
+    if (sh.slow) { c.textAlign = 'right'; c.fillStyle = '#e8f3f7'; c.fillText('\u25b6\u25b6  SLOW MOTION', viewW - 18, viewH - bar / 2); }
+    continueButton(ui, t, bar);
+    // 1.8: the reel plays on, round again, until CONTINUE
+    if (sh.loops > 0 && sh.index === 0 && sh.shotT < 2.2) {
+      var fa = clamp(sh.shotT / 0.25, 0, 1) * clamp((2.2 - sh.shotT) / 0.5, 0, 1);
+      c.globalAlpha = fa; c.textAlign = 'center'; c.font = font(Math.min(30, viewW / 22), 900);
+      c.lineWidth = 6; c.strokeStyle = '#120a1a'; c.strokeText('FROM THE TOP', viewW / 2, bar + 40);
+      c.fillStyle = '#ffd23f'; c.fillText('FROM THE TOP', viewW / 2, bar + 40); c.globalAlpha = 1;
+    }
     // the opening title
     if (sh.index === 0 && T < 3.4) {
       var a = clamp(T / 0.5, 0, 1) * clamp((3.4 - T) / 0.6, 0, 1), cx = viewW / 2, cy = viewH * 0.42;
@@ -3281,6 +3300,7 @@
       c.fillStyle = tg; c.fillText('THE HIGHLIGHTS', 0, 0); c.restore();
       c.fillStyle = '#36f1ff'; c.font = font(14, 800, true); c.fillText('LEVEL ' + lv.n + ':  ' + lv.zone + '  \u00b7  ' + lv.title, cx, cy + 50);
       c.globalAlpha = 1;
+      continueButton(ui, t, bar);
       return;
     }
     // the lower third: the scene, and what happened
@@ -3296,12 +3316,119 @@
       c.globalAlpha = 1;
     }
     // the last shot fades out on the wrap
-    if (sh.index === sh.count - 1 && sh.left < 1.4) {
+    if (sh.index === sh.count - 1 && sh.left < 1.4 && !sh.loops) {
       var f = clamp((1.4 - sh.left) / 1.1, 0, 1);
       c.fillStyle = 'rgba(0,0,0,' + f * 0.85 + ')'; c.fillRect(0, bar, viewW, viewH - bar * 2);
       c.globalAlpha = f; c.textAlign = 'center'; c.fillStyle = '#ffd23f'; c.font = font(Math.min(40, viewW / 16), 900);
       c.fillText('PRINT IT. THAT\u2019S A WRAP.', viewW / 2, viewH / 2); c.globalAlpha = 1;
     }
+  }
+
+  // 1.8: the one way out of the highlight reel: a button pressed on purpose (a click elsewhere, Space or Esc
+  // do nothing). ENTER, the pad's START, or a click on the button itself. Armed after 0.8 s.
+  function continueButton(ui, t, bar) {
+    var armed = ui.t > 0.8, x = viewW / 2, y = viewH - bar / 2, h = Math.max(24, Math.min(34, bar - 10)), w = 250;
+    var hint = ui.touch ? 'TAP' : 'ENTER · START';
+    var hot = armed && ui.reelHover;
+    c.globalAlpha = armed ? 1 : 0.4;
+    c.fillStyle = hot ? 'rgba(255,79,184,0.5)' : 'rgba(30,8,36,0.95)'; rr(x - w / 2, y - h / 2, w, h, h / 2); c.fill();
+    c.strokeStyle = !armed ? '#7f95a0' : hot ? '#ffd23f' : (Math.floor(t * 1.6) % 2 ? '#ff4fb8' : '#ffd23f'); c.lineWidth = 2; rr(x - w / 2, y - h / 2, w, h, h / 2); c.stroke();
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillStyle = '#ffffff'; c.font = font(15, 900); c.fillText('CONTINUE ▶', x - (ui.touch ? 24 : 48), y + 1);
+    c.fillStyle = '#ffd23f'; c.font = font(10, 800, true); c.fillText('[' + hint + ']', x + (ui.touch ? 60 : 64), y + 1);
+    c.globalAlpha = 1;
+    ui.reelBtn = { x: x - w / 2, y: y - h / 2, w: w, h: h, k: scale };
+  }
+
+  // ---------- 1.8: THE GARAGE, between levels: spend the skill points ----------
+  // Everything on it comes from skills.js (FT_SKILLS): one card per upgrade, then the button that starts the
+  // next level. The coming skill tree adds upgrades (with 'requires'); a locked one draws dimmed.
+  function garageScreen(S, ui, t) {
+    var K = window.FT_SKILL, G = ui.gar, P = ui.sk, D = K.data, ups = D.upgrades, n = ups.length;
+    c.fillStyle = 'rgba(3,4,10,' + clamp(ui.t / 0.3, 0, 0.88) + ')'; c.fillRect(0, 0, viewW, viewH);
+    var cols = viewW >= 760 ? Math.min(4, n) : 2, rows = Math.ceil(n / cols), gap = 12;
+    G.cols = cols;
+    var pw = Math.min(940, viewW - 20), cw = (pw - 36 - gap * (cols - 1)) / cols, ch = 200, HEAD = 142, FOOT = 104;
+    var ph = HEAD + rows * ch + (rows - 1) * gap + FOOT, px = viewW / 2 - pw / 2;
+    if (ph > viewH - 8) { ch = Math.max(150, (viewH - 8 - HEAD - FOOT - (rows - 1) * gap) / rows); ph = HEAD + rows * ch + (rows - 1) * gap + FOOT; }
+    var py = Math.max(4, viewH / 2 - ph / 2), cx = viewW / 2;
+    panel(px, py, pw, ph);
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillStyle = '#ff4fb8'; c.font = font(11, 800, true);
+    c.fillText(G.subtitle, cx, py + 20, pw - 30);
+    c.save(); c.translate(cx, py + 52); c.transform(1, 0, -0.16, 1, 0, 0);
+    c.font = font(34, 900); c.lineWidth = 6; c.strokeStyle = '#120a1a'; c.strokeText('THE GARAGE', 0, 0);
+    var tg = c.createLinearGradient(0, -14, 0, 14); tg.addColorStop(0, '#fff3a8'); tg.addColorStop(0.5, '#ffc93c'); tg.addColorStop(0.52, '#ff4fb8'); tg.addColorStop(1, '#b44dff');
+    c.fillStyle = tg; c.fillText('THE GARAGE', 0, 0); c.restore();
+    // the bank
+    var by = py + 94;
+    c.fillStyle = 'rgba(91,255,115,0.10)'; rr(cx - 160, by - 19, 320, 38, 8); c.fill();
+    c.strokeStyle = 'rgba(91,255,115,0.6)'; c.lineWidth = 1.5; rr(cx - 160, by - 19, 320, 38, 8); c.stroke();
+    c.fillStyle = '#9fb3bd'; c.font = font(13, 800, true); c.textAlign = 'right'; c.fillText('SKILL POINTS', cx + 22, by + 1);
+    c.fillStyle = '#5bff73'; c.font = font(28, 900, true); c.textAlign = 'left'; c.fillText(String(P.points), cx + 36, by + 2);
+    c.textAlign = 'center'; c.fillStyle = '#7fa9b8'; c.font = font(10, 800, true);
+    c.fillText(G.earned > 0 ? '+' + G.earned + ' EARNED THIS LEVEL' + (G.earnLine ? '   (' + G.earnLine + ')' : '') : 'NONE EARNED THIS LEVEL', cx, by + 30, pw - 30);
+    // the cards
+    var boxes = [], top = py + HEAD;
+    for (var i = 0; i < n; i++) {
+      var u = ups[i], r = K.rank(P, u.id), lk = K.locked(P, u), cost = K.nextCost(P, u), maxed = r >= u.maxRank;
+      var col = u.color || '#36f1ff', sel = G.sel === i, x = px + 18 + (i % cols) * (cw + gap), y = top + Math.floor(i / cols) * (ch + gap);
+      var afford = !lk && !maxed && P.points >= cost;
+      c.fillStyle = sel ? 'rgba(255,79,184,0.16)' : 'rgba(255,255,255,0.05)'; rr(x, y, cw, ch, 8); c.fill();
+      c.strokeStyle = sel ? '#ff4fb8' : 'rgba(54,241,255,0.28)'; c.lineWidth = sel ? 2.5 : 1; rr(x, y, cw, ch, 8); c.stroke();
+      c.fillStyle = col; c.fillRect(x + 12, y + 10, 30, 3);
+      c.globalAlpha = lk ? 0.45 : 1;
+      c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+      c.fillStyle = col; c.font = font(19, 900); c.fillText(u.name, x + 12, y + 36, cw - 24);
+      c.fillStyle = '#c8dbe3'; c.font = font(11, 700);
+      var dl = wrapText(u.desc || '', cw - 24), nd = Math.min(3, dl.length);
+      for (var di = 0; di < nd; di++) c.fillText(dl[di], x + 12, y + 54 + di * 14);
+      // rank pips
+      var pyy = y + 50 + nd * 14, pwid = Math.min(26, (cw - 80 - (u.maxRank - 1) * 4) / u.maxRank);
+      for (var k = 0; k < u.maxRank; k++) { c.fillStyle = k < r ? col : 'rgba(255,255,255,0.12)'; rr(x + 12 + k * (pwid + 4), pyy, pwid, 9, 3); c.fill(); }
+      c.fillStyle = '#7fa9b8'; c.font = font(9, 800, true); c.textAlign = 'right'; c.fillText('RANK ' + r + '/' + u.maxRank, x + cw - 12, pyy + 8);
+      // what it does, now and at the next rank
+      var ey = pyy + 28;
+      c.textAlign = 'left';
+      (u.effects || []).forEach(function (e) {
+        var st = D.stats[e.stat] || { label: e.stat };
+        var now = K.effectText(e, r).split(' ')[0], nx = K.effectText(e, r + 1).split(' ')[0];
+        c.fillStyle = '#7fa9b8'; c.font = font(9, 800, true); c.fillText(String(st.label).toUpperCase(), x + 12, ey);
+        c.font = font(12, 900, true); c.fillStyle = r ? '#e8f3f7' : '#5f7c88'; c.fillText(now, x + 12, ey + 15);
+        if (!maxed) {
+          var nw = c.measureText(now).width, ar = '  →  ';
+          c.fillStyle = '#5f7c88'; c.fillText(ar, x + 12 + nw, ey + 15);
+          c.fillStyle = col; c.fillText(nx, x + 12 + nw + c.measureText(ar).width, ey + 15);
+        }
+        ey += 31;
+      });
+      c.globalAlpha = 1;
+      // the price
+      var fy = y + ch - 14;
+      c.textAlign = 'center'; c.font = font(11, 900, true);
+      if (lk) { var rq = K.byId(lk.id); c.fillStyle = '#ff6a5e'; c.fillText('LOCKED: NEEDS ' + (rq ? rq.name : lk.id) + ' RANK ' + lk.rank, x + cw / 2, fy, cw - 16); }
+      else if (maxed) { c.fillStyle = '#ffd23f'; c.fillText('★ MAXED ★', x + cw / 2, fy); }
+      else { c.fillStyle = afford ? '#5bff73' : '#ff9e3d'; c.fillText('NEXT RANK: ' + cost + ' PT' + (cost === 1 ? '' : 'S') + (afford ? '' : '  (NEED ' + (cost - P.points) + ' MORE)'), x + cw / 2, fy, cw - 16); }
+      if (G.flash && G.flash.i === i && G.flash.t > 0) { c.globalAlpha = clamp(G.flash.t / 0.35, 0, 1) * 0.45; c.fillStyle = G.flash.ok ? col : '#ff3a3a'; rr(x, y, cw, ch, 8); c.fill(); c.globalAlpha = 1; }
+      boxes.push({ x: x, y: y, w: cw, h: ch, k: scale, i: i });
+    }
+    // the confirm button
+    var bw = 330, bh = 44, bx = cx - bw / 2, byy = top + rows * ch + (rows - 1) * gap + 16, bsel = G.sel === n;
+    var pulse = 0.5 + 0.5 * Math.sin(t * 4);
+    c.fillStyle = bsel ? 'rgba(255,79,184,' + (0.35 + 0.2 * pulse) + ')' : 'rgba(30,8,36,0.95)'; rr(bx, byy, bw, bh, bh / 2); c.fill();
+    c.strokeStyle = bsel ? '#ffd23f' : '#ff4fb8'; c.lineWidth = bsel ? 3 : 2; rr(bx, byy, bw, bh, bh / 2); c.stroke();
+    c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#fff'; c.font = font(18, 900);
+    c.fillText(G.confirm + '  ▶', cx, byy + bh / 2 + 1, bw - 20);
+    boxes.push({ x: bx, y: byy, w: bw, h: bh, k: scale, i: n });
+    G.boxes = boxes;
+    // what just happened, then the keys
+    var hy = byy + bh + 16;
+    c.font = font(11, 800, true);
+    if (G.msgT > 0) { c.globalAlpha = clamp(G.msgT, 0, 1); c.fillStyle = G.msgCol || '#ffd23f'; c.fillText(G.msg, cx, hy, pw - 30); c.globalAlpha = 1; }
+    c.fillStyle = '#7fa9b8'; c.font = font(10, 800, true);
+    c.fillText(ui.touch ? 'TAP A CARD TO BUY A RANK  ·  TAP THE BUTTON WHEN YOU ARE DONE' :
+      ui.pad ? 'D-PAD / STICK PICK  ·  A BUY  ·  X REFUND  ·  START: ' + G.confirm :
+      '←→ PICK  ·  ENTER / A BUY  ·  BACKSPACE / X REFUND  ·  THE BUTTON OR GAMEPAD START GOES ON  ·  MOUSE: CLICK A CARD TO BUY, RIGHT-CLICK TO REFUND', cx, hy + 20, pw - 24);
   }
 
   function paused(ui) {
@@ -3416,11 +3543,12 @@
     filmLook(onTitle ? null : S);
     if (ui.screen === 'controls') { overlay(function () { if (!onTitle) hud(S, ui, t); controlsScreen(ui, t); }); return; }
     if (ui.screen === 'title') { overlay(function () { title(ui, t); }); return; }
-    overlay(function () { hud(S, ui, t); if (ui.screen === 'play') action(ui); });
+    if (ui.screen !== 'garage') overlay(function () { hud(S, ui, t); if (ui.screen === 'play') action(ui); });
     if (ui.screen === 'play') touchUI(ui);
     overlay(function () {
       if (ui.screen === 'paused') paused(ui);
       if (ui.screen === 'rating') ratingScreen(S, ui, t);
+      if (ui.screen === 'garage') garageScreen(S, ui, t);
       if (ui.mutedHint > 0) {
         c.globalAlpha = clamp(ui.mutedHint, 0, 1); c.fillStyle = '#fff'; c.font = font(14, 800, true); c.textAlign = 'center';
         c.fillText(ui.muted ? 'SOUND OFF' : 'SOUND ON', viewW / 2, viewH - 20); c.globalAlpha = 1;

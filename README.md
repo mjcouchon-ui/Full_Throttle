@@ -1,4 +1,4 @@
-# FULL THROTTLE 2.1: the Unreal Engine 5.9 game
+# FULL THROTTLE 2.4: the Unreal Engine 5.9 game
 
 The 80s spy car chase (web app `full-throttle`, 1.7.2) rebuilt as a native Unreal Engine 5.9 game for Windows,
 C++ plus Blueprints. WispOS opens the packaged build as the native app `full-throttle-unreal`
@@ -27,6 +27,57 @@ No file in the project is over 50 MB. `Binaries`, `Intermediate`, `Saved` and `D
   chase camera. Barrels and crates break into Chaos geometry collections; wrecks are burning rigid bodies.
 - **Art:** every model is built in code. `Content/Python/ft_*.py` makes the meshes, materials, Niagara systems and maps in
   the editor (`ft_export.py`, `ft_mats.py`, `ft_fx.py`, `ft_level.py`). `Tools/sfx_synth.py` makes the sound effects.
+- **Cel look (2.2, the 1.0 style):** `ft_cel.py`. One post-process material, `Core/Materials/M_PP_Cel`, at "scene colour
+  before DOF" in each level's `Grade80s` volume (instance `Maps/<Level>/Materials/MI_PP_Cel_<Level>`): it reads light as
+  scene colour / GBuffer base colour and cuts it into the 1.0 toon bands (lit, mid 0.78, shadow 0.58, cool shadow tint),
+  keeping Lumen's shadows, headlights and explosion light; unlit pixels and emissive glow pass through. The same pass
+  draws ink (#1b1033, like 1.0's bake.py) where 1/depth bends or the normal turns sharply. Bayshore is the 1.0 pastel
+  beach town by day (pastel sky, sun from behind-left like 1.0's M_Toon, pastel sand, plaza and sea, the 1.0 grey-violet
+  road, aqua walls); since 2.4 the chemical plant is by moonlight and Nevada by day (see the 2.4 notes below).
+  Explosions and burning wrecks (`NS_Explosion`, `NS_Fire`) use `FX/M_Fire`, the 1.4 cel temperature fire (white, yellow,
+  orange, red, dark red, soot bands; masked, so it gets ink too). Rebuild: `import ft_cel; ft_cel.build_materials();
+  ft_cel.apply_level(0); ft_cel.apply_level(1); ft_cel.apply_level(2)`. Tune a level live in PIE with
+  `ft_cel.tune(i, Key=..., Debug=1)` (Debug paints light/Key as false colour), then `ft_cel.cel_mi(i)` after PIE to save.
+  Check it with `ft_cel.shot(name)` (a HighResShot of the game viewport): the `ft.Shots` hook films through a
+  SceneCapture, which skips post-process materials, so it never shows the cel pass.
+
+- **Skill points and the garage (2.3):** `Content/Data/skills.json` (staged as a UFS file, `DirectoriesToAlwaysStageAsUFS=Data`)
+  holds the points a level pays, the stats and the upgrades (ranks, costs, effects, `branch`/`tier`/`requires` for the coming
+  skill tree). `FTSkills.cpp` reads it; `UFTGameInstance` keeps the bank and ranks in settings.json (`skills`) and answers
+  `Stat(name)` (kind `mul` = max(0.2, 1 + sum), `add` = sum). The game applies `steer` (controller), `driftCharge`, `turboBurn`,
+  `turboRegen`, `damageTaken`, `gunDamage` and `missiles`. The dailies pay the points; Enter there opens `EFTPhase::Garage`
+  (`AFTGameMode::TickGarage`, `AFTHUD::DrawGarage`), and only its START LEVEL button (pad Start, Enter/A on it, a click) loads
+  the next level. The web app's `app/skills.js` is the same data: change both together.
+- **Highlight reel (2.3):** it loops until the dedicated CONTINUE button: Enter, pad Start, or a left click inside the button
+  (`ReelContinueRect`, drawn by the HUD). Any other key or click does nothing. The cursor shows on the reel and the garage
+  (`AFTPlayerController::SetMenuMouse`).
+- **Test hooks (2.3):** `-ftwrap=N` wraps the level after N s of racing; console `ft.Press <Key>` and `ft.Click <x> <y> [Right]`
+  feed keys, pad buttons and clicks through the player's input; `Content/Python/ft_skilltest.py` wraps them for PIE.
+  Logs: `FTFLOW` (reel, garage, buy/refund) and `FTSKILLS` (points, the stats at each race start).
+
+- **2.4 (owner's queue): glued to the road, cel fire, day/moonlight skies.**
+  - *Road glue* (`AFTPlayerCar::ApplyArcade`, `ft.Arcade` bit 64; tuning `Downforce` 0.8 g, `GlueK` 150, `GlueDamp` 24.5):
+    off on real jumps only (a jump section's kicker and gap, its landing while airborne, and 1.6 s after an upward
+    `Shove` such as the car-carrier ramp). Lift = chassis height over the road minus ride height (~85 cm); a critically
+    damped spring on it pulls the car back (never pushes up, never adds speed into a landing), the constant downforce
+    only acts at ride height, and a car on its belly is lifted back onto its wheels. In pipes/loops/twists the
+    surface turns away from the car, so there the spring pulls in full (to 20 g) and the car is also held across
+    (a spring from 9 m out, sideways speed damped). Lessons: a flat pull keyed to the wheels' "in air" flag pinned the
+    car on its belly (traces start under the road once the springs are past their 14 cm); a pull with no lateral
+    hold let the car slide off the pipe ribbon sideways.
+  - *Car fire*: the KESTREL burns with `FX/NS_CarFire` + `FX/MI_Fire_Car` (M_Fire, Gain 0.85 so no band blooms,
+    `Rim` 0.07 inks the flame edge), low flames on the engine deck; `NS_Smoke` is smaller and thinner. Explosions and
+    wrecks still use `NS_Fire`/`NS_Explosion`. Build: `ft_cel.car_fire(); ft_cel.car_smoke()` (car_smoke edits in place:
+    NS_Smoke is referenced, so delete-and-duplicate fails).
+  - *Skies* (`ft_mats.SKY_HLSL`, `ft_cel.LEVELS`): the sky draws the 1.x canvas disc (render.js drawSky/drawNight):
+    pale upper half, deeper lower half, four bands cut out of the lower half, halo, glow, slow rays (`DiscCol`,
+    `DiscCol2`, `HaloCol`, `Halo`, `Glow`, `Rays`). Bayshore day with the sun at azimuth 100 (the track runs mostly
+    +Y; 2.2 had it behind the player), Chemical Works by moonlight (banded cyan moon at 130, 5.5 lux cool light),
+    Nevada by day (sun ahead-left of the +X highway). The sky sphere is 60 km (it was 2 km while tracks run 12-23 km
+    out) and the height fog has `FogCutoffDistance` 50 km so the painted sky keeps its colours.
+  - *Test hooks*: `-fthp=N` / `ft.Hp N` race with that armour (30 = burning; bench mode holds it); autopilot logs
+    `FTJUMP` (every flight: kind road/gap/ramp, air time, rise, distance, lift range) and `FTGLUE` (5 s summaries).
+    `../full-throttle-tests/v240/run_dev.sh <tag> <level> <arcade> <hp> <seconds>` runs the Development package.
 
 ## Build and test
 

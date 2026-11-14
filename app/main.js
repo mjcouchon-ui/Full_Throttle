@@ -105,6 +105,14 @@
     if (c.layout === 0 || c.layout === 1) ui.layout = c.layout;
   });
   function saveBinds() { store.set('controls', { v: 2, binds: copyBinds(binds), layout: ui.layout }); }
+  // 1.8: skill points and the GARAGE's upgrades (skills.js). A career: banked points and ranks are kept
+  // across runs, saved as { points, earned, ranks: { id: rank } }.
+  var SK = window.FT_SKILL;
+  ui.sk = SK.fresh(); ui.earn = null; ui.gar = null;
+  store.get('skills').then(function (v) { if (v) ui.sk = SK.clean(v); });
+  function saveSkills() { store.set('skills', { v: 1, points: ui.sk.points, earned: ui.sk.earned, ranks: ui.sk.ranks }); }
+  // tests: ?autoreel (or FT_DEBUG.ui.reelAuto) lets the reel continue itself after one full play
+  ui.reelAuto = /[?&]autoreel/.test(location.search);
 
   // ---------- layout ----------
   function readSafe() {
@@ -172,6 +180,7 @@
       else {
         seed = (Date.now() ^ (take * 2654435761)) >>> 0;
         S = E.create(seed); S.take = take; S.reduced = REDUCED;
+        E.setMods(S, SK.stats(ui.sk)); // 1.8: the GARAGE's upgrades
         DIR.reset(); REEL.reset(ui.level);
       }
       S.events.length = 0;
@@ -187,6 +196,9 @@
     }
     if (screen === 'rating') {
       ui.reel = null; A.rotor(false);
+      // 1.8: the level pays its skill points now, banked at once (a reshoot or the title keeps them)
+      ui.earn = SK.earn(S.outcome, S.ratingIdx || 0, S.retakes || 0);
+      if (ui.earn.total > 0 && !S.paid) { S.paid = true; ui.sk.points += ui.earn.total; ui.sk.earned += ui.earn.total; saveSkills(); }
       A.engine(false, 0, false); A.skid(false); A.song(false); A.music(true, 0.4);
       setTimeout(function () { if (ui.screen === 'rating') A.play('stamp'); }, 2700);
       var b = ui.best;
@@ -196,12 +208,20 @@
       }
     }
   }
+  // 1.8: the highlight reel ends only here: ENTER, the pad's START, or a click on its CONTINUE button
+  function continueReel() {
+    if (ui.screen !== 'reel' || ui.t <= 0.8) return;
+    A.play('pickup'); ui.reelHover = false; cv.style.cursor = '';
+    go('rating');
+  }
   function advance() {
     A.init();
-    if (ui.screen === 'reel') { if (ui.t > 0.5) go('rating'); return; }
+    if (ui.screen === 'reel') return; // only continueReel() leaves the reel
     if (ui.screen === 'title') { if (!R.artReady()) return; A.play('sting'); go('card'); } // 1.7.2: not before every sheet is decoded
     else if (ui.screen === 'card' && ui.t > 1.2) go('play');
     else if (ui.screen === 'rating' && ui.t > 1.5) {
+      // 1.8: a level that paid skill points goes to the GARAGE first; the next level starts from there
+      if (ui.earn && ui.earn.total > 0) { openGarage(); return; }
       // a wrapped level moves on to the next one; anything else shoots the same level again
       if (S && S.outcome === 'wrapped' && ui.level < E.LEVELS.length - 1) setLevel(ui.level + 1);
       go('card');
@@ -210,6 +230,67 @@
   }
   function pause() { mouseL = false; if (ui.screen === 'play') { ui.screen = 'paused'; A.engine(false, 0, false); A.skid(false); A.rotor(false); A.music(false); A.song(false); } }
   function resume() { if (ui.screen === 'paused') { ui.screen = 'play'; ui.dMask = true; ui.tMask = true; A.song(true); last = performance.now(); } }
+
+  // ---------- 1.8: THE GARAGE: spend skill points between levels ----------
+  // Cards 0..n-1 are the upgrades (from skills.js), n is the button that goes on. Nothing times out:
+  // the next level starts only from the button (or the pad's START).
+  function openGarage() {
+    var ups = SK.data.upgrades, n = ups.length, last = ui.level >= E.LEVELS.length - 1, wrapped = S && S.outcome === 'wrapped';
+    var nextI = wrapped ? (last ? -1 : ui.level + 1) : ui.level, lv = nextI >= 0 ? E.LEVELS[nextI] : null;
+    var sel = n;
+    for (var i = 0; i < n; i++) if (SK.canBuy(ui.sk, ups[i])) { sel = i; break; }
+    ui.gar = { sel: sel, cols: 4, boxes: [], msg: '', msgT: 0, msgCol: '#ffd23f', flash: null,
+      earned: ui.earn ? ui.earn.total : 0, earnLine: ui.earn ? ui.earn.lines.map(function (l) { return l.label + ' +' + l.n; }).join(' \u00b7 ') : '',
+      next: !wrapped ? 'again' : last ? 'title' : 'next',
+      confirm: !wrapped ? 'RESHOOT LEVEL ' + (ui.level + 1) : last ? 'BACK TO TITLE' : 'START LEVEL ' + (ui.level + 2),
+      subtitle: 'SPEND SKILL POINTS ON THE KESTREL-88  \u00b7  ' + (lv ? 'NEXT: LEVEL ' + lv.n + '  ' + lv.zone : 'ALL THREE LEVELS IN THE CAN') };
+    keys = {}; A.play('sting');
+    go('garage');
+  }
+  function garMsg(m, col) { ui.gar.msg = m; ui.gar.msgT = 2.6; ui.gar.msgCol = col || '#ffd23f'; }
+  function garBuy(i) {
+    var u = SK.data.upgrades[i], G = ui.gar; if (!u) return;
+    G.sel = i;
+    if (SK.buy(ui.sk, u)) {
+      saveSkills(); A.play('pickup'); G.flash = { i: i, t: 0.35, ok: true };
+      garMsg(u.name + ' RANK ' + SK.rank(ui.sk, u.id) + '  \u00b7  ' + (u.effects || []).map(function (e) { return SK.effectText(e, SK.rank(ui.sk, u.id)); }).join(', ').toUpperCase(), u.color);
+    } else {
+      A.play('empty'); G.flash = { i: i, t: 0.35, ok: false };
+      var lk = SK.locked(ui.sk, u), rq = lk && SK.byId(lk.id);
+      garMsg(lk ? 'LOCKED: ' + u.name + ' NEEDS ' + (rq ? rq.name : lk.id) + ' RANK ' + lk.rank : SK.rank(ui.sk, u.id) >= u.maxRank ? u.name + ' IS MAXED' :
+        'NOT ENOUGH POINTS: ' + u.name + ' COSTS ' + SK.nextCost(ui.sk, u), '#ff6a5e');
+    }
+  }
+  function garRefund(i) {
+    var u = SK.data.upgrades[i], G = ui.gar; if (!u) return;
+    G.sel = i;
+    if (SK.refund(ui.sk, u)) { saveSkills(); A.play('tick'); garMsg('REFUNDED: ' + u.name + ' BACK TO RANK ' + SK.rank(ui.sk, u.id), '#36f1ff'); }
+    else { A.play('empty'); garMsg(u.name + ': NOTHING TO REFUND', '#ff6a5e'); }
+  }
+  function garConfirm() {
+    var G = ui.gar; if (!G || ui.screen !== 'garage') return;
+    A.play('sting'); cv.style.cursor = ''; keys = {};
+    if (G.next === 'title') { go('title'); return; }
+    if (G.next === 'next') setLevel(ui.level + 1);
+    go('card');
+  }
+  function garMove(dx, dy) {
+    var G = ui.gar, n = SK.data.upgrades.length, cols = Math.max(1, G.cols || 4), was = G.sel;
+    if (dx) G.sel = (G.sel + dx + n + 1) % (n + 1);
+    if (dy > 0) G.sel = G.sel >= n ? n : (G.sel + cols < n ? G.sel + cols : n);
+    if (dy < 0) G.sel = G.sel >= n ? Math.floor((n - 1) / cols) * cols : Math.max(0, G.sel - cols);
+    if (G.sel !== was) A.play('tick');
+  }
+  function garActivate() { if (ui.gar.sel >= SK.data.upgrades.length) garConfirm(); else garBuy(ui.gar.sel); }
+  function garKey(code) {
+    if (code === 'ArrowLeft' || code === 'KeyA' || binds.left[0] === code || binds.left[1] === code) garMove(-1, 0);
+    else if (code === 'ArrowRight' || code === 'KeyD' || binds.right[0] === code || binds.right[1] === code) garMove(1, 0);
+    else if (code === 'ArrowUp' || code === 'KeyW') garMove(0, -1);
+    else if (code === 'ArrowDown' || code === 'KeyS' || code === 'Tab') garMove(0, 1);
+    else if (code === 'Enter' || code === 'NumpadEnter' || code === 'Space') garActivate();
+    else if ((code === 'Backspace' || code === 'Delete') && ui.gar.sel < SK.data.upgrades.length) garRefund(ui.gar.sel);
+    // Esc and every other key: nothing (a stray key never leaves the garage)
+  }
 
   // ---------- 1.7: the controls screen (from the title or the pause screen) ----------
   // rows 0-7 are the actions (two key slots each), then RESET TO DEFAULTS and BACK
@@ -267,7 +348,7 @@
   }
 
   // ---------- keyboard ----------
-  var MENU_KEYS = { ArrowLeft: 1, ArrowRight: 1, ArrowUp: 1, ArrowDown: 1, Space: 1, Enter: 1, Tab: 1, Backspace: 1 };
+  var MENU_KEYS = { ArrowLeft: 1, ArrowRight: 1, ArrowUp: 1, ArrowDown: 1, Space: 1, Enter: 1, Tab: 1, Backspace: 1, Delete: 1 };
   window.addEventListener('keydown', function (e) {
     var code = norm(e.code);
     // keep the page from scrolling, the browser from searching or tabbing away, on any key the game uses
@@ -291,7 +372,9 @@
       return;
     }
     if (ui.screen === 'title' && code === 'KeyC') { openControls('title'); return; }
-    if (ui.screen === 'reel') { if (code === 'Enter' || code === 'Space' || code === 'Escape') advance(); return; }
+    // 1.8: only ENTER leaves the reel (Space is turbo, Esc is pause: a stray press must not skip it)
+    if (ui.screen === 'reel') { if (code === 'Enter' || code === 'NumpadEnter') continueReel(); return; }
+    if (ui.screen === 'garage') { garKey(code); return; }
     if (ui.screen === 'rating' && code === 'Escape') { go('title'); return; }
     if (ui.screen === 'rating' && code === 'KeyR' && ui.t > 1.5) { go('card'); return; }
     if (ui.screen === 'title') {
@@ -340,6 +423,8 @@
     if (e.pointerType === 'mouse') {
       ui.touch = false; mouseButtons(e);
       try { cv.setPointerCapture(e.pointerId); } catch (x) { /* fine */ }
+      // 1.8: in the garage a right click on a card refunds a rank
+      if (ui.screen === 'garage' && e.button === 2) { var rb = inBox(toView(e), ui.gar && ui.gar.boxes); if (rb && rb.i < SK.data.upgrades.length) garRefund(rb.i); return; }
       if (ui.screen === 'play' || e.button !== 0) return; // only a left click moves the menus on
     }
     A.init(); ui.pad = false;
@@ -358,6 +443,13 @@
       var lb = ui.levelBox, f = R.layout().scale / (lb.k || 1), qx = p.x * f, qy = p.y * f;
       if (qx > lb.x - 10 && qx < lb.x + lb.w + 10 && qy > lb.y - 10 && qy < lb.y + lb.h + 10) { setLevel(ui.level + (qx < lb.x + lb.w / 2 ? -1 : 1)); return; }
     }
+    // 1.8: the reel moves on only from its CONTINUE button: a click anywhere else does nothing
+    if (ui.screen === 'reel') { if (inBox(p, [ui.reelBtn])) continueReel(); return; }
+    if (ui.screen === 'garage') {
+      var gb = inBox(p, ui.gar && ui.gar.boxes);
+      if (gb) { if (gb.i >= SK.data.upgrades.length) garConfirm(); else garBuy(gb.i); }
+      return;
+    }
     if (ui.screen !== 'play') { advance(); return; }
     if (!ui.touch) return;
     try { cv.setPointerCapture(e.pointerId); } catch (x) { /* fine */ }
@@ -366,8 +458,19 @@
     if (b) { ptrs[e.pointerId] = { btn: b }; ui.held[b] = true; if (b === 'missile') missileEdge = true; return; }
     if (p.x < R.layout().viewW * 0.55) { ptrs[e.pointerId] = { stick: true }; ui.stick = { ox: p.x, oy: p.y, dx: 0, dy: 0 }; }
   });
+  // 1.8: the mouse points at what it would press (the reel's CONTINUE, a garage card or button)
+  function hover(e) {
+    var p = toView(e), on = false;
+    if (ui.screen === 'reel') { on = ui.t > 0.8 && !!inBox(p, [ui.reelBtn]); ui.reelHover = on; }
+    else if (ui.screen === 'garage' && ui.gar) {
+      var gb = inBox(p, ui.gar.boxes);
+      if (gb) { on = true; if (gb.i !== ui.gar.sel) { ui.gar.sel = gb.i; A.play('tick'); } }
+    }
+    cv.style.cursor = on ? 'pointer' : '';
+  }
   cv.addEventListener('pointermove', function (e) {
     mouseButtons(e);
+    if (e.pointerType === 'mouse') hover(e);
     var q = ptrs[e.pointerId]; if (!q) return;
     var p = toView(e);
     if (q.stick && ui.stick) {
@@ -463,12 +566,21 @@
         else if (ed(0)) ctlActivate();
         else if (ed(1) || ed(9) || ed(3)) closeControls();
         break;
+      case 'reel': // 1.8: only START continues (A is drift: a stray press must not skip it)
+        if (ed(9)) continueReel();
+        break;
+      case 'garage':
+        if (L) garMove(-1, 0); else if (Rt) garMove(1, 0); else if (U) garMove(0, -1); else if (D) garMove(0, 1);
+        else if (ed(0)) garActivate();
+        else if (ed(2) && ui.gar.sel < SK.data.upgrades.length) garRefund(ui.gar.sel);
+        else if (ed(9)) garConfirm();
+        break;
       case 'rating':
         if (ed(1) || ed(8)) go('title');
         else if (ed(3) && ui.t > 1.5) go('card');
         else if (ed(0) || ed(9)) advance();
         break;
-      default: // the scene card and the highlight reel
+      default: // the scene card
         if (ed(0) || ed(9)) advance();
     }
   }
@@ -618,6 +730,7 @@
     } else if (ui.screen === 'reel') {
       var fr = REEL.step(rdt);
       if (fr.done) go('rating');
+      else if (ui.reelAuto && fr.shot.loops > 0) { ui.t = Math.max(ui.t, 1); continueReel(); }
       else {
         ui.reel = fr.shot;
         if (fr.shot.cut) R.clearFX();
@@ -625,7 +738,8 @@
         A.rotor(heliNear(fr.view));
         view = fr.view;
       }
-    } else if (ui.screen === 'rating') {
+    } else if (ui.screen === 'rating' || ui.screen === 'garage') {
+      if (ui.gar) { if (ui.gar.msgT > 0) ui.gar.msgT -= rdt; if (ui.gar.flash) ui.gar.flash.t -= rdt; }
       // let the last of the smoke drift
       E.step(S, {}, rdt * 0.3);
       S.events.length = 0;
@@ -655,6 +769,7 @@
   // a hook for testing in a plain browser; the game never reads it
   window.FT_DEBUG = { ui: ui, go: go, dir: DIR, reel: REEL, get S() { return S; }, set S(v) { S = v; }, get keys() { return keys; }, attract: function () { return attract; },
     binds: binds, pad: pad, lastInp: function () { return lastInp; },
+    skills: SK, garage: { open: openGarage, buy: garBuy, refund: garRefund, confirm: garConfirm }, continueReel: continueReel,
     // one fixed step of play exactly as the loop takes it (reads keys, mouse and touch)
     stepInput: function () { var inp = readInput(); missileEdge = false; E.step(S, inp, STEP); S.events.length = 0; return inp; } };
 })();

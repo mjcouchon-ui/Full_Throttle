@@ -8,7 +8,8 @@
    from its own camera (low, alongside, a crane, a roadside telephoto, a kill cam, an aerial), slows
    down on the money shot and ends on the boss going down, twice, from two angles.
    R = FT_REEL.make(); R.reset(); R.record(S, events, rdt) each frame of play; R.cut() -> true if there
-   is a reel; R.step(rdt) -> { view, evs, shot, done } while it plays. */
+   is a reel; R.step(rdt) -> { view, evs, shot, done } while it plays. 1.8: it loops (shot.loops counts the
+   times round) until the page moves on, which only the CONTINUE button does. */
 (function (root) {
   'use strict';
   var HZ = 30, KEEP = 4.2, PRE = 1.7, POST = 1.9, MAXLEN = 7, MAXCLIPS = 12, H = 600;
@@ -157,14 +158,16 @@
         list.push({ clip: boss, cam: 'crane', slow: true, trim: 2.2 });
         list.push({ clip: boss, cam: 'target', slow: true, again: true });
       }
-      R.list = list; R.i = -1; R.ft = 0; R.done = !list.length; R.t = 0; R.side = 1;
+      R.list = list; R.i = -1; R.ft = 0; R.done = !list.length; R.t = 0; R.side = 1; R.loops = 0;
       if (list.length) next();
       return list.length > 0;
     };
     function next() {
       R.i++;
       R.objs = {}; R.fired = -1;
-      if (R.i >= R.list.length) { R.done = true; return; }
+      // 1.8: the reel never ends on its own: after the last shot it runs again from the top, until the
+      // player presses CONTINUE (the page decides when it is over)
+      if (R.i >= R.list.length) { if (!R.list.length) { R.done = true; return; } R.i = 0; R.loops++; }
       var it = R.list[R.i], c = it.clip;
       // start a little later on long clips, and the second boss angle starts close to the kill
       R.ft = it.again ? Math.max(0, c.focusT - c.frames[0].t - 0.9) : Math.max(0, c.focusT - c.frames[0].t - (it.trim > 2.1 ? 2.6 : 1.6));
@@ -249,7 +252,7 @@
       if (R.fired < i0) R.fired = i0;
       var V = viewOf(F[i0], F[i1], u);
       var shot = { cam: camera(it, V, clamp(R.ft * HZ / n, 0, 1), F[i0]), camName: CAMNAME[it.cam], label: c.label, kind: c.kind, scene: c.scene, sceneName: c.sceneName,
-        index: R.i, count: R.list.length, again: !!it.again, shotT: R.shotT, left: (n - fi) / HZ, slow: speed < 1, cut: R.shotT < rdt * 1.5 };
+        index: R.i, count: R.list.length, again: !!it.again, loops: R.loops || 0, shotT: R.shotT, left: (n - fi) / HZ, slow: speed < 1, cut: R.shotT < rdt * 1.5 };
       var endAt = it.trim ? Math.min(n, Math.floor((c.focusT - ft0 + it.trim) * HZ)) : n;
       if (fi >= endAt - 1) next();
       return { view: V, evs: evs, shot: shot, done: false };

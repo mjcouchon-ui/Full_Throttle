@@ -1,5 +1,6 @@
 #include "FTGameInstance.h"
 #include "FTCore.h"
+#include "FTSkills.h"
 #include "GameFramework/GameUserSettings.h"
 #include "Engine/Engine.h"
 #include "AudioDevice.h"
@@ -85,6 +86,7 @@ void UFTGameInstance::Init()
 	bAutoDrive = FParse::Param(FCommandLine::Get(), TEXT("ftauto"));
 	FParse::Value(FCommandLine::Get(), TEXT("ftshots="), ShotEvery);
 	FParse::Value(FCommandLine::Get(), TEXT("ftquit="), QuitAfter);
+	FParse::Value(FCommandLine::Get(), TEXT("ftwrap="), WrapAfter);
 	if (FParse::Value(FCommandLine::Get(), TEXT("ftbench="), Bench) || FParse::Param(FCommandLine::Get(), TEXT("ftbench")))
 	{
 		bBench = true;
@@ -151,6 +153,110 @@ void UFTGameInstance::LoadSettings()
 			BestTitle[i] = O->GetStringField(TEXT("title"));
 		}
 	}
+	const TSharedPtr<FJsonObject>* Sk;
+	if (J->TryGetObjectField(TEXT("skills"), Sk))
+	{
+		(*Sk)->TryGetNumberField(TEXT("points"), SkillPoints);
+		(*Sk)->TryGetNumberField(TEXT("earned"), SkillEarned);
+		SkillPoints = FMath::Max(0, SkillPoints);
+		const TSharedPtr<FJsonObject>* Ranks;
+		if ((*Sk)->TryGetObjectField(TEXT("ranks"), Ranks))
+		{
+			const FFTSkillData& D = FFTSkillData::Get();
+			for (const auto& KV : (*Ranks)->Values)
+			{
+				const FFTUpgradeDef* U = D.Find(FName(*KV.Key));
+				// an upgrade that left the data keeps its rank in the save (it may come back in the tree)
+				SkillRanks.Add(FName(*KV.Key), FMath::Clamp((int32)KV.Value->AsNumber(), 0, U ? U->MaxRank : 99));
+			}
+		}
+	}
+}
+
+// --------------------------------------------------------------------------------------------- skill points
+float UFTGameInstance::Stat(FName StatId) const
+{
+	const FFTSkillData& D = FFTSkillData::Get();
+	float Sum = 0.f;
+	for (const FFTUpgradeDef& U : D.Upgrades)
+	{
+		const int32 R = Rank(U.Id);
+		if (R <= 0) continue;
+		for (const FFTSkillEffect& E : U.Effects) if (E.Stat == StatId) Sum += E.PerRank * R;
+	}
+	const FFTStatDef* S = D.Stats.Find(StatId);
+	if (S && S->bAdd) return Sum;
+	return FMath::Max(0.2f, 1.f + Sum);
+}
+
+bool UFTGameInstance::IsLocked(int32 Idx, FString* Why) const
+{
+	const FFTSkillData& D = FFTSkillData::Get();
+	if (!D.Upgrades.IsValidIndex(Idx)) return true;
+	for (const FFTSkillReq& Q : D.Upgrades[Idx].Requires)
+	{
+		if (Rank(Q.Id) >= Q.Rank) continue;
+		if (Why) { const FFTUpgradeDef* U = D.Find(Q.Id); *Why = FString::Printf(TEXT("NEEDS %s RANK %d"), U ? *U->Name : *Q.Id.ToString().ToUpper(), Q.Rank); }
+		return true;
+	}
+	return false;
+}
+
+int32 UFTGameInstance::NextCost(int32 Idx) const
+{
+	const FFTSkillData& D = FFTSkillData::Get();
+	if (!D.Upgrades.IsValidIndex(Idx)) return -1;
+	const FFTUpgradeDef& U = D.Upgrades[Idx];
+	const int32 R = Rank(U.Id);
+	return R >= U.MaxRank ? -1 : U.CostOf(R + 1);
+}
+
+bool UFTGameInstance::CanBuy(int32 Idx) const
+{
+	const int32 C = NextCost(Idx);
+	return C >= 0 && C <= SkillPoints && !IsLocked(Idx);
+}
+
+bool UFTGameInstance::Buy(int32 Idx)
+{
+	if (!CanBuy(Idx)) return false;
+	const FFTUpgradeDef& U = FFTSkillData::Get().Upgrades[Idx];
+	SkillPoints -= NextCost(Idx);
+	SkillRanks.FindOrAdd(U.Id)++;
+	SaveSettings();
+	return true;
+}
+
+bool UFTGameInstance::CanRefund(int32 Idx) const
+{
+	const FFTSkillData& D = FFTSkillData::Get();
+	if (!D.Upgrades.IsValidIndex(Idx)) return false;
+	const FFTUpgradeDef& U = D.Upgrades[Idx];
+	const int32 R = Rank(U.Id);
+	if (R <= 0) return false;
+	// not below a rank another bought upgrade stands on
+	for (const FFTUpgradeDef& O : D.Upgrades)
+		if (Rank(O.Id) > 0)
+			for (const FFTSkillReq& Q : O.Requires) if (Q.Id == U.Id && Q.Rank >= R) return false;
+	return true;
+}
+
+bool UFTGameInstance::Refund(int32 Idx)
+{
+	if (!CanRefund(Idx)) return false;
+	const FFTUpgradeDef& U = FFTSkillData::Get().Upgrades[Idx];
+	const int32 R = Rank(U.Id);
+	SkillPoints += U.CostOf(R);
+	SkillRanks.Add(U.Id, R - 1);
+	SaveSettings();
+	return true;
+}
+
+void UFTGameInstance::AddSkillPoints(int32 N)
+{
+	if (N <= 0) return;
+	SkillPoints += N; SkillEarned += N;
+	SaveSettings();
 }
 
 void UFTGameInstance::SaveSettings()
@@ -180,6 +286,13 @@ void UFTGameInstance::SaveSettings()
 		Best.Add(MakeShared<FJsonValueObject>(O));
 	}
 	J->SetArrayField(TEXT("best"), Best);
+	TSharedRef<FJsonObject> Sk = MakeShared<FJsonObject>();
+	Sk->SetNumberField(TEXT("points"), SkillPoints);
+	Sk->SetNumberField(TEXT("earned"), SkillEarned);
+	TSharedRef<FJsonObject> Ranks = MakeShared<FJsonObject>();
+	for (const TPair<FName, int32>& R : SkillRanks) if (R.Value > 0) Ranks->SetNumberField(R.Key.ToString(), R.Value);
+	Sk->SetObjectField(TEXT("ranks"), Ranks);
+	J->SetObjectField(TEXT("skills"), Sk);
 	FString Out;
 	FJsonSerializer::Serialize(J, TJsonWriterFactory<>::Create(&Out));
 	IFileManager::Get().MakeDirectory(*SaveDir(), true);

@@ -47,6 +47,14 @@ public:
 	bool MenuOk() const;
 	bool MenuBack() const;
 
+	// screens with buttons (the reel's CONTINUE, the garage): the cursor shows and clicks are read against rects
+	void SetMenuMouse(bool bOn);
+	bool bMenuMouse = false;
+	FVector2D MousePos() const;
+	bool MouseIn(const FBox2D& R) const { const FVector2D M = MousePos(); return R.bIsValid && M.X >= 0.f && R.IsInside(M); }
+	bool Clicked(const FBox2D& R) const { return Hit(EKeys::LeftMouseButton) && MouseIn(R); }
+	bool RightClicked(const FBox2D& R) const { return Hit(EKeys::RightMouseButton) && MouseIn(R); }
+
 	// rebinding: the next key pressed is returned once
 	bool bCapture = false;
 	bool PollCapture(FKey& Out);

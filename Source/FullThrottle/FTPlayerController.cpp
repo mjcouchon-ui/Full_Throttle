@@ -2,6 +2,38 @@
 #include "FTGameInstance.h"
 #include "FTGameMode.h"
 #include "Engine/World.h"
+#include "TimerManager.h"
+#include "InputKeyEventArgs.h"
+#include "HAL/IConsoleManager.h"
+
+// test hooks that go through the player's real input path (WasInputKeyJustPressed sees them like a key):
+//   ft.Press <Key>          press and release a key, mouse or pad button (Enter, SpaceBar, Gamepad_Special_Right, ...)
+//   ft.Click <x> <y> [Right] move the cursor to viewport pixel x,y and click there
+namespace
+{
+	void FTTap(UWorld* World, const FKey& K)
+	{
+		APlayerController* PC = World ? World->GetFirstPlayerController() : nullptr;
+		if (!PC || !K.IsValid()) { UE_LOG(LogTemp, Warning, TEXT("ft.Press: no player or bad key")); return; }
+		PC->InputKey(FInputKeyEventArgs::CreateSimulated(K, IE_Pressed, 1.f));
+		TWeakObjectPtr<APlayerController> Weak(PC);
+		FTimerHandle H;
+		World->GetTimerManager().SetTimer(H, FTimerDelegate::CreateLambda([Weak, K]() { if (Weak.IsValid()) Weak->InputKey(FInputKeyEventArgs::CreateSimulated(K, IE_Released, 0.f)); }), 0.12f, false);
+		UE_LOG(LogTemp, Display, TEXT("FTINPUT tap %s"), *K.ToString());
+	}
+	FAutoConsoleCommandWithWorldAndArgs GFTPress(TEXT("ft.Press"), TEXT("FULL THROTTLE tests: press and release a key through the player's input"),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World) { if (Args.Num() > 0) FTTap(World, FKey(*Args[0])); }));
+	FAutoConsoleCommandWithWorldAndArgs GFTClick(TEXT("ft.Click"), TEXT("FULL THROTTLE tests: move the cursor to viewport x y and click (add Right for the right button)"),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+		{
+			APlayerController* PC = World ? World->GetFirstPlayerController() : nullptr;
+			if (!PC || Args.Num() < 2) return;
+			PC->SetMouseLocation(FCString::Atoi(*Args[0]), FCString::Atoi(*Args[1]));
+			float X = 0, Y = 0; PC->GetMousePosition(X, Y);
+			UE_LOG(LogTemp, Display, TEXT("FTINPUT cursor at %.0f,%.0f"), X, Y);
+			FTTap(World, Args.Num() > 2 && Args[2].Equals(TEXT("Right"), ESearchCase::IgnoreCase) ? EKeys::RightMouseButton : EKeys::LeftMouseButton);
+		}));
+}
 
 void AFTCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTime)
 {
@@ -28,6 +60,28 @@ void AFTPlayerController::BeginPlay()
 	Super::BeginPlay();
 	FInputModeGameOnly Mode;
 	SetInputMode(Mode);
+}
+
+void AFTPlayerController::SetMenuMouse(bool bOn)
+{
+	if (bOn == bMenuMouse) return;
+	bMenuMouse = bOn;
+	SetShowMouseCursor(bOn);
+	if (bOn)
+	{
+		FInputModeGameAndUI Mode;
+		Mode.SetHideCursorDuringCapture(false);
+		Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+		SetInputMode(Mode);
+	}
+	else SetInputMode(FInputModeGameOnly());
+}
+
+FVector2D AFTPlayerController::MousePos() const
+{
+	float X = -1.f, Y = -1.f;
+	if (!GetMousePosition(X, Y)) return FVector2D(-1.f, -1.f);
+	return FVector2D(X, Y);
 }
 
 bool AFTPlayerController::Down(const FKey& K) const
@@ -100,8 +154,10 @@ void AFTPlayerController::PlayerTick(float Dt)
 	In.RawSteer = Raw;
 	// ease: 9/s growing, 16/s coming back
 	const float Rate = (FMath::Abs(Raw) > FMath::Abs(In.Steer) && FMath::Sign(Raw) == FMath::Sign(In.Steer)) || In.Steer == 0.f ? 9.f : 16.f;
-	In.Steer = FMath::FInterpConstantTo(In.Steer, Raw, RealDt, Rate * (In.bPad ? 1.f : 0.6f) * 1.f);
-	if (In.bPad && FMath::Abs(Raw) > 0.f) In.Steer = FMath::FInterpTo(In.Steer, Raw, RealDt, 14.f);
+	// HANDLING upgrades (skills.json stat "steer") quicken the hands on the wheel
+	const float SteerMul = GI->Stat(TEXT("steer"));
+	In.Steer = FMath::FInterpConstantTo(In.Steer, Raw, RealDt, Rate * (In.bPad ? 1.f : 0.6f) * SteerMul);
+	if (In.bPad && FMath::Abs(Raw) > 0.f) In.Steer = FMath::FInterpTo(In.Steer, Raw, RealDt, 14.f * SteerMul);
 
 	const float StickY = GetInputAnalogKeyState(EKeys::Gamepad_LeftY);
 	In.bUp = Act(EFTAction::Up) || StickY > 0.55f || IsInputKeyDown(EKeys::Gamepad_DPad_Up);

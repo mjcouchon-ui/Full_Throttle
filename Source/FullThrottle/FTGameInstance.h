@@ -28,6 +28,23 @@ public:
 	int32 BestScore[3] = { 0, 0, 0 };
 	FString BestTitle[3];
 
+	// skill points (2.3): the bank, everything ever earned, and the rank of each upgrade (ids from skills.json).
+	// Saved with the settings, so the upgrades are a career that carries across levels and runs.
+	int32 SkillPoints = 0;
+	int32 SkillEarned = 0;
+	TMap<FName, int32> SkillRanks;
+	int32 Rank(FName Id) const { const int32* R = SkillRanks.Find(Id); return R ? *R : 0; }
+	/** Value of a stat from skills.json: kind "mul" = max(0.2, 1 + sum of effects), kind "add" = the sum. */
+	float Stat(FName StatId) const;
+	bool IsLocked(int32 UpgradeIdx, FString* Why = nullptr) const;
+	/** Cost of the next rank, or -1 when maxed. */
+	int32 NextCost(int32 UpgradeIdx) const;
+	bool CanBuy(int32 UpgradeIdx) const;
+	bool Buy(int32 UpgradeIdx);
+	bool CanRefund(int32 UpgradeIdx) const;
+	bool Refund(int32 UpgradeIdx);
+	void AddSkillPoints(int32 N);
+
 	// carried between maps
 	int32 PendingLevel = -1;
 	bool bStartRace = false;
@@ -43,6 +60,8 @@ public:
 	bool bAutoDrive = false;
 	float ShotEvery = 0.f;
 	float QuitAfter = 0.f;
+	// -ftwrap=N: the level wraps after N s of racing (tests of the reel and the garage)
+	float WrapAfter = 0.f;
 
 	static const TCHAR* ActionName(int32 A);
 	static bool IsReserved(const FKey& K);

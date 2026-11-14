@@ -5,6 +5,7 @@
 #include "FTPlayerController.h"
 #include "FTGameInstance.h"
 #include "FTHUD.h"
+#include "FTSkills.h"
 #include "EngineUtils.h"
 #include "Engine/World.h"
 #include "Engine/Engine.h"
@@ -36,6 +37,7 @@
 
 // test hooks: ft.Autopilot 1 drives the car (and starts the race from the title); ft.Shots N takes a screenshot every N seconds
 static TAutoConsoleVariable<int32> CVarFTAutopilot(TEXT("ft.Autopilot"), 0, TEXT("FULL THROTTLE: 1 = the autopilot drives and starts races (tests, benchmarks)"));
+static TAutoConsoleVariable<float> CVarFTHp(TEXT("ft.Hp"), 0.f, TEXT("FULL THROTTLE test hook: start each race with this armour, e.g. 30 = already burning (0 = normal)"));
 static TAutoConsoleVariable<float> CVarFTShots(TEXT("ft.Shots"), 0.f, TEXT("FULL THROTTLE: take a screenshot every N seconds while racing (0 = off)"));
 
 using FT::XU; using FT::DU; using FT::RoadHalf; using FT::LaneX; using FT::BaseSpeed; using FT::WallH;
@@ -47,6 +49,14 @@ namespace
 		return Cast<T>(StaticLoadObject(T::StaticClass(), nullptr, *Path, nullptr, LOAD_NoWarn | LOAD_Quiet));
 	}
 	inline float R(float A, float B) { return FMath::FRandRange(A, B); }
+	// test hook (2.4): armour to race with, from -fthp=N (the race starts before -ExecCmds runs) or ft.Hp N; 0 = normal.
+	// Benchmarks hold the car at this value instead of 100, so a burning car can be filmed.
+	float TestHp()
+	{
+		float V = CVarFTHp.GetValueOnGameThread();
+		FParse::Value(FCommandLine::Get(), TEXT("fthp="), V);
+		return V;
+	}
 	const FLinearColor CYellow(1.f, 0.82f, 0.25f), CPink(1.f, 0.31f, 0.65f), CCyan(0.21f, 0.95f, 1.f), CRed(1.f, 0.25f, 0.25f), CGreen(0.4f, 1.f, 0.5f), CWhite(1, 1, 1);
 	constexpr float CarW = 256.f, CarL = 480.f;
 	const int32 HenchSideLeft = 0;
@@ -180,10 +190,13 @@ void AFTGameMode::StartRace(bool bRetake)
 	{
 		Score = 0; Combo = 1; ComboT = 0; Kills = NearMisses = StuntCount = Collateral = 0;
 		ScoreDestruction = ScoreNear = ScoreStunts = ScoreCollateral = ArmorBonus = 0;
-		Retakes = 0; Take = 1; Scene = 0; Hp = 100.f; Missiles = 6; Turbo = 100.f;
+		Retakes = 0; Take = 1; Scene = 0; Hp = 100.f; Missiles = 6 + (GI() ? FMath::FloorToInt(GI()->Stat(TEXT("missiles"))) : 0); Turbo = 100.f;
 		Clips.Reset(); Snaps.Reset(); Clock = 0.f;
 		bBossSpawned = bBossDead = bEscaped = bOutOfFilm = bEscapeWarned = false; BossT = 0.f; BossLineStep = 0;
 		if (UFTGameInstance* G = GI()) G->RunCounter++;
+		if (const UFTGameInstance* G = GI())
+			UE_LOG(LogFT, Display, TEXT("FTSKILLS race L%d: missiles %d steer %.2f driftCharge %.2f turboBurn %.2f turboRegen %.2f damageTaken %.2f gunDamage %.2f (bank %d)"),
+				Level + 1, Missiles, G->Stat(TEXT("steer")), G->Stat(TEXT("driftCharge")), G->Stat(TEXT("turboBurn")), G->Stat(TEXT("turboRegen")), G->Stat(TEXT("damageTaken")), G->Stat(TEXT("gunDamage")), G->SkillPoints);
 		AheadSaid.Reset();
 	}
 	else
@@ -195,6 +208,7 @@ void AFTGameMode::StartRace(bool bRetake)
 		Clips.RemoveAll([this](const FFTClip& C) { return C.Scene >= Scene && !C.bBoss; });
 		bBossSpawned = false; BossT = 0.f;
 	}
+	if (TestHp() > 0.f) Hp = TestHp();
 	// start at the top of the scene, on plain road
 	float D0 = FMath::Max(600.f, L.Scenes[Scene].D * DU - 400.f);
 	while (D0 > 600.f && (Track->FlagsAt(D0) & (FTFlag::Gap | FTFlag::Loop | FTFlag::Pipe | FTFlag::Twist | FTFlag::Kicker))) D0 -= 400.f;
@@ -311,6 +325,95 @@ void AFTGameMode::FinishRating()
 	}
 	Phase = EFTPhase::Rating; PhaseT = 0.f;
 	if (Music) Music->SetVolumeMultiplier(0.25f);
+
+	// skill points (skills.json "points"): paid into the bank now, so a reshoot or the title keeps them
+	PointsEarned = 0; PointsLines.Reset();
+	if (!bOutOfFilm)
+	{
+		const FFTSkillData& D = FFTSkillData::Get();
+		auto Add = [&](const TCHAR* Key, int32 N) { if (N > 0) { PointsLines.Add(TPair<FString, int32>(D.PointLabel(Key), N)); PointsEarned += N; } };
+		Add(bEscaped ? TEXT("escape") : TEXT("wrap"), D.Pts(bEscaped ? TEXT("escape") : TEXT("wrap")));
+		Add(TEXT("perRating"), D.Pts(TEXT("perRating")) * RatingIdx);
+		if (Retakes == 0) Add(TEXT("noRetakes"), D.Pts(TEXT("noRetakes")));
+		if (UFTGameInstance* G = GI(); G && !G->bBench) G->AddSkillPoints(PointsEarned);
+		UE_LOG(LogFT, Display, TEXT("FTSKILLS level %d earned %d (bank %d)"), Level + 1, PointsEarned, GI() ? GI()->SkillPoints : -1);
+	}
+}
+
+int32 AFTGameMode::MissileCap() const { return 9 + (GI() ? FMath::FloorToInt(GI()->Stat(TEXT("missiles"))) : 0); }
+
+void AFTGameMode::EnterGarage()
+{
+	Phase = EFTPhase::Garage; PhaseT = 0.f;
+	UE_LOG(LogFT, Display, TEXT("FTFLOW garage open (level %d, bank %d)"), Level + 1, GI() ? GI()->SkillPoints : -1);
+	GarageFlashIdx = -1; GarageRects.Reset();
+	// start on the first upgrade the bank can pay for, else on the START button
+	const UFTGameInstance* G = GI();
+	const int32 N = FFTSkillData::Get().Upgrades.Num();
+	GarageSel = N;
+	for (int32 i = 0; i < N; ++i) if (G && G->CanBuy(i)) { GarageSel = i; break; }
+	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->SetMenuMouse(true);
+	Sfx(TEXT("Sting"), 0.6f);
+}
+
+void AFTGameMode::LeaveGarage()
+{
+	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->SetMenuMouse(false);
+	Sfx(TEXT("Clap"));
+	UE_LOG(LogFT, Display, TEXT("FTFLOW garage confirmed -> %s"), Level >= 2 ? TEXT("title") : TEXT("next level"));
+	// the next level starts only from here; after the last level the garage closes onto the title
+	if (Level >= 2) GoToLevel(0, false);
+	else GoToLevel(Level + 1, true);
+}
+
+void AFTGameMode::TickGarage(float RDt)
+{
+	for (FFTPopup& P : Popups) P.T += RDt;
+	Popups.RemoveAll([](const FFTPopup& P) { return P.T > 1.6f; });
+	AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController());
+	UFTGameInstance* G = GI();
+	if (!PC || !G || PhaseT < 0.4f) return;
+	const int32 N = FFTSkillData::Get().Upgrades.Num();
+	const int32 Items = N + 1;
+	// keys and pad: move over the cards and the button
+	if (PC->MenuLeft() || PC->MenuUp()) GarageSel = (GarageSel + Items - 1) % Items;
+	if (PC->MenuRight() || PC->MenuDown()) GarageSel = (GarageSel + 1) % Items;
+	// mouse: moving it over a card or the button picks it
+	{
+		const FVector2D M = PC->MousePos();
+		if (M != GarageMouse)
+		{
+			GarageMouse = M;
+			for (int32 i = 0; i < GarageRects.Num() && i < Items; ++i) if (PC->MouseIn(GarageRects[i])) GarageSel = i;
+		}
+	}
+	auto Buy = [&](int32 i)
+	{
+		const bool bOk = G->Buy(i);
+		UE_LOG(LogFT, Display, TEXT("FTFLOW buy %d -> %s (bank %d)"), i, bOk ? TEXT("ok") : TEXT("denied"), G->SkillPoints);
+		GarageFlashIdx = i; GarageFlashT = GetWorld()->GetRealTimeSeconds(); bGarageDenied = !bOk;
+		Sfx(bOk ? TEXT("Pickup") : TEXT("Empty"));
+	};
+	auto Refund = [&](int32 i)
+	{
+		const bool bOk = G->Refund(i);
+		UE_LOG(LogFT, Display, TEXT("FTFLOW refund %d -> %s (bank %d)"), i, bOk ? TEXT("ok") : TEXT("denied"), G->SkillPoints);
+		GarageFlashIdx = i; GarageFlashT = GetWorld()->GetRealTimeSeconds(); bGarageDenied = !bOk;
+		Sfx(bOk ? TEXT("DriftLevel") : TEXT("Empty"), 0.7f, bOk ? 0.8f : 1.f);
+	};
+	const bool bConfirmClick = GarageRects.IsValidIndex(N) && PC->Clicked(GarageRects[N]);
+	if (PC->Hit(EKeys::Gamepad_Special_Right) || bConfirmClick) { LeaveGarage(); return; }
+	for (int32 i = 0; i < N && i < GarageRects.Num(); ++i)
+	{
+		if (PC->Clicked(GarageRects[i])) { GarageSel = i; Buy(i); }
+		else if (PC->RightClicked(GarageRects[i])) { GarageSel = i; Refund(i); }
+	}
+	if (PC->Hit(EKeys::Enter) || PC->Hit(EKeys::SpaceBar) || PC->Hit(EKeys::Gamepad_FaceButton_Bottom))
+	{
+		if (GarageSel >= N) { LeaveGarage(); return; }
+		Buy(GarageSel);
+	}
+	if ((PC->Hit(EKeys::BackSpace) || PC->Hit(EKeys::Delete) || PC->Hit(EKeys::Gamepad_FaceButton_Left)) && GarageSel < N) Refund(GarageSel);
 }
 
 // --------------------------------------------------------------------------------------------- tick
@@ -400,10 +503,17 @@ void AFTGameMode::Tick(float Dt)
 			else if (PC->MenuBack()) GoToLevel(Level, false);
 			else if (PC->MenuOk())
 			{
-				if (bOutOfFilm || Level >= 2) GoToLevel(bOutOfFilm ? Level : 0, false);
-				else GoToLevel(Level + 1, true);
+				// a finished level goes to the garage; the next level starts only from there
+				if (bOutOfFilm) GoToLevel(Level, false);
+				else EnterGarage();
 			}
 		}
+		break;
+	}
+	case EFTPhase::Garage:
+	{
+		FFTDrive Dr; Dr.TargetSpeed = BaseSpeed * 0.7f; Car->SetDrive(Dr);
+		TickGarage(RDt);
 		break;
 	}
 	}
@@ -578,6 +688,7 @@ void AFTGameMode::TickPlay(float Dt, float RDt)
 	SpeedMph = FMath::Max(0.f, Car->Speed) / DU * 0.31f;
 
 	if (Hp <= 0.f) Wreck();
+	if (const UFTGameInstance* TG = GI(); TG && TG->WrapAfter > 0.f && PhaseT > TG->WrapAfter && Phase == EFTPhase::Play) Wrap(false);
 }
 
 // --------------------------------------------------------------------------------------------- player
@@ -613,12 +724,17 @@ void AFTGameMode::TickPlayer(float Dt)
 		In.bFire = true;
 		In.bTurbo = Turbo > 95.f || bTurboOn;
 		In.bMissile = FMath::Fmod(Clock, 1.7f) < Dt;
-		if (G && G->bBench) Hp = 100.f;
+		if (G && G->bBench) Hp = TestHp() > 0.f ? TestHp() : 100.f;
 	}
 
 	Steer = In.Steer;
 	NoFireT += Dt; NoMissileT += Dt; NoNearT += Dt; NoRailT += Dt; NoDriftT += Dt; LastFireT += Dt;
 	Invuln -= Dt; MissileCd -= Dt; DriftPressBuf -= Dt;
+
+	// upgrades (skills.json stats)
+	const float TurboBurnMul = G ? G->Stat(TEXT("turboBurn")) : 1.f;
+	const float TurboRegenMul = G ? G->Stat(TEXT("turboRegen")) : 1.f;
+	const float DriftChargeMul = G ? G->Stat(TEXT("driftCharge")) : 1.f;
 
 	// turbo
 	const bool bWant = In.bTurbo;
@@ -628,7 +744,7 @@ void AFTGameMode::TickPlayer(float Dt)
 	bTurboOn = bWant && !bTurboLock && Turbo > 0.f;
 	if (bTurboOn)
 	{
-		Turbo = FMath::Max(0.f, Turbo - 38.f * Dt);
+		Turbo = FMath::Max(0.f, Turbo - 38.f * Dt * TurboBurnMul);
 		if (!bWasOn)
 		{
 			if (TurboOffT > 1.f && Car->Speed < 700.f * DU) Car->Shove(Car->GetActorForwardVector(), 90.f * DU * 0.6f);
@@ -636,7 +752,7 @@ void AFTGameMode::TickPlayer(float Dt)
 		}
 		TurboOffT = 0.f; NoTurboT = 0.f;
 	}
-	else { Turbo = FMath::Min(100.f, Turbo + 13.f * Dt); TurboOffT += Dt; NoTurboT += Dt; }
+	else { Turbo = FMath::Min(100.f, Turbo + 13.f * Dt * TurboRegenMul); TurboOffT += Dt; NoTurboT += Dt; }
 
 	// drift (kart style): hold drift and steer, either order; let go to boost
 	if (In.bDriftPressed) DriftPressBuf = 0.25f;
@@ -658,7 +774,7 @@ void AFTGameMode::TickPlayer(float Dt)
 		if (DriftT < 0.18f && In.RawSteer * DriftDir < -0.5f) DriftDir = -DriftDir;
 		if (Car->bGrounded)
 		{
-			DriftCharge += (0.65f + 0.55f * FMath::Max(0.f, In.Steer * DriftDir)) * Dt;
+			DriftCharge += (0.65f + 0.55f * FMath::Max(0.f, In.Steer * DriftDir)) * Dt * DriftChargeMul;
 			const int32 NewLevel = DriftCharge >= 2.35f ? 3 : (DriftCharge >= 1.45f ? 2 : (DriftCharge >= 0.65f ? 1 : 0));
 			if (NewLevel > DriftLevel) { DriftLevel = NewLevel; Sfx(TEXT("DriftLevel"), 0.8f, 1.f + 0.2f * NewLevel); }
 		}
@@ -792,6 +908,7 @@ void AFTGameMode::HurtPlayer(float Dmg, const TCHAR* LineKey, float PushX)
 {
 	if (Invuln > 0.f || Phase != EFTPhase::Play) return;
 	if (!Car->bGrounded && Dmg < 12.f) return; // nothing hurts you in the air (except things that land on you)
+	if (const UFTGameInstance* G = GI()) Dmg *= G->Stat(TEXT("damageTaken")); // ARMOR upgrades
 	Hp = FMath::Max(0.f, Hp - Dmg);
 	Invuln = 0.6f;
 	Sfx(TEXT("PlayerHit")); Duck(0.7f, 0.2f);
@@ -800,7 +917,7 @@ void AFTGameMode::HurtPlayer(float Dmg, const TCHAR* LineKey, float PushX)
 	if (PushX != 0.f) Car->Shove(Track->Sample(Car->D).Right, PushX);
 	if (Hp < 35.f) Say(TEXT("lowHp"), 2, 6.f);
 	else Say(TEXT("hit"), 1, 3.5f);
-	if (GI() && GI()->bBench) Hp = 100.f;
+	if (GI() && GI()->bBench) Hp = TestHp() > 0.f ? TestHp() : 100.f;
 }
 
 // --------------------------------------------------------------------------------------------- entities
@@ -1129,6 +1246,7 @@ void AFTGameMode::TickEnts(float Dt)
 	const float Vp = Car->Speed;
 	const float Px = Car->X;
 	const float Pd = Car->D;
+	const float GunDamageMul = GI() ? GI()->Stat(TEXT("gunDamage")) : 1.f; // WEAPONS upgrades
 	const bool bGround = Car->bGrounded;
 	FFTEnt* Boss = nullptr;
 	int32 HogsOut = 0;
@@ -1387,7 +1505,7 @@ void AFTGameMode::TickEnts(float Dt)
 					{
 						if (UNiagaraSystem* S = Load<UNiagaraSystem>(TEXT("/Game/FX/NS_Impact")))
 							UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, S, Track->ToWorld(E.D, E.X, O.bAir ? O.H : 110.f), FRotator::ZeroRotator, FVector(1), true, true, ENCPoolMethod::AutoRelease);
-						HurtEnt(O, 1.f, 0);
+						HurtEnt(O, GunDamageMul, 0);
 						Release(E);
 						break;
 					}
@@ -1456,7 +1574,7 @@ void AFTGameMode::TickEnts(float Dt)
 			const bool bTouch = FMath::Abs(Dx) < (CarW + E.W) / 2 && FMath::Abs(Ahead) < (CarL + E.L) / 2;
 			if (bTouch)
 			{
-				if (E.Kind == EFTKind::Crate) { Missiles = FMath::Min(9, Missiles + 3); Popup(TEXT("+3 MISSILES"), FLinearColor(1.f, 0.6f, 0.2f)); Say(TEXT("pickupMissiles"), 1); Sfx(TEXT("Pickup")); Release(E); continue; }
+				if (E.Kind == EFTKind::Crate) { Missiles = FMath::Min(MissileCap(), Missiles + 3); Popup(TEXT("+3 MISSILES"), FLinearColor(1.f, 0.6f, 0.2f)); Say(TEXT("pickupMissiles"), 1); Sfx(TEXT("Pickup")); Release(E); continue; }
 				if (E.Kind == EFTKind::Wrench) { Hp = FMath::Min(100.f, Hp + 30.f); Car->RestoreParts(); PartsShed = 0; for (int32 p = 0; p < 7; ++p) if (Hp < 88.f - 12.f * p) { Car->ShedPart(p); PartsShed = p + 1; } Car->SetDamageLook(Hp); PrevHp = Hp; Popup(TEXT("+30 ARMOR"), CGreen); Say(TEXT("pickupRepair"), 1); Sfx(TEXT("Pickup")); Release(E); continue; }
 				if (E.Kind == EFTKind::Barrel) { HurtPlayer(14.f); Kill(E, 2); continue; }
 				if (E.Kind == EFTKind::Ramp)
@@ -1949,7 +2067,7 @@ bool AFTGameMode::ComputeCamera(FMinimalViewInfo& POV, float Dt)
 	}
 	const FVector CarLoc = Car->GetActorLocation();
 	const FFTFrame F = Track->Sample(Car->D);
-	if (Phase == EFTPhase::Title || Phase == EFTPhase::Rating)
+	if (Phase == EFTPhase::Title || Phase == EFTPhase::Rating || Phase == EFTPhase::Garage)
 	{
 		const float A = RealClock * 0.18f;
 		const FVector Off = (F.Fwd * FMath::Cos(A) + F.Right * FMath::Sin(A)) * 900.f + F.Up * 260.f;
@@ -2060,7 +2178,9 @@ void AFTGameMode::StartReel()
 		do { Cam = Pref[FMath::RandRange(0, 7)]; } while (Cam == LastCam);
 		C.Camera = Cam; LastCam = Cam;
 	}
-	Phase = EFTPhase::Reel; PhaseT = 0.f;
+	UE_LOG(LogFT, Display, TEXT("FTFLOW reel start, %d shots"), ReelList.Num());
+	Phase = EFTPhase::Reel; PhaseT = 0.f; ReelLoop = 0; ReelLoopT = -10.f; ReelContinueRect = FBox2D(ForceInit);
+	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->SetMenuMouse(true);
 	ReelClip = 0; ReelT = ReelList[0].T0; ReelShots = ReelList.Num(); ReelTitleT = 2.2f;
 	// hide the live scene; ghosts play the recording
 	Car->SetActorHiddenInGame(true);
@@ -2072,9 +2192,15 @@ void AFTGameMode::StartReel()
 void AFTGameMode::TickReel(float RDt)
 {
 	AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController());
-	if (PC && PhaseT > 0.8f && (PC->MenuOk() || PC->MenuBack())) { EndReel(); return; }
+	// only the dedicated CONTINUE moves on: ENTER, the pad's START, or a click on the button itself.
+	// Other keys, other buttons and clicks anywhere else do nothing, so the highlights get seen.
+	if (PC && PhaseT > ReelArmT && (PC->Hit(EKeys::Enter) || PC->Hit(EKeys::Gamepad_Special_Right) || PC->Clicked(ReelContinueRect))) { EndReel(); return; }
 	if (ReelTitleT > 0.f) { ReelTitleT -= RDt; return; }
-	if (ReelClip >= ReelList.Num()) { EndReel(); return; }
+	if (ReelClip >= ReelList.Num())
+	{
+		// the reel runs again from the top until the player continues
+		ReelClip = 0; ReelT = ReelList[0].T0; ReelLoop++; ReelLoopT = RealClock;
+	}
 	FFTClip& C = ReelList[ReelClip];
 	ReelShot = ReelClip + 1;
 	ReelLabel = C.Label;
@@ -2143,11 +2269,13 @@ void AFTGameMode::TickReel(float RDt)
 
 void AFTGameMode::EndReel()
 {
+	UE_LOG(LogFT, Display, TEXT("FTFLOW reel continued after %.1f s (loop %d)"), PhaseT, ReelLoop);
 	for (AFTEntityActor* G : Ghosts) if (G) G->Destroy();
 	Ghosts.Reset(); GhostOf.Reset();
 	Car->SetActorHiddenInGame(false);
 	Car->Chassis->SetSimulatePhysics(true);
 	Car->PlaceOnTrack(Car->D, 0.f, 0.f);
+	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->SetMenuMouse(false);
 	FinishRating();
 }
 

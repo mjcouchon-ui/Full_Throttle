@@ -20,7 +20,7 @@ class UPointLightComponent;
 class USoundBase;
 
 UENUM()
-enum class EFTPhase : uint8 { Title, Card, Play, Wreck, Wrap, Reel, Rating };
+enum class EFTPhase : uint8 { Title, Card, Play, Wreck, Wrap, Reel, Rating, Garage };
 
 UENUM()
 enum class EFTOverlay : uint8 { None, Pause, Controls, Options };
@@ -126,6 +126,18 @@ public:
 	int32 OptionsRow = 0, ControlsRow = 0, ControlsCol = 0; bool bControlsWaiting = false;
 	int32 PauseRow = 0;
 	FString ReelLabel, ReelCamName; int32 ReelShot = 0, ReelShots = 0; bool bReelSlow = false; float ReelTitleT = 0.f;
+	// 2.3: the reel plays (and loops) until the dedicated CONTINUE button; the HUD writes its rect here for the mouse
+	int32 ReelLoop = 0; float ReelLoopT = -10.f;
+	static constexpr float ReelArmT = 0.8f;
+	FBox2D ReelContinueRect = FBox2D(ForceInit);
+	// 2.3: skill points earned at the end of the level (paid when the dailies open) and the garage between levels
+	int32 PointsEarned = 0;
+	TArray<TPair<FString, int32>> PointsLines;
+	int32 GarageSel = 0;              // 0..N-1 upgrades, N = the START button
+	float GarageFlashT = -10.f; int32 GarageFlashIdx = -1; bool bGarageDenied = false;
+	TArray<FBox2D> GarageRects;       // the HUD's card rects, then the START button
+	FVector2D GarageMouse = FVector2D(-1, -1);
+	int32 MissileCap() const;
 	float Timecode = 0.f;
 	int32 HenchOn[2] = { 0, 0 };
 
@@ -157,6 +169,9 @@ protected:
 	void Wreck();
 	void Wrap(bool bEscape);
 	void FinishRating();
+	void EnterGarage();
+	void TickGarage(float RDt);
+	void LeaveGarage();
 	void GoToLevel(int32 L, bool bStart);
 
 	// entities
