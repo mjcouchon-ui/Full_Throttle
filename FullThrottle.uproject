@@ -1,0 +1,80 @@
+{
+  "FileVersion": 3,
+  "EngineAssociation": "5.9",
+  "Category": "",
+  "Description": "FULL THROTTLE: an 80s spy car chase. Chaos Vehicles, Lumen, Nanite, Niagara.",
+  "Plugins": [
+    {
+      "Name": "PythonScriptPlugin",
+      "Enabled": true
+    },
+    {
+      "Name": "RemoteControl",
+      "Enabled": true
+    },
+    {
+      "Name": "Metasound",
+      "Enabled": true
+    },
+    {
+      "Name": "ModelingToolsEditorMode",
+      "Enabled": true
+    },
+    {
+      "Name": "ChaosVehiclesPlugin",
+      "Enabled": true
+    },
+    {
+      "Name": "GeometryScripting",
+      "Enabled": true
+    },
+    {
+      "Name": "Niagara",
+      "Enabled": true
+    },
+    {
+      "Name": "GeometryCollectionPlugin",
+      "Enabled": true
+    },
+    {
+      "Name": "ChaosCaching",
+      "Enabled": true
+    },
+    {
+      "Name": "EnhancedInput",
+      "Enabled": true
+    },
+    {
+      "Name": "EditorScriptingUtilities",
+      "Enabled": true
+    },
+    {
+      "Name": "ProceduralMeshComponent",
+      "Enabled": true
+    },
+    {
+      "Name": "Fracture",
+      "Enabled": true
+    },
+    {
+      "Name": "PlanarCut",
+      "Enabled": true
+    },
+    {
+      "Name": "ChaosEditor",
+      "Enabled": true
+    }
+  ],
+  "Modules": [
+    {
+      "Name": "FullThrottle",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    },
+    {
+      "Name": "FullThrottleEditor",
+      "Type": "Editor",
+      "LoadingPhase": "Default"
+    }
+  ]
+}

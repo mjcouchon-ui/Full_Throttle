@@ -1,0 +1,10 @@
+# Unreal assets are binary: never diff or merge them as text.
+*.uasset binary
+*.umap binary
+*.ubulk binary
+*.uexp binary
+*.png binary
+*.wav binary
+*.mp3 binary
+# No file in this project is over 50 MB, so nothing needs Git LFS yet (the owner's
+# "Building one game together" rule: files over 50 MB go through LFS).

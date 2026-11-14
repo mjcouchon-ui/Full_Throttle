@@ -1,0 +1,55 @@
+# FULL THROTTLE (Unreal Engine 5.9): files each computer makes for itself stay out of git.
+
+# Unreal build output and caches
+/Binaries/
+/Intermediate/
+/Saved/
+/DerivedDataCache/
+Plugins/*/Binaries/
+Plugins/*/Intermediate/
+
+# Packaged builds (never commit a packaged game)
+/Packaged/
+/Build/*/FileOpenOrder/
+/Windows/
+/WindowsNoEditor/
+*.pak
+*.ucas
+*.utoc
+
+# Per-user editor content
+/Content/Developers/
+/Content/Collections/
+
+# IDE and generated project files
+.vs/
+.vscode/
+.idea/
+*.sln
+*.slnx
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+*.xcodeproj/
+*.xcworkspace/
+
+# Compiled and debug files
+*.pdb
+*.exe
+*.dll
+*.lib
+*.obj
+*.o
+*.so
+*.dylib
+*.ipa
+*.apk
+
+# Python and OS junk
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+desktop.ini
