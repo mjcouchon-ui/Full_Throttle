@@ -860,7 +860,15 @@ def materials():
 
 
 # =============================================================================================== maps
-NIGHT_CEL = dict(Key=0.8, Bright=1.0, Hot=2.6, HueKeep=0.9, ShadowLevel=0.5)
+# 2.6: level one's cel look at night. 2.5's Key 0.8 / Bright 1.0 left the moonlit side of everything dark and the
+# headlights and explosions blew out to white (over EmisCut); Key 1.1 puts the moonlit side in the lit band (measured
+# with Debug=1 in Volcano), Bright 1.3 makes the flat colour read like Bayshore's, EmisCut 6 keeps lit-up road banded.
+NIGHT_CEL = dict(Key=1.1, Bright=1.3, Hot=2.6, EmisCut=6.0, HueKeep=0.6, ShadowLevel=0.5)
+
+
+def night_fog(col, density, start=4000.0, opacity=0.6):
+    """2.6: Bayshore's fog at night: no volumetric fog (2.0's 0.9-opacity volumetric haze greyed the bands and the ink)."""
+    return dict(col=col, density=density, start=start, volumetric=False, opacity=opacity)
 DAY_CEL = dict(Key=3.0, Bright=0.8, Hot=1.9, HueKeep=0.4)
 
 LEVEL_SETUP = [
@@ -870,22 +878,22 @@ LEVEL_SETUP = [
           fog=(0.12, 0.03, 0.02), fog_density=0.035, fog_height=-300.0, tint=(1.06, 0.97, 0.94), sky_gain=1.0, exposure=0.3),
      dict(name='Volcano', map='/Game/Maps/Volcano/L_Volcano', day=False, light_label='Moonlight',
           sky=dict(ft_cel.MOON_1X, Sky0=hex_lin('140608'), Sky1=hex_lin('4a1410'), Sky2=hex_lin('ff5a1f'), DiscCol=hex_lin('ffb070'), DiscCol2=hex_lin('ff5a1f'),
-                   HaloCol=hex_lin('ff7a3a'), Stars=0.0, MoonDir=ft_cel.disc_dir(20.0, 10.0)),
-          sun=dict(pitch=-30.0, yaw=200.0, lux=5.0, col=hex_lin('ffb08a')), sky_light=2.0,
-          road=dict(Grain=0.02, Wet=0.3, Puddles=0.0), cel=NIGHT_CEL)),
+                   HaloCol=hex_lin('ff7a3a'), Stars=0.0, MoonDir=ft_cel.disc_dir(60.0, 10.0)),
+          sun=dict(pitch=-40.0, yaw=70.0, lux=5.0, col=hex_lin('ffb08a')), sky_light=2.0,
+          fog=night_fog((0.12, 0.03, 0.02), 0.02), road=dict(Grain=0.02, Wet=0.3, Puddles=0.0), cel=NIGHT_CEL)),
     (dict(name='ThemePark', map='/Game/Maps/ThemePark/L_ThemePark',
           sky=((0.004, 0.003, 0.02), (0.05, 0.015, 0.14), (0.85, 0.12, 0.42)), moon=(-35.0, 150.0), moon_col=(0.62, 0.7, 1.0), moon_lux=5.0,
           fog=(0.05, 0.015, 0.08), fog_density=0.03, fog_height=-400.0, tint=(1.0, 0.94, 1.06), sky_gain=1.0, exposure=0.4),
      dict(name='ThemePark', map='/Game/Maps/ThemePark/L_ThemePark', day=False, light_label='Moonlight',
-          sky=dict(ft_cel.MOON_1X, Sky0=(0.004, 0.004, 0.03), Sky1=(0.06, 0.02, 0.16), Sky2=(0.7, 0.12, 0.4), Stars=1.0, MoonDir=ft_cel.disc_dir(10.0, 20.0)),
+          sky=dict(ft_cel.MOON_1X, Sky0=(0.004, 0.004, 0.03), Sky1=(0.06, 0.02, 0.16), Sky2=(0.7, 0.12, 0.4), Stars=1.0, MoonDir=ft_cel.disc_dir(170.0, 20.0)),
           sun=dict(pitch=-40.0, yaw=150.0, lux=5.0, col=hex_lin('c8c0ff')), sky_light=2.0,
-          road=dict(Grain=0.015, Wet=0.5, Puddles=0.0), cel=NIGHT_CEL)),
+          fog=night_fog((0.05, 0.015, 0.08), 0.018), road=dict(Grain=0.015, Wet=0.5, Puddles=0.0), cel=NIGHT_CEL)),
     (dict(name='Glacier', map='/Game/Maps/Glacier/L_Glacier',
           sky=((0.1, 0.25, 0.6), (0.5, 0.7, 0.9), (1.0, 0.95, 0.9)), moon=(-50.0, 160.0), moon_col=(1.0, 0.97, 0.92), moon_lux=9.0,
           fog=(0.8, 0.88, 1.0), fog_density=0.015, fog_height=-500.0, tint=(1.0, 1.0, 1.02), sky_gain=1.0, exposure=0.0),
      dict(name='Glacier', map='/Game/Maps/Glacier/L_Glacier', day=True, light_label='Sun',
           sky=dict(ft_cel.SUN_1X, Sky0=hex_lin('3f8fdf'), Sky1=hex_lin('bfe3ff'), Sky2=hex_lin('fff4f0'), MoonDir=ft_cel.disc_dir(30.0, 22.0)),
-          sun=dict(pitch=-50.0, yaw=200.0, lux=9.0, col=hex_lin('fff8f0')), sky_light=1.3,
+          sun=dict(pitch=-50.0, yaw=20.0, lux=9.0, col=hex_lin('fff8f0')), sky_light=1.3,
           fog=dict(col=hex_lin('e4f0ff'), density=0.014, start=5000.0, volumetric=False, opacity=0.6),
           exposure=-0.3, road=dict(RoadPastel=hex_lin('5a6888'), RoadLift=1.0, Grain=0.03, Wet=0.3, Puddles=0.0),
           wall=dict(Color=hex_lin('e8f4ff'), Rough=0.6, Metal=0.0), cel=DAY_CEL)),
@@ -896,15 +904,15 @@ LEVEL_SETUP = [
           sky=dict(ft_cel.MOON_1X, Sky0=hex_lin('010612'), Sky1=hex_lin('06305a'), Sky2=hex_lin('2a9ac0'), DiscCol=hex_lin('bff4ff'), DiscCol2=hex_lin('5fd0f0'),
                    HaloCol=hex_lin('5fd0f0'), Halo=0.5, Glow=0.6, Rays=0.25, Stripes=0.0, Stars=0.0, MoonDir=ft_cel.disc_dir(0.0, 70.0)),
           sun=dict(pitch=-75.0, yaw=20.0, lux=4.5, col=hex_lin('8fe0ff')), sky_light=2.4,
-          fog=dict(col=hex_lin('0a4a6a'), density=0.05, start=1500.0, volumetric=True, opacity=0.85),
+          fog=night_fog(hex_lin('0a4a6a'), 0.04, start=2500.0, opacity=0.7),
           road=dict(Grain=0.02, Wet=0.8, Puddles=0.0), cel=NIGHT_CEL)),
     (dict(name='Metro', map='/Game/Maps/Metro/L_Metro',
           sky=((0.004, 0.003, 0.012), (0.03, 0.02, 0.08), (1.0, 0.3, 0.15)), moon=(-40.0, 210.0), moon_col=(0.62, 0.7, 1.0), moon_lux=4.0,
           fog=(0.05, 0.03, 0.07), fog_density=0.03, fog_height=-400.0, tint=(1.02, 0.98, 1.04), sky_gain=1.0, exposure=0.4),
      dict(name='Metro', map='/Game/Maps/Metro/L_Metro', day=False, light_label='Moonlight',
-          sky=dict(ft_cel.MOON_1X, Sky0=hex_lin('080614'), Sky1=hex_lin('2a1f4a'), Sky2=hex_lin('ff6a3d'), Stars=0.4, MoonDir=ft_cel.disc_dir(-20.0, 24.0)),
-          sun=dict(pitch=-42.0, yaw=210.0, lux=5.0, col=hex_lin('c0d0ff')), sky_light=2.0,
-          road=dict(Grain=0.015, Wet=0.6, Puddles=0.0), cel=NIGHT_CEL)),
+          sky=dict(ft_cel.MOON_1X, Sky0=hex_lin('080614'), Sky1=hex_lin('2a1f4a'), Sky2=hex_lin('ff6a3d'), Stars=0.4, MoonDir=ft_cel.disc_dir(150.0, 24.0)),
+          sun=dict(pitch=-42.0, yaw=140.0, lux=5.0, col=hex_lin('c0d0ff')), sky_light=2.0,
+          fog=night_fog((0.05, 0.03, 0.07), 0.018), road=dict(Grain=0.015, Wet=0.6, Puddles=0.0), cel=NIGHT_CEL)),
 ]
 
 

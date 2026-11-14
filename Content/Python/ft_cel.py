@@ -342,7 +342,9 @@ LEVELS = [
     dict(name='ChemicalWorks', map='/Game/Maps/ChemicalWorks/L_ChemicalWorks', day=False, light_label='Moonlight',
          sky=dict(MOON_1X, Sky0=(0.004, 0.006, 0.026), Sky1=(0.03, 0.04, 0.13), Sky2=(0.3, 0.14, 0.5), Stars=0.8, MoonDir=disc_dir(130.0, 18.0)),
          sun=dict(pitch=-38.0, yaw=125.0, lux=5.5, col=hex_lin('b8d2ff')), sky_light=2.0,
-         road=dict(Grain=0.015, Wet=0.55, Puddles=0.0), cel=dict(Key=0.8, Bright=1.0, Hot=2.6, HueKeep=0.9, ShadowLevel=0.5)),
+         fog=dict(col=(0.03, 0.015, 0.07), density=0.012, start=4000.0, volumetric=False, opacity=0.6),
+         # 2.6: the night cel of ft_v25.NIGHT_CEL (level one's look by moonlight)
+         road=dict(Grain=0.015, Wet=0.55, Puddles=0.0), cel=dict(Key=1.1, Bright=1.3, Hot=2.6, EmisCut=6.0, HueKeep=0.6, ShadowLevel=0.5)),
     # Nevada (2.4): the desert by day, was 1.5's dusk. Deep blue overhead to a warm sand haze at the horizon, the
     # banded sun ahead-left of the highway (the track runs +X to Vegas), hard noon-ish light from behind.
     dict(name='Nevada', map='/Game/Maps/Nevada/L_Nevada', day=True, light_label='Sun',
@@ -396,14 +398,17 @@ def apply_level(i, save=True):
     ov('film_grain_intensity', 0.04)
     ov('scene_fringe_intensity', 0.15)
     ov('vignette_intensity', 0.3)
-    if L.get('day'):
+    # 2.6: Bayshore's grade on every level. Until 2.5 only the day levels got it; the night levels kept the 2.0
+    # grade (bloom 1.15 from 1.0, lens flare 0.6, contrast, a colour tint), which glowed the cel bands and the
+    # ink away. The cel pass itself sets each level's light and mood, not the grade.
+    if 'exposure' in L:
         ov('auto_exposure_bias', L['exposure'])
-        ov('bloom_intensity', 0.5)
-        ov('bloom_threshold', 1.5)
-        ov('color_saturation', unreal.Vector4(1.12, 1.12, 1.12, 1.0))
-        ov('color_contrast', unreal.Vector4(1.0, 1.0, 1.0, 1.0))
-        ov('scene_color_tint', unreal.LinearColor(1, 1, 1, 1))
-        ov('lens_flare_intensity', 0.15)
+    ov('bloom_intensity', 0.5)
+    ov('bloom_threshold', 1.5)
+    ov('color_saturation', unreal.Vector4(1.12, 1.12, 1.12, 1.0))
+    ov('color_contrast', unreal.Vector4(1.0, 1.0, 1.0, 1.0))
+    ov('scene_color_tint', unreal.LinearColor(1, 1, 1, 1))
+    ov('lens_flare_intensity', 0.15)
     ppv.set_editor_property('settings', s)
     log.append('pp ' + mi.get_name())
 
