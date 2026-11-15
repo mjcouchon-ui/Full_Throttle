@@ -75,7 +75,8 @@ FString UFTGameInstance::QualityName(int32 Q)
 void UFTGameInstance::Init()
 {
 	Super::Init();
-	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &UFTGameInstance::OnPostLoadMap);   // loop cycle 6: mute survives map loads
+	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &UFTGameInstance::OnPostLoadMap);
+	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &UFTGameInstance::TickHitch));   // loop cycle 6: mute survives map loads
 #if UE_BUILD_SHIPPING
 	{
 		// WispOS launch ticket: WispOS writes $WISPOS_APP_DATA/launch-ticket and passes the same value in
@@ -450,6 +451,23 @@ void UFTGameInstance::StopTitleMusic(float FadeSeconds)
 void UFTGameInstance::OnPostLoadMap(UWorld* World)
 {
 	ApplyMute();
+	if (!bBrawlWarmStarted && World && World->GetOutermost()->GetName().StartsWith(TEXT("/Game/Brawl/")) && UAssetManager::IsInitialized())
+	{
+		bBrawlWarmStarted = true;
+		TArray<FAssetData> Found;
+		UAssetManager::Get().GetAssetRegistry().GetAssetsByPath(FName(TEXT("/Game/Brawl/Sprites")), Found, true, true);
+		TArray<FSoftObjectPath> Paths;
+		for (const FAssetData& A : Found) Paths.Add(A.GetSoftObjectPath());
+		const double T0 = FPlatformTime::Seconds(); const int32 Count = Paths.Num();
+		if (Count > 0)
+		{
+			TSharedPtr<FStreamableHandle> H = UAssetManager::GetStreamableManager().RequestAsyncLoad(MoveTemp(Paths),
+				FStreamableDelegate::CreateWeakLambda(this, [T0, Count]() { UE_LOG(LogFT, Display, TEXT("FT WARM brawl done assets=%d seconds=%.2f"), Count, FPlatformTime::Seconds() - T0); }),
+				FStreamableManager::AsyncLoadHighPriority, true);
+			if (H.IsValid()) WarmHandles.Add(H);
+		}
+		UE_LOG(LogFT, Display, TEXT("FT WARM brawl start assets=%d"), Count);
+	}
 	UE_LOG(LogFT, Display, TEXT("FT MUTE reapplied muted=%d map=%s"), bMuted ? 1 : 0, World ? *World->GetMapName() : TEXT("-"));
 }
 
@@ -573,4 +591,18 @@ FString UFTGameInstance::AutoKey()
 {
 	// the card, and the thresholds in DefaultScalability.ini (bump the tag when they change)
 	return GRHIAdapterName + TEXT("|epic230|v1");
+}
+
+bool UFTGameInstance::TickHitch(float Dt)
+{
+	const double Now = FPlatformTime::Seconds();
+	const double Ms = HitchLastT > 0.0 ? (Now - HitchLastT) * 1000.0 : 0.0;
+	HitchLastT = Now;
+	// map loads are expected stalls: only frames of a running world count (the race's own FTHITCH says more there)
+	UWorld* W = GetWorld();
+	if (Ms > 40.0 && W && W->HasBegunPlay() && W->GetTimeSeconds() > 1.f)
+	{
+		UE_LOG(LogFT, Display, TEXT("FTHITCH2 ms=%.0f map=%s t=%.1f"), Ms, *W->GetMapName(), W->GetTimeSeconds());
+	}
+	return true;
 }

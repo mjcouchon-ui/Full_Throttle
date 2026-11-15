@@ -48,6 +48,9 @@ public:
 	double ExecWaitUntil = 0.0;
 	FString ExecWaitFor; double ExecWaitForUntil = 0.0; int32 ExecWaitFrom = 0;
 	bool TickExec(float Dt);
+	/** Loop cycle 10: frames over 40 ms on any map (the nights too), FTHITCH2 lines with the map's name. */
+	bool TickHitch(float Dt);
+	double HitchLastT = 0.0;
 	virtual void Shutdown() override;
 
 	// carried between maps
@@ -117,5 +120,7 @@ public:
 	void WarmGameplayAssets();
 	TArray<TSharedPtr<FStreamableHandle>> WarmHandles;
 	bool bWarmStarted = false;
+	/** Loop cycle 10: the nights' sprite sets (each new foe type loaded its frames synchronously mid-fight), once a night map loads. */
+	bool bBrawlWarmStarted = false;
 	static FString QualityName(int32 Q);
 };
