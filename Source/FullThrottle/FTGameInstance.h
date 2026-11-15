@@ -108,6 +108,9 @@ public:
 	/** 2.9: on an Apple GPU, AUTO is capped (Unreal's benchmark rates Apple chips far above what they deliver). Returns the screen-percentage cap. */
 	float CapAutoForApple(class UGameUserSettings* S) const;
 	void ApplyMute();
+	/** Loop cycle 6: every map load puts the engine's master volume back to 1 (UEngine::LoadMap), and only the race's maps
+	 *  applied mute again; the nights (Brawl maps) played at full volume for a muted player. */
+	void OnPostLoadMap(UWorld* World);
 	/** Loop cycle 1: every gameplay sound, effect and vehicle mesh is loaded in the background once, while the title is up,
 	 *  and held for the session. Before, the first explosion / chopper / fire / barrel of a race each loaded synchronously
 	 *  mid-race (54 blocking loads in Level 1's first two minutes, some reloaded after each GC) - stalls on a cold disk. */

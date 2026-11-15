@@ -2,6 +2,10 @@
 #include "FTBrawlHUD.h"
 #include "FTBrawlPlayerController.h"
 #include "FTBrawlMusic.h"
+#if __has_include("FTGameInstance.h")   // the main game only (the standalone beat-em-up has no settings of its own)
+#include "FTGameInstance.h"
+#define FT_BRAWL_MAIN_GAME 1
+#endif
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "Components/DirectionalLightComponent.h"
@@ -1139,6 +1143,12 @@ void AFTBrawlGameMode::Restart()
 void AFTBrawlGameMode::Tick(float Dt)
 {
 	Super::Tick(Dt);
+#ifdef FT_BRAWL_MAIN_GAME
+	// loop cycle 6: M mutes here too, as in the races (the same setting, saved)
+	if (APlayerController* MPC = GetWorld()->GetFirstPlayerController())
+		if (MPC->WasInputKeyJustPressed(EKeys::M))
+			if (UFTGameInstance* GI = GetGameInstance<UFTGameInstance>()) { GI->bMuted = !GI->bMuted; GI->ApplyMute(); GI->SaveSettings(); UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL mute=%d"), GI->bMuted ? 1 : 0); }
+#endif
 	if (CVarWin.GetValueOnGameThread()) { CVarWin->Set(0); bWon = true; WinT = 0; UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL won (ftb.Win)")); }
 	if (bKeyTest)   // -brawlkeytest: the autopilot's moves go in as key presses (in a cutscene: ENTER on each beat after 3 s with -brawlnext)
 	{

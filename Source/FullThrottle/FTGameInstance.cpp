@@ -1,4 +1,5 @@
 #include "FTGameInstance.h"
+#include "UObject/UObjectGlobals.h"
 #include "FTCore.h"
 #include "FTProgress.h"
 #include "Containers/Ticker.h"
@@ -74,6 +75,7 @@ FString UFTGameInstance::QualityName(int32 Q)
 void UFTGameInstance::Init()
 {
 	Super::Init();
+	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &UFTGameInstance::OnPostLoadMap);   // loop cycle 6: mute survives map loads
 #if UE_BUILD_SHIPPING
 	{
 		// WispOS launch ticket: WispOS writes $WISPOS_APP_DATA/launch-ticket and passes the same value in
@@ -443,6 +445,12 @@ void UFTGameInstance::StopTitleMusic(float FadeSeconds)
 	if (FadeSeconds > 0.f) TitleMusic->FadeOut(FadeSeconds, 0.f);
 	else TitleMusic->Stop();
 	UE_LOG(LogFT, Display, TEXT("FTMUSIC title stop fade=%.1f"), FadeSeconds);
+}
+
+void UFTGameInstance::OnPostLoadMap(UWorld* World)
+{
+	ApplyMute();
+	UE_LOG(LogFT, Display, TEXT("FT MUTE reapplied muted=%d map=%s"), bMuted ? 1 : 0, World ? *World->GetMapName() : TEXT("-"));
 }
 
 void UFTGameInstance::ApplyMute()
