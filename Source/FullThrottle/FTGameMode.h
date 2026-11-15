@@ -332,6 +332,10 @@ protected:
 	void Wreck();
 	void Wrap(bool bEscape);
 	void FinishRating();
+	/** The rating, the best take and the paycheck, worked out and SAVED, once per run. Called when the level is
+	 *  won, before the highlight reel (quitting during the reel used to lose the whole level's pay). */
+	void RateAndCommit();
+	bool bRunCommitted = false;
 	void EnterPaycheck();
 	void TickPaycheck(float RDt);
 	void EnterPreProduction(int32 NextLevel, bool bFromTitle);

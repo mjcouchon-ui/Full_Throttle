@@ -25,11 +25,16 @@ $execFile = Join-Path $env:TEMP ("jam_tour_{0}.txt" -f $Tag)
 Set-Content -LiteralPath $execFile -Value $lines -Encoding ascii
 Remove-Item -Recurse -Force (Join-Path $saved "shots") -ErrorAction SilentlyContinue
 $ga = @("-windowed", "-ResX=$ResX", "-ResY=$ResY", "-nosound", "-log", "-RenderOffScreen", "-unattended", "-ftexec=`"$execFile`"")
-$p = Start-Process -FilePath $exe -ArgumentList ($ga -join " ") -WorkingDirectory $Root -PassThru
-$null = $p.Handle
-$budget = 240 + 120 * @($Levels -split "[,\s]+" | Where-Object { $_ }).Count
-if (-not $p.WaitForExit($budget * 1000)) { $p.Kill(); "TIMEOUT (killed after $budget s)" }
-"exit " + $p.ExitCode
+# one of the PC's two Unreal slots while the game runs (jam_global.ps1): a packaged build has no checkout lock of its own
+. "K:\Full Throttle\SkyScratch\SourceArt\BayshoreSky\unreal\ue_lock.ps1"
+. (Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "jam_global.ps1")
+$slot = Enter-JamGlobal -Checkout $Root
+try {
+  $p = Start-Process -FilePath $exe -ArgumentList ($ga -join " ") -WorkingDirectory $Root -PassThru
+  $null = $p.Handle
+  $budget = 240 + 120 * @($Levels -split "[,\s]+" | Where-Object { $_ }).Count
+  if (-not $p.WaitForExit($budget * 1000)) { "TIMEOUT after $budget s (left running: close it by hand if it never ends)" } else { "exit " + $p.ExitCode }
+} finally { Exit-UeLock $slot }
 $log = Get-ChildItem (Join-Path $Root "FullThrottle\Saved\Logs") -Filter *.log -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if ($log) {
   Select-String -LiteralPath $log.FullName -Pattern "Fatal|LogFT: Error|result=timeout|FTBUILD|FTBED" | Select-Object -Last 24 | ForEach-Object { $_.Line.Substring(0, [Math]::Min(220, $_.Line.Length)) }

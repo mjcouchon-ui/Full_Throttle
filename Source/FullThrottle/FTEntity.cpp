@@ -491,12 +491,10 @@ void AFTEntityActor::HideLandingMark()
 void AFTEntityActor::SetActorHiddenInGame(bool bNewHidden)
 {
 	Super::SetActorHiddenInGame(bNewHidden);
-	// back to the pool: nothing of the last life may show on the next
-	if (bNewHidden)
-	{
-		if (Trail2) Trail2->Deactivate();
-		if (Mark) Mark->SetVisibility(false);
-	}
+	// back to the pool: a landing mark of the last life may not show on the next. The second trail is left alone,
+	// as the first is (Setup stops both when the actor is used again): the highlight reel hides every ghost each
+	// frame and shows the ones in shot, and a ghost missile whose flame was stopped here lost it after one frame (review)
+	if (bNewHidden && Mark) Mark->SetVisibility(false);
 }
 
 const TArray<AFTEntityActor::FWheelDef>* AFTEntityActor::WheelsFor(const UStaticMesh* M)

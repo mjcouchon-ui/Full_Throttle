@@ -1,0 +1,115 @@
+# Architecture audit, 15 November 2026
+
+Three read-only audits of `main` at 8a5920e (FULL THROTTLE 3.3.0 with the Canvas redesign), each tracing the code
+end to end, plus an independent line-by-line review of the attack-presentation change. Nothing here was found by
+playing; the "how to prove it" lines use the game's own test harness (`-ftexec`, the `FT*` commands in `FTFlow.cpp`).
+
+Status words: **FIXED** (in the commit named), **OPEN** (confirmed in code, not changed: the fix is larger or is
+somebody's design decision), **LIKELY** (could not be confirmed without running or without the assets).
+
+## Fixed in this pass
+
+| # | What was wrong | Where | Fix |
+|---|---|---|---|
+| 1 | **Every boss fired the moment it appeared.** 3.3.0 added a comment in the middle of the line that sets the bosses' first-attack timers; the comment swallowed `E.T1 = 1.6f; E.T2 = 1.0f; E.T3 = 6.f;`, so all three started at 0 | `FTGameMode.cpp`, boss spawn | The three statements are on their own line again |
+| 2 | **The level's pay could be lost.** Cash, XP, stats, feats and the best take were banked only when the highlight reel ended. Close the game during THAT'S A WRAP or the highlights and the level paid nothing | `FTGameMode.cpp` Wrap phase, `FinishRating` | `RateAndCommit()` banks and saves once, before the reel; `FinishRating` only opens THE DAILIES |
+| 3 | **A damaged career refused every later save, silently.** An empty, cut-off or garbage `career.json` set `bLoadError`; every save was then refused and no screen said so: LV 1, $0 on every launch, for ever | `FTProgress.cpp` `Load` / `Save` | The damaged file is kept as `career.json.damaged`; the last good save (`.bak`) is used if there is one, otherwise a new career starts that can save; the title shows SAVE RESTORED FROM BACKUP or SAVE DAMAGED: NEW CAREER. A newer build's save is still never written over, and the title now says NEWER SAVE: NOT SAVING |
+| 4 | **Saves were written in place.** A crash or power cut mid-write left half a file (which then hit 3) | `FTProgress.cpp`, `FTGameInstance.cpp` | Written beside the file and moved over it; the career keeps the file it replaces as `.bak`. An unreadable `settings.json` is copied to `settings.json.unread` before the defaults overwrite it |
+| 5 | Hand-edited values were used as they came: negative cash and XP, a pending level of 99 ("LEVEL 99"), huge numbers cast to int64 | `FTProgress.cpp` `Load`, `Fix` | Clamped on load |
+| 6 | **Pickups lied at the cap.** Always consumed; at full missiles or armour they granted nothing and still showed "+3 MISSILES" / "+30 ARMOR" with the normal sound and line; partial fills were overstated | `FTGameMode.cpp`, pickup contact | What is granted is unchanged. The popup says what was gained ("+1 MISSILE", "+12 ARMOR") or "MISSILES FULL" / "ARMOR FULL" with the Empty sound; Pit Crew's 10 armour from a crate is announced |
+| 7 | A reshoot (R on THE DAILIES) kept the multi-kill and near-miss clocks, so the first wreck scored a DOUBLE KILL; the boss's panel stayed on the HUD from scene 1 | `FTGameMode.cpp` `StartRace` | Reset with the rest of the run |
+| 8 | A scene retake kept the combo although the score went back to the checkpoint; popups froze under CUT! and came back; the escape warning never repeated | `StartRace` | Reset on a retake |
+| 9 | Clicking RESUME fired a shot (the click acts on button-down; the held button was FIRE on the next frame, spending a bought round) | `FTPlayerController.cpp` | No shot until the button is released |
+| 10 | `-ftwrap=N` paid out a full wrap after N seconds in a Shipping build | `FTGameInstance.cpp` | Compiled out of Shipping |
+
+### How these were checked
+
+In the running game (uncooked), by `SourceArt/Jam/unreal/jam_audit.ps1`: five short launches driven through the game's
+own harness, with a scratch career. Runs of 15 Nov (`audit1` on the build of commit cbaac52, `audit2` on 0d7fb31:
+fifteen checks, all passing):
+
+| Item | Check | Result |
+|---|---|---|
+| 1 | the boss's first-attack timers as it arrives (`FT BOSS firstAttack`) | `t1=1.6 t2=1.0 t3=6.0` (they were 0, 0, 0) |
+| 2 | THAT'S A WRAP: `FT RATING`, `FT PAY total=`, `FT SAVE ... reason=Paycheck result=ok`, and only then `FT SCREEN name=Reel` | in that order; cash 0 before the wrap, 31,990 while the reel played |
+| 2 | the game closed during the reel, then started again | cash 31,990 after the relaunch |
+| 6 | a crate at 6 of 9 missiles, then a second at 9 of 9 | `gained=3`, then `gained=0`; the frames show "+3 MISSILES", "MISSILES FULL", "ARMOR FULL", "+12 ARMOR" |
+| 7 | a reshoot from THE DAILIES (R, READY), then one wreck two seconds in | no multi-kill stunt after it (the take before had a real DOUBLE KILL) |
+| 3, 4 | `career_pie.json` cut in half with a good `.bak` beside it | `recovery=backup`, cash 4,242 (the backup's), a save and a load back (4,300), the damaged file kept |
+| 3 | the career and its backup both unreadable | `recovery=new_career`, cash 0, a save and a load back (77) |
+| 3 | a career marked `"v": 2` | `result=too_new`; the file is byte for byte what it was after a save was asked for |
+
+The title's three messages are in the frames `C1_title_banner.png`, `D1_title_banner.png` and `E1_title_banner.png`
+of that run. Not exercised by a run: item 8, item 9 (the click on RESUME) and item 10.
+
+## Open: confirmed in code, not changed
+
+Progression and saves
+- An out-of-film run marks Director's Notes done and gives their XP, but the pay function returns before the notes'
+  line (`FTFlow.cpp` CommitLevel, `FTProgress.cpp` Commit). Skip notes when out of film.
+- The wrap sweep scores survivors with the combo and awards multi-kill stunts (free style types and BIG FINISH pay).
+- If shots in flight finish the boss during CUT!, the kill is discarded but the level clock stays frozen, which
+  inflates SCHEDULE pay and the best time.
+- `skills.json` missing or invalid: `Levels[Level]` and `Bosses[Level]` are indexed while empty: a crash at the title.
+  Fill eight default rows before the early returns in `FTProgress.cpp`.
+- `GI->TitleBanner` is only written on the way back from a level, so THAT'S A WRAP returns on later title visits.
+- Extra reels bought "for this run only" are cleared only on one route back to the title.
+
+HUD, menus, input
+- Controls navigation: no dead end found, by keyboard or by pad. Rough edges: an action can be left unbound with no
+  warning (RESET TO DEFAULTS recovers); Right Shift/Ctrl alias the left keys, so two actions can share one; RESHOOT on
+  the results screens and mute are keyboard-only.
+- On the results and pre-production screens the arrow keys flip a WASD player to the ARROWS layout and rewrite
+  `settings.json` (`bRaceInput` is cleared only on pause and attract).
+- HUD timers use the real clock, which runs while paused: scene name, intro line and LAST CHANCE! expire unread.
+- The chopper's rotor loop plays through pause and the results screens.
+- Options says Low/Medium use TSR and High enables Lumen; the code selects TAA, and Lumen is Epic only.
+- LIKELY: mute is lost at every map load (the engine resets the transient volume); the title song leaks at attract cuts.
+
+Runtime
+- First-use synchronous loads during play (about 50 sounds, effects, foe and boss meshes): a load and a flush on the
+  game thread each, again every level. Load the level's list in `SetupLevel`; only pickups are warmed today.
+- `ApplyCosmetics` calls `StaticLoadObject` twice a frame with freshly built strings; a missing variant would be a
+  failed load every frame.
+- The first race reloads the map the title just built (one extra map load and track build).
+- A kill sets up three geometry collections, a wreck, effects and pickups in one frame; pooled proxies keep every
+  wheel and part they ever had, and bullets reuse ex-cars.
+- Replay snapshots stop being pruned once a highlight exists (tens of MB by the end of a level).
+- Frame-rate dependence: the limo's stream is about 12 % sparser at 30 fps; player missiles have no swept test and
+  pass through a bike below about 27 fps.
+- The generic range cull covers the boss; once released the level cannot end until a wreck.
+- Shipping: `-ftexec`, `ft.Press`, `ft.Click`, `-ftauto` and `-fthp` still work, and Remote Control ships in every
+  target. `/Engine/BasicShapes/Cylinder` (pillars, the SWAT rope) is named only in code: check it is cooked.
+
+Attack presentation (the review of the effects change found no change to damage, cooldowns, speeds, ranges,
+targeting, collision or hit timing)
+- A henchman's landing mark on a half pipe sits at flat-road height; the pie is drawn about 124 cm across on a
+  40 cm hit box; blast rings are circles where the real areas are boxes 1.5 times longer along the road; the red
+  hit burst shows even when no damage was applied; a ghost missile loses its flame in the reel.
+
+## Scenery and rendering cost
+
+- Every prop cast a shadow into the virtual shadow maps as non-Nanite geometry. FIXED in part: a dressed piece now
+  casts only within 70 m of the road and over 2.5 m tall (`FTTrack.cpp`, the dressing's `Put`; `ft.DressShadows 0`
+  for the old behaviour; the `FTDRESS` log line ends `shadows=A of B`).
+- In dense Bayshore the engine reports "[VSM] Non-Nanite Marking Job Queue overflow" on screen through the first
+  12 seconds of the race (3440x1440, Epic: the frames at 8 s and 20 s say "2 seconds ago" and "8 seconds ago"; gone
+  by 35 s). With `r.Shadow.Virtual.NonNanite.IncludeInCoarsePages 0` it shows only as the level starts ("2 seconds
+  ago" at 4 s, "7 seconds ago" at 8 s, gone by 12 s; run `shadow_coarse0`), and the frames look the same. OPEN, for
+  the performance pass: that setting also changes how volumetric fog is shadowed on every level, and its cost and
+  gain were not measured (no idle GPU that night). Next step: one `[ShadowQuality@N]` line, measured and looked at
+  level by level, as the 3.4 pass did for distance-field shadows.
+- First-use loads: the eight-level run of 15 Nov (02:27, before 3.4's preload) logged 15 to 22 `FlushAsyncLoading`
+  lines in the first minute of every level before a single wreck. FIXED on `main` by 3.4's loop cycle 1
+  (`UFTGameInstance::WarmGameplayAssets`: sounds, effects and vehicle meshes preloaded while the title is up).
+  `SourceArt/Jam/unreal/jam_late.ps1` counts what is left, level by level.
+- One instanced component per mesh for the whole 25 km; a mesh whose radius is over 40 m never culls, and the cull
+  distance comes from whichever rule made the component first.
+- One synchronous load per scenery mesh at each level start and at each attract cut.
+
+## What to measure (not measured in this pass)
+
+1. Cold-start hitches: a Development package, `-ftbench -ftseconds=120` with a load-time trace; worst and p99 frame.
+2. Scenery before and after: the same benchmark with and without `-ftnodress`; shadow depths in `profilegpu`.
+3. Boss fights: `FTBossNow` on the Volcano with `stat Niagara`, at the start and after 60 s.
+4. The same autopilot level at 30 and at 144 fps.

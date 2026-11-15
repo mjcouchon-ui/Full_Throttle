@@ -239,6 +239,7 @@ void AFTGameMode::StartRace(bool bRetake)
 	}
 	ClearEnts();
 	Hazards.Reset();
+	Popups.Reset();   // (they age only while the race runs, so old ones came back after the slate)
 	const FFTLevelDef& L = Def();
 	if (!bRetake)
 	{
@@ -249,6 +250,9 @@ void AFTGameMode::StartRace(bool bRetake)
 		Scene = 0;
 		if (UFTGameInstance* G = GI(); G && G->PendingScene > 0) { Scene = FMath::Clamp(G->PendingScene, 0, L.Scenes.Num() - 1); G->PendingScene = 0; }
 		Clips.Reset(); Snaps.Reset(); Clock = 0.f;
+		// a reshoot reuses this game mode: the multi-kill and near-miss clocks kept their old times while Clock went
+		// back to 0 (the first wreck of the new take scored as a DOUBLE KILL), and the boss's panel stayed on the HUD
+		LastKillT = -10.f; MultiKills = 0; LastNearT = -10.f; LastNearSide = 0; bBossOn = false; bRunCommitted = false;
 		bBossSpawned = bBossDead = bEscaped = bOutOfFilm = bEscapeWarned = false; BossT = 0.f; BossLineStep = 0;
 		Run = FFTLevelRun(); Run.Rounds[0] = Stats.ApRounds; Run.Rounds[1] = Stats.HeRounds; AmmoLoad = 0;
 		LevelClock = 0.f; ClockLogT = 0.f; bLastTakeUsed = false; bLastChance = false; bRunDown = false; BossClock = 0.f; BossRate = 1.f;
@@ -268,6 +272,7 @@ void AFTGameMode::StartRace(bool bRetake)
 	else
 	{
 		Take++;
+		Combo = 1; ComboT = 0; bEscapeWarned = false;
 		Score = CkScore; ScoreDestruction = CkDest; ScoreNear = CkNear; ScoreStunts = CkStunts; ScoreCollateral = CkColl;
 		Kills = CkKills; NearMisses = CkNearN; StuntCount = CkStuntN; Collateral = CkCollN;
 		Hp = FMath::Max(CkHp, 0.75f * Stats.MaxArmor); Missiles = FMath::Max(CkMissiles, 3); Turbo = Stats.TurboTank;
@@ -391,8 +396,10 @@ void AFTGameMode::Wrap(bool bEscape)
 	CutT = RealClock + 0.8f;
 }
 
-void AFTGameMode::FinishRating()
+void AFTGameMode::RateAndCommit()
 {
+	if (bRunCommitted) return;
+	bRunCommitted = true;
 	const FFTLevelDef& L = Def();
 	RatingIdx = 0;
 	// the rating bars never move with upgrades; only SEQUEL raises them (×1.35)
@@ -412,14 +419,19 @@ void AFTGameMode::FinishRating()
 			G->SaveSettings();
 		}
 	}
+	UE_LOG(LogFT, Display, TEXT("FT RATING value=%s idx=%d score=%lld"), *FString(T[RatingIdx]).Replace(TEXT(" "), TEXT("")), RatingIdx, Score);
+	// the paycheck is committed now (and saved), so quitting during the reel, on THE DAILIES or on the paycheck keeps it
+	CommitLevel();
+}
+
+void AFTGameMode::FinishRating()
+{
+	RateAndCommit();
 	Phase = EFTPhase::Rating; PhaseT = 0.f;
 	ResultsContinueRect = FBox2D(ForceInit);
 	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->SetMenuMouse(true);
 	if (Music) Music->SetVolumeMultiplier(0.25f);
-	UE_LOG(LogFT, Display, TEXT("FT RATING value=%s idx=%d score=%lld"), *FString(T[RatingIdx]).Replace(TEXT(" "), TEXT("")), RatingIdx, Score);
 	UE_LOG(LogFT, Display, TEXT("FT SCREEN name=Dailies"));
-	// the paycheck is committed now (and saved), so quitting on THE DAILIES or the paycheck keeps it (09 check 3)
-	CommitLevel();
 }
 
 // --------------------------------------------------------------------------------------------- tick
@@ -516,7 +528,9 @@ void AFTGameMode::Tick(float Dt)
 		if (PhaseT > 4.2f)
 		{
 			UGameplayStatics::SetGlobalTimeDilation(this, 1.f); TimeScale = 1.f;
-			if (!bEscaped && Clips.Num() > 0 && !(G && G->bBench)) StartReel();
+			// the level is won: rate it and bank the pay BEFORE the highlight reel (it used to be banked when the reel
+			// ended, so closing the game during THAT'S A WRAP or the highlights lost the level's cash, XP and best take)
+			if (!bEscaped && Clips.Num() > 0 && !(G && G->bBench)) { RateAndCommit(); StartReel(); }
 			else FinishRating();
 		}
 		break;
@@ -862,7 +876,7 @@ void AFTGameMode::TickOverlay(float RDt)
 		Overlay = EFTOverlay::None;
 		PC->SetMenuMouse(false);
 		UGameplayStatics::SetGamePaused(this, false);
-		if (Action == 0) { if (Music) Music->SetPaused(false); UE_LOG(LogFT, Display, TEXT("FT SCREEN name=Pause state=resumed")); }
+		if (Action == 0) { if (Music) Music->SetPaused(false); PC->bSwallowFire = true; UE_LOG(LogFT, Display, TEXT("FT SCREEN name=Pause state=resumed")); }
 		else GoToLevel(Level, Action == 3);
 		return;
 	}
@@ -1618,7 +1632,11 @@ void AFTGameMode::SpawnGroup(const TArray<EFTKind>& Kinds)
 		case EFTKind::Boss:
 		{
 			FFTEnt& E = Spawn(EFTKind::Boss, 16000.f, 0.f);
-			E.Ta = ((Level == 2 || Level == 1) ? 300.f : 342.f) * DU * 1.25f;   // 3.3: the Tesla truck a little closer, so you see its coil fire E.T1 = 1.6f; E.T2 = 1.0f; E.T3 = 6.f;
+			// 3.3: the Tesla truck a little closer, so you see its coil fire
+			E.Ta = ((Level == 2 || Level == 1) ? 300.f : 342.f) * DU * 1.25f;
+			// the bosses' first-attack timers. 3.3.0's comment above was added in the middle of this line and swallowed
+			// them, so every boss started with all three at 0 (it fired the moment it appeared). Restored as in 3.2.
+			E.T1 = 1.6f; E.T2 = 1.0f; E.T3 = 6.f;
 			// 2.5: the yeti runs right up close; the Chairman's limo hovers
 			if (Level == 5)
 			{
@@ -1637,6 +1655,7 @@ void AFTGameMode::SpawnGroup(const TArray<EFTKind>& Kinds)
 			BossClock = 0.f; BossRate = 1.f; BossFightT = 0.f; bLastChance = false; BossOffset = 0.f;
 			BossEscapeT = FFTProgressData::Get().Bosses[Level].Escape;
 			UE_LOG(LogFT, Display, TEXT("FT BOSS state=Arrive armor=%.0f escape=%.0f clock=0.0"), E.Hp, BossEscapeT);
+			UE_LOG(LogFT, Display, TEXT("FT BOSS firstAttack t1=%.1f t2=%.1f t3=%.1f"), E.T1, E.T2, E.T3);   // (the harness checks these: see AUDIT.md item 1)
 			Sfx(TEXT("BossIntro")); Duck(0.35f, 1.6f);
 			break;
 		}
@@ -2193,8 +2212,16 @@ void AFTGameMode::TickEnts(float Dt)
 			E.Sp = Vp;
 			E.H = FMath::Lerp(E.Vh, 95.f, Ease);
 			Ahead = E.D - Pd;
-			// 3.1: where he lands: a mark on the road under him, the size of the latch's real reach, closing as he drops
-			if (AFTEntityActor* Ha = E.Proxy.Get()) Ha->SetLandingMark(Track->TransformAt(E.D, E.X, 6.f), 30.f * DU + 200.f, 22.f * XU + 140.f, U);
+			// 3.1, on 3.3's rope drop: where he comes down. The catch is now "the car within 260 cm of his line across the
+			// road (E.Tx) when the rope clock runs out", wherever the car is along it, so that strip under the car is the
+			// mark, closing on the rope's own clock; none when he cannot latch (someone already hangs on that side, or the
+			// car is on the rails). The 3.1 box round his own position (30 px along, 22 across) is no longer what catches.
+			// On the road's real surface: MarkH adds a half pipe's height, as the hazards' marks do (review)
+			if (AFTEntityActor* Ha = E.Proxy.Get())
+			{
+				if (U < 1.f && !HenchOn[E.Side] && !Car->IsOnRails()) Ha->SetLandingMark(Track->TransformAt(Pd + 30.f, E.Tx, 6.f + MarkH(Pd + 30.f, E.Tx, -1)), CarL * 0.5f + 60.f, 260.f, U);
+				else Ha->HideLandingMark();
+			}
 			if (E.T1 <= 0.f)
 			{
 				const bool bCaught = FMath::Abs(E.Tx - Px) < 260.f;
@@ -2229,7 +2256,7 @@ void AFTGameMode::TickEnts(float Dt)
 				E.X = FMath::Lerp(E.X, E.Tx, FMath::Min(1.f, Dt * 4.f));
 				E.H = FMath::Lerp(34.f * XU * 1.6f, 0.f, U) + 46.f * XU * 2.f * FMath::Sin(PI * U);
 				// 3.1: he had no mark at all. Under him, on the road: the box his landing really hits, closing as he falls
-				if (AFTEntityActor* Ha = E.Proxy.Get()) { if (U < 1.f) Ha->SetLandingMark(Track->TransformAt(E.D, E.X, 6.f), 34.f * DU + 200.f, 20.f * XU + 150.f, U); else Ha->HideLandingMark(); }
+				if (AFTEntityActor* Ha = E.Proxy.Get()) { if (U < 1.f) Ha->SetLandingMark(Track->TransformAt(E.D, E.X, 6.f + MarkH(E.D, E.X, -1)), 34.f * DU + 200.f, 20.f * XU + 150.f, U); else Ha->HideLandingMark(); }
 				if (U >= 1.f)
 				{
 					E.H = 0.f; E.State = 1; E.bAir = false;
@@ -2303,10 +2330,16 @@ void AFTGameMode::TickEnts(float Dt)
 			else if (FMath::Abs(E.X - Px) < CarW / 2 + FMath::Max(0.f, E.W * 0.5f - 20.f) && FMath::Abs(E.D - Pd) < CarL / 2 + FMath::Abs(E.Sp - Vp) * Dt && (Car->bGrounded || Car->H - Car->SurfH < 260.f))
 			{
 				// 3.1: where it struck, on the car so it stays with it: their colour, and sparks off the bodywork
-				const FTransform Bt = EntTransform(E);
-				FTFx::Attach(TEXT("NS_HitPlayer"), Car->GetRootComponent(), Bt.GetLocation(), Bt.Rotator());
-				FTFx::Attach(TEXT("NS_HitPlayerSparks"), Car->GetRootComponent(), Bt.GetLocation(), Bt.Rotator(), 1.f, FTFx::Extra);
-				HurtPlayer(E.Variant == 3 ? 5.f : 6.f);
+				// Only when the hit counts (review): HurtPlayer does nothing while the car is invulnerable, outside the race,
+				// or in the air for anything under 12, and a burst on the car then said "hit" about a round that did nothing
+				const float HitDmg = E.Variant == 3 ? 5.f : 6.f;
+				if (Invuln <= 0.f && Phase == EFTPhase::Play && (Car->bGrounded || HitDmg >= 12.f))
+				{
+					const FTransform Bt = EntTransform(E);
+					FTFx::Attach(TEXT("NS_HitPlayer"), Car->GetRootComponent(), Bt.GetLocation(), Bt.Rotator());
+					FTFx::Attach(TEXT("NS_HitPlayerSparks"), Car->GetRootComponent(), Bt.GetLocation(), Bt.Rotator(), 1.f, FTFx::Extra);
+				}
+				HurtPlayer(HitDmg);
 				Release(E);
 			}
 			break;
@@ -2380,19 +2413,30 @@ void AFTGameMode::TickEnts(float Dt)
 			{
 				if (E.Kind == EFTKind::Crate)
 				{
+					const int32 HadMissiles = Missiles; const float HadHp = Hp;
 					Missiles = FMath::Min(MissileCap(), Missiles + 3);
-					UE_LOG(LogFT, Display, TEXT("FT MISSILES count=%d pickup=Crate"), Missiles);
+					UE_LOG(LogFT, Display, TEXT("FT MISSILES count=%d pickup=Crate gained=%d"), Missiles, Missiles - HadMissiles);
 					if (Stats.Has(TEXT("CAR2"))) Hp = FMath::Min(Stats.MaxArmor, Hp + 10.f);   // Pit Crew: crates repair 10
 					AFTEntityActor::PickupBurst(GetWorld(), E.Kind, EntTransform(E));
-					Popup(TEXT("+3 MISSILES"), FLinearColor(1.f, 0.6f, 0.2f)); Say(TEXT("pickupMissiles"), 1); Sfx(TEXT("Pickup")); Release(E); continue;
+					// the popup used to say "+3 MISSILES" whatever was gained, even nothing at the cap. What is granted is
+					// unchanged; the message, the line and the sound now tell the truth about it.
+					const int32 GotMissiles = Missiles - HadMissiles, GotHp = FMath::RoundToInt(Hp - HadHp);
+					if (GotMissiles > 0) { Popup(FString::Printf(TEXT("+%d MISSILE%s"), GotMissiles, GotMissiles == 1 ? TEXT("") : TEXT("S")), FLinearColor(1.f, 0.6f, 0.2f)); Say(TEXT("pickupMissiles"), 1); Sfx(TEXT("Pickup")); }
+					else { Popup(TEXT("MISSILES FULL"), FLinearColor(1.f, 0.6f, 0.2f)); Sfx(TEXT("Empty")); }
+					if (GotHp > 0) Popup(FString::Printf(TEXT("+%d ARMOR"), GotHp), CGreen);
+					Release(E); continue;
 				}
 				if (E.Kind == EFTKind::Wrench)
 				{
 					const float Fix = Stats.Has(TEXT("CAR2")) ? 45.f : 30.f;   // Pit Crew: 30 -> 45
+					const float HadHp = Hp;
 					Hp = FMath::Min(Stats.MaxArmor, Hp + Fix); Car->RestoreParts(); PartsShed = 0; for (int32 p = 0; p < 7; ++p) if (HpPct() < 88.f - 12.f * p) { Car->ShedPart(p); PartsShed = p + 1; } Car->SetDamageLook(HpPct()); PrevHp = Hp;
 					UE_LOG(LogFT, Display, TEXT("FT PLAYER armor=%.0f max=%.0f pickup=Wrench"), Hp, Stats.MaxArmor);
 					AFTEntityActor::PickupBurst(GetWorld(), E.Kind, EntTransform(E));
-					Popup(FString::Printf(TEXT("+%.0f ARMOR"), Fix), CGreen); Say(TEXT("pickupRepair"), 1); Sfx(TEXT("Pickup")); Release(E); continue;
+					// as with the crate: the popup said "+30 ARMOR" at full armour
+					if (const int32 GotHp = FMath::RoundToInt(Hp - HadHp); GotHp > 0) { Popup(FString::Printf(TEXT("+%d ARMOR"), GotHp), CGreen); Say(TEXT("pickupRepair"), 1); Sfx(TEXT("Pickup")); }
+					else { Popup(TEXT("ARMOR FULL"), CGreen); Sfx(TEXT("Empty")); }
+					Release(E); continue;
 				}
 				if (E.Kind == EFTKind::Barrel) { HurtPlayer(14.f); Kill(E, 2); continue; }
 				if (E.Kind == EFTKind::Ramp)
@@ -3150,7 +3194,7 @@ void AFTGameMode::TickHazards(float Dt)
 			{
 				Hz.bHit = true; Sfx(Hz.Style == 1 ? TEXT("Strike") : (Hz.bTesla ? TEXT("TeslaZap") : TEXT("Zap")));
 				if (Hz.Style == 1) for (int32 k = 0; k < 4; ++k) Explode(Track->ToWorld(Pd + 1500.f * k - 1000.f, Hz.X, 40.f), 0.35f, false, 1);   // 3.1: ice, not fire
-				else for (int32 k = 0; k < 5; ++k) FTFx::Burst(this, TEXT("NS_ZapArcs"), Track->ToWorld(Pd + 1500.f * k - 1000.f, Hz.X, 70.f), FRotator::ZeroRotator, 1.f, k % 2 ? FTFx::Extra : FTFx::Main);   // 3.1: the arc itself, down the lane
+				else for (int32 k = 0; k < 5; ++k) FTFx::Burst(this, TEXT("NS_ZapArcs"), Track->ToWorld(Pd + 1500.f * k - 1000.f, Hz.X, 70.f + Hs(Pd + 1500.f * k - 1000.f, Hz.X)), FRotator::ZeroRotator, 1.f, k % 2 ? FTFx::Extra : FTFx::Main);   // 3.1: the arc itself, down the lane
 				if (FMath::Abs(Px - Hz.X) < 39.f * XU) { HurtPlayer(16.f); Say(Hz.Style == 1 ? TEXT("hit") : TEXT("shock"), 2); } else { Say(TEXT("dodge"), 1, 2.f); }
 			}
 			if (Hz.T > Hz.Warn + Hz.Live) Hz.bDone = true;
@@ -3170,7 +3214,7 @@ void AFTGameMode::TickHazards(float Dt)
 				static UStaticMesh* Rocket = AFTEntityActor::MeshFor(EFTKind::Missile, 0, 0);
 				const float Left = 1.f - WarningProgress;
 				if (bLive) A->HideThing();
-				else if (Rocket) A->SetThing(Rocket, FTransform(FRotator(-59.f, 180.f, 0.f), FVector::ZeroVector, FVector(1.6f)) * Track->TransformAt(Pd + Hz.D + 2600.f * Left, Hz.X, 60.f + 4400.f * Left));
+				else if (Rocket) A->SetThing(Rocket, FTransform(FRotator(-59.f, 180.f, 0.f), FVector::ZeroVector, FVector(1.6f)) * Track->TransformAt(Pd + Hz.D + 2600.f * Left, Hz.X, 60.f + Mh + 4400.f * Left));   // Mh: the mark's own height (3.3: a coaster rail, a half pipe)
 			}
 			if (bLive && !Hz.bHit)
 			{

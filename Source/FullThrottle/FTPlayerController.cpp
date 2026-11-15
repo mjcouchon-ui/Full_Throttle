@@ -175,6 +175,9 @@ void AFTPlayerController::PlayerTick(float Dt)
 	bPrevDrift = In.bDrift;
 	In.bTurbo = Act(EFTAction::Turbo) || IsInputKeyDown(EKeys::Gamepad_LeftShoulder) || GetInputAnalogKeyState(EKeys::Gamepad_RightTriggerAxis) > 0.4f;
 	In.bFire = Act(EFTAction::Fire) || IsInputKeyDown(EKeys::LeftMouseButton) || IsInputKeyDown(EKeys::Gamepad_FaceButton_Left);
+	// RESUME acts on the button going down, and that button, still held, was FIRE on the next frame (it spent a
+	// round, and AP/HE rounds are bought): nothing fires until it has been let go
+	if (bSwallowFire) { if (In.bFire) In.bFire = false; else bSwallowFire = false; }
 	const bool bPadM = IsInputKeyDown(EKeys::Gamepad_FaceButton_Right);
 	In.bMissile = BindHit((int32)EFTAction::Missile, L) || WasInputKeyJustPressed(EKeys::RightMouseButton) || (bPadM && !bPrevPadMissile);
 	bPrevPadMissile = bPadM;

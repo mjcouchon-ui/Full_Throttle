@@ -700,8 +700,8 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 		const FFTPopup& Popup = G->Popups[I];
 		const float Opacity = bReducedMotion ? 1.f : FMath::Clamp((1.6f - Popup.T) * 3.f, 0.f, 1.f);
 		const float Py = Top + (182 + (G->Popups.Num() - 1 - I) * 32) * S;
-		const bool bRepair = Popup.Text.StartsWith(TEXT("+")) && Popup.Text.EndsWith(TEXT(" ARMOR"));
-		const bool bMissile = Popup.Text.StartsWith(TEXT("+")) && Popup.Text.EndsWith(TEXT(" MISSILES"));
+		const bool bRepair = (Popup.Text.StartsWith(TEXT("+")) && Popup.Text.EndsWith(TEXT(" ARMOR"))) || Popup.Text == TEXT("ARMOR FULL");
+		const bool bMissile = (Popup.Text.StartsWith(TEXT("+")) && (Popup.Text.EndsWith(TEXT(" MISSILES")) || Popup.Text.EndsWith(TEXT(" MISSILE")))) || Popup.Text == TEXT("MISSILES FULL");
 		const FLinearColor Color = Alpha(bRepair ? Green : bMissile ? Amber : Popup.Col, Opacity);
 		Box(LX, Py, LedgerW, 27 * S, Alpha(Ink, Opacity));
 		Box(LX, Py, 3 * S, 27 * S, Color);
@@ -1388,7 +1388,8 @@ void AFTHUD::DrawOptions(AFTGameMode* G)
 	}
 	Box(X + 24 * S, Y + 381 * S, WidthPx - 48 * S, S, Rule);
 	static const TCHAR* Details[] = {
-		TEXT("Low and Medium use TSR with Lumen off. High enables Lumen GI and reflections. Epic increases shadow and post quality. Auto chooses for this computer."),
+		// (2.7 left Lumen to EPIC only and 2.8 gave LOW and MEDIUM TAA: this line still described 2.6)
+		TEXT("Low and Medium use TAA with Lumen off. High uses TSR. Epic adds Lumen lighting and reflections. Auto chooses for this computer."),
 		TEXT("Display the current frame rate and frame time in the corner."),
 		TEXT("Synchronize frame presentation to the display refresh rate."),
 		TEXT("Reduce decorative movement and flashes in the interface and game.")

@@ -110,3 +110,24 @@ The scripts are in `SourceArt/Jam/unreal/` (their headers say how to run them): 
 same chase-camera poses on any level, `27_dress_build.py` rebuilds kits and films in one editor job,
 `jam_play.ps1` runs the real game uncooked for frames at fixed race-clock times or for the game's benchmark,
 `jam_tour.ps1` does the tour against a packaged build, `jam_sheet.py` makes contact sheets.
+`jam_audit.ps1` proves the save, pay and pickup fixes of `SourceArt/Integration/AUDIT.md` in the running game, and
+`jam_late.ps1` counts the loads a race still has to make from disk (below).
+
+`jam_play.ps1` writes the frame size into the checkout's `Saved/Config/WindowsEditor/GameUserSettings.ini` for the
+run and puts the file back: the game re-applies its saved settings at every map start, so `-ResX`/`-ResY` alone
+size only the first window.
+
+## Shadows from the dressing (3.3)
+
+A dressed piece casts a shadow only if it stands within 70 m of the road and is over 2.5 m tall; flat pieces, small
+ones and the middle distance cast nothing (the horizon never did). The component is one to a mesh, so a mesh used
+both near and far casts everywhere, and a component the level's own props made first keeps its setting. The log line
+`FTDRESS level=N ... shadows=A of B` says how many of the instances in the dressing's components cast.
+`ft.DressShadows 0` (set before the level is built) gives the old behaviour for a comparison from the same build.
+
+## Loading: nothing read from disk mid-race (3.4)
+
+Matt's 3.4 (`UFTGameInstance::WarmGameplayAssets`) loads every sound, effect and vehicle mesh in the background
+while the title is up and holds them for the session; the game mode logs `FTHITCH` for any frame over 40 ms.
+`jam_late.ps1` drives all eight levels on the autopilot (wrecks, a boss, a wrap) and counts, per level, the
+synchronous loads the engine still reports during the race and those hitch lines.

@@ -144,6 +144,8 @@ void AFTTrack::Rebuild()
 // ------------------------------------------------------------------------------------------ 2.7 road clearance
 static TAutoConsoleVariable<int32> CVarFTClear(TEXT("ft.ClearScenery"), 1,
 	TEXT("2.7: keep props, pillars, backdrops and the land off the road (0 = place them as 2.6 did; for before/after checks). Takes effect when a track is rebuilt."));
+static TAutoConsoleVariable<int32> CVarFTDressShadows(TEXT("ft.DressShadows"), 1,
+	TEXT("FULL THROTTLE 3.3: 1 = a dressed piece casts a shadow only within 70 m of the road and over 2.5 m tall; 0 = every piece but the horizon's casts, as before (for comparison; set it before the level is built)"));
 static TAutoConsoleVariable<int32> CVarFTDress(TEXT("ft.Dress"), 1,
 	TEXT("3.2: 0 = build tracks without the dressing (districts, sets round landmarks, the horizon), for before/after checks. Takes effect when a track is rebuilt."));
 namespace { constexpr float RoadCell = 3000.f; inline FIntPoint CellOf(float X, float Y) { return FIntPoint(FMath::FloorToInt(X / RoadCell), FMath::FloorToInt(Y / RoadCell)); } }
@@ -1931,6 +1933,9 @@ void AFTTrack::BuildProps()
 		TMap<FString, const FFTDressSet*> SetBy;
 		for (const FFTDressSet& S : Dr.Sets) SetBy.Add(S.Name, &S);
 		int32 Placed = 0, Tried = 0, RuleIdx = 0;
+		TSet<UHierarchicalInstancedStaticMeshComponent*> DressOnly; // components the dressing made (not the level's own props)
+		TSet<UHierarchicalInstancedStaticMeshComponent*> DressIn;   // every component it put a piece in (for the count in the log)
+		const bool bShadowRule = CVarFTDressShadows.GetValueOnAnyThread() != 0;
 		const float SightClear = 2400.f - (FT::Edge + WallW); // tall pieces: 24 m from the centre line of an ordinary road
 		auto Put = [&](const FString& Mesh, FVector Pos, float YawDeg, float Sc, const FVector& OutDir, float Dj, bool bFar, bool bLight) -> bool
 		{
@@ -1940,6 +1945,22 @@ void AFTTrack::BuildProps()
 			if (LightAt >= 0.f && (Dj < LightAt - LightPropBack || Dj > LightAt + LightPropAhead) && C->GetStaticMesh()->GetBounds().SphereRadius * Sc <= 4000.f) return false;
 			if (!bFar && KeptOut(Pos)) return false;
 			if (bFar && C->GetInstanceCount() == 0) C->SetCastShadow(false); // the horizon throws no shadow on the road
+			// 3.3: what a piece's shadow is worth. Every piece used to cast into the virtual shadow maps as non-Nanite
+			// geometry, and dense Bayshore overflowed their marking queue (the engine's own warning in the smoke run). A
+			// piece casts only where its shadow can reach the road and be seen there: within 70 m of the road, and over
+			// 2.5 m tall. Flat things (streets, towels, yards), small things, and everything in the middle distance and
+			// beyond cast nothing. A mesh used both near and far casts: the component is one to a mesh. A component the
+			// level's own props made first (the same mesh in both) keeps what it had.
+			DressIn.Add(C);
+			if (!bFar && bShadowRule)
+			{
+				const FFTFrame Gf = Sample(Dj);
+				const bool bCast = FMath::Abs(FVector::DotProduct(Pos - Gf.Ground, Gf.GRight)) < 7000.f
+					&& C->GetStaticMesh()->GetBounds().BoxExtent.Z * 2.f * Sc > 250.f;
+				if (C->GetInstanceCount() == 0) C->SetCastShadow(bCast);
+				else if (bCast && !C->CastShadow && DressOnly.Contains(C)) C->SetCastShadow(true);
+				if (C->GetInstanceCount() == 0) DressOnly.Add(C);
+			}
 			const FRotator Rot(0.f, YawDeg, 0.f);
 			if (!Clear(C->GetStaticMesh(), Pos, Rot, Sc, OutDir, FMath::RoundToInt(Dj / Step), false, Report.FindOrAdd(FPaths::GetBaseFilename(Mesh)), SightClear)) return false;
 			C->AddInstance(FTransform(Rot, Pos, FVector(Sc)), false);
@@ -2009,7 +2030,11 @@ void AFTTrack::BuildProps()
 				}
 			}
 		}
-		UE_LOG(LogFT, Display, TEXT("FTDRESS level=%d districts=%d sets=%d pieces placed=%d of %d tried"), LevelIndex, Dr.Zones.Num(), Dr.Sets.Num(), Placed, Tried);
+		// how many of the instances in the dressing's components cast a shadow (the level's own props that share a mesh
+		// with it are in the count): what the shadow rule above leaves for the shadow maps to draw
+		int32 InComps = 0, Casting = 0;
+		for (const UHierarchicalInstancedStaticMeshComponent* C : DressIn) { InComps += C->GetInstanceCount(); if (C->CastShadow) Casting += C->GetInstanceCount(); }
+		UE_LOG(LogFT, Display, TEXT("FTDRESS level=%d districts=%d sets=%d pieces placed=%d of %d tried shadows=%d of %d"), LevelIndex, Dr.Zones.Num(), Dr.Sets.Num(), Placed, Tried, Casting, InComps);
 	}
 
 	// PlanAds already keeps every sign clear of the road, so the signs skip 2.7's road test

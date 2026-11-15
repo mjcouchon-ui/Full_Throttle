@@ -425,7 +425,8 @@ void UFTCareerSubsystem::Reset()
 
 void UFTCareerSubsystem::Drop()
 {
-	IFileManager::Get().Delete(*FilePath());
+	// the backup and any half-written file go with it: a dropped career must not come back from its .bak
+	for (const TCHAR* Ext : { TEXT(""), TEXT(".bak"), TEXT(".tmp") }) IFileManager::Get().Delete(*(FilePath() + Ext));
 	UE_LOG(LogFT, Display, TEXT("FT SAVE slot=%s reason=Drop"), *Slot);
 }
 
@@ -489,8 +490,18 @@ void UFTCareerSubsystem::Save(const TCHAR* Reason)
 	J->SetStringField(TEXT("updated"), C.Updated);
 	FString Out;
 	FJsonSerializer::Serialize(J, TJsonWriterFactory<>::Create(&Out));
-	IFileManager::Get().MakeDirectory(*FPaths::GetPath(FilePath()), true);
-	const bool bOk = FFileHelper::SaveStringToFile(Out, *FilePath());
+	// Written beside the file and moved over it, with the file it replaces kept as .bak: the save used to be written
+	// straight onto career.json, so a crash or a power cut in the middle left half a career, which then refused every
+	// later save (see Load).
+	const FString Path = FilePath(), Tmp = Path + TEXT(".tmp"), Bak = Path + TEXT(".bak");
+	IFileManager& FM = IFileManager::Get();
+	FM.MakeDirectory(*FPaths::GetPath(Path), true);
+	bool bOk = FFileHelper::SaveStringToFile(Out, *Tmp);
+	if (bOk)
+	{
+		if (FM.FileExists(*Path)) FM.Move(*Bak, *Path, true, true);
+		bOk = FM.Move(*Path, *Tmp, true, true);
+	}
 	UE_LOG(LogFT, Display, TEXT("FT SAVE slot=%s reason=%s result=%s"), *Slot, Reason, bOk ? TEXT("ok") : TEXT("failed"));
 }
 
@@ -499,8 +510,30 @@ void UFTCareerSubsystem::Load()
 	bLoadError = false; LoadError.Reset();
 	Fresh();
 	FString Text;
-	const FString Path = FilePath();
-	if (!FFileHelper::LoadFileToString(Text, *Path))
+	const FString Path = FilePath(), Bak = Path + TEXT(".bak");
+	IFileManager& FM = IFileManager::Get();
+	UFTGameInstance* Banner = Cast<UFTGameInstance>(GetGameInstance());
+	TSharedPtr<FJsonObject> J;
+	auto Read = [&Text, &J](const FString& P)
+	{
+		Text.Reset(); J.Reset();
+		return FFileHelper::LoadFileToString(Text, *P) && FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Text), J) && J.IsValid();
+	};
+	const bool bHave = FM.FileExists(*Path);
+	bool bRead = Read(Path), bRecovered = false;
+	if (!bRead && (bHave || FM.FileExists(*Bak)))
+	{
+		// A career that is there but cannot be read (cut short by a crash mid-save, or damaged). It used to set
+		// bLoadError, which refuses every save from then on without a word on screen: a career that could never
+		// progress again. Now: the damaged file is kept beside the save, the last good save (.bak) is used if there is
+		// one, and otherwise a new career starts. Either way the title says so, and saving works.
+		UE_LOG(LogFT, Error, TEXT("FT LOAD slot=%s result=bad_json"), *Slot);
+		if (bHave) FM.Move(*(Path + TEXT(".damaged")), *Path, true, true);
+		bRead = bRecovered = Read(Bak);
+		UE_LOG(LogFT, Warning, TEXT("FT LOAD slot=%s recovery=%s damaged=%s"), *Slot, bRead ? TEXT("backup") : TEXT("new_career"), bHave ? TEXT("kept") : TEXT("none"));
+		if (Banner) Banner->TitleBanner = bRead ? TEXT("SAVE RESTORED FROM BACKUP") : TEXT("SAVE DAMAGED: NEW CAREER");
+	}
+	if (!bRead)
 	{
 		// no career: a fresh career plus the one-time back-catalogue bonus (01 §7)
 		const UFTGameInstance* GI = Cast<UFTGameInstance>(GetGameInstance());
@@ -513,22 +546,23 @@ void UFTCareerSubsystem::Load()
 		LogCareer();
 		return;
 	}
-	TSharedPtr<FJsonObject> J;
-	if (!FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Text), J) || !J.IsValid())
+	int32 V = 1; J->TryGetNumberField(TEXT("v"), V);
+	if (V > 1)
 	{
-		bLoadError = true; LoadError = TEXT("career file is not valid JSON");
-		UE_LOG(LogFT, Error, TEXT("FT LOAD slot=%s result=bad_json"), *Slot);
+		// a newer build's career is never written over: saving stays refused, and now the title says why
+		bLoadError = true; LoadError = FString::Printf(TEXT("career save v%d is newer than this build"), V);
+		UE_LOG(LogFT, Error, TEXT("FT LOAD slot=%s result=too_new v=%d"), *Slot, V);
+		if (Banner) Banner->TitleBanner = TEXT("NEWER SAVE: NOT SAVING");
 		return;
 	}
-	int32 V = 1; J->TryGetNumberField(TEXT("v"), V);
-	if (V > 1) { bLoadError = true; LoadError = FString::Printf(TEXT("career save v%d is newer than this build"), V); UE_LOG(LogFT, Error, TEXT("FT LOAD slot=%s result=too_new v=%d"), *Slot, V); return; }
 	const TSharedPtr<FJsonObject>* O;
 	if (J->TryGetObjectField(TEXT("driver"), O))
 	{
-		(*O)->TryGetNumberField(TEXT("level"), C.Level); double X = 0; (*O)->TryGetNumberField(TEXT("xp"), X); C.XP = (int64)X;
+		// (numbers are clamped before the cast: a huge or negative value in a hand-edited file is not a valid int64)
+		(*O)->TryGetNumberField(TEXT("level"), C.Level); double X = 0; (*O)->TryGetNumberField(TEXT("xp"), X); C.XP = (int64)FMath::Clamp(X, 0.0, 9.0e15);
 		(*O)->TryGetNumberField(TEXT("sp"), C.SP); (*O)->TryGetNumberField(TEXT("spSpent"), C.SPSpent);
 	}
-	double Cash = 0, Earned = 0; J->TryGetNumberField(TEXT("cash"), Cash); J->TryGetNumberField(TEXT("cashEarned"), Earned); C.Cash = (int64)Cash; C.CashEarned = (int64)Earned;
+	double Cash = 0, Earned = 0; J->TryGetNumberField(TEXT("cash"), Cash); J->TryGetNumberField(TEXT("cashEarned"), Earned); C.Cash = (int64)FMath::Clamp(Cash, 0.0, 9.0e15); C.CashEarned = (int64)FMath::Clamp(Earned, 0.0, 9.0e15);
 	if (J->TryGetObjectField(TEXT("skills"), O)) for (const auto& KV : (*O)->Values) if (KV.Value->AsBool()) C.Skills.AddUnique(FName(*KV.Key));
 	const TArray<TSharedPtr<FJsonValue>>* A;
 	if (J->TryGetArrayField(TEXT("skills"), A)) for (const auto& Sv : *A) C.Skills.AddUnique(FName(*Sv->AsString()));
@@ -572,6 +606,7 @@ void UFTCareerSubsystem::Load()
 	J->TryGetStringField(TEXT("updated"), C.Updated);
 	Fix();
 	UE_LOG(LogFT, Display, TEXT("FT LOAD slot=%s result=ok"), *Slot);
+	if (bRecovered) Save(TEXT("Recovered"));   // the backup becomes the career again
 	LogCareer();
 }
 
@@ -579,6 +614,10 @@ void UFTCareerSubsystem::Fix()
 {
 	const FFTProgressData& D = FFTProgressData::Get();
 	SizeArrays();
+	// a hand-edited or damaged file: nothing below zero, and no pending level past the last one (99 showed "LEVEL 99")
+	C.Cash = FMath::Max<int64>(0, C.Cash); C.CashEarned = FMath::Max<int64>(0, C.CashEarned); C.XP = FMath::Max<int64>(0, C.XP);
+	C.SP = FMath::Max(0, C.SP); C.SPSpent = FMath::Max(0, C.SPSpent); C.Respecs = FMath::Max(0, C.Respecs);
+	if (C.PendingLevel >= FTData::NumLevels()) C.PendingLevel = -1;
 	const int32 Lv = D.LevelForXP(C.XP);
 	if (Lv != C.Level) { UE_LOG(LogFT, Display, TEXT("FT LOAD fix=driver.level stored=%d xp=%lld level=%d"), C.Level, C.XP, Lv); C.Level = Lv; }
 	for (const TCHAR* S : { TEXT("p-kestrel-red"), TEXT("r-gold-five-hole"), TEXT("s-kestrel-pink"), TEXT("s-hot-pink-nitro") }) C.Own.AddUnique(S);

@@ -56,6 +56,8 @@ public:
 	FVector2D MousePos() const;
 	bool MouseIn(const FBox2D& R) const { const FVector2D M = MousePos(); return R.bIsValid && M.X >= 0.f && R.IsInside(M); }
 	bool Clicked(const FBox2D& R) const { return Hit(EKeys::LeftMouseButton) && MouseIn(R); }
+	/** Set when a menu is closed by a button that is also FIRE: no shot until that button is released. */
+	bool bSwallowFire = false;
 	bool RightClicked(const FBox2D& R) const { return Hit(EKeys::RightMouseButton) && MouseIn(R); }
 
 	// rebinding: the next key pressed is returned once

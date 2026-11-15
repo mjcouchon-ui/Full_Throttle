@@ -121,7 +121,9 @@ void UFTGameInstance::Init()
 	bAutoDrive = FParse::Param(FCommandLine::Get(), TEXT("ftauto"));
 	FParse::Value(FCommandLine::Get(), TEXT("ftshots="), ShotEvery);
 	FParse::Value(FCommandLine::Get(), TEXT("ftquit="), QuitAfter);
+#if !UE_BUILD_SHIPPING   // a test hook that pays out a full wrap after N seconds: not for a Shipping build
 	FParse::Value(FCommandLine::Get(), TEXT("ftwrap="), WrapAfter);
+#endif
 	if (FParse::Value(FCommandLine::Get(), TEXT("ftbench="), Bench) || FParse::Param(FCommandLine::Get(), TEXT("ftbench")))
 	{
 		bBench = true;
@@ -150,8 +152,16 @@ void UFTGameInstance::LoadSettings()
 	FString Text;
 	if (!FFileHelper::LoadFileToString(Text, *FPaths::Combine(SaveDir(), TEXT("settings.json")))) return;
 	TSharedPtr<FJsonObject> J;
-	if (!FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Text), J) || !J.IsValid()) return;
-	if (J->GetIntegerField(TEXT("v")) != 2) return;
+	const FString SettingsPath = FPaths::Combine(SaveDir(), TEXT("settings.json"));
+	int32 SettingsV = 0;
+	if (!FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Text), J) || !J.IsValid() || !J->TryGetNumberField(TEXT("v"), SettingsV) || SettingsV != 2)
+	{
+		// unreadable or another version: the defaults are used, and the next save would write over the file (best
+		// takes, key bindings). A copy is kept beside it first.
+		IFileManager::Get().Copy(*(SettingsPath + TEXT(".unread")), *SettingsPath, true, true);
+		UE_LOG(LogFT, Warning, TEXT("FT LOAD data=settings.json result=unreadable kept=settings.json.unread"));
+		return;
+	}
 	const TSharedPtr<FJsonObject>* B;
 	if (J->TryGetObjectField(TEXT("binds"), B))
 	{
@@ -226,8 +236,11 @@ void UFTGameInstance::SaveSettings()
 	if (LegacySkills.IsValid()) J->SetObjectField(TEXT("skills"), LegacySkills);
 	FString Out;
 	FJsonSerializer::Serialize(J, TJsonWriterFactory<>::Create(&Out));
-	IFileManager::Get().MakeDirectory(*SaveDir(), true);
-	FFileHelper::SaveStringToFile(Out, *FPaths::Combine(SaveDir(), TEXT("settings.json")));
+	// beside the file, then moved over it (as the career is saved): a crash mid-write cannot leave half a file
+	IFileManager& FM = IFileManager::Get();
+	FM.MakeDirectory(*SaveDir(), true);
+	const FString Path = FPaths::Combine(SaveDir(), TEXT("settings.json")), Tmp = Path + TEXT(".tmp");
+	if (FFileHelper::SaveStringToFile(Out, *Tmp)) FM.Move(*Path, *Tmp, true, true);
 }
 
 bool UFTGameInstance::bHarnessApple = false;
