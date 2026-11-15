@@ -240,7 +240,7 @@ void AFTBrawlGameMode::StartCut(int32 Id)
 			End.Start = [this]() {
 				CutCard = TEXT("END OF NIGHT 1");
 				CutCardSub = TEXT("NEXT: DAY 2 · VOLTA CHEMICAL WORKS  →  NIGHT 2 · THE VELVET ROOM");
-				CutCardKeys = FString::Printf(TEXT("ENTER: ON TO %s   ·   R: FIGHT NIGHT 1 AGAIN"), *NextLabel());
+				CutCardKeys = FString::Printf(TEXT("ENTER/A: ON TO %s   ·   R: FIGHT NIGHT 1 AGAIN"), *NextLabel());
 				UE_LOG(LogFTCut, Log, TEXT("FTBRAWL cut end card"));
 			};
 			Beats.Add(MoveTemp(End));
@@ -288,7 +288,7 @@ void AFTBrawlGameMode::StartCut(int32 Id)
 			End.Start = [this]() {
 				CutCard = TEXT("▶ THE DRIVE");
 				CutCardSub = TEXT("L1 BAYSHORE · ROUTE 9, IN FULL THROTTLE  →  THEN NIGHT 1 · THE RUSTY ANCHOR");
-				CutCardKeys = TEXT("ENTER: ON TO NIGHT 1 · THE RUSTY ANCHOR   ·   R: WATCH AGAIN");
+				CutCardKeys = TEXT("ENTER/A: ON TO NIGHT 1 · THE RUSTY ANCHOR   ·   R: WATCH AGAIN");
 				UE_LOG(LogFTCut, Log, TEXT("FTBRAWL cut end card"));
 			};
 			Beats.Add(MoveTemp(End));
@@ -387,7 +387,7 @@ void AFTBrawlGameMode::StartNightCut(int32 Id, TFunctionRef<void(const TCHAR*, c
 		CutCard = FString::Printf(TEXT("END OF NIGHT %d"), Night);
 		CutCardSub = Next;
 		const FString On = NextLabel();
-		CutCardKeys = On.IsEmpty() ? FString::Printf(TEXT("ENTER: FIGHT NIGHT %d AGAIN"), Night) : FString::Printf(TEXT("ENTER: ON TO %s   ·   R: FIGHT NIGHT %d AGAIN"), *On, Night);
+		CutCardKeys = On.IsEmpty() ? FString::Printf(TEXT("ENTER/A: FIGHT NIGHT %d AGAIN"), Night) : FString::Printf(TEXT("ENTER/A: ON TO %s   ·   R: FIGHT NIGHT %d AGAIN"), *On, Night);
 		UE_LOG(LogFTCut, Log, TEXT("FTBRAWL cut end card night %d"), Night);
 	};
 	Beats.Add(MoveTemp(End));
@@ -436,7 +436,7 @@ void AFTBrawlGameMode::StepCut(float Dt, const FIn& In)
 {
 	APlayerController* PC = GetWorld()->GetFirstPlayerController();
 	const bool bNext = In.Enter || In.Fire || In.Jump || In.Kick;
-	const bool bSkip = PC && PC->IsInputKeyDown(EKeys::Tab);
+	const bool bSkip = PC && (PC->IsInputKeyDown(EKeys::Tab) || PC->IsInputKeyDown(EKeys::Gamepad_Special_Left));   // Back/View on a pad
 	const bool bNextPress = bNext && !bCutPrev, bSkipPress = bSkip && !bCutSkipPrev, bEnterPress = In.Enter && !bCutEnterPrev;
 	bCutPrev = bNext; bCutSkipPrev = bSkip; bCutEnterPrev = In.Enter;
 	CutT += Dt; CutLineT += Dt;

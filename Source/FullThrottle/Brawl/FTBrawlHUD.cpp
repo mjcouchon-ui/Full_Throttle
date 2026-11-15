@@ -65,6 +65,13 @@ void AFTBrawlHUD::DrawHUD()
 		FLinearColor C = E.Col; C.A = FMath::Max(0.f, 1 - E.T);
 		Txt(E.Text, Sp.X / S, Sp.Y / S, C, E.bBig ? 2.0f : 1.3f, 1);
 	}
+	// loop cycle 2: dark plates behind the two top corners, so K.O. / the held weapon / the timers / the venue read over the bright
+	// neon walls (the jukebox sits right behind the K.O. count)
+	{
+		const int32 Rows = (G->Held >= 0 ? 1 : 0) + (G->PowerT > 0 ? 1 : 0) + (G->ToughT > 0 ? 1 : 0) + (G->BuzzT > 0 ? 1 : 0);
+		Rect(70, 22, 282, 56 + Rows * 18, FLinearColor(0.02f, 0.01f, 0.05f, 0.55f));
+		Rect(W - 300, 20, 288, 58, FLinearColor(0.02f, 0.01f, 0.05f, 0.55f));
+	}
 	// Nova's bar
 	Rect(80, 30, 260, 18, FLinearColor(0, 0, 0, 0.6f));
 	Rect(80, 30, 260 * FMath::Max(0.f, P.Hp) / FMath::Max(1.f, P.Max), 18, P.Hp > 40 ? Hx(TEXT("9fe870")) : Hx(TEXT("ff4f6e")));
@@ -112,8 +119,8 @@ void AFTBrawlHUD::DrawHUD()
 	if (G->bWon && G->IsVelvet() && G->WinT > 1.2f) Txt(TEXT("VINNIE: \"MY FLOOR... MY BEAUTIFUL FLOOR...\""), W / 2, H / 2 + 90, Hx(TEXT("ff4fb8")), 1.1f, 1);
 	if (G->bWon && G->IsLucky() && G->WinT > 1.2f) Txt(TEXT("THE PIT BOSS FOLDED.   NOVA: \"THE HOUSE ALWAYS WINS? NOT TONIGHT.\""), W / 2, H / 2 + 90, Hx(TEXT("ffd23f")), 1.1f, 1);   // the story's last call
 	if (G->Foes.Num() && G->BossIdx() != INDEX_NONE && G->Foes[G->BossIdx()].St == TEXT("dizzy") && int32(G->StT * 6) % 2) Txt(TEXT("DIZZY! HIT HIM!"), W / 2, 150, Hx(TEXT("ffd23f")), 1.6f, 1);
-	if (P.Hp <= 0 && G->KoT > 1) Centre(TEXT("KNOCKED OUT"), TEXT("ENTER: GET BACK UP (THIS WAVE AGAIN)"), Hx(TEXT("ff4f6e")));
-	if (G->bWon) Centre(TEXT("K.O.!"), FString::Printf(TEXT("%s IS DOWN · %d KNOCKED OUT · BEST COMBO %d%s"), *G->BossName, G->Kos, G->Best, G->WinT > 2.6f ? *(G->NextLabel().IsEmpty() ? FString(TEXT(" · ENTER: AGAIN")) : TEXT(" · ENTER: ON TO ") + G->NextLabel()) : TEXT("")), Hx(TEXT("ffd23f")));
+	if (P.Hp <= 0 && G->KoT > 1) Centre(TEXT("KNOCKED OUT"), TEXT("ENTER/A: GET BACK UP (THIS WAVE AGAIN)"), Hx(TEXT("ff4f6e")));
+	if (G->bWon) Centre(TEXT("K.O.!"), FString::Printf(TEXT("%s IS DOWN · %d KNOCKED OUT · BEST COMBO %d%s"), *G->BossName, G->Kos, G->Best, G->WinT > 2.6f ? *(G->NextLabel().IsEmpty() ? FString(TEXT(" · ENTER/A: AGAIN")) : TEXT(" · ENTER/A: ON TO ") + G->NextLabel()) : TEXT("")), Hx(TEXT("ffd23f")));
 }
 
 TArray<FString> AFTBrawlHUD::Wrap(const FString& Str, float MaxW, float Scale)
@@ -174,5 +181,5 @@ void AFTBrawlHUD::DrawCut(AFTBrawlGameMode* G)
 			Left -= L.Len() + 1; Y += Lh;
 		}
 	}
-	Txt(TEXT("ENTER: NEXT  ·  TAB: SKIP"), W - 20, H - Bar + 18, FLinearColor(1, 1, 1, 0.5f), 0.95f, 2);
+	Txt(TEXT("ENTER/A: NEXT  ·  TAB/BACK: SKIP"), W - 20, H - Bar + 18, FLinearColor(1, 1, 1, 0.5f), 0.95f, 2);
 }

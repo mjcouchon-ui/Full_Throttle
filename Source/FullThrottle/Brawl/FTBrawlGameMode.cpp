@@ -371,6 +371,8 @@ AFTBrawlGameMode::FIn AFTBrawlGameMode::ReadInput()
 	I.Kick = D(EKeys::K) || D(EKeys::X) || D(EKeys::Gamepad_FaceButton_Top) || D(EKeys::RightMouseButton);
 	I.Jump = D(EKeys::SpaceBar) || D(EKeys::Gamepad_FaceButton_Bottom);
 	I.Enter = D(EKeys::Enter) || D(EKeys::Gamepad_Special_Right);
+	// loop cycle 2: with a pad, A (the jump button) also works the cards and the K.O. / knocked-out screens; only Start did
+	if (!I.Enter && D(EKeys::Gamepad_FaceButton_Bottom) && (InCut() || P.Hp <= 0 || bWon)) I.Enter = true;
 	I.Grab = D(EKeys::L) || D(EKeys::C) || D(EKeys::Gamepad_FaceButton_Right);
 	return I;
 }
