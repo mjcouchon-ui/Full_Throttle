@@ -1,0 +1,106 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: transparent; }
+  canvas { display: block; }
+</style></head>
+<body>
+<canvas id="c" width="1600" height="608"></canvas>
+<script>
+// FULL THROTTLE 3.0 title logo: an original lettering. Chrome "THROTTLE" (Orbitron Black, SIL OFL 1.1)
+// with a neon "Full" script over it (Mr Dafoe, SIL OFL 1.1). Rendered to a transparent PNG by headless Edge.
+const bg = new URLSearchParams(location.search).get('bg');
+(async () => {
+  const fonts = [
+    new FontFace('Orb', 'url(Orbitron-900.ttf)'),
+    new FontFace('Dafoe', 'url(MrDafoe-Regular.ttf)'),
+  ];
+  for (const f of fonts) { await f.load(); document.fonts.add(f); }
+  const c = document.getElementById('c'), g = c.getContext('2d');
+  const W = 2048, H = 720; g.translate(-316, -84);
+  if (bg) { g.fillStyle = bg; g.fillRect(0, 0, 4000, 4000); }
+
+  // ---- THROTTLE: chrome block letters, slanted, with a purple extrusion and a pink rim glow
+  const word = 'THROTTLE', size = 232, base = 560;
+  g.font = `900 ${size}px Orb`;
+  const tw = g.measureText(word).width;
+  const x0 = (W - tw) / 2 + 40;
+  const slant = (fn) => { g.save(); g.setTransform(1, 0, -0.2, 1, base * 0.2 - 316, -84); fn(); g.restore(); };
+
+  // glow behind everything
+  slant(() => {
+    g.shadowColor = 'rgba(255,47,168,0.85)'; g.shadowBlur = 46;
+    g.fillStyle = '#2a0f45'; g.fillText(word, x0, base + 18);
+    g.shadowBlur = 0;
+  });
+  // extrusion (depth toward bottom right)
+  for (let i = 22; i >= 1; i--) {
+    slant(() => {
+      const k = i / 22;
+      g.fillStyle = `rgb(${Math.round(40 + 30 * (1 - k))},${Math.round(12 + 10 * (1 - k))},${Math.round(70 + 40 * (1 - k))})`;
+      g.fillText(word, x0 + i * 0.9, base + i * 1.15);
+    });
+  }
+  // ink outline
+  slant(() => { g.lineJoin = 'round'; g.lineWidth = 14; g.strokeStyle = '#120626'; g.strokeText(word, x0, base); });
+  // chrome fill: sky top, white horizon, dark cut, sunset bottom
+  slant(() => {
+    const top = base - size * 0.74, bot = base + 4;
+    const gr = g.createLinearGradient(0, top, 0, bot);
+    gr.addColorStop(0.00, '#0e1d5c');
+    gr.addColorStop(0.22, '#2f7fe0');
+    gr.addColorStop(0.47, '#d9f3ff');
+    gr.addColorStop(0.505, '#ffffff');
+    gr.addColorStop(0.515, '#1a0b33');
+    gr.addColorStop(0.60, '#5a2a7a');
+    gr.addColorStop(0.80, '#ff6a3d');
+    gr.addColorStop(1.00, '#ffe08a');
+    g.fillStyle = gr; g.fillText(word, x0, base);
+    // a thin bright rim
+    g.lineWidth = 3; g.strokeStyle = 'rgba(255,255,255,0.85)'; g.strokeText(word, x0, base);
+  });
+  // star glints on the chrome
+  const star = (x, y, r) => {
+    g.save(); g.translate(x, y);
+    const sg = g.createRadialGradient(0, 0, 0, 0, 0, r * 0.5);
+    sg.addColorStop(0, 'rgba(255,255,255,1)'); sg.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = sg; g.beginPath(); g.arc(0, 0, r * 0.5, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#fff';
+    g.beginPath(); g.moveTo(0, -r); g.lineTo(r * 0.09, -r * 0.09); g.lineTo(r, 0); g.lineTo(r * 0.09, r * 0.09);
+    g.lineTo(0, r); g.lineTo(-r * 0.09, r * 0.09); g.lineTo(-r, 0); g.lineTo(-r * 0.09, -r * 0.09); g.closePath(); g.fill();
+    g.restore();
+  };
+  star(x0 + tw * 0.255 + 46, base - size * 0.60, 46);
+  star(x0 + tw * 0.86 + 20, base - size * 0.30, 34);
+
+  // ---- Full: hot pink neon script, tilted up, over the top left of THROTTLE
+  g.save();
+  g.translate(x0 + 150, base - size * 0.66);
+  g.rotate(-0.13);
+  g.font = `330px Dafoe`;
+  const fw = 'Full';
+  // dark backing so it reads over the chrome
+  g.lineJoin = 'round';
+  g.lineWidth = 26; g.strokeStyle = 'rgba(18,6,38,0.95)'; g.strokeText(fw, 0, 0);
+  // neon tube: wide glow, pink tube, white-hot core
+  g.shadowColor = '#ff2fa8'; g.shadowBlur = 50;
+  g.lineWidth = 16; g.strokeStyle = '#ff2fa8'; g.strokeText(fw, 0, 0);
+  g.shadowBlur = 18;
+  g.lineWidth = 9; g.strokeStyle = '#ff7ccb'; g.strokeText(fw, 0, 0);
+  g.shadowBlur = 0;
+  g.lineWidth = 3.5; g.strokeStyle = '#fff0fa'; g.strokeText(fw, 0, 0);
+  g.restore();
+
+  // ---- a cyan neon underline swoosh with the speed lines
+  g.save();
+  g.shadowColor = '#36f2ff'; g.shadowBlur = 22;
+  g.strokeStyle = '#7ff8ff'; g.lineCap = 'round';
+  const ux0 = x0 + 20, ux1 = x0 + tw + 10, uy = base + 58;
+  g.lineWidth = 7; g.beginPath(); g.moveTo(ux0, uy); g.lineTo(ux1, uy - 6); g.stroke();
+  g.lineWidth = 4;
+  for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(ux0 + 260 + i * 140, uy + 20 + i * 14); g.lineTo(ux1 - 120 - i * 60, uy + 14 + i * 14); g.globalAlpha = 0.75 - i * 0.2; g.stroke(); }
+  g.restore();
+  document.title = 'done';
+})();
+</script>
+</body></html>

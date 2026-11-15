@@ -215,6 +215,25 @@ public:
 	bool bLastChance = false, bRunDown = false;
 	bool bSequelRun = false;
 	FString TitleBanner; float TitleBannerT = -10.f;
+	// 3.0 the title's attract mode: the game plays itself behind the title (Phase stays Play, the HUD draws the title),
+	// cutting to the next level every AttractLen seconds behind a channel-change wipe
+	bool bAttract = false;
+	float TitleT = 0.f;              // time on the title (carried across attract cuts)
+	float AttractT = 0.f;            // time in this shot
+	float AttractOutT = -1.f;        // >= 0: the wipe out to the next level is running
+	bool bAttractCutIn = false;      // this shot came in from a cut (the wipe opens)
+	int32 AttractHeld = 0;           // frames drawn fully covered before the map load starts
+	static constexpr float AttractLen = 11.f;
+	static constexpr float AttractWipeOut = 0.6f;
+	static constexpr float AttractWipeIn = 0.75f;
+	int32 AttractNextLevel() const { return (Level + 1) % FTData::NumLevels(); }
+	/** 0 = clear, 1 = the screen is covered by the channel-change wipe. */
+	float AttractCover() const;
+	float LastMenuInputT = -10.f;
+	TArray<FBox2D> TitleRowRects;    // the HUD writes the level rows and the buttons here for the mouse
+	TArray<FBox2D> TitleBtnRects;    // ROLL CAMERA, PRE-PRODUCTION, CONTROLS, OPTIONS, QUIT
+	FVector2D TitleMouse = FVector2D(-1, -1);
+	int32 TitleHotBtn = -1;
 	// highlight reel (10 §2): hold to skip mid-reel, CONTINUE once it has played
 	float ReelHoldT = 0.f; bool bReelDone = false;
 	// THE DAILIES + PAYCHECK
@@ -262,6 +281,17 @@ protected:
 	void StartRace(bool bRetake);
 	void BeginPlayPhase();
 	void TickTitle(float RDt);
+	void TitleStart();
+	// 3.0 attract mode
+	void EnterTitle(bool bKeepTitleT);
+	bool AttractAllowed() const;
+	void StartAttract();
+	void TickAttract(float RDt);
+	void CutAttract();
+	void StopAttract();
+	static void PickAttractShot(int32 L, int32& OutScene, int32& OutSpawn, float& OutD0);
+	int32 AttractScene = 0, AttractSpawn = 0;
+	bool bAttractPaused = false;
 	void TickOverlay(float RDt);
 	void TickPlay(float Dt, float RDt);
 	void TickPlayer(float Dt);

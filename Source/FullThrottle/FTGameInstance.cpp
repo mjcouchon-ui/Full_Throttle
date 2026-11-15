@@ -10,6 +10,9 @@
 #include "RHI.h"
 #include "Engine/Engine.h"
 #include "AudioDevice.h"
+#include "Components/AudioComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Misc/CommandLine.h"
@@ -338,6 +341,40 @@ void UFTGameInstance::ReapplyQuality()
 			S->ApplySettings(false);
 		}
 	}
+}
+
+void UFTGameInstance::PlayTitleMusic(UObject* Ctx, float Volume)
+{
+	if (!TitleMusic)
+	{
+		USoundBase* Song = Cast<USoundBase>(StaticLoadObject(USoundBase::StaticClass(), nullptr, TEXT("/Game/Audio/Music/M_TitleTheme"), nullptr, LOAD_NoWarn | LOAD_Quiet));
+		// bPersistAcrossLevelTransition: the attract mode's map loads don't cut the song
+		TitleMusic = UGameplayStatics::CreateSound2D(Ctx, Song, Volume, 1.f, 0.f, nullptr, true, false);
+		if (TitleMusic) TitleMusic->bIsUISound = true;
+		bTitleMusicOn = false;
+	}
+	if (!TitleMusic) return;
+	TitleMusic->SetVolumeMultiplier(Volume);
+	if (!bTitleMusicOn || !TitleMusic->IsPlaying())
+	{
+		TitleMusic->Play();
+		bTitleMusicOn = true;
+		UE_LOG(LogFT, Display, TEXT("FTMUSIC title=%s playing=1"), TitleMusic->Sound ? *TitleMusic->Sound->GetName() : TEXT("none"));
+	}
+}
+
+void UFTGameInstance::SetTitleMusicVolume(float Volume)
+{
+	if (TitleMusic && bTitleMusicOn) TitleMusic->SetVolumeMultiplier(Volume);
+}
+
+void UFTGameInstance::StopTitleMusic(float FadeSeconds)
+{
+	if (!TitleMusic || !bTitleMusicOn) return;
+	bTitleMusicOn = false;
+	if (FadeSeconds > 0.f) TitleMusic->FadeOut(FadeSeconds, 0.f);
+	else TitleMusic->Stop();
+	UE_LOG(LogFT, Display, TEXT("FTMUSIC title stop fade=%.1f"), FadeSeconds);
 }
 
 void UFTGameInstance::ApplyMute()

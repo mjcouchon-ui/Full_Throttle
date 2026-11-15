@@ -8,6 +8,7 @@
 #include "Engine/Font.h"
 #include "Engine/Engine.h"
 #include "CanvasItem.h"
+#include "Engine/Texture2D.h"
 
 namespace
 {
@@ -74,7 +75,21 @@ void AFTHUD::DrawHUD()
 	if (!FD) FD = GEngine->GetLargeFont();
 	if (!FB) FB = GEngine->GetMediumFont();
 
-	switch (G->Phase)
+	if (!bTitleAssets)
+	{
+		bTitleAssets = true;
+		FOrb = Cast<UFont>(StaticLoadObject(UFont::StaticClass(), nullptr, TEXT("/Game/UI/Fonts/F_Orbitron"), nullptr, LOAD_NoWarn | LOAD_Quiet));
+		FRaj = Cast<UFont>(StaticLoadObject(UFont::StaticClass(), nullptr, TEXT("/Game/UI/Fonts/F_Rajdhani"), nullptr, LOAD_NoWarn | LOAD_Quiet));
+		TLogo = Cast<UTexture2D>(StaticLoadObject(UTexture2D::StaticClass(), nullptr, TEXT("/Game/UI/Title/T_TitleLogo"), nullptr, LOAD_NoWarn | LOAD_Quiet));
+		UE_LOG(LogFT, Display, TEXT("FT TITLE assets orbitron=%d rajdhani=%d logo=%d"), FOrb ? 1 : 0, FRaj ? 1 : 0, TLogo ? 1 : 0);
+	}
+	// 3.0 attract mode: the game runs underneath (no race HUD), the wipe, then the title on top
+	if (G->bAttract)
+	{
+		DrawAttractWipe(G);
+		DrawTitle(G);
+	}
+	else switch (G->Phase)
 	{
 	case EFTPhase::Title: DrawTitle(G); break;
 	case EFTPhase::Card: DrawCard(G); break;
@@ -85,7 +100,7 @@ void AFTHUD::DrawHUD()
 	case EFTPhase::Paycheck: DrawPaycheck(G); break;
 	case EFTPhase::PreProduction: DrawPreProduction(G); break;
 	}
-	DrawFx(G);
+	if (!G->bAttract) DrawFx(G);
 	switch (G->Overlay)
 	{
 	case EFTOverlay::Pause: DrawPause(G); break;
@@ -101,49 +116,252 @@ void AFTHUD::DrawHUD()
 }
 
 // ---------------------------------------------------------------------------------------------- title
+// 3.0: text in a given font (the title's Orbitron / Rajdhani), with an optional neon glow around it
+void AFTHUD::TxtF(UFont* F, const FString& Str, float X, float Y, const FLinearColor& C, float Scale, int32 Align, bool bShadow, const FLinearColor& Glow)
+{
+	if (!F) F = FB;
+	if (Align != 0)
+	{
+		const FVector2D M = MeasureF(F, Str, Scale);
+		X -= Align == 1 ? M.X * 0.5f : M.X;
+	}
+	if (Glow.A > 0.f)
+	{
+		// a cheap neon halo: the text eight times, offset, faint
+		static const FVector2D Off[8] = { {1, 0}, {-1, 0}, {0, 1}, {0, -1}, {0.7f, 0.7f}, {-0.7f, 0.7f}, {0.7f, -0.7f}, {-0.7f, -0.7f} };
+		for (const FVector2D& O : Off)
+		{
+			FCanvasTextItem Gl(FVector2D(X, Y) + O * 2.5f * S, FText::FromString(Str), F, Glow);
+			Gl.Scale = FVector2D(Scale * S);
+			Gl.BlendMode = SE_BLEND_Translucent;
+			Canvas->DrawItem(Gl);
+		}
+	}
+	FCanvasTextItem It(FVector2D(X, Y), FText::FromString(Str), F, C);
+	It.Scale = FVector2D(Scale * S);
+	if (bShadow) It.EnableShadow(FLinearColor(0.02f, 0.f, 0.06f, 0.9f), FVector2D(2.f * S, 2.f * S));
+	Canvas->DrawItem(It);
+}
+
+FVector2D AFTHUD::MeasureF(UFont* F, const FString& Str, float Scale)
+{
+	if (!F) F = FB;
+	float Xl = 0, Yl = 0;
+	Canvas->StrLen(F, Str, Xl, Yl);
+	return FVector2D(Xl, Yl) * Scale * S;
+}
+
+void AFTHUD::Grad(float X, float Y, float Wd, float Ht, const FLinearColor& A, const FLinearColor& B, bool bHorizontal)
+{
+	const FVector2D P0(X, Y), P1(X + Wd, Y), P2(X, Y + Ht), P3(X + Wd, Y + Ht);
+	const FLinearColor C0 = A, C1 = bHorizontal ? B : A, C2 = bHorizontal ? A : B, C3 = B;
+	TArray<FCanvasUVTri> Tris;
+	FCanvasUVTri T0; T0.V0_Pos = P0; T0.V1_Pos = P1; T0.V2_Pos = P2; T0.V0_Color = C0; T0.V1_Color = C1; T0.V2_Color = C2;
+	FCanvasUVTri T1; T1.V0_Pos = P1; T1.V1_Pos = P3; T1.V2_Pos = P2; T1.V0_Color = C1; T1.V1_Color = C3; T1.V2_Color = C2;
+	Tris.Add(T0); Tris.Add(T1);
+	FCanvasTriangleItem It(Tris, GWhiteTexture);
+	It.BlendMode = SE_BLEND_Translucent;
+	Canvas->DrawItem(It);
+}
+
+FBox2D AFTHUD::TitleButton(float X, float Y, float Wd, float Ht, const FString& Label, const FString& Sub, bool bHot)
+{
+	const float Pulse = 0.5f + 0.5f * FMath::Sin(T * 4.f);
+	if (bHot) Grad(X, Y, Wd, Ht, FLinearColor(1.f, 0.18f, 0.62f, 0.9f), FLinearColor(0.45f, 0.06f, 0.55f, 0.9f), true);
+	else Box(X, Y, Wd, Ht, FLinearColor(0.06f, 0.01f, 0.12f, 0.78f));
+	Frame(X, Y, Wd, Ht, bHot ? Yellow : FLinearColor(0.21f, 0.95f, 1.f, 0.45f + 0.25f * Pulse), bHot ? 2.5f : 1.5f);
+	TxtF(FOrb, Label, X + Wd * 0.5f, Y + Ht * 0.14f, bHot ? FLinearColor(1.f, 1.f, 0.9f) : White, 0.34f, 1);
+	TxtF(FRaj, Sub, X + Wd * 0.5f, Y + Ht * 0.56f, bHot ? Yellow : FLinearColor(0.75f, 0.9f, 1.f, 0.85f), 0.38f, 1, false);
+	return FBox2D(FVector2D(X, Y), FVector2D(X + Wd, Y + Ht));
+}
+
 void AFTHUD::DrawTitle(AFTGameMode* G)
 {
-	Box(0, 0, W, H, FLinearColor(0.02f, 0.f, 0.06f, 0.35f));
-	const float Pulse = 0.85f + 0.15f * FMath::Sin(T * 3.f);
-	Txt(TEXT("FULL"), W * 0.5f, H * 0.1f, FLinearColor(Cyan.R, Cyan.G, Cyan.B, 1.f) * Pulse, 3.4f, 1, true);
-	Txt(TEXT("THROTTLE"), W * 0.5f, H * 0.1f + 74 * S, Pink * Pulse, 3.4f, 1, true);
-	Txt(TEXT("AN 80s SPY CAR CHASE  ·  STARRING YOU AS AGENT NOVA KANE"), W * 0.5f, H * 0.36f, Yellow, 1.f, 1);
+	UFont* FO = FOrb ? FOrb.Get() : FD.Get();
+	UFont* FR = FRaj ? FRaj.Get() : FB.Get();
 	const UFTGameInstance* GI = G->GI();
-	// 2.5: eight levels, two rows of four
+	const bool bAtt = G->bAttract;
+	const FLinearColor Night(0.02f, 0.f, 0.06f, 0.f);
+	auto WithA = [](FLinearColor C, float A) { C.A = A; return C; };
+
+	// shade where the title sits, so it reads over the racing (the static title, attract off, keeps its full veil)
+	if (!bAtt) Box(0, 0, W, H, FLinearColor(0.02f, 0.f, 0.06f, 0.45f));
+	Grad(0, 0, W, H * 0.34f, WithA(Night, 0.78f), WithA(Night, 0.f), false);
+	Grad(0, 0, W * 0.47f, H, WithA(Night, 0.80f), WithA(Night, 0.f), true);
+	Grad(0, H * 0.78f, W, H * 0.22f, WithA(Night, 0.f), WithA(Night, 0.88f), false);
+
+	// the logo: a quick zoom in the first time the title opens (not on an attract cut)
+	const float In = FMath::Clamp(G->TitleT / 0.7f, 0.f, 1.f);
+	const float Ease = 1.f - FMath::Pow(1.f - In, 3.f);
+	const float LogoH = 158.f * S * (1.f + 0.25f * (1.f - Ease)), LogoW = LogoH * 1600.f / 608.f;
+	const float LogoY = 6.f * S;
+	if (TLogo)
+	{
+		FCanvasTileItem Lg(FVector2D(W * 0.5f - LogoW * 0.5f, LogoY), TLogo->GetResource(), FVector2D(LogoW, LogoH), FLinearColor(1.f, 1.f, 1.f, Ease));
+		Lg.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(Lg);
+	}
+	else
+	{
+		TxtF(FO, TEXT("FULL THROTTLE"), W * 0.5f, LogoY + 40 * S, Cyan, 1.6f, 1, true, FLinearColor(1.f, 0.2f, 0.65f, 0.25f));
+	}
+	const float TagY = LogoY + 158.f * S;
+	TxtF(FR, TEXT("AN 80s SPY CAR CHASE  ·  STARRING YOU AS AGENT NOVA KANE"), W * 0.5f, TagY, Yellow, 0.50f, 1);
+	if (const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(G))
+		TxtF(FR, FString::Printf(TEXT("DRIVER LV %d   ·   %s   ·   %d SKILL POINT%s TO SPEND"), CS->C.Level, *Money(CS->C.Cash), CS->SPLeft(), CS->SPLeft() == 1 ? TEXT("") : TEXT("S")),
+			W * 0.5f, TagY + 19 * S, FLinearColor(1.f, 0.45f, 0.8f), 0.42f, 1);
+
+	// the eight levels, one list down the left
 	const int32 NL = FTData::NumLevels();
-	const float Cw = 270 * S, Ch = 112 * S, Gap = 18 * S, X0 = W * 0.5f - (Cw * 4 + Gap * 3) * 0.5f, Y0 = H * 0.42f;
+	const float Lx = 28 * S, Lw = 450 * S, Rh = 38 * S, Gap = 4 * S, Ly0 = H * 0.335f;
+	TxtF(FO, TEXT("SELECT YOUR SHOOT"), Lx + 4 * S, Ly0 - 20 * S, Cyan, 0.32f, 0, true, FLinearColor(0.2f, 0.9f, 1.f, 0.12f));
+	G->TitleRowRects.SetNum(NL);
 	for (int32 i = 0; i < NL; ++i)
 	{
 		const FFTLevelDef& L = FTData::Level(i);
-		const float X = X0 + (i % 4) * (Cw + Gap);
-		const float Y = Y0 + (i / 4) * (Ch + Gap);
 		const bool bSel = G->TitleSel == i;
-		Box(X, Y, Cw, Ch, bSel ? FLinearColor(0.25f, 0.05f, 0.25f, 0.85f) : Ink);
-		Frame(X, Y, Cw, Ch, bSel ? Yellow : FLinearColor(1, 1, 1, 0.25f), bSel ? 3.f : 1.5f);
-		Txt(FString::Printf(TEXT("LEVEL %d"), i + 1), X + 12 * S, Y + 8 * S, bSel ? Yellow : Grey, 0.8f);
-		Txt(L.Zone, X + 12 * S, Y + 28 * S, White, 1.0f, 0, true);
-		Txt(L.Title, X + 12 * S, Y + 60 * S, Pink, 0.82f);
-		if (GI && i < UFTGameInstance::MaxLevels && GI->BestScore[i] > 0) Txt(FString::Printf(TEXT("BEST  %s  ·  %s"), *Num(GI->BestScore[i]), *GI->BestTitle[i]), X + 12 * S, Y + 86 * S, Cyan, 0.65f);
-		else if (!L.Hint.IsEmpty()) Txt(L.Hint, X + 12 * S, Y + 86 * S, FLinearColor(1, 1, 1, 0.55f), 0.6f);
+		const float Y = Ly0 + i * (Rh + Gap);
+		const float X = Lx + (bSel ? 10.f * S : 0.f);
+		if (bSel) Grad(X, Y, Lw, Rh, FLinearColor(1.f, 0.18f, 0.62f, 0.88f), FLinearColor(0.3f, 0.04f, 0.45f, 0.35f), true);
+		else Box(X, Y, Lw, Rh, FLinearColor(0.05f, 0.01f, 0.1f, 0.58f));
+		Box(X, Y, 4 * S, Rh, bSel ? Yellow : FLinearColor(1.f, 0.31f, 0.72f, 0.55f));
+		if (bSel) Frame(X, Y, Lw, Rh, FLinearColor(1.f, 0.85f, 0.3f, 0.9f), 1.5f);
+		// the number in a neon square
+		const float Nx = X + 12 * S, Ny = Y + 5 * S, Ns = Rh - 10 * S;
+		Box(Nx, Ny, Ns, Ns, bSel ? FLinearColor(0.05f, 0.f, 0.1f, 0.9f) : FLinearColor(0.f, 0.f, 0.f, 0.4f));
+		Frame(Nx, Ny, Ns, Ns, bSel ? Yellow : FLinearColor(0.21f, 0.95f, 1.f, 0.7f), 1.5f);
+		TxtF(FO, FString::FromInt(i + 1), Nx + Ns * 0.5f, Ny + Ns * 0.16f, bSel ? Yellow : Cyan, 0.38f, 1, false);
+		TxtF(FO, L.Zone, Nx + Ns + 12 * S, Y + 3 * S, bSel ? FLinearColor(1.f, 1.f, 0.95f) : FLinearColor(0.92f, 0.9f, 1.f, 0.9f), 0.37f, 0, true);
+		FString Sub = L.Title;
+		if (GI && i < UFTGameInstance::MaxLevels && GI->BestScore[i] > 0) Sub += FString::Printf(TEXT("   ·   BEST %s  %s"), *Num(GI->BestScore[i]), *GI->BestTitle[i]);
+		TxtF(FR, Sub, Nx + Ns + 12 * S, Y + 20 * S, bSel ? Yellow : FLinearColor(1.f, 0.55f, 0.85f, 0.9f), 0.42f, 0, true);
+		// the level the demo is showing right now
+		if (bAtt && G->Level == i && G->AttractOutT < 0.f)
+		{
+			const bool bBlink = FMath::Fmod(T, 1.f) < 0.6f;
+			Box(X + Lw - 78 * S, Y + Rh * 0.5f - 4 * S, 8 * S, 8 * S, FLinearColor(1.f, 0.15f, 0.2f, bBlink ? 1.f : 0.35f));
+			TxtF(FR, TEXT("ON AIR"), X + Lw - 8 * S, Y + Rh * 0.5f - 7 * S, FLinearColor(1.f, 0.4f, 0.4f), 0.4f, 2, false);
+		}
+		G->TitleRowRects[i] = FBox2D(FVector2D(Lx, Y), FVector2D(Lx + Lw + 10 * S, Y + Rh));
 	}
-	if (FMath::Fmod(T, 1.f) < 0.65f) Txt(TEXT("PRESS ENTER (A) TO ROLL CAMERA"), W * 0.5f, H * 0.735f, White, 1.3f, 1, true);
-	Txt(TEXT("◀ ▶ ▲ ▼  OR 1-8  PICK THE LEVEL   ·   G  GARAGE   ·   C  CONTROLS   ·   O  OPTIONS   ·   M  MUTE   ·   ESC  QUIT"), W * 0.5f, H * 0.795f, Grey, 0.85f, 1);
-	if (const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(G))
-		Txt(FString::Printf(TEXT("DRIVER LV %d   ·   %s   ·   %d SKILL POINT%s TO SPEND   ·   G (PAD BACK) OPENS PRE-PRODUCTION"), CS->C.Level, *Money(CS->C.Cash), CS->SPLeft(), CS->SPLeft() == 1 ? TEXT("") : TEXT("S")), W * 0.5f, H * 0.395f, Pink, 0.85f, 1);
-	if (const UFTGameInstance* GB = G->GI(); GB && !GB->TitleBanner.IsEmpty() && G->PhaseT < 8.f)
-	{
-		const float A = FMath::Clamp(8.f - G->PhaseT, 0.f, 1.f);
-		Box(0, H * 0.255f, W, 70 * S, FLinearColor(0, 0, 0, 0.6f * A));
-		Txt(GB->TitleBanner, W * 0.5f, H * 0.26f, FLinearColor(1.f, 0.82f, 0.25f, A), 2.2f, 1, true);
-	}
+
+	// roll camera, then the buttons (each also has its key and pad button)
+	const float PromptY = H * 0.818f;
+	if (FMath::Fmod(T, 1.1f) < 0.75f)
+		TxtF(FO, TEXT("PRESS ENTER (A) TO ROLL CAMERA"), W * 0.5f, PromptY, White, 0.48f, 1, true, FLinearColor(1.f, 0.2f, 0.65f, 0.22f));
+	static const TCHAR* BL[5] = { TEXT("ROLL CAMERA"), TEXT("PRE-PRODUCTION"), TEXT("CONTROLS"), TEXT("OPTIONS"), TEXT("QUIT") };
+	static const TCHAR* BS[5] = { TEXT("ENTER  ·  PAD A"), TEXT("G  ·  PAD BACK"), TEXT("C  ·  PAD Y"), TEXT("O"), TEXT("ESC") };
+	const float Bw = 190 * S, Bh = 40 * S, Bg = 12 * S, Bx0 = W * 0.5f - (Bw * 5 + Bg * 4) * 0.5f, By = H * 0.874f;
+	G->TitleBtnRects.SetNum(5);
+	for (int32 i = 0; i < 5; ++i) G->TitleBtnRects[i] = TitleButton(Bx0 + i * (Bw + Bg), By, Bw, Bh, BL[i], BS[i], G->TitleHotBtn == i);
+
+	// one help line at the bottom, taking turns
 	if (GI)
 	{
-		const FString Lay = GI->Layout == 0 ? TEXT("WASD steer  ·  hold SHIFT + steer to drift  ·  SPACE turbo  ·  J guns  ·  K missile")
-			: TEXT("ARROWS steer  ·  hold SHIFT + steer to drift  ·  SPACE turbo  ·  Z guns  ·  X missile");
-		Txt(Lay, W * 0.5f, H * 0.84f, Cyan, 0.85f, 1);
-		Txt(TEXT("Mouse: hold left = guns, right click = missile   ·   Gamepad: stick, A/RB drift, X guns, B missile, LB/RT turbo"), W * 0.5f, H * 0.88f, Grey, 0.75f, 1);
+		const FString Lay = GI->Layout == 0 ? TEXT("WASD steer  ·  hold SHIFT + steer to drift  ·  SPACE turbo  ·  J guns  ·  K missile  ·  L ammo")
+			: TEXT("ARROWS steer  ·  hold SHIFT + steer to drift  ·  SPACE turbo  ·  Z guns  ·  X missile  ·  C ammo");
+		const int32 Turn = (int32)(T / 5.f) % 3;
+		const FString Help = Turn == 0 ? Lay : (Turn == 1 ? FString(TEXT("Mouse: hold left = guns, right click = missile   ·   Gamepad: stick, A/RB drift, X guns, B missile, LB/RT turbo"))
+			: FString(TEXT("UP / DOWN or 1-8 pick the level   ·   M mute   ·   F1 frame rate   ·   Unreal Engine 5.9")));
+		TxtF(FR, Help, W * 0.5f, H * 0.955f, FLinearColor(0.7f, 0.95f, 1.f, 0.9f), 0.44f, 1, true);
 	}
-	Txt(TEXT("UNREAL ENGINE 5.9  ·  CHAOS VEHICLES  ·  LUMEN  ·  NANITE  ·  NIAGARA"), W * 0.5f, H * 0.95f, FLinearColor(1, 1, 1, 0.45f), 0.7f, 1);
+	if (GI && !GI->TitleBanner.IsEmpty() && G->TitleT < 8.f)
+	{
+		const float A = FMath::Clamp(8.f - G->TitleT, 0.f, 1.f);
+		Box(W * 0.47f, H * 0.42f, W * 0.53f, 70 * S, FLinearColor(0, 0, 0, 0.6f * A));
+		TxtF(FO, GI->TitleBanner, W * 0.735f, H * 0.43f, FLinearColor(1.f, 0.82f, 0.25f, A), 0.85f, 1, true, FLinearColor(1.f, 0.4f, 0.1f, 0.2f * A));
+	}
+	if (bAtt) DrawAttractOsd(G);
+}
+
+// 3.0: the VHS-style on-screen display in the top right of the attract mode
+void AFTHUD::DrawAttractOsd(AFTGameMode* G)
+{
+	UFont* FO = FOrb ? FOrb.Get() : FD.Get();
+	UFont* FR = FRaj ? FRaj.Get() : FB.Get();
+	const bool bOut = G->AttractOutT >= 0.f;
+	const int32 Lv = bOut ? G->AttractNextLevel() : G->Level;
+	const FFTLevelDef& L = FTData::Level(Lv);
+	const FLinearColor Osd(0.55f, 1.f, 0.7f, 0.95f);
+	const float Rx = W - 26 * S, Y = 18 * S;
+	const FString Ch = FString::Printf(TEXT("CH %02d"), Lv + 1);
+	const FVector2D Cm = MeasureF(FO, Ch, 0.48f);
+	TxtF(FO, Ch, Rx, Y, Osd, 0.48f, 2, true);
+	const FString Pl = bOut ? TEXT("TUNING") : TEXT("PLAY");
+	const FVector2D Pm = MeasureF(FO, Pl, 0.48f);
+	const float Px = Rx - Cm.X - 22 * S - Pm.X;
+	TxtF(FO, Pl, Px, Y, Osd, 0.48f, 0, true);
+	if (!bOut && FMath::Fmod(T, 1.f) < 0.7f)
+	{
+		// the play triangle
+		const float Tx = Px - 20 * S, Ty = Y + Pm.Y * 0.5f;
+		FCanvasTriangleItem Tri(FVector2D(Tx, Ty - 9 * S), FVector2D(Tx + 15 * S, Ty), FVector2D(Tx, Ty + 9 * S), GWhiteTexture);
+		Tri.SetColor(Osd);
+		Canvas->DrawItem(Tri);
+	}
+	TxtF(FR, FString::Printf(TEXT("LEVEL %d  ·  %s  ·  %s"), Lv + 1, *L.Zone, *L.Title), Rx, Y + Cm.Y + 1 * S, FLinearColor(1.f, 1.f, 1.f, 0.92f), 0.44f, 2, true);
+	TxtF(FR, TEXT("DEMO  ·  THE AUTOPILOT IS DRIVING"), Rx, Y + Cm.Y + 18 * S, FLinearColor(1.f, 0.6f, 0.85f, 0.85f), 0.38f, 2, true);
+}
+
+// 3.0: the channel-change wipe between the attract mode's levels. Neon-edged bands slide in from alternate sides,
+// the covered screen shows a test card (a striped synthwave sun, the channel and the level), then the bands slide
+// away. The title stays drawn on top of all of it; the next map loads while the card is up.
+void AFTHUD::DrawAttractWipe(AFTGameMode* G)
+{
+	const float Cv = G->AttractCover();
+	if (Cv <= 0.f) return;
+	const bool bOut = G->AttractOutT >= 0.f;
+	UFont* FO = FOrb ? FOrb.Get() : FD.Get();
+	UFont* FR = FRaj ? FRaj.Get() : FB.Get();
+	const int32 N = 10;
+	const float Bh = H / N;
+	static const FLinearColor Edge[4] = { FLinearColor(1.f, 0.18f, 0.66f), FLinearColor(0.21f, 0.95f, 1.f), FLinearColor(1.f, 0.55f, 0.2f), FLinearColor(1.f, 0.85f, 0.3f) };
+	for (int32 i = 0; i < N; ++i)
+	{
+		const float P = FMath::Clamp(Cv * 1.6f - i * 0.06f, 0.f, 1.f);
+		const float E = P * P * (3.f - 2.f * P);
+		if (E <= 0.f) continue;
+		const float Wd = W * E;
+		const bool bFromLeft = ((i % 2) == 0) == bOut;   // going out they come in from one side; coming in they leave the other way
+		const float X = bFromLeft ? 0.f : W - Wd;
+		const float Y = i * Bh;
+		Box(X, Y, Wd, Bh + 1.f, FLinearColor(0.07f, 0.01f, 0.15f, 1.f));
+		Box(X, Y + Bh * 0.42f, Wd, Bh * 0.08f, FLinearColor(0.25f, 0.04f, 0.35f, 1.f));
+		const float Ex = bFromLeft ? X + Wd - 5 * S : X;
+		if (E < 0.999f) { Box(Ex, Y, 5 * S, Bh, Edge[i % 4]); Box(bFromLeft ? Ex - 18 * S : Ex + 5 * S, Y, 18 * S, Bh, FLinearColor(Edge[i % 4].R, Edge[i % 4].G, Edge[i % 4].B, 0.25f)); }
+	}
+	if (Cv < 0.985f) return;
+	// the test card
+	const int32 Lv = bOut ? G->AttractNextLevel() : G->Level;
+	const FFTLevelDef& L = FTData::Level(Lv);
+	const float Cx = W * 0.72f, Cy = H * 0.60f, R = 120.f * S;
+	for (float Dy = -R; Dy < 0.f; Dy += 3.f * S)
+	{
+		const float U = (Dy + R) / R;   // 0 at the top .. 1 at the horizon
+		const float Half = FMath::Sqrt(FMath::Max(0.f, R * R - Dy * Dy));
+		// the sunset stripes: gaps that widen toward the horizon
+		if (U > 0.45f && FMath::Fmod((Dy + R) / S, 14.f) < 2.f + 8.f * (U - 0.45f)) continue;
+		Box(Cx - Half, Cy + Dy, Half * 2.f, 3.f * S + 0.5f, FLinearColor(1.f, FMath::Lerp(0.85f, 0.2f, U), FMath::Lerp(0.3f, 0.6f, U), 1.f));
+	}
+	// the grid floor
+	for (int32 k = 0; k < 7; ++k)
+	{
+		const float Gy = Cy + 4 * S + FMath::Pow(k / 6.f, 1.8f) * H * 0.3f;
+		Box(W * 0.47f, Gy, W * 0.53f, 2 * S, FLinearColor(1.f, 0.2f, 0.7f, 0.75f));
+	}
+	for (int32 k = -6; k <= 6; ++k)
+	{
+		FCanvasLineItem Ln(FVector2D(Cx + k * 30 * S, Cy + 4 * S), FVector2D(Cx + k * 200 * S, H));
+		Ln.SetColor(FLinearColor(1.f, 0.2f, 0.7f, 0.6f)); Ln.LineThickness = 2.f * S;
+		Canvas->DrawItem(Ln);
+	}
+	TxtF(FO, FString::Printf(TEXT("CH %02d"), Lv + 1), Cx, Cy - R - 70 * S, FLinearColor(0.55f, 1.f, 0.7f), 0.9f, 1, true, FLinearColor(0.3f, 1.f, 0.5f, 0.18f));
+	TxtF(FO, L.Zone, Cx, Cy + 22 * S, White, 0.62f, 1, true, FLinearColor(1.f, 0.2f, 0.65f, 0.25f));
+	TxtF(FR, FString::Printf(TEXT("LEVEL %d  ·  %s"), Lv + 1, *L.Title), Cx, Cy + 52 * S, Yellow, 0.52f, 1, true);
+	// scan lines and a little snow
+	for (float Y = 0.f; Y < H; Y += 4.f * S) Box(0, Y, W, 1.2f * S, FLinearColor(0.f, 0.f, 0.f, 0.22f));
+	FRandomStream Rs((int32)(T * 30.f));
+	for (int32 k = 0; k < 90; ++k) Box(Rs.FRand() * W, Rs.FRand() * H, (2.f + Rs.FRand() * 10.f) * S, 2.f * S, FLinearColor(1.f, 1.f, 1.f, 0.25f + 0.4f * Rs.FRand()));
 }
 
 // ---------------------------------------------------------------------------------------------- slate

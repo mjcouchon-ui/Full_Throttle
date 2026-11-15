@@ -25,6 +25,19 @@ private:
 	float S = 1.f, W = 1280.f, H = 720.f, T = 0.f;
 	UPROPERTY(Transient) TObjectPtr<UFont> FD = nullptr;
 	UPROPERTY(Transient) TObjectPtr<UFont> FB = nullptr;
+	// 3.0 title: Orbitron Black and Rajdhani Bold (both SIL Open Font License 1.1, see Content/UI/Fonts/OFL-*.txt)
+	// and the lettered logo (T_TitleLogo: chrome THROTTLE in Orbitron, neon "Full" in Mr Dafoe, also OFL)
+	UPROPERTY(Transient) TObjectPtr<UFont> FOrb = nullptr;
+	UPROPERTY(Transient) TObjectPtr<UFont> FRaj = nullptr;
+	UPROPERTY(Transient) TObjectPtr<class UTexture2D> TLogo = nullptr;
+	bool bTitleAssets = false;
+	void TxtF(UFont* F, const FString& Str, float X, float Y, const FLinearColor& C, float Scale, int32 Align = 0, bool bShadow = true, const FLinearColor& Glow = FLinearColor::Transparent);
+	FVector2D MeasureF(UFont* F, const FString& Str, float Scale);
+	/** A gradient rectangle (A at the top/left, B at the bottom/right). */
+	void Grad(float X, float Y, float Wd, float Ht, const FLinearColor& A, const FLinearColor& B, bool bHorizontal);
+	void DrawAttractWipe(AFTGameMode* G);
+	void DrawAttractOsd(AFTGameMode* G);
+	FBox2D TitleButton(float X, float Y, float Wd, float Ht, const FString& Label, const FString& Sub, bool bHot);
 	void Txt(const FString& Str, float X, float Y, const FLinearColor& C, float Scale, int32 Align = 0, bool bDisplay = false, bool bShadow = true);
 	FVector2D Measure(const FString& Str, float Scale, bool bDisplay);
 	void Box(float X, float Y, float Wd, float Ht, const FLinearColor& C);

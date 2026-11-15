@@ -6,6 +6,8 @@
 #include "Materials/MaterialInterface.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "FTGameInstance.h"
+#include "HAL/PlatformTime.h"
 
 namespace
 {
@@ -62,10 +64,22 @@ void AFTTrack::BeginPlay()
 
 void AFTTrack::Rebuild()
 {
+	// 3.0: an attract-mode cut asks for a light build around its shot (the map load is what the cut waits for)
+	LightAt = -1.f;
+	if (UWorld* W = GetWorld(); W && W->IsGameWorld())
+		if (const UFTGameInstance* G = Cast<UFTGameInstance>(W->GetGameInstance())) LightAt = G->AttractD0;
+	const double T0 = FPlatformTime::Seconds();
 	Integrate();
+	const double T1 = FPlatformTime::Seconds();
 	BuildRoadGrid();
+	const double T2 = FPlatformTime::Seconds();
+	MeshCreateMs = 0.0;
 	BuildMeshes();
+	const double T3 = FPlatformTime::Seconds();
 	BuildProps();
+	const double T4 = FPlatformTime::Seconds();
+	UE_LOG(LogFT, Display, TEXT("FTBUILD level=%d light=%.0f integrate=%.0fms grid=%.0fms meshes=%.0fms (sections+collision %.0fms) props=%.0fms total=%.0fms"),
+		LevelIndex, LightAt, (T1 - T0) * 1000.0, (T2 - T1) * 1000.0, (T3 - T2) * 1000.0, MeshCreateMs, (T4 - T3) * 1000.0, (T4 - T0) * 1000.0);
 }
 
 // ------------------------------------------------------------------------------------------ 2.7 road clearance
@@ -952,6 +966,9 @@ void AFTTrack::BuildMeshes()
 			}
 		}
 
+		// 3.0 light build (attract mode): collision only on the chunks around the shot; the rest is looks only
+		const bool bColl = LightAt < 0.f || (c1 * Step >= LightAt - LightCollBack && c0 * Step <= LightAt + LightCollAhead);
+		const double TC0 = FPlatformTime::Seconds();
 		UProceduralMeshComponent* PM = NewObject<UProceduralMeshComponent>(this, NAME_None, RF_Transient);
 		PM->SetupAttachment(RootComponent);
 		PM->bUseAsyncCooking = false; // the road must be solid before the car drops onto it
@@ -963,14 +980,14 @@ void AFTTrack::BuildMeshes()
 		const TArray<FProcMeshTangent> NoT;
 		DeckFlags.SetNumZeroed(Deck.V.Num());
 		const TArray<FVector2D> NoUV;
-		PM->CreateMeshSection_LinearColor(0, Deck.V, Deck.I, Deck.N, Deck.UV, DeckFlags, NoUV, NoUV, Deck.C, NoT, true);
-		PM->CreateMeshSection_LinearColor(1, Wall.V, Wall.I, Wall.N, Wall.UV, Wall.C, NoT, true);
+		PM->CreateMeshSection_LinearColor(0, Deck.V, Deck.I, Deck.N, Deck.UV, DeckFlags, NoUV, NoUV, Deck.C, NoT, bColl);
+		PM->CreateMeshSection_LinearColor(1, Wall.V, Wall.I, Wall.N, Wall.UV, Wall.C, NoT, bColl);
 		PM->CreateMeshSection_LinearColor(2, NeonB.V, NeonB.I, NeonB.N, NeonB.UV, NeonB.C, NoT, false);
-		PM->CreateMeshSection_LinearColor(3, Fence.V, Fence.I, Fence.N, Fence.UV, Fence.C, NoT, true);
+		PM->CreateMeshSection_LinearColor(3, Fence.V, Fence.I, Fence.N, Fence.UV, Fence.C, NoT, bColl);
 		PM->SetMeshSectionVisible(3, false);
 		PM->CreateMeshSection_LinearColor(4, Glass.V, Glass.I, Glass.N, Glass.UV, Glass.C, NoT, false);
 		PM->CreateMeshSection_LinearColor(5, Rib.V, Rib.I, Rib.N, Rib.UV, Rib.C, NoT, false);
-		PM->CreateMeshSection_LinearColor(6, Ground.V, Ground.I, Ground.N, Ground.UV, Ground.C, NoT, true);
+		PM->CreateMeshSection_LinearColor(6, Ground.V, Ground.I, Ground.N, Ground.UV, Ground.C, NoT, bColl);
 		PM->CreateMeshSection_LinearColor(7, Water.V, Water.I, Water.N, Water.UV, Water.C, NoT, false);
 		PM->CreateMeshSection_LinearColor(8, Bldg.V, Bldg.I, Bldg.N, Bldg.UV, Bldg.C, NoT, false);
 		PM->CreateMeshSection_LinearColor(9, Lobby.V, Lobby.I, Lobby.N, Lobby.UV, Lobby.C, NoT, false);
@@ -979,7 +996,9 @@ void AFTTrack::BuildMeshes()
 		PM->SetMaterial(4, MGlass); PM->SetMaterial(5, MRib); PM->SetMaterial(6, MGround); PM->SetMaterial(7, MWater);
 		PM->SetMaterial(8, MBldg); PM->SetMaterial(9, MWall); PM->SetMaterial(10, MLava);
 		PM->SetCastShadow(false); // the road and land only receive shadows (keeps Virtual Shadow Map work low)
+		if (!bColl) PM->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		Chunks.Add(PM);
+		MeshCreateMs += (FPlatformTime::Seconds() - TC0) * 1000.0;
 	}
 }
 
@@ -1216,6 +1235,8 @@ void AFTTrack::BuildProps()
 				}
 				const float Sc = Q.Scale * (1.f + (Rs.FRand() - 0.5f) * 2.f * Q.ScaleJitter);
 				if (!C) continue;
+				// 3.0 light build: small things only within a few km of the shot (big scenery always, it is seen from far)
+				if (LightAt >= 0.f && (Dj < LightAt - LightPropBack || Dj > LightAt + LightPropAhead) && C->GetStaticMesh()->GetBounds().SphereRadius * Sc <= 4000.f) continue;
 				if (!Clear(C->GetStaticMesh(), Pos, Rot, Sc, Out, FMath::RoundToInt(Dj / Step), Q.bOnRoad, Report.FindOrAdd(FPaths::GetBaseFilename(Q.Mesh)))) continue;
 				C->AddInstance(FTransform(Rot, Pos, FVector(Sc)), false);
 				if (Q.Light) LampSpots.Add(Q.bOnRoad ? (G.Pos + G.Right * (X * 0.8f) + G.Up * 780.f) : (Pos + FVector(0, 0, 600.f)));
@@ -1282,6 +1303,7 @@ void AFTTrack::BuildProps()
 			const FFTFrame& F = Frames[i];
 			if (F.Flags & (FTFlag::Pipe | FTFlag::Twist)) continue;
 			if (F.Up.Z < 0.5f) continue;
+			if (LightAt >= 0.f && (i * Step < LightAt - LightPropBack || i * Step > LightAt + LightPropAhead)) continue;
 			// 2.5: a coaster stands on a pillar under each rail (not under the top one where they cross over)
 			const bool bCo = (F.Flags & FTFlag::Coaster) != 0;
 			const FFTRails Rl = RailsAt(i * Step);

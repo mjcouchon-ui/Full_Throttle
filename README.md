@@ -1,4 +1,4 @@
-# FULL THROTTLE 2.9.0: the Unreal Engine 5.9 game
+# FULL THROTTLE 3.0.0: the Unreal Engine 5.9 game
 
 The 80s spy car chase (web app `full-throttle`, 1.7.2) rebuilt as a native Unreal Engine 5.9 game for Windows,
 C++ plus Blueprints. WispOS opens the packaged build as the native app `full-throttle-unreal`
@@ -289,3 +289,18 @@ No file in the project is over 50 MB. `Binaries`, `Intermediate`, `Saved` and `D
     pixel difference 1.0-1.8 / 255, the same as EPIC against itself a moment later (0.7-1.5): the cel look holds.
   - Bench (Shipping, this PC, 2048×1152 window; the run was stopped after levels 1-4 on the owner's order):
     2.8.0 → 2.9.0 on Windows within ±3.4 % GPU ms at every preset, as intended (`../full-throttle-tests/v290/*.txt`).
+
+- **3.0.0 (owner's queue): the new title screen.** (UI & HUD and Game rules sections: `FTHUD.*`, `FTGameMode.*`,
+  `FTFlow.cpp`, `FTGameInstance.*`, `FTTrack.*`, `Content/UI/Fonts`, `Content/UI/Title`, `Tools/title`.)
+  - *Stylized 80s title*: the lettered logo `Content/UI/Title/T_TitleLogo` (chrome THROTTLE in Orbitron Black, neon
+    "Full" in Mr Dafoe; source `Tools/title/logo.html` + `T_TitleLogo.png`), menu text in Orbitron Black and Rajdhani
+    Bold (`Content/UI/Fonts`). All three fonts are SIL Open Font License 1.1 (`Content/Data/Licenses/OFL-*.txt`).
+    Buttons ROLL CAMERA, PRE-PRODUCTION, CONTROLS, OPTIONS, QUIT, clickable with the mouse.
+  - *Attract mode*: behind the title the game plays itself on autopilot (a VHS-style "DEMO" on-screen display, the car
+    sometimes already beaten up) and cuts to the next level every 11 s behind a channel-change wipe. A cut loads the
+    next map with its track built light around the shot (`AFTTrack::IsLight`: collision and small scenery only near it),
+    and the title song (Bit-Beast Dash) is kept by the game instance so it plays on across the loads. Starting a level
+    from the title always does a full build. `ft.Attract 0` or `-ftnoattract` turns it off; benches skip it.
+  - Log lines: `FT ATTRACT shot ...`, `FTBUILD level= light= ...`; `FTDumpLevel` also prints the title song and attract state.
+  - Checked by the owner in the Development package (`../full-throttle-tests/v300/dev-build`); the Shipping package
+    went out without further test runs on the owner's order.

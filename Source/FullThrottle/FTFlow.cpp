@@ -362,6 +362,7 @@ void AFTGameMode::EnterPreProduction(int32 NextLevel, bool bFromTitle)
 	ClearEnts();
 	UGameplayStatics::SetGlobalTimeDilation(this, 1.f); TimeScale = 1.f;
 	if (Music) Music->SetVolumeMultiplier(0.12f);
+	if (UFTGameInstance* GT = GI()) GT->SetTitleMusicVolume(0.12f);   // 3.0: from the title the title song plays on, low
 	BuyHoldT = 0.f; bBuyHoldDone = false;
 	if (CS) { CS->C.PendingLevel = NextLevel; CS->C.bPendingFromTitle = bFromTitle; CS->Save(TEXT("PreProduction")); }
 	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->SetMenuMouse(true);
@@ -383,9 +384,8 @@ void AFTGameMode::LeavePreProduction()
 	if (bPPFromTitle)
 	{
 		// 10 §4 / 00 assumption 11: from the title, READY returns to the title
-		Phase = EFTPhase::Title; PhaseT = 0.f;
-		if (Music) { Music->SetSound(Load<USoundBase>(TEXT("/Game/Audio/Music/M_TitleTheme"))); Music->SetVolumeMultiplier(0.55f); Music->Play(); }
 		UE_LOG(LogFT, Display, TEXT("FT SCREEN name=Title"));
+		EnterTitle(false);
 		return;
 	}
 	if (PPNextLevel < 0)
@@ -396,7 +396,7 @@ void AFTGameMode::LeavePreProduction()
 		if (G) { G->TitleBanner = bWrapBanner ? TEXT("THAT'S A WRAP") : FString(); }
 		UE_LOG(LogFT, Display, TEXT("FT SCREEN name=Title banner=\"%s\""), bWrapBanner ? TEXT("THAT'S A WRAP") : TEXT(""));
 		if (bWrapBanner) GoToLevel(0, false);
-		else { Phase = EFTPhase::Title; PhaseT = 0.f; if (Music) { Music->SetSound(Load<USoundBase>(TEXT("/Game/Audio/Music/M_TitleTheme"))); Music->SetVolumeMultiplier(0.55f); Music->Play(); } }
+		else EnterTitle(false);
 		return;
 	}
 	UE_LOG(LogFT, Display, TEXT("FT SCREEN name=Slate next=L%d"), PPNextLevel + 1);
@@ -633,8 +633,9 @@ void AFTGameMode::StartLevelAt(int32 L, int32 SceneIdx, bool bSequel)
 	if (G) { G->PendingScene = FMath::Max(0, SceneIdx); G->bHarnessSequel = bSequel; }
 	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->SetMenuMouse(false);
 	Overlay = EFTOverlay::None;
+	StopAttract();
 	UGameplayStatics::SetGamePaused(this, false);
-	if (L != Level) GoToLevel(L, true);
+	if (L != Level || (Track && Track->IsLight())) GoToLevel(L, true);
 	else StartRace(false);
 }
 
@@ -912,7 +913,7 @@ void AFTGameMode::HarnessCmd(const FString& Cmd, const TArray<FString>& A)
 	else if (Cmd == TEXT("FTGoto"))
 	{
 		const FString W = Arg(A, 0);
-		if (W == TEXT("Title")) { Phase = EFTPhase::Title; PhaseT = 0.f; ClearEnts(); UE_LOG(LogFT, Display, TEXT("FT SCREEN name=Title")); }
+		if (W == TEXT("Title")) { StopAttract(); ClearEnts(); UE_LOG(LogFT, Display, TEXT("FT SCREEN name=Title")); EnterTitle(false); }
 		else if (W == TEXT("PreProduction")) EnterPreProduction(Level, true);
 		else if (W == TEXT("Paycheck")) EnterPaycheck();
 	}
@@ -1071,6 +1072,13 @@ void AFTGameMode::HarnessCmd(const FString& Cmd, const TArray<FString>& A)
 		const USoundWave* MW = Music ? Cast<USoundWave>(Music->Sound) : nullptr;
 		UE_LOG(LogFT, Display, TEXT("FTMUSIC dump level=L%d track=%s playing=%d looping=%d vol=%.2f"),
 			Level + 1, Music && Music->Sound ? *Music->Sound->GetName() : TEXT("none"), Music && Music->IsPlaying() ? 1 : 0, MW && MW->bLooping ? 1 : 0, Music ? Music->VolumeMultiplier : 0.f);
+		// 3.0: the title song (kept by the game instance across the attract mode's map loads) and the attract state
+		const UFTGameInstance* GT = GI();
+		const UAudioComponent* TM = GT ? GT->TitleMusic.Get() : nullptr;
+		const USoundWave* TW = TM ? Cast<USoundWave>(TM->Sound) : nullptr;
+		UE_LOG(LogFT, Display, TEXT("FTMUSIC dump title=%s playing=%d looping=%d vol=%.2f attract=%d phase=%d titleT=%.1f cuts=%d light=%d"),
+			TM && TM->Sound ? *TM->Sound->GetName() : TEXT("none"), TM && TM->IsPlaying() ? 1 : 0, TW && TW->bLooping ? 1 : 0, TM ? TM->VolumeMultiplier : 0.f,
+			bAttract ? 1 : 0, (int32)Phase, TitleT, GT ? GT->AttractCuts : 0, Track && Track->IsLight() ? 1 : 0);
 	}
 	else if (Cmd == TEXT("FTDumpSkills") || Cmd == TEXT("FTDumpGarage") || Cmd == TEXT("FTDumpShop"))
 	{

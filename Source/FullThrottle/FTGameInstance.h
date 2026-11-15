@@ -55,6 +55,22 @@ public:
 	int32 RunCounter = 0;
 	int32 TitleLevel = 0;
 
+	// 3.0 attract mode: behind the title the game plays itself and cuts from level to level. A cut loads the next
+	// level's map with its track built light around the shot (AttractD0, cm along the road; -1 = a full build), and
+	// the title (selection, time on it) carries over. The title song lives here so it plays on across those loads.
+	float AttractD0 = -1.f;
+	int32 AttractScene = 0, AttractSpawn = 0;
+	bool bAttractCut = false;
+	int32 KeepTitleSel = 0;
+	float KeepTitleT = 0.f;
+	int32 AttractCuts = 0;
+	UPROPERTY(Transient) TObjectPtr<class UAudioComponent> TitleMusic;
+	bool bTitleMusicOn = false;
+	/** Start the title song (Bit-Beast Dash) if it isn't playing, at this volume; it survives map loads. */
+	void PlayTitleMusic(UObject* Ctx, float Volume);
+	void SetTitleMusicVolume(float Volume);
+	void StopTitleMusic(float FadeSeconds);
+
 	// benchmark (-ftbench): fixed preset, autopilot, writes a JSON report and quits
 	bool bBench = false;
 	float BenchSeconds = 75.f;

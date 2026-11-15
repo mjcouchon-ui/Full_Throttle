@@ -117,6 +117,14 @@ public:
 
 	void Rebuild();
 	bool IsBuilt() const { return Frames.Num() > 1; }
+	/** 3.0 attract mode: the track was built light around this distance (cm): collision only near it, small
+	 *  scenery only within a few km of it (the land, road and big scenery are everywhere). -1 = a full build. */
+	float LightD0() const { return LightAt; }
+	bool IsLight() const { return LightAt >= 0.f; }
+	static constexpr float LightCollBack = 60000.f;
+	static constexpr float LightCollAhead = 300000.f;
+	static constexpr float LightPropBack = 100000.f;
+	static constexpr float LightPropAhead = 700000.f;
 
 	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void BeginPlay() override;
@@ -140,6 +148,8 @@ protected:
 	bool GroundHitsRoad(const FVector& P, int32 SkipLo, int32 SkipHi) const;
 	TMap<FIntPoint, TArray<int32>> RoadCells;
 	float MaxRoadW = 0.f;
+	float LightAt = -1.f;
+	double MeshCreateMs = 0.0;
 
 	TArray<FFTFrame> Frames;
 	TArray<float> SectionStart; // cm

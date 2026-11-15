@@ -39,6 +39,7 @@
 // test hooks: ft.Autopilot 1 drives the car (and starts the race from the title); ft.Shots N takes a screenshot every N seconds
 static TAutoConsoleVariable<int32> CVarFTAutopilot(TEXT("ft.Autopilot"), 0, TEXT("FULL THROTTLE: 1 = the autopilot drives and starts races (tests, benchmarks)"));
 static TAutoConsoleVariable<float> CVarFTHp(TEXT("ft.Hp"), 0.f, TEXT("FULL THROTTLE test hook: start each race with this armour, e.g. 30 = already burning (0 = normal)"));
+static TAutoConsoleVariable<int32> CVarFTAttract(TEXT("ft.Attract"), 1, TEXT("FULL THROTTLE 3.0: 1 = the title plays the game by itself and cuts between the levels (attract mode)"));
 static TAutoConsoleVariable<float> CVarFTShots(TEXT("ft.Shots"), 0.f, TEXT("FULL THROTTLE: take a screenshot every N seconds while racing (0 = off)"));
 
 using FT::XU; using FT::DU; using FT::RoadHalf; using FT::LaneX; using FT::BaseSpeed; using FT::WallH;
@@ -99,6 +100,8 @@ void AFTGameMode::BeginPlay()
 	}
 	SetupLevel();
 	if (G) { G->ReapplyQuality(); G->ApplyMute(); TitleSel = Level; }
+	// 3.0: this map's track was built light for an attract shot (or fully); the next load builds fully unless a cut asks
+	if (G) { AttractScene = G->AttractScene; AttractSpawn = G->AttractSpawn; G->AttractD0 = -1.f; }
 	UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this);
 	if (G && G->bStartRace)
 	{
@@ -120,9 +123,11 @@ void AFTGameMode::BeginPlay()
 	}
 	else
 	{
-		Phase = EFTPhase::Title;
-		PhaseT = 0.f;
-		if (Music) { Music->SetSound(Load<USoundBase>(TEXT("/Game/Audio/Music/M_TitleTheme"))); Music->SetVolumeMultiplier(0.55f); Music->Play(); }
+		// 3.0: an attract cut keeps the title as it was (the selection, the time on it) and opens the wipe
+		const bool bCut = G && G->bAttractCut;
+		if (bCut) { G->bAttractCut = false; TitleSel = G->KeepTitleSel; TitleT = G->KeepTitleT; }
+		EnterTitle(bCut);
+		bAttractCutIn = bCut && bAttract;
 	}
 }
 
@@ -218,6 +223,10 @@ void AFTGameMode::GoToLevel(int32 L, bool bStart)
 
 void AFTGameMode::StartRace(bool bRetake)
 {
+	if (!bAttract)
+	{
+		if (UFTGameInstance* G = GI()) G->StopTitleMusic(1.2f);
+	}
 	ClearEnts();
 	Hazards.Reset();
 	const FFTLevelDef& L = Def();
@@ -234,13 +243,16 @@ void AFTGameMode::StartRace(bool bRetake)
 		Run = FFTLevelRun(); Run.Rounds[0] = Stats.ApRounds; Run.Rounds[1] = Stats.HeRounds; AmmoLoad = 0;
 		LevelClock = 0.f; ClockLogT = 0.f; bLastTakeUsed = false; bLastChance = false; bRunDown = false; BossClock = 0.f; BossRate = 1.f;
 		bStarUsed = false; StarT = 0.f; StarHoldT = 0.f;
-		if (UFTGameInstance* G = GI()) G->RunCounter++;
 		const FFTLevelRow& LR = FFTProgressData::Get().Levels[Level];
 		ScriptTotal = FMath::Max(1, LR.Vehicles);
-		UE_LOG(LogFT, Display, TEXT("FT LEVEL id=%s scene=%d sequel=%d scriptVehicles=%d expected=%d par=%d"), *LR.Id, Scene + 1, bSequelRun ? 1 : 0, ScriptTotal, LR.Vehicles, LR.Par);
-		UE_LOG(LogFT, Display, TEXT("FT PLAYER armor=%.0f max=%.0f"), Hp, Stats.MaxArmor);
-		UE_LOG(LogFT, Display, TEXT("FT MISSILES count=%d cap=%d"), Missiles, Stats.MissileCap);
-		UE_LOG(LogFT, Display, TEXT("FT AMMO load=STD ap=%d he=%d"), Run.Rounds[0], Run.Rounds[1]);
+		if (!bAttract)
+		{
+			if (UFTGameInstance* G = GI()) G->RunCounter++;
+			UE_LOG(LogFT, Display, TEXT("FT LEVEL id=%s scene=%d sequel=%d scriptVehicles=%d expected=%d par=%d"), *LR.Id, Scene + 1, bSequelRun ? 1 : 0, ScriptTotal, LR.Vehicles, LR.Par);
+			UE_LOG(LogFT, Display, TEXT("FT PLAYER armor=%.0f max=%.0f"), Hp, Stats.MaxArmor);
+			UE_LOG(LogFT, Display, TEXT("FT MISSILES count=%d cap=%d"), Missiles, Stats.MissileCap);
+			UE_LOG(LogFT, Display, TEXT("FT AMMO load=STD ap=%d he=%d"), Run.Rounds[0], Run.Rounds[1]);
+		}
 		AheadSaid.Reset();
 	}
 	else
@@ -275,8 +287,8 @@ void AFTGameMode::StartRace(bool bRetake)
 	Line.Reset(); LinePri = 0;
 	TimeScale = 1.f; SlowT = 0.f; FreezeT = 0.f;
 	UGameplayStatics::SetGlobalTimeDilation(this, 1.f);
-	Sfx(TEXT("Sting"));
-	if (!bRetake && Music) { Music->FadeOut(1.2f, 0.f); }
+	if (!bAttract) Sfx(TEXT("Sting"));
+	if (!bRetake && Music && !bAttract) { Music->FadeOut(1.2f, 0.f); }
 	Checkpoint();
 	bShowKeys = !bRetake;
 	SceneStartClock = Clock;
@@ -312,6 +324,8 @@ void AFTGameMode::BeginPlayPhase()
 void AFTGameMode::Wreck()
 {
 	if (Phase != EFTPhase::Play) return;
+	// 3.0 attract mode: the demo never wrecks; a shot gone wrong just cuts to the next level
+	if (bAttract) { Hp = FMath::Max(Hp, 25.f); if (AttractOutT < 0.f) { AttractOutT = 0.f; AttractHeld = 0; } return; }
 	Phase = EFTPhase::Wreck; PhaseT = 0.f;
 	Car->Wreck();
 	Explode(Car->GetActorLocation(), 2.2f);
@@ -339,6 +353,7 @@ void AFTGameMode::Wreck()
 void AFTGameMode::Wrap(bool bEscape)
 {
 	if (Phase != EFTPhase::Play) return;
+	if (bAttract) return; // 3.0: the attract mode never ends a level
 	Phase = EFTPhase::Wrap; PhaseT = 0.f;
 	bEscaped = bEscape;
 	if (!bEscape)
@@ -404,8 +419,16 @@ void AFTGameMode::Tick(float Dt)
 	Fps = RDt > 0.f ? 1.f / RDt : 0.f;
 	FpsSmoothed = FMath::Lerp(FpsSmoothed, Fps, 0.05f);
 	PhaseT += RDt;
+	TitleT += RDt;
 	AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController());
 	UFTGameInstance* G = GI();
+
+	// 3.0: the attract mode holds still while the controls or options are open over the title
+	if (bAttract && (Overlay != EFTOverlay::None) != bAttractPaused)
+	{
+		bAttractPaused = Overlay != EFTOverlay::None;
+		UGameplayStatics::SetGamePaused(this, bAttractPaused);
+	}
 
 	if (G && PC)
 	{
@@ -439,6 +462,13 @@ void AFTGameMode::Tick(float Dt)
 		break;
 	}
 	case EFTPhase::Play:
+		if (bAttract)
+		{
+			// 3.0 attract mode: the title's menu on top, the autopilot's race underneath
+			TickTitle(RDt);
+			if (bAttract && Phase == EFTPhase::Play && Overlay == EFTOverlay::None) { TickPlay(Dt, RDt); TickAttract(RDt); }
+			break;
+		}
 		TickPlay(Dt, RDt);
 		break;
 	case EFTPhase::Wreck:
@@ -564,25 +594,170 @@ void AFTGameMode::TickTitle(float RDt)
 {
 	AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController());
 	if (!PC) return;
-	// 2.5: eight levels on two rows of four
+	// 3.0: the eight levels are one list (up/down; left/right step too), 1-8 jump, the mouse hovers and clicks
 	const int32 NL = FTData::NumLevels();
-	if (PC->MenuLeft()) TitleSel = (TitleSel + NL - 1) % NL;
-	if (PC->MenuRight()) TitleSel = (TitleSel + 1) % NL;
-	if (PC->MenuUp() || PC->MenuDown()) TitleSel = (TitleSel + 4) % NL;
+	const int32 Was = TitleSel;
+	if (PC->MenuUp() || PC->MenuLeft()) TitleSel = (TitleSel + NL - 1) % NL;
+	if (PC->MenuDown() || PC->MenuRight()) TitleSel = (TitleSel + 1) % NL;
 	static const FKey Num[8] = { EKeys::One, EKeys::Two, EKeys::Three, EKeys::Four, EKeys::Five, EKeys::Six, EKeys::Seven, EKeys::Eight };
 	for (int32 i = 0; i < NL && i < 8; ++i) if (PC->Hit(Num[i])) TitleSel = i;
-	if (PC->Hit(EKeys::C) || PC->Hit(EKeys::Gamepad_FaceButton_Top)) { Overlay = EFTOverlay::Controls; ControlsRow = 0; ControlsCol = GI() ? GI()->Layout : 0; return; }
-	if (PC->Hit(EKeys::O)) { Overlay = EFTOverlay::Options; OptionsRow = 0; return; }
-	// 10 §4: PRE-PRODUCTION from the title (G, or the pad's Back), so points can be spent before level 1
-	if (PC->Hit(EKeys::G) || PC->Hit(EKeys::Gamepad_Special_Left)) { EnterPreProduction(-2, true); return; }
-	if (PC->Hit(EKeys::Escape) && PhaseT > 1.f) { UKismetSystemLibrary::QuitGame(this, PC, EQuitPreference::Quit, false); return; }
-	const UFTGameInstance* TG = GI();
-	if ((PC->MenuOk() && PhaseT > 0.4f) || (CVarFTAutopilot.GetValueOnGameThread() > 0 && PhaseT > 1.5f) || (TG && TG->bAutoDrive && PhaseT > 3.5f))
+	// the mouse: hovering a row picks it (only when the mouse moves, so it never fights the keys), a click rolls it
+	const FVector2D M = PC->MousePos();
+	const bool bMoved = M.X >= 0.f && TitleMouse.X >= 0.f && FVector2D::Distance(M, TitleMouse) > 1.5f;
+	TitleMouse = M;
+	if (bMoved) for (int32 i = 0; i < TitleRowRects.Num() && i < NL; ++i) if (PC->MouseIn(TitleRowRects[i])) TitleSel = i;
+	TitleHotBtn = -1;
+	for (int32 i = 0; i < TitleBtnRects.Num(); ++i) if (PC->MouseIn(TitleBtnRects[i])) TitleHotBtn = i;
+	if (TitleSel != Was) { LastMenuInputT = RealClock; Sfx(TEXT("Near"), 0.35f, 1.6f); UE_LOG(LogFT, Display, TEXT("FT TITLE sel=%d"), TitleSel + 1); }
+	int32 Clicked = -1;   // 0 roll, 1 pre-production, 2 controls, 3 options, 4 quit
+	if (PC->Hit(EKeys::LeftMouseButton))
 	{
-		if (UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this); CS && TitleSel == 0) { CS->C.Stats.Runs++; CS->Save(TEXT("Run")); }
-		if (TitleSel != Level) GoToLevel(TitleSel, true);
-		else StartRace(false);
+		for (int32 i = 0; i < TitleRowRects.Num() && i < NL; ++i) if (PC->MouseIn(TitleRowRects[i])) { TitleSel = i; Clicked = 0; }
+		if (TitleHotBtn >= 0) Clicked = TitleHotBtn;
+		if (Clicked >= 0) LastMenuInputT = RealClock;
 	}
+	if (Clicked == 2 || PC->Hit(EKeys::C) || PC->Hit(EKeys::Gamepad_FaceButton_Top)) { UE_LOG(LogFT, Display, TEXT("FT TITLE overlay=Controls")); LastMenuInputT = RealClock; Overlay = EFTOverlay::Controls; ControlsRow = 0; ControlsCol = GI() ? GI()->Layout : 0; return; }
+	if (Clicked == 3 || PC->Hit(EKeys::O)) { UE_LOG(LogFT, Display, TEXT("FT TITLE overlay=Options")); LastMenuInputT = RealClock; Overlay = EFTOverlay::Options; OptionsRow = 0; return; }
+	// 10 §4: PRE-PRODUCTION from the title (G, or the pad's Back), so points can be spent before level 1
+	if (Clicked == 1 || PC->Hit(EKeys::G) || PC->Hit(EKeys::Gamepad_Special_Left)) { StopAttract(); EnterPreProduction(-2, true); return; }
+	if ((Clicked == 4 || PC->Hit(EKeys::Escape)) && TitleT > 1.f) { UKismetSystemLibrary::QuitGame(this, PC, EQuitPreference::Quit, false); return; }
+	const UFTGameInstance* TG = GI();
+	if (Clicked == 0 || (PC->MenuOk() && TitleT > 0.4f) || (CVarFTAutopilot.GetValueOnGameThread() > 0 && TitleT > 1.5f) || (TG && TG->bAutoDrive && TitleT > 3.5f))
+		TitleStart();
+}
+
+void AFTGameMode::TitleStart()
+{
+	if (UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this); CS && TitleSel == 0) { CS->C.Stats.Runs++; CS->Save(TEXT("Run")); }
+	UE_LOG(LogFT, Display, TEXT("FT TITLE start level=%d attract=%d"), TitleSel + 1, bAttract ? 1 : 0);
+	// from the attract mode the race always gets a fresh map (the demo's track may be a light build)
+	if (bAttract || TitleSel != Level || (Track && Track->IsLight())) { StopAttract(); GoToLevel(TitleSel, true); }
+	else StartRace(false);
+}
+
+// ============================================================================================== 3.0 attract mode
+bool AFTGameMode::AttractAllowed() const
+{
+	const UFTGameInstance* G = GI();
+	return CVarFTAttract.GetValueOnGameThread() > 0 && !FParse::Param(FCommandLine::Get(), TEXT("ftnoattract")) && !(G && G->bBench) && Track && Car;
+}
+
+void AFTGameMode::EnterTitle(bool bKeepTitleT)
+{
+	UFTGameInstance* G = GI();
+	Phase = EFTPhase::Title; PhaseT = 0.f;
+	if (!bKeepTitleT) TitleT = 0.f;
+	if (Music && Music->IsPlaying()) Music->Stop();
+	if (G) G->PlayTitleMusic(this, 0.55f);
+	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->SetMenuMouse(true);
+	if (AttractAllowed()) StartAttract();
+}
+
+void AFTGameMode::PickAttractShot(int32 L, int32& OutScene, int32& OutSpawn, float& OutD0)
+{
+	// a flying start a few seconds before one of the level's own groups of the Syndicate (never the boss, never a
+	// group of only crates and barrels); helicopters, trucks, SUVs and SNAKE EYES count twice
+	const FFTLevelDef& Ld = FTData::Level(L);
+	TArray<FIntPoint> C;
+	for (int32 s = 0; s < Ld.Scenes.Num(); ++s)
+		for (int32 k = 0; k < Ld.Scenes[s].Spawns.Num(); ++k)
+		{
+			const FFTSpawn& Sp = Ld.Scenes[s].Spawns[k];
+			if (Sp.Kinds.Contains(EFTKind::Boss) || Sp.D * DU < 9000.f || Sp.D >= Ld.FinaleD) continue;
+			bool bFoe = false, bBig = false;
+			for (const EFTKind K : Sp.Kinds)
+			{
+				if (K == EFTKind::Moto || K == EFTKind::Rammer || K == EFTKind::Suv || K == EFTKind::Truck || K == EFTKind::Heli || K == EFTKind::Hog) bFoe = true;
+				if (K == EFTKind::Suv || K == EFTKind::Truck || K == EFTKind::Heli || K == EFTKind::Hog) bBig = true;
+			}
+			if (!bFoe) continue;
+			C.Add(FIntPoint(s, k));
+			if (bBig) C.Add(FIntPoint(s, k));
+		}
+	if (C.Num() == 0) { OutScene = 0; OutSpawn = 0; OutD0 = 600.f; return; }
+	const FIntPoint P = C[FMath::RandRange(0, C.Num() - 1)];
+	OutScene = P.X; OutSpawn = P.Y;
+	OutD0 = FMath::Max(600.f, Ld.Scenes[P.X].Spawns[P.Y].D * DU - 6000.f);
+}
+
+void AFTGameMode::StartAttract()
+{
+	int32 S = AttractScene, K = AttractSpawn; float D0 = 600.f;
+	if (Track->IsLight()) D0 = Track->LightD0();   // the map was built for this shot
+	else PickAttractShot(Level, S, K, D0);
+	bAttract = true;
+	StartRace(false);   // a clean run (quiet: no logs, no sting, no career)
+	const FFTLevelDef& L = Def();
+	S = FMath::Clamp(S, 0, L.Scenes.Num() - 1);
+	Scene = S; SpawnScene = S; SpawnIdx = FMath::Clamp(K, 0, L.Scenes[S].Spawns.Num());
+	float D = FMath::Max(600.f, D0);
+	while (D > 600.f && (Track->FlagsAt(D) & (FTFlag::Gap | FTFlag::Loop | FTFlag::Pipe | FTFlag::Twist | FTFlag::Kicker | FTFlag::Coaster | FTFlag::HalfPipe | FTFlag::Building))) D -= 400.f;
+	Car->PlaceOnTrack(D, LaneX(FMath::RandRange(1, 2)), BaseSpeed * 0.75f);
+	// some shots have the KESTREL already beaten up (smoke, fire, parts gone)
+	static const float HpPick[] = { 100.f, 100.f, 70.f, 45.f };
+	Hp = Stats.MaxArmor * HpPick[FMath::RandRange(0, 3)] / 100.f;
+	Car->RestoreParts(); PartsShed = 0;
+	for (int32 i = 0; i < 7; ++i) if (HpPct() < 88.f - 12.f * i) { Car->ShedPart(i); PartsShed = i + 1; }
+	PrevHp = Hp;
+	Car->SetDamageLook(HpPct());
+	Phase = EFTPhase::Play; PhaseT = 0.f;
+	SceneSlateT = ActionT = -10.f; Line.Reset(); LinePri = 0; bShowKeys = false; Invuln = 1.5f;
+	Checkpoint();
+	AttractT = 0.f; AttractOutT = -1.f; AttractHeld = 0; bCamInit = false;
+	UE_LOG(LogFT, Display, TEXT("FT ATTRACT shot level=%d scene=%d spawn=%d D=%.0f light=%d hp=%.0f cuts=%d"), Level + 1, S + 1, K, D, Track->IsLight() ? 1 : 0, Hp, GI() ? GI()->AttractCuts : 0);
+}
+
+void AFTGameMode::TickAttract(float RDt)
+{
+	AttractT += RDt;
+	if (AttractOutT >= 0.f)
+	{
+		// the wipe covers the screen; once a few covered frames are on screen the next level loads behind it
+		AttractOutT += RDt;
+		if (AttractOutT >= AttractWipeOut && ++AttractHeld == 3) CutAttract();
+		return;
+	}
+	// cut on time, but never right under a key press or a click (the load would swallow the next one)
+	if (AttractT >= AttractLen && RealClock - LastMenuInputT > 1.2f)
+	{
+		AttractOutT = 0.f; AttractHeld = 0;
+		Sfx(TEXT("Zap"), 0.7f, 1.4f);
+	}
+}
+
+float AFTGameMode::AttractCover() const
+{
+	if (!bAttract) return 0.f;
+	if (AttractOutT >= 0.f) return FMath::Clamp(AttractOutT / AttractWipeOut, 0.f, 1.f);
+	// the new level's first frames can hitch (first-use shaders): hold the cover a moment, then open
+	if (bAttractCutIn) return 1.f - FMath::Clamp((AttractT - 0.2f) / AttractWipeIn, 0.f, 1.f);
+	return 0.f;
+}
+
+void AFTGameMode::CutAttract()
+{
+	UFTGameInstance* G = GI();
+	if (!G) return;
+	const int32 Next = AttractNextLevel();
+	int32 S = 0, K = 0; float D0 = 600.f;
+	PickAttractShot(Next, S, K, D0);
+	G->AttractD0 = D0; G->AttractScene = S; G->AttractSpawn = K; G->bAttractCut = true;
+	G->KeepTitleSel = TitleSel; G->KeepTitleT = TitleT; G->AttractCuts++;
+	UE_LOG(LogFT, Display, TEXT("FT ATTRACT cut from=%d to=%d scene=%d spawn=%d D0=%.0f"), Level + 1, Next + 1, S + 1, K, D0);
+	GoToLevel(Next, false);
+}
+
+void AFTGameMode::StopAttract()
+{
+	if (!bAttract) return;
+	bAttract = false; bAttractCutIn = false;
+	AttractOutT = -1.f;
+	if (bAttractPaused) { bAttractPaused = false; UGameplayStatics::SetGamePaused(this, false); }
+	ClearEnts(); Hazards.Reset();
+	FreezeT = SlowT = 0.f; TimeScale = 1.f;
+	UGameplayStatics::SetGlobalTimeDilation(this, 1.f);
+	if (Car) { FFTDrive Dr; Dr.bFrozen = true; Car->SetDrive(Dr); }
+	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->bRaceInput = false;
 }
 
 void AFTGameMode::TickOverlay(float RDt)
@@ -599,7 +774,7 @@ void AFTGameMode::TickOverlay(float RDt)
 		if (PC->Hit(EKeys::T)) { UGameplayStatics::SetGamePaused(this, false); Overlay = EFTOverlay::None; GoToLevel(Level, false); return; }
 		return;
 	}
-	const bool bFromPause = Phase == EFTPhase::Play || Phase == EFTPhase::Wreck || Phase == EFTPhase::Card;
+	const bool bFromPause = !bAttract && (Phase == EFTPhase::Play || Phase == EFTPhase::Wreck || Phase == EFTPhase::Card);
 	if (Overlay == EFTOverlay::Controls)
 	{
 		if (bControlsWaiting)
@@ -646,9 +821,9 @@ void AFTGameMode::TickOverlay(float RDt)
 void AFTGameMode::TickPlay(float Dt, float RDt)
 {
 	AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController());
-	if (PC)
+	if (PC) PC->bRaceInput = !bAttract;
+	if (PC && !bAttract)
 	{
-		PC->bRaceInput = true;
 		if (PC->Hit(EKeys::P) || PC->Hit(EKeys::Escape) || PC->Hit(EKeys::Gamepad_Special_Right))
 		{
 			Overlay = EFTOverlay::Pause; PauseRow = 0;
@@ -663,7 +838,7 @@ void AFTGameMode::TickPlay(float Dt, float RDt)
 	if (!bBossDead)
 	{
 		LevelClock += Dt;
-		if (LevelClock >= ClockLogT + 1.f) { ClockLogT = FMath::FloorToFloat(LevelClock); UE_LOG(LogFT, Display, TEXT("FT CLOCK level=%.1f"), LevelClock); }
+		if (LevelClock >= ClockLogT + 1.f) { ClockLogT = FMath::FloorToFloat(LevelClock); if (!bAttract) { UE_LOG(LogFT, Display, TEXT("FT CLOCK level=%.1f"), LevelClock); } }
 	}
 	if (PhaseT > 10.f) bShowKeys = false;
 	TickPlayer(Dt);
@@ -704,6 +879,7 @@ void AFTGameMode::TickPlay(float Dt, float RDt)
 		UE_LOG(LogFT, Display, TEXT("FT PLAYER lastTake=1 armor=25"));
 	}
 	if (bHarnessInvuln && Hp < 1.f) Hp = 1.f;
+	if (bAttract && Hp < 25.f) Hp = 25.f;   // 3.0: the demo car smokes and burns but never wrecks
 	if (bAutoRun)
 	{
 		for (FFTEnt& E : Ents)
@@ -725,7 +901,7 @@ void AFTGameMode::TickPlayer(float Dt)
 	AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController());
 	UFTGameInstance* G = GI();
 	FFTInput In = PC ? PC->In : FFTInput();
-	if ((G && (G->bBench || G->bAutoDrive)) || CVarFTAutopilot.GetValueOnGameThread() > 0)
+	if (bAttract || (G && (G->bBench || G->bAutoDrive)) || CVarFTAutopilot.GetValueOnGameThread() > 0)
 	{
 		// autopilot: pick the lane with the most room ahead, shoot everything, use the turbo
 		float BestRoom = -1.f; float BestX = Car->X;
@@ -750,6 +926,12 @@ void AFTGameMode::TickPlayer(float Dt)
 		const float WantHead = FMath::Clamp((AutoLane - Car->X) / 1800.f, -0.3f, 0.3f);
 		In.RawSteer = In.Steer = FMath::Clamp((WantHead - Head) * 2.2f, -1.f, 1.f);
 		In.bFire = true;
+		if (bAttract)
+		{
+			In.bFire = false;
+			for (const FFTEnt& E : Ents)
+				if (!E.bDead && E.Kind != EFTKind::Bullet && E.Kind != EFTKind::Missile && E.Kind != EFTKind::Civ && E.D - Car->D > 0.f && E.D - Car->D < 12000.f) { In.bFire = true; break; }
+		}
 		In.bTurbo = Turbo > 95.f || bTurboOn;
 		In.bMissile = FMath::Fmod(Clock, 1.7f) < Dt;
 		if (G && G->bBench) Hp = TestHp() > 0.f ? TestHp() : 100.f;
@@ -759,7 +941,7 @@ void AFTGameMode::TickPlayer(float Dt)
 	// side by side. (The autopilot hops now and then, so the tests cover it.)
 	if (Car->IsOnRails())
 	{
-		const bool bAuto = (G && (G->bBench || G->bAutoDrive)) || CVarFTAutopilot.GetValueOnGameThread() > 0;
+		const bool bAuto = bAttract || (G && (G->bBench || G->bAutoDrive)) || CVarFTAutopilot.GetValueOnGameThread() > 0;
 		int32 HopDir = FMath::Abs(In.RawSteer) > 0.55f ? (In.RawSteer > 0.f ? 1 : -1) : 0;
 		if (bAuto) HopDir = FMath::Fmod(Clock, 3.2f) < Dt ? (Car->CanRailHop(1) ? 1 : -1) : 0;
 		if (HopDir != 0 && Car->RailHop(HopDir))
@@ -2930,7 +3112,7 @@ void AFTGameMode::Sfx(const TCHAR* Name, float Vol, float Pitch)
 	TObjectPtr<USoundBase>* F = Sounds.Find(Key);
 	USoundBase* S = F ? F->Get() : nullptr;
 	if (!F) { S = Load<USoundBase>(FString(TEXT("/Game/Audio/SFX/S_")) + Name); Sounds.Add(Key, S); }
-	if (S) UGameplayStatics::PlaySound2D(this, S, Vol, Pitch);
+	if (S) UGameplayStatics::PlaySound2D(this, S, bAttract ? Vol * 0.4f : Vol, Pitch);   // 3.0: the demo plays under the title song
 }
 
 void AFTGameMode::Duck(float Depth, float Hold) { DuckDepth = FMath::Min(DuckT > 0.f ? DuckDepth : 1.f, Depth); DuckT = FMath::Max(DuckT, Hold); }
