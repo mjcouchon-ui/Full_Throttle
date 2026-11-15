@@ -82,6 +82,50 @@ bool UFTNightFlow::NightOver(const UObject* Ctx)
 	return true;
 }
 
+// ---- 3.9 test jump: FTGo / -ftgo=
+bool UFTNightFlow::Go(const UObject* Ctx, const FString& SpecIn)
+{
+	UFTNightFlow* NF = Get(Ctx);
+	UFTGameInstance* G = Ctx && Ctx->GetWorld() ? Ctx->GetWorld()->GetGameInstance<UFTGameInstance>() : nullptr;
+	FString S = SpecIn.TrimStartAndEnd().ToUpper();
+	const bool bBoss = S.EndsWith(TEXT("BOSS"));
+	if (bBoss) S = S.LeftChop(4).TrimEnd();
+	const int32 N = S.Len() >= 2 ? FCString::Atoi(*S.RightChop(1)) : 0;
+	if (!NF || !G || N < 1 || N > FTData::NumLevels() || (S[0] != TEXT('L') && S[0] != TEXT('N')))
+	{
+		UE_LOG(LogFT, Warning, TEXT("FT GO bad spec=%s (L<n>[boss] or N<n>[boss])"), *SpecIn);
+		return false;
+	}
+	NF->bDay1 = false; NF->DayLevel = -1; NF->bDayWrap = false;
+	if (S[0] == TEXT('N'))
+	{
+		// the night after race N, as the paycheck opens it: afterwards PRE-PRODUCTION on race N's map for race N+1
+		NF->bGoBoss = bBoss;
+		UE_LOG(LogFT, Display, TEXT("FT GO night=%d boss=%d"), N, bBoss ? 1 : 0);
+		if (GoToNight(Ctx, N - 1, N)) return true;
+		NF->bGoBoss = false;
+		UE_LOG(LogFT, Warning, TEXT("FT GO night=%d has no night map (or nights are off)"), N);
+		return false;
+	}
+	NF->NextLevel = -1; NF->FromLevel = -1; NF->bGoBoss = false;
+	const int32 L = N - 1;
+	G->PendingLevel = L; G->bStartRace = true; G->GoLanding = bBoss ? 2 : 1;
+	UE_LOG(LogFT, Display, TEXT("FT GO level=L%d boss=%d map=%s"), N, bBoss ? 1 : 0, *FTData::Level(L).Map.ToString());
+	G->StopTitleMusic(0.3f);
+	UGameplayStatics::SetGlobalTimeDilation(Ctx, 1.f);
+	UGameplayStatics::SetGamePaused(Ctx, false);
+	UGameplayStatics::OpenLevel(Ctx, FTData::Level(L).Map);
+	return true;
+}
+
+bool UFTNightFlow::TakeGoBoss(const UObject* Ctx)
+{
+	UFTNightFlow* NF = Get(Ctx);
+	if (!NF || !NF->bGoBoss) return false;
+	NF->bGoBoss = false;
+	return true;
+}
+
 // ---- the days: day 1's cutscene BEFORE THE DRIVE between the title and L1 BAYSHORE (run 34723), and (run 77694) every
 // day's BEFORE THE DRIVE before its race and THE WRAP after it, on the brawl's Route 9 set. Log lines "FT DAY1" / "FT DAY".
 namespace { const TCHAR* const Day1Map = TEXT("/Game/Brawl/Maps/L_Day1Set"); }

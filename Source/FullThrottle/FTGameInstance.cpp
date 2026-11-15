@@ -490,7 +490,8 @@ namespace
 		TArray<FString> Lines;
 		virtual void Serialize(const TCHAR* V, ELogVerbosity::Type Verbosity, const FName& Category) override
 		{
-			if (!V || FCString::Strncmp(V, TEXT("FT "), 3) != 0) return;
+			// (3.9: the brawl's FTBRAWL and the input's FTINPUT lines too, so a script can wait on the nights' screens)
+			if (!V || (FCString::Strncmp(V, TEXT("FT "), 3) != 0 && FCString::Strncmp(V, TEXT("FTBRAWL "), 8) != 0 && FCString::Strncmp(V, TEXT("FTINPUT "), 8) != 0)) return;
 			FScopeLock L(&Lock);
 			Lines.Add(V);
 		}

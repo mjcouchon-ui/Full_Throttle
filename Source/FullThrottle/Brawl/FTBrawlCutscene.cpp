@@ -248,6 +248,7 @@ void AFTBrawlGameMode::StartCut(int32 Id)
 	for (auto& Kv : CutCast) if (Kv.Value.A) Kv.Value.A->Destroy();
 	CutCast.Reset(); Beats.Reset();
 	CutId = Id; CutBeat = -1; CutT = 0; CutLine.Reset(); CutWho.Reset(); bCutWait = false; CutTitleT = -1;
+	bCutPrev = bCutEnterPrev = bCutSkipPrev = true;   // 3.9: a key or click still held from the fight is not a press here
 	CutCard.Reset(); CutCardSub.Reset(); CutCardKeys.Reset();
 	CutBarsGoal = 1;
 	// the fight's own bodies stand aside while a cutscene plays
@@ -600,6 +601,7 @@ void AFTBrawlGameMode::StepCut(float Dt, const FIn& In)
 	if (bSkipPress && !bCutWait)
 	{
 		UE_LOG(LogFTCut, Log, TEXT("FTBRAWL cut %d skipped"), CutId);
+		UE_LOG(LogFTCut, Log, TEXT("FT BRAWL screen=cut%d key=skip"), CutId);
 		if (CutId == 1) EndCut();
 		else if (CutId == 2 && Night == 1) StartCut(3);
 		else if (CutId == 10 || CutId == 11) { if (FFTCutActor* N = CutCast.Find(TEXT("nova"))) N->bHidden = true; if (Limo) Limo->SetActorHiddenInGame(true);
@@ -622,6 +624,7 @@ void AFTBrawlGameMode::StepCut(float Dt, const FIn& In)
 		}
 		if ((bEnterPress && CutT > 0.6f) || bAutoNext)
 		{
+			UE_LOG(LogFTCut, Log, TEXT("FT BRAWL screen=endcard cut=%d result=on"), CutId);
 			GoOn();   // the next night (the next race in the main game's career)
 		}
 		else if (PC && PC->IsInputKeyDown(EKeys::R)) { EndCut(); Restart(); }

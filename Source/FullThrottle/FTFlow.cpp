@@ -407,7 +407,7 @@ void AFTGameMode::EnterPreProduction(int32 NextLevel, bool bFromTitle)
 	if (UFTGameInstance* GT = GI()) GT->SetTitleMusicVolume(0.12f);   // 3.0: from the title the title song plays on, low
 	BuyHoldT = 0.f; bBuyHoldDone = false;
 	TabRects.Reset(); TileRects.Reset();
-	ReadyRect = BuyRect = UndoRect = FBox2D(ForceInit);
+	ReadyRect = BuyRect = UndoRect = FBox2D(ForceInit); bReadyRectLogged = false;
 	if (CS) { CS->C.PendingLevel = NextLevel; CS->C.bPendingFromTitle = bFromTitle; CS->Save(TEXT("PreProduction")); }
 	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->SetMenuMouse(true);
 	if (CS && CS->SPLeft() > 0) Tab = EFTTab::Skills;
@@ -655,7 +655,13 @@ void AFTGameMode::TickPreProduction(float RDt)
 		}
 	}
 	// READY: Space, pad Start, or the button (Esc too when this came from the title)
-	if (PC->Hit(EKeys::SpaceBar) || PC->Hit(EKeys::Gamepad_Special_Right) || PC->Clicked(ReadyRect) || (bPPFromTitle && PC->Hit(EKeys::Escape))) { LeavePreProduction(); return; }
+	// (3.9: where the button is, once, and what pressed it, so a real-input test can click it and see it register)
+	if (ReadyRect.bIsValid && !bReadyRectLogged) { bReadyRectLogged = true; UE_LOG(LogFT, Display, TEXT("FT SCREEN name=PreProduction ready=%.0f,%.0f,%.0f,%.0f cursor=%d"), ReadyRect.Min.X, ReadyRect.Min.Y, ReadyRect.Max.X, ReadyRect.Max.Y, PC->bMenuMouse ? 1 : 0); }
+	if (PC->Hit(EKeys::SpaceBar) || PC->Hit(EKeys::Gamepad_Special_Right) || PC->Clicked(ReadyRect) || (bPPFromTitle && PC->Hit(EKeys::Escape)))
+	{
+		UE_LOG(LogFT, Display, TEXT("FT INPUT screen=PreProduction ready by=%s"), PC->Clicked(ReadyRect) ? TEXT("click") : PC->Hit(EKeys::SpaceBar) ? TEXT("Space") : TEXT("pad/Esc"));
+		LeavePreProduction(); return;
+	}
 	// UNDO: Backspace / pad B / the button
 	if (PC->Hit(EKeys::BackSpace) || PC->Hit(EKeys::Delete) || PC->Hit(EKeys::Gamepad_FaceButton_Right) || PC->Clicked(UndoRect))
 	{
@@ -1219,5 +1225,12 @@ namespace
 		}
 	};
 	FFTHarnessCommands GFTHarness;
+	// 3.9: FTGo <spec> works from any map (the race's harness commands need the race's game mode)
+	FAutoConsoleCommandWithWorldAndArgs GFTGo(TEXT("FTGo"), TEXT("FULL THROTTLE tests: FTGo L<n>[boss] | N<n>[boss] - straight into a race / night, its boss too"),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+		{
+			if (World && Args.Num()) UFTNightFlow::Go(World, FString::Join(Args, TEXT("")));
+			else { UE_LOG(LogFT, Warning, TEXT("FT GO usage: FTGo L<n>[boss] | N<n>[boss]")); }
+		}));
 }
 #endif

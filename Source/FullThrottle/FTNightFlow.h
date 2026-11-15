@@ -52,4 +52,14 @@ public:
 	static bool DayCutNow(const UObject* Ctx, int32& Day, bool& bWrap);
 	/** From the day's end card: BEFORE -> the race starts; THE WRAP -> the night (or PRE-PRODUCTION when there is none). */
 	static bool DayCutOver(const UObject* Ctx);
+
+	// 3.9 test jump (owner: "it keeps just testing the first level"): straight into the level or night a test needs, its boss
+	// too, never through level 1. Spec: L<n> = race n from its start, L<n>boss = race n with its boss out, N<n> = the night
+	// after race n inside the career (its K.O., LAST CALL, end card, then PRE-PRODUCTION for race n+1 as after a paycheck),
+	// N<n>boss = that night on its boss. Launch option -ftgo=<spec> (once, from the title; uses the test career slot) or the
+	// console FTGo <spec> (dev builds, any map). Landing is logged "FT GO landed ..." when the race starts / the boss is out.
+	bool bGoBoss = false;
+	static bool Go(const UObject* Ctx, const FString& Spec);
+	/** The brawl asks once at BeginPlay: open this night on its boss? */
+	static bool TakeGoBoss(const UObject* Ctx);
 };

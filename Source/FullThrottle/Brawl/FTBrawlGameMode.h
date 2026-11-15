@@ -149,6 +149,10 @@ public:
 	FLinearColor CutWhoCol = FLinearColor::White;
 	float CutLineT = 0, CutFade = 0, CutFlash = 0, CutBars = 0, CutTitleT = -1;
 	bool bCutWait = false;
+	// 3.9: ENTER / click on the K.O. and win screens acts on the press, not on a key still held from the fight
+	bool bScreenEnterPrev = true;
+	// 3.9 test jump (main game: FTGo N<n>boss / -ftgo=): this night opens on its boss; logs "FT GO landed" when he is out
+	bool bGoBoss = false;
 
 	// pickups (run 21219): what lies around, what Nova holds, the timed power-ups
 	TArray<FFTBrawlItem> Items;

@@ -321,6 +321,20 @@ void AFTGameMode::StartRace(bool bRetake)
 void AFTGameMode::BeginPlayPhase()
 {
 	Phase = EFTPhase::Play; PhaseT = 0.f;
+	ON_SCOPE_EXIT
+	{
+		// 3.9 test jump (FTGo L<n>[boss]): the race is on; bring the boss out and say where it landed
+		UFTGameInstance* GL = GI();
+		if (GL && GL->GoLanding)
+		{
+			const bool bBoss = GL->GoLanding == 2;
+			GL->GoLanding = 0;
+			if (bBoss) HarnessCmd(TEXT("FTBossNow"), {});
+			int32 Bosses = 0;
+			for (const FFTEnt& E : Ents) if (!E.bDead && E.Kind == EFTKind::Boss) Bosses++;
+			UE_LOG(LogFT, Display, TEXT("FT GO landed level=L%d map=%s phase=play boss=%d"), Level + 1, *GetWorld()->GetMapName(), Bosses);
+		}
+	};
 	// a standing start: the Chaos wheels and the governor launch the car (a teleport at speed would trip the tyres)
 	Car->PlaceOnTrack(Car->D, Car->X, 0.f);
 	SceneSlateT = RealClock; ActionT = RealClock + 0.45f;
@@ -671,6 +685,17 @@ void AFTGameMode::TickTitle(float RDt)
 {
 	AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController());
 	if (!PC) return;
+	// 3.9 test jump: -ftgo=L3boss / N1boss / ... once, from the first title (on the test career slot, never the player's own)
+	if (UFTGameInstance* GG = GI(); GG && !GG->bGoArgDone && TitleT > 0.5f)
+	{
+		GG->bGoArgDone = true;
+		FString Spec;
+		if (FParse::Value(FCommandLine::Get(), TEXT("ftgo="), Spec))
+		{
+			if (UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this)) CS->UseTestSlot();
+			if (UFTNightFlow::Go(this, Spec)) return;
+		}
+	}
 	const int32 Levels = FTData::NumLevels();
 	constexpr int32 Actions = 5;
 	const int32 PreviousLevel = TitleSel, PreviousAction = TitleActionFocus;

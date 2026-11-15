@@ -267,7 +267,19 @@ void AFTBrawlGameMode::BeginPlay()
 	bCuts = !FParse::Param(FCommandLine::Get(), TEXT("brawlnocut"));
 	if (Night == 1) BuildPier();
 	int32 FirstCut = 1; FParse::Value(FCommandLine::Get(), TEXT("brawlcut="), FirstCut);
-	if (bCuts && FirstCut >= 2) { bWon = true; WinT = 3.f; bCutDone = true; StartCut(FMath::Min(FirstCut, Night == 1 ? 3 : 2)); }
+#if FTB_CAREER
+	bGoBoss = UFTNightFlow::TakeGoBoss(this);
+#endif
+	if (bGoBoss)
+	{
+		// 3.9 test jump: no THAT NIGHT, straight to the boss's spot (as -brawlwave=<waves+1>); LAST CALL still follows the win
+		Banner = VenueName; BannerSub = VenueTag; BannerT = 0;
+		// in the boss's arena with him out at once (his entrance still plays), as when Nova walks in after the last wave
+		Wave = NumWaves; Cam = LockX = ArenaEnd(); P.X = Cam + 200.f;
+		UE_LOG(LogFTBrawl, Log, TEXT("FT GO night=%d map=%s waves=%d at=boss"), Night, *GetWorld()->GetMapName(), NumWaves);
+		SpawnBoss();
+	}
+	else if (bCuts && FirstCut >= 2) { bWon = true; WinT = 3.f; bCutDone = true; StartCut(FMath::Min(FirstCut, Night == 1 ? 3 : 2)); }
 	else if (bCuts) StartCut(1);
 	else { Banner = VenueName; BannerSub = VenueTag; BannerT = 0; }
 	// test hook: -brawlwave=N starts at wave N (NumWaves + 1 = straight to the boss)
@@ -405,6 +417,7 @@ void AFTBrawlGameMode::SpawnBoss()
 	Foes.Add(B);
 	BossIntro = 2.2f; BossEntranceAt = StT; bBossOut = true; bSpawned = true;
 	UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL boss %s"), *BossName);
+	if (bGoBoss) UE_LOG(LogFTBrawl, Log, TEXT("FT GO landed night=%d boss=%s hp=%.0f"), Night, *BossName, B.Hp);
 }
 
 void AFTBrawlGameMode::Pop(float X, float Y, float Z, const FString& Text, const FLinearColor& C, bool bBig)
@@ -431,6 +444,8 @@ AFTBrawlGameMode::FIn AFTBrawlGameMode::ReadInput()
 	I.Enter = D(EKeys::Enter) || D(EKeys::Gamepad_Special_Right);
 	// loop cycle 2: with a pad, A (the jump button) also works the cards and the K.O. / knocked-out screens; only Start did
 	if (!I.Enter && D(EKeys::Gamepad_FaceButton_Bottom) && (InCut() || P.Hp <= 0 || bWon)) I.Enter = true;
+	// 3.9 (owner: "clicks not registering"): a left click works them too (the cards, KNOCKED OUT, the win); in the fight it punches
+	if (!I.Enter && D(EKeys::LeftMouseButton) && (InCut() || P.Hp <= 0 || bWon)) I.Enter = true;
 	I.Grab = D(EKeys::L) || D(EKeys::C) || D(EKeys::Gamepad_FaceButton_Right);
 	if (FMath::Abs(SX) > 0.3f || FMath::Abs(SY) > 0.3f || D(EKeys::Gamepad_FaceButton_Bottom) || D(EKeys::Gamepad_FaceButton_Left) ||
 		D(EKeys::Gamepad_FaceButton_Top) || D(EKeys::Gamepad_FaceButton_Right) || D(EKeys::Gamepad_DPad_Left) ||
@@ -780,7 +795,7 @@ void AFTBrawlGameMode::UpdateFoes(float Dt)
 		}
 		if (F.St == TEXT("down"))
 		{
-			if (F.Hp <= 0) { if (F.T > 0.9f) { F.St = TEXT("dead"); F.T = 0; Kos++; DropFrom(F); Splat(World(F.X - F.Dir * 50, F.Y, 0), 2.6f); if (F.bBoss) { bWon = true; WinT = 0; UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL won kos=%d best=%d hits=%d time=%.0f"), Kos, Best, Hits, Time); if (bCamCheck) UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL camcheck night=%d frames=%d offcam=%d worst=%.2f keepin=%d"), Night, CamFrames, CamOff, CamWorst, bNoKeepIn ? 0 : 1); } } }
+			if (F.Hp <= 0) { if (F.T > 0.9f) { F.St = TEXT("dead"); F.T = 0; Kos++; DropFrom(F); Splat(World(F.X - F.Dir * 50, F.Y, 0), 2.6f); if (F.bBoss) { bWon = true; WinT = 0; UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL won kos=%d best=%d hits=%d time=%.0f"), Kos, Best, Hits, Time); UE_LOG(LogFTBrawl, Log, TEXT("FT BRAWL won night=%d boss=%s"), Night, *BossName); if (bCamCheck) UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL camcheck night=%d frames=%d offcam=%d worst=%.2f keepin=%d"), Night, CamFrames, CamOff, CamWorst, bNoKeepIn ? 0 : 1); } } }
 			else if (F.T > (F.bBoss ? 0.7f : 0.75f)) { F.St = TEXT("getup"); F.T = 0; }
 			continue;
 		}
@@ -1297,25 +1312,35 @@ void AFTBrawlGameMode::Tick(float Dt)
 		if (MPC->WasInputKeyJustPressed(EKeys::M))
 			if (UFTGameInstance* GI = GetGameInstance<UFTGameInstance>()) { GI->bMuted = !GI->bMuted; GI->ApplyMute(); GI->SaveSettings(); UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL mute=%d"), GI->bMuted ? 1 : 0); }
 #endif
-	if (CVarWin.GetValueOnGameThread()) { CVarWin->Set(0); bWon = true; WinT = 0; UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL won (ftb.Win)")); }
+	// (3.9: cleared at console priority: a SetByCode 0 never overrode the console's 1, so the night re-won every frame
+	// and the win screen's clock never ran)
+	if (CVarWin.GetValueOnGameThread()) { CVarWin->Set(0, ECVF_SetByConsole); bWon = true; WinT = 0; UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL won (ftb.Win)")); }
 	if (bKeyTest)   // -brawlkeytest: the autopilot's moves go in as key presses (in a cutscene: ENTER on each beat after 3 s with -brawlnext)
 	{
 		FIn K = InCut() ? FIn() : AutoInput();
 		if (InCut()) K.Enter = CutT > 3.f && FMath::Fmod(CutT, 0.5f) < 0.25f && FParse::Param(FCommandLine::Get(), TEXT("brawlnext"));
 		PressKeys(K);
 	}
-	const FIn In = (bAuto || CVarAuto.GetValueOnGameThread()) ? AutoInput() : ReadInput();
+	const bool bBot = bAuto || CVarAuto.GetValueOnGameThread();
+	FIn In = bBot ? AutoInput() : ReadInput();
+	// 3.9 (the boss music runs got stuck here): with the autopilot fighting, the cutscenes were handed no input at all and
+	// the win / K.O. screens only the autopilot's, so a real ENTER, click, pad A or skip never reached them. The player's
+	// own keys (and the harness's ft.Press / ft.Click, which go through the same input) now always work the screens.
+	const FIn Real = bBot ? ReadInput() : In;
+	In.Enter = In.Enter || Real.Enter;
 	BufferInput(In);
+	const bool bScreenEnter = In.Enter && !bScreenEnterPrev;
+	bScreenEnterPrev = In.Enter;
 	if (InCut())   // night 1's cutscenes play instead of the fight (FTBrawlCutscene.cpp)
 	{
-		const bool bBot = bAuto || CVarAuto.GetValueOnGameThread();
-		StepCut(FMath::Min(Dt, 0.05f), bBot ? FIn() : In);   // the autopilot's punches don't hurry the lines
+		StepCut(FMath::Min(Dt, 0.05f), Real);   // the autopilot's punches don't hurry the lines
 		if (InCut()) SyncCut(FMath::Min(Dt, 0.05f)); else SyncActors(Dt);
 	}
-	else if (P.Hp <= 0 && KoT > 1 && In.Enter) Retry();
+	else if (P.Hp <= 0 && KoT > 1 && (bScreenEnter || (bBot && In.Enter))) Retry();
 	else if (bWon && bCuts && !bCutDone && WinT > 2.2f) { bCutDone = true; StartCut(2); }   // LAST CALL, then the pier
-	else if (bWon && !bCuts && WinT > 2.6f && In.Enter)
+	else if (bWon && !bCuts && WinT > 2.6f && (bScreenEnter || (bBot && In.Enter)))
 	{
+		UE_LOG(LogFTBrawl, Log, TEXT("FT BRAWL screen=win key=enter result=on"));
 		GoOn();
 	}
 	if (!InCut())

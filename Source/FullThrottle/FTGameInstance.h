@@ -56,6 +56,10 @@ public:
 	// carried between maps
 	int32 PendingLevel = -1;
 	bool bStartRace = false;
+	/** 3.9 test jump (FTNightFlow::Go): 1 = log the landing when the race starts, 2 = also bring the boss out then. */
+	int32 GoLanding = 0;
+	/** -ftgo=<spec> is taken once, from the first title. */
+	bool bGoArgDone = false;
 	int32 RunCounter = 0;
 	int32 TitleLevel = 0;
 

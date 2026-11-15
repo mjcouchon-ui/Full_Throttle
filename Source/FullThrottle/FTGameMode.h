@@ -254,7 +254,7 @@ public:
 	int32 TabSel[(int32)EFTTab::Count] = { 0, 0, 0, 0, 0 };
 	int32 TabScroll[(int32)EFTTab::Count] = { 0, 0, 0, 0, 0 };
 	TArray<FFTTileView> Tiles;
-	TArray<FBox2D> TileRects; FBox2D ReadyRect = FBox2D(ForceInit), BuyRect = FBox2D(ForceInit), UndoRect = FBox2D(ForceInit); TArray<FBox2D> TabRects;
+	TArray<FBox2D> TileRects; FBox2D ReadyRect = FBox2D(ForceInit), BuyRect = FBox2D(ForceInit), UndoRect = FBox2D(ForceInit); TArray<FBox2D> TabRects; bool bReadyRectLogged = false;
 	float BuyHoldT = 0.f; bool bBuyHoldDone = false;
 	int32 PPNextLevel = 0; bool bPPFromTitle = false;
 	FString PPMsg; float PPMsgT = -10.f; bool bPPMsgBad = false;

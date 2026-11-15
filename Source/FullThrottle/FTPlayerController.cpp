@@ -58,8 +58,25 @@ AFTPlayerController::AFTPlayerController()
 void AFTPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
-	FInputModeGameOnly Mode;
-	SetInputMode(Mode);
+	// 3.9 (owner: "clicks not registering"): the game mode's BeginPlay runs before this one, and a screen it opens there
+	// (PRE-PRODUCTION after a night, or reopened on launch) has already asked for the cursor. Forcing game-only here took the
+	// cursor's UI mode away again (mouse captured, clicks on READY / BUY / tabs not read) while bMenuMouse said it was on,
+	// so every later SetMenuMouse(true) returned early. Apply whatever mode was asked for instead.
+	ApplyMouseMode(TEXT("beginplay"));
+}
+
+void AFTPlayerController::ApplyMouseMode(const TCHAR* Why)
+{
+	SetShowMouseCursor(bMenuMouse);
+	if (bMenuMouse)
+	{
+		FInputModeGameAndUI Mode;
+		Mode.SetHideCursorDuringCapture(false);
+		Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+		SetInputMode(Mode);
+	}
+	else SetInputMode(FInputModeGameOnly());
+	UE_LOG(LogTemp, Display, TEXT("FTINPUT mode=%s cursor=%d why=%s"), bMenuMouse ? TEXT("menu") : TEXT("game"), bMenuMouse ? 1 : 0, Why);
 }
 
 void AFTPlayerController::SetMenuMouse(bool bOn)
@@ -75,6 +92,7 @@ void AFTPlayerController::SetMenuMouse(bool bOn)
 		SetInputMode(Mode);
 	}
 	else SetInputMode(FInputModeGameOnly());
+	UE_LOG(LogTemp, Display, TEXT("FTINPUT mode=%s cursor=%d why=screen"), bOn ? TEXT("menu") : TEXT("game"), bOn ? 1 : 0);
 }
 
 FVector2D AFTPlayerController::MousePos() const

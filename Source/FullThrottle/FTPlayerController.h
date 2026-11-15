@@ -53,6 +53,8 @@ public:
 	// screens with buttons (the reel's CONTINUE, the garage): the cursor shows and clicks are read against rects
 	void SetMenuMouse(bool bOn);
 	bool bMenuMouse = false;
+	/** Applies bMenuMouse's input mode and cursor (at BeginPlay, after a screen may already have asked for the cursor). */
+	void ApplyMouseMode(const TCHAR* Why);
 	FVector2D MousePos() const;
 	bool MouseIn(const FBox2D& R) const { const FVector2D M = MousePos(); return R.bIsValid && M.X >= 0.f && R.IsInside(M); }
 	bool Clicked(const FBox2D& R) const { return Hit(EKeys::LeftMouseButton) && MouseIn(R); }
