@@ -2,6 +2,8 @@
 #include "UObject/UObjectGlobals.h"
 #include "FTCore.h"
 #include "FTProgress.h"
+#include "FTGameMode.h"
+#include "Brawl/FTBrawlGameMode.h"
 #include "Containers/Ticker.h"
 #include "UnrealClient.h"
 #include "Misc/OutputDeviceRedirector.h"
@@ -76,6 +78,7 @@ void UFTGameInstance::Init()
 {
 	Super::Init();
 	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &UFTGameInstance::OnPostLoadMap);
+	FCoreUObjectDelegates::PreLoadMap.AddUObject(this, &UFTGameInstance::OnPreLoadMap);
 	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &UFTGameInstance::TickHitch));   // loop cycle 6: mute survives map loads
 #if UE_BUILD_SHIPPING
 	{
@@ -452,6 +455,9 @@ static TAutoConsoleVariable<int32> CVarWarmBrawlAudio(TEXT("ft.WarmBrawlAudio"),
 
 void UFTGameInstance::OnPostLoadMap(UWorld* World)
 {
+	bSessionLoading = false;
+	if (World && World->WorldType == EWorldType::Game && GetGameViewportClient())
+		GetGameViewportClient()->OnWindowCloseRequested().BindUObject(this, &UFTGameInstance::HandleWindowClose);
 	ApplyMute();
 	if (!bBrawlWarmStarted && World && World->GetOutermost()->GetName().StartsWith(TEXT("/Game/Brawl/")) && UAssetManager::IsInitialized())
 	{
@@ -509,6 +515,10 @@ namespace
 
 void UFTGameInstance::Shutdown()
 {
+	FCoreUObjectDelegates::PostLoadMapWithWorld.RemoveAll(this);
+	FCoreUObjectDelegates::PreLoadMap.RemoveAll(this);
+	if (UGameViewportClient* Viewport = GetGameViewportClient())
+		if (Viewport->OnWindowCloseRequested().IsBoundToObject(this)) Viewport->OnWindowCloseRequested().Unbind();
 	if (GTap) { GLog->RemoveOutputDevice(GTap); delete GTap; GTap = nullptr; }
 	Super::Shutdown();
 }
@@ -609,9 +619,65 @@ bool UFTGameInstance::TickHitch(float Dt)
 	HitchLastT = Now;
 	// map loads are expected stalls: only frames of a running world count (the race's own FTHITCH says more there)
 	UWorld* W = GetWorld();
+	if (bWindowCloseQueued && !bSessionLoading && W && W->HasBegunPlay() && W->GetAuthGameMode()) HandleWindowClose();
 	if (Ms > 40.0 && W && W->HasBegunPlay() && W->GetTimeSeconds() > 1.f)
 	{
 		UE_LOG(LogFT, Display, TEXT("FTHITCH2 ms=%.0f map=%s t=%.1f"), Ms, *W->GetMapName(), W->GetTimeSeconds());
 	}
 	return true;
 }
+
+void UFTGameInstance::OnPreLoadMap(const FString& MapName)
+{
+	bSessionLoading = true;
+}
+
+bool UFTGameInstance::HandleWindowClose()
+{
+	if (bAllowWindowClose) return true;
+	UWorld* W = GetWorld();
+	if (bSessionLoading || !W || !W->HasBegunPlay() || !W->GetAuthGameMode())
+	{
+		bWindowCloseQueued = true;
+		UE_LOG(LogFT, Display, TEXT("FT SESSION close=queued"));
+		return false;
+	}
+	bWindowCloseQueued = false;
+	if (AFTGameMode* Main = W->GetAuthGameMode<AFTGameMode>()) Main->RequestSystemQuit(true);
+	else if (AFTBrawlGameMode* Brawl = W->GetAuthGameMode<AFTBrawlGameMode>()) Brawl->RequestSystemQuit(true);
+	else
+	{
+		if (UFTCareerSubsystem* CS = GetSubsystem<UFTCareerSubsystem>(); CS && !CS->Save(TEXT("WindowClose")))
+		{
+			UE_LOG(LogFT, Warning, TEXT("FT SESSION close=save_failed"));
+			return false;
+		}
+		AllowWindowClose();
+		return true;
+	}
+	UE_LOG(LogFT, Display, TEXT("FT SESSION close=menu"));
+	return false;
+}
+
+#if !UE_BUILD_SHIPPING
+namespace
+{
+	FAutoConsoleCommandWithWorldAndArgs GFTSessionClose(TEXT("ft.WindowClose"), TEXT("Test ordinary window-close handling"),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>&, UWorld* World)
+		{
+			if (World && World->GetGameInstance() && World->GetGameInstance()->GetGameViewportClient())
+				World->GetGameInstance()->GetGameViewportClient()->WindowCloseRequested();
+		}));
+	FAutoConsoleCommandWithWorldAndArgs GFTSessionState(TEXT("ft.SessionState"), TEXT("Read-only session acceptance snapshot"),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>&, UWorld* World)
+		{
+			if (!World) return;
+			if (AFTGameMode* G=World->GetAuthGameMode<AFTGameMode>())
+				UE_LOG(LogFT, Display, TEXT("FT SESSION STATE phase=%d paused=%d phaseT=%.3f levelTime=%.3f hp=%.1f"),int32(G->Phase),UGameplayStatics::IsGamePaused(World)?1:0,G->PhaseT,G->LevelClock,G->Hp);
+			if (AFTBrawlGameMode* B=World->GetAuthGameMode<AFTBrawlGameMode>())
+				UE_LOG(LogFT, Display, TEXT("FT SESSION STATE screen=%d paused=%d wave=%d cut=%d time=%.3f worldT=%.3f hp=%.1f"),B->SystemScreen,UGameplayStatics::IsGamePaused(World)?1:0,B->Wave,B->CutId,B->Time,World->GetTimeSeconds(),B->P.Hp);
+			if (UFTCareerSubsystem* C=UFTCareerSubsystem::Get(World))
+				UE_LOG(LogFT, Display, TEXT("FT SESSION SAVE kind=%s level=%d stage=%d wrap=%d valid=%d error=%d cash=%lld xp=%lld run=%s commit=%s"),*C->C.ResumeKind,C->C.ResumeLevel,C->C.ResumeStage,C->C.bResumeWrap?1:0,C->HasContinue()?1:0,C->bSaveError?1:0,C->C.Cash,C->C.XP,*C->C.RunId,*C->C.LastCommitId);
+		}));
+}
+#endif

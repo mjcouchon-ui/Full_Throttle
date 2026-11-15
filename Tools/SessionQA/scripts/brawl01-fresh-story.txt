@@ -1,0 +1,59 @@
+# Fresh shared profile. Default focus is New Game; Continue must be disabled.
+waitfor FT BRAWL SYSTEM screen=1|15
+shot brawl01-fresh-title
+# Mouse options row at 1280x720; save both preferences BEFORE starting New Game.
+r.SetRes 1280x720w
+wait 0.4
+click 640 437
+waitfor FT BRAWL SYSTEM screen=3|5
+click 640 341
+click 640 389
+shot brawl01-options-before-new
+press Escape
+mark
+press Enter
+waitfor FT BRAWL SAVE result=ok reason=NewGame kind=day level=0 stage=0|10
+waitfor FTBRAWL start DAY 1 ON SET before|20
+wait 0.8
+# Real pause during story; compare STATE lines bracketing attempted combat/skip inputs.
+press Escape
+waitfor FT BRAWL SYSTEM screen=2|5
+ftb.SessionState
+press J
+press Tab
+wait 1.2
+ftb.SessionState
+shot brawl01-paused-story
+press Enter
+wait 0.4
+mark
+press Tab
+waitfor FTBRAWL cut end card|8
+wait 0.8
+press Enter
+waitfor FTBRAWL cut start 11|10
+wait 0.8
+# Native close request reaches the exit dialog; cancel keeps the session intact.
+mark
+ftb.WindowClose
+waitfor FT BRAWL SYSTEM screen=5|5
+shot brawl01-window-close-cancel
+press Escape
+waitfor FT BRAWL SYSTEM screen=2|5
+press Down
+press Down
+press Enter
+waitfor FT BRAWL SYSTEM screen=5|5
+mark
+press Down
+press Enter
+waitfor FT BRAWL SYSTEM exit=title discard=0|8
+waitfor FT BRAWL SYSTEM screen=1|20
+shot brawl01-wrap-continue
+# Title rows start on Continue after a valid save.
+press Down
+press Down
+press Down
+press Enter
+
+

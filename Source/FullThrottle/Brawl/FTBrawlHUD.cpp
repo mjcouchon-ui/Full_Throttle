@@ -288,7 +288,9 @@ void AFTBrawlHUD::DrawHUD()
 		Canvas->StrLen(Face(false), TEXT("Hg"), Xl, Yl); RajH = FMath::Max(1.f, Yl);
 		UE_LOG(LogTemp, Log, TEXT("FTBRAWL HUD fonts orbitron=%d rajdhani=%d"), FOrb ? 1 : 0, FRaj ? 1 : 0);
 	}
-	if (G->InCut()) { DrawCut(G); return; }
+	if (G->SystemScreen) { DrawSystemMenu(G); return; }
+	if (G->InCut()) { DrawCut(G); DrawSaveIndicator(G); return; }
+	DrawSaveIndicator(G);
 	const float W = Canvas->ClipX / S, H = 720.f;
 	const float L = FMath::Max(0.f, (W - 1280.f) / 2) + Safe, R = W - L, Mid = W / 2, Top = 25.f;
 	const FFTBrawlBody& P = G->P;
@@ -399,7 +401,7 @@ void AFTBrawlHUD::DrawHUD()
 	{
 		const FString Keys = G->bPadLast
 			? TEXT("STICK  MOVE   /   X  PUNCH, PICK UP, SWING   /   Y  KICK, THROW WEAPON   /   B  GRAB & THROW   /   A  JUMP   /   X AT THE BAR  A DRINK")
-			: TEXT("WASD  MOVE   /   J  PUNCH, PICK UP, SWING   /   K  KICK, THROW WEAPON   /   L  GRAB & THROW   /   SPACE  JUMP   /   J AT THE BAR  A DRINK" FT_BRAWL_MUTE_HINT "   /   ESC  QUIT");
+			: TEXT("WASD  MOVE   /   J  PUNCH, PICK UP, SWING   /   K  KICK, THROW WEAPON   /   L  GRAB & THROW   /   SPACE  JUMP   /   J AT THE BAR  A DRINK" FT_BRAWL_MUTE_HINT "   /   ESC / START  PAUSE");
 		const float Kw = FMath::Min(R - L, TextW(Keys, Label, false) + 28.f);
 		Rect(Mid - Kw / 2, H - 32, Kw, 22, Ink);
 		Txt(Keys, Mid, H - 31, Grey, Label, 1, false, Kw - 24);
@@ -505,4 +507,38 @@ void AFTBrawlHUD::DrawCut(AFTBrawlGameMode* G)
 		}
 	}
 	if (Bar > 20) Txt(TEXT(FT_BRAWL_ENTER "   NEXT   /   " FT_BRAWL_SKIP "   SKIP"), R, H - Bar + (Bar - Label) / 2, Grey, Label, 2);
+}
+
+
+void AFTBrawlHUD::DrawSaveIndicator(AFTBrawlGameMode* G)
+{
+	bool Error=false; const FString Status=G->SaveStatus(Error); if(Status.IsEmpty()) return;
+	const float W=Canvas->ClipX/S;
+	Plate(W-300.f,666.f,270.f,27.f,Error?Red:Green,.94f);
+	Txt(Status,W-165.f,671.f,Error?Red:Green,12.f,1,true,250.f);
+}
+
+void AFTBrawlHUD::DrawSystemMenu(AFTBrawlGameMode* G)
+{
+	const float W=Canvas->ClipX/S, Mid=W*.5f;
+	Rect(0,0,W,720,FLinearColor(.003f,.007f,.018f,.88f));
+	Plate(Mid-330.f,108.f,660.f,510.f,Cyan);
+	Txt(G->SystemHeading(),Mid,135.f,White,27.f,1,true,600.f);
+	Rect(Mid-296.f,179.f,592.f,2.f,Cyan);
+	TArray<FString> Lines;
+	TArray<FString> Paragraphs; G->SystemDetail().ParseIntoArrayLines(Paragraphs,false);
+	for(const FString& Paragraph:Paragraphs) Lines.Append(Wrap(Paragraph,588.f,17.f,false));
+	for(int32 i=0;i<FMath::Min(6,Lines.Num());++i) Txt(Lines[i],Mid,197.f+i*18.f,Grey,17.f,1,false,588.f);
+	const TArray<FString> Rows=G->SystemRows();
+	for(int32 i=0;i<Rows.Num();++i)
+	{
+		const bool Selected=i==G->SystemSelection,Enabled=G->SystemRowEnabled(i);
+		const float Y=320.f+i*48.f;
+		Rect(Mid-290.f,Y,580.f,42.f,Selected?FLinearColor(.04f,.18f,.25f,1.f):Deep);
+		if(Selected) { Rect(Mid-290.f,Y,4.f,42.f,Enabled?Cyan:Grey); Rect(Mid-290.f,Y+40.f,580.f,2.f,Enabled?Cyan:Rule); }
+		Txt(Rows[i],Mid,Y+10.f,Enabled?(Selected?White:Grey):Rule,20.f,1,true,548.f);
+	}
+	Txt(TEXT("UP/DOWN or LEFT STICK / SELECT     ENTER/A / CONFIRM"),Mid,548.f,Grey,13.f,1,false,600.f);
+	Txt(G->SystemScreen==1?TEXT("MOUSE / SELECT AND CLICK"):TEXT("ESC/START or B / BACK     MOUSE / SELECT AND CLICK"),Mid,570.f,Grey,13.f,1,false,600.f);
+	DrawSaveIndicator(G);
 }

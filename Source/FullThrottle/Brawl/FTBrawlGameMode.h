@@ -167,7 +167,30 @@ public:
 	bool DescribeItem(const FFTBrawlItem& Item, FFTBrawlItemPresentation& Out) const;
 	bool ReducedPresentationMotion() const;
 
+	// Controller-driven system UI remains live while the simulation/audio world is paused.
+	int32 SystemScreen = 0, SystemSelection = 0;
+	void ToggleSystemMenu();
+	void RequestSystemQuit(bool bDesktop = true);
+	void SystemNavigate(int32 Delta);
+	void SystemActivate();
+	void SystemBack();
+	TArray<FString> SystemRows() const;
+	bool SystemRowEnabled(int32 Index) const;
+	FString SystemHeading() const;
+	FString SystemDetail() const;
+	FString CheckpointLabel() const;
+	FString SaveStatus(bool& bError) const;
+
 private:
+	bool bSessionReady = false;
+	int32 MenuHome = 2, RequestedExit = 0;
+	double InputResumeAt = 0;
+	TArray<TWeakObjectPtr<class UAudioComponent>> SystemPausedAudio;
+	void InitializeSession();
+	bool ApplySavedCheckpoint();
+	bool SaveCheckpoint(const TCHAR* Reason);
+	void SetSystemScreen(int32 Screen);
+	void FinishSystemAction(bool bDiscard);
 	struct FIn { float Steer = 0, Throttle = 0; bool Fire = false, Kick = false, Jump = false, Enter = false, Grab = false; };
 	FIn ReadInput();
 	FIn AutoInput();

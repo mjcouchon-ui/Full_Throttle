@@ -1,0 +1,47 @@
+# MAIN executable, separate fresh profile. Verified existing setup command, never a Continue substitute.
+wait 2
+FTGo N2boss
+waitfor FT GO landed night=2 | 35
+wait 1
+r.SetRes 1280x720w
+wait 1
+ft.Press Escape
+waitfor FT BRAWL SYSTEM screen=2 paused=1 | 10
+ft.SessionState
+wait 2
+ft.SessionState
+shot night-01-boss-checkpoint-paused
+# Pause menu row2: Quit to Title.
+ft.Press Down
+wait 0.4
+ft.Press Down
+wait 0.4
+ft.Press Enter
+waitfor FT BRAWL SYSTEM screen=5 paused=1 | 10
+ft.Press Down
+wait 0.4
+ft.Press Enter
+waitfor FT SESSION return=title | 20
+wait 2
+r.SetRes 1280x720w
+wait 1
+ft.SessionState
+shot night-01-main-continue-title
+# Actual main Continue must go through UFTNightFlow::ResumeSaved into the saved boss encounter.
+ft.Press Enter
+waitfor FT SESSION continue kind=night level=2 | 25
+waitfor FT BRAWL CONTINUE night=2 | 35
+wait 1
+r.SetRes 1280x720w
+wait 1
+ft.Press Gamepad_Special_Right
+waitfor FT BRAWL SYSTEM screen=2 paused=1 | 10
+ft.SessionState
+shot night-01-restored-wave
+ft.WindowClose
+waitfor FT BRAWL SYSTEM screen=5 paused=1 | 10
+ft.Press Down
+wait 0.4
+ft.Press Enter
+wait 3
+quit

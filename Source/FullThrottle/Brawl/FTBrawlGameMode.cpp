@@ -256,6 +256,7 @@ void AFTBrawlGameMode::BeginPlay()
 		UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL start DAY %d ON SET %s"), DayN, bDayWrap ? TEXT("wrap") : TEXT("before"));
 		SetSetLight(bDayWrap);
 		StartCut(bDayWrap ? 11 : 10);
+		InitializeSession();
 		return;
 	}
 	GetWorld()->SpawnActor<AFTBrawlMusic>();   // Matt's fight music, looping all night
@@ -270,7 +271,9 @@ void AFTBrawlGameMode::BeginPlay()
 #if FTB_CAREER
 	bGoBoss = UFTNightFlow::TakeGoBoss(this);
 #endif
-	if (bGoBoss)
+	const bool bRestored = ApplySavedCheckpoint();
+	if (bRestored) {}
+	else if (bGoBoss)
 	{
 		// 3.9 test jump: no THAT NIGHT, straight to the boss's spot (as -brawlwave=<waves+1>); LAST CALL still follows the win
 		Banner = VenueName; BannerSub = VenueTag; BannerT = 0;
@@ -285,11 +288,12 @@ void AFTBrawlGameMode::BeginPlay()
 	// test hook: -brawlwave=N starts at wave N (NumWaves + 1 = straight to the boss).
 	// FTGo has already placed and spawned its boss; do not relocate that locked arena.
 	int32 StartWave = 0;
-	if (!bGoBoss && FParse::Value(FCommandLine::Get(), TEXT("brawlwave="), StartWave) && StartWave > 1)
+	if (!bRestored && !bGoBoss && FParse::Value(FCommandLine::Get(), TEXT("brawlwave="), StartWave) && StartWave > 1)
 	{
 		Wave = FMath::Min(StartWave - 1, NumWaves);
 		Cam = FMath::Max(0.f, NextWaveAt(Wave) - 120.f); P.X = Cam + 200.f;
 	}
+	InitializeSession();
 	UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL start %s night=%d waves=%d wave=%d"), *VenueName, Night, NumWaves, Wave + 1);
 }
 
@@ -446,7 +450,7 @@ AFTBrawlGameMode::FIn AFTBrawlGameMode::ReadInput()
 	I.Fire = D(EKeys::J) || D(EKeys::Z) || D(EKeys::Gamepad_FaceButton_Left) || D(EKeys::LeftMouseButton);
 	I.Kick = D(EKeys::K) || D(EKeys::X) || D(EKeys::Gamepad_FaceButton_Top) || D(EKeys::RightMouseButton);
 	I.Jump = D(EKeys::SpaceBar) || D(EKeys::Gamepad_FaceButton_Bottom);
-	I.Enter = D(EKeys::Enter) || D(EKeys::Gamepad_Special_Right);
+	I.Enter = D(EKeys::Enter);
 	// loop cycle 2: with a pad, A (the jump button) also works the cards and the K.O. / knocked-out screens; only Start did
 	if (!I.Enter && D(EKeys::Gamepad_FaceButton_Bottom) && (InCut() || P.Hp <= 0 || bWon)) I.Enter = true;
 	// 3.9 (owner: "clicks not registering"): a left click works them too (the cards, KNOCKED OUT, the win); in the fight it punches
@@ -803,7 +807,7 @@ void AFTBrawlGameMode::UpdateFoes(float Dt)
 		}
 		if (F.St == TEXT("down"))
 		{
-			if (F.Hp <= 0) { if (F.T > 0.9f) { F.St = TEXT("dead"); F.T = 0; Kos++; DropFrom(F); Splat(World(F.X - F.Dir * 50, F.Y, 0), 2.6f); if (F.bBoss) { bWon = true; WinT = 0; UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL won kos=%d best=%d hits=%d time=%.0f"), Kos, Best, Hits, Time); UE_LOG(LogFTBrawl, Log, TEXT("FT BRAWL won night=%d boss=%s"), Night, *BossName); if (bCamCheck) UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL camcheck night=%d frames=%d offcam=%d worst=%.2f keepin=%d"), Night, CamFrames, CamOff, CamWorst, bNoKeepIn ? 0 : 1); } } }
+			if (F.Hp <= 0) { if (F.T > 0.9f) { F.St = TEXT("dead"); F.T = 0; Kos++; DropFrom(F); Splat(World(F.X - F.Dir * 50, F.Y, 0), 2.6f); if (F.bBoss) { bWon = true; WinT = 0; SaveCheckpoint(TEXT("BossDefeated")); UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL won kos=%d best=%d hits=%d time=%.0f"), Kos, Best, Hits, Time); UE_LOG(LogFTBrawl, Log, TEXT("FT BRAWL won night=%d boss=%s"), Night, *BossName); if (bCamCheck) UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL camcheck night=%d frames=%d offcam=%d worst=%.2f keepin=%d"), Night, CamFrames, CamOff, CamWorst, bNoKeepIn ? 0 : 1); } } }
 			else if (F.T > (F.bBoss ? 0.7f : 0.75f)) { F.St = TEXT("getup"); F.T = 0; }
 			continue;
 		}
@@ -1102,7 +1106,7 @@ void AFTBrawlGameMode::Step(float Dt, const FIn& In)
 	}
 	else if (bSpawned && !bBossOut && !Foes.ContainsByPredicate([](const FFTBrawlBody& F) { return F.St != TEXT("dead"); }))
 	{
-		Wave++; LockX = -1; bSpawned = false; Go = 2.0f;
+		Wave++; LockX = -1; bSpawned = false; Go = 2.0f; SaveCheckpoint(TEXT("WaveCompleted"));
 		CombatCue(ECombatCue::Clear, World(P.X, P.Y, 70.f), P.Dir);
 		UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL wave cleared -> %d (kos=%d)"), Wave, Kos);
 	}
@@ -1309,12 +1313,14 @@ void AFTBrawlGameMode::Restart()
 {
 	bCutDone = false;
 	ResetState(0, false);
+	SaveCheckpoint(TEXT("RestartNight"));
 	Banner = VenueName; BannerSub = VenueTag; BannerT = 0;
 }
 
 void AFTBrawlGameMode::Tick(float Dt)
 {
 	Super::Tick(Dt);
+	if (SystemScreen || FPlatformTime::Seconds() < InputResumeAt) return;
 #ifdef FT_BRAWL_MAIN_GAME
 	// loop cycle 6: M mutes here too, as in the races (the same setting, saved)
 	if (APlayerController* MPC = GetWorld()->GetFirstPlayerController())
@@ -1323,7 +1329,7 @@ void AFTBrawlGameMode::Tick(float Dt)
 #endif
 	// (3.9: cleared at console priority: a SetByCode 0 never overrode the console's 1, so the night re-won every frame
 	// and the win screen's clock never ran)
-	if (CVarWin.GetValueOnGameThread()) { CVarWin->Set(0, ECVF_SetByConsole); bWon = true; WinT = 0; UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL won (ftb.Win)")); }
+	if (CVarWin.GetValueOnGameThread()) { CVarWin->Set(0, ECVF_SetByConsole); bWon = true; WinT = 0; SaveCheckpoint(TEXT("BossDefeatedTest")); UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL won (ftb.Win)")); }
 	if (bKeyTest)   // -brawlkeytest: the autopilot's moves go in as key presses (in a cutscene: ENTER on each beat after 3 s with -brawlnext)
 	{
 		FIn K = InCut() ? FIn() : AutoInput();
@@ -2761,8 +2767,8 @@ void AFTBrawlGameMode::PressKeys(const FIn& In)
 	Key(bPadTest ? EKeys::Gamepad_FaceButton_Left : EKeys::J, In.Fire);
 	Key(bPadTest ? EKeys::Gamepad_FaceButton_Top : EKeys::K, In.Kick);
 	Key(bPadTest ? EKeys::Gamepad_FaceButton_Right : EKeys::L, In.Grab);
-	Key(bPadTest ? EKeys::Gamepad_FaceButton_Bottom : EKeys::SpaceBar, In.Jump);
-	Key(bPadTest ? EKeys::Gamepad_Special_Right : EKeys::Enter, In.Enter);
+	Key(bPadTest ? EKeys::Gamepad_FaceButton_Bottom : EKeys::SpaceBar, In.Jump || (bPadTest && In.Enter));
+	if (!bPadTest) Key(EKeys::Enter, In.Enter);
 }
 
 // ---------------------------------------------------------------- fight-night polish (run 38222; owner, 15 Nov: "in the fight scenes we
@@ -2786,7 +2792,7 @@ void AFTBrawlGameMode::Sfx(const TCHAR* Name, float Vol, float Pitch)
 		if (!S) UE_LOG(LogFTBrawl, Warning, TEXT("FTBRAWL sfx missing %s (import beat-em-up-unreal/Docs/audio/sfx: Content/Python/brawl_audio.py)"), *Path);
 	}
 	if (!S) return;
-	UGameplayStatics::PlaySound2D(this, S, Vol, Pitch * FMath::FRandRange(0.95f, 1.05f));   // looks only: not the fight's seeded stream
+	UGameplayStatics::PlaySound2D(this, S, Vol, Pitch * FMath::FRandRange(0.95f, 1.05f), 0.f, nullptr, this, false);   // looks only: not the fight's seeded stream
 	NSfx++;
 	UE_LOG(LogFTBrawl, Verbose, TEXT("FTBRAWL sfx %s vol=%.2f n=%d"), Name, Vol, NSfx);
 }

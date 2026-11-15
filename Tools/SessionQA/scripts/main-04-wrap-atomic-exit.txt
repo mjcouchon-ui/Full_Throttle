@@ -1,0 +1,36 @@
+# Relaunch and Continue race. Only race completion uses an existing gameplay harness hook.
+wait 2
+ft.SessionState
+ft.Press Enter
+waitfor FT SESSION continue kind=race | 25
+waitfor FT LEVEL id= | 35
+r.SetRes 1280x720w
+wait 4
+FTInvuln 1
+FTWrapNow
+waitfor FT OUTCOME wrap | 20
+wait 0.3
+ft.Press Escape
+waitfor FT SYSTEM pause | 10
+ft.SessionState
+shot main-04-wrap-checkpoint-paused
+wait 2
+ft.SessionState
+# Inspect the existing paycheck UI without waiting for the full highlights reel.
+ft.Press Escape
+wait 0.7
+FTGoto Paycheck
+wait 0.8
+ft.SessionState
+shot main-04-paycheck
+# Actual controller B must preserve the atomic next-day checkpoint, never mark early completion.
+ft.Press Gamepad_FaceButton_Right
+waitfor FT SESSION return=title | 20
+wait 2
+r.SetRes 1280x720w
+wait 1
+ft.SessionState
+shot main-04-wrap-title
+ft.Press Escape
+wait 3
+quit

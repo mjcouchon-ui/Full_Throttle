@@ -26,6 +26,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "HAL/IConsoleManager.h"
 #include "InputKeyEventArgs.h"
+#include "Misc/PackageName.h"
 
 using FT::XU; using FT::DU; using FT::RoadHalf; using FT::LaneX; using FT::BaseSpeed;
 
@@ -348,6 +349,23 @@ void AFTGameMode::CommitLevel()
 	In.XP = Run.XP; In.NewFeats = Run.NewFeats; In.LeftBehind = Run.LeftBehind; In.Trucks = Run.Trucks; In.SnakeEyes = Run.SnakeEyes;
 	In.bRunDown = bRunDown && R.bBossWrecked; In.ExactCarnage = (double)Run.Wrecked / FMath::Max(1, ScriptTotal); In.BestScore = (int32)Score;
 	UE_LOG(LogFT, Display, TEXT("FT CARNAGE wrecked=%d total=%d shown=%d exact=%.4f leftBehind=%d final=1"), Run.Wrecked, ScriptTotal, (int32)FMath::RoundToInt(In.ExactCarnage * 100.0), In.ExactCarnage, Run.LeftBehind);
+	// Rewards and the next resumable step are one durable transaction. Presentation
+	// screens never become a checkpoint that can pay this take twice.
+	const int32 NextLevel = Level + 1 < FTData::NumLevels() ? Level + 1 : -2;
+	const TCHAR* Args = FCommandLine::Get();
+	const bool bDays = !FParse::Param(Args, TEXT("ftnoday1")) && !FParse::Param(Args, TEXT("ftnodays")) &&
+		!FParse::Param(Args, TEXT("ftnonights")) && FPackageName::DoesPackageExist(TEXT("/Game/Brawl/Maps/L_Day1Set")) &&
+		(!(G && (G->bAutoDrive || G->bExecScript)) || FParse::Param(Args, TEXT("ftdays")));
+	if (bWrap && bDays) { In.NextKind = TEXT("day"); In.NextLevel = Level; In.bNextWrap = true; }
+	else if (bWrap && !FParse::Param(Args, TEXT("ftnonights")) && !UFTNightFlow::NightMapAfter(Level).IsEmpty())
+	{
+		In.NextKind = TEXT("night"); In.NextLevel = Level; In.NextStage = -1;
+	}
+	else
+	{
+		In.NextLevel = bWrap ? NextLevel : Level;
+		In.NextKind = In.NextLevel < 0 ? TEXT("complete") : TEXT("preproduction");
+	}
 	Pay = CS->Commit(In);
 	bPayValid = true;
 	const bool bLast = Level >= FTData::NumLevels() - 1;
@@ -372,6 +390,7 @@ void AFTGameMode::TickPaycheck(float RDt)
 	if (Shown != LastLine && bPayValid && Shown >= 0 && Shown <= Pay.Pay.Lines.Num()) { LastLine = Shown; Sfx(TEXT("Pickup"), 0.25f, 1.4f); }
 	auto Next = [this](int32 Kind)
 	{
+		if (!RequireProgressSaved()) return;
 		const int32 To = Kind == 2 ? -2 : (Kind == 1 ? Level : Level + 1);
 		// the day's cutscene THE WRAP after a wrapped race, then the night (run 77694; after the last level THE WRAP, then the title)
 		const bool bLastWrap = Kind == 2 && Level >= FTData::NumLevels() - 1 && !bEscaped && !bOutOfFilm && bPayValid;   // = LeavePreProduction's THAT'S A WRAP
@@ -380,7 +399,7 @@ void AFTGameMode::TickPaycheck(float RDt)
 		EnterPreProduction(To, false);
 	};
 	if (PC->Hit(EKeys::R)) { PayNext = 1; Next(1); return; }
-	if (PC->MenuBack()) { PayNext = 2; Next(2); return; }
+	if (PC->MenuBack()) { RequestSystemQuit(false); return; }
 	if (PC->MenuOk() || PC->Clicked(ResultsContinueRect)) Next(PayNext);
 }
 
@@ -408,7 +427,15 @@ void AFTGameMode::EnterPreProduction(int32 NextLevel, bool bFromTitle)
 	BuyHoldT = 0.f; bBuyHoldDone = false;
 	TabRects.Reset(); TileRects.Reset();
 	ReadyRect = BuyRect = UndoRect = FBox2D(ForceInit); bReadyRectLogged = false;
-	if (CS) { CS->C.PendingLevel = NextLevel; CS->C.bPendingFromTitle = bFromTitle; CS->Save(TEXT("PreProduction")); }
+	if (CS)
+	{
+		if (bFromTitle) CS->Save(TEXT("TitleShop")); // Preserve an active race/night Continue checkpoint.
+		else
+		{
+			CS->C.PendingLevel = NextLevel; CS->C.bPendingFromTitle = false;
+			CS->SetCheckpoint(NextLevel < 0 ? TEXT("complete") : TEXT("preproduction"), NextLevel < 0 ? Level : NextLevel, 0, false, TEXT("PreProduction"));
+		}
+	}
 	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->SetMenuMouse(true);
 	if (CS && CS->SPLeft() > 0) Tab = EFTTab::Skills;
 	BuildTiles();
@@ -422,7 +449,12 @@ void AFTGameMode::LeavePreProduction()
 {
 	UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this);
 	UFTGameInstance* G = GI();
-	if (CS) CS->Ready();
+	if (CS && !CS->Ready())
+	{
+		SystemMessage = CS->SaveError;
+		OpenSystemDialog(EFTSystemDialog::SaveFailed, 4);
+		return;
+	}
 	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->SetMenuMouse(false);
 	Sfx(TEXT("Clap"));
 	if (bPPFromTitle)
@@ -570,6 +602,10 @@ bool AFTGameMode::PPActivate(int32 Idx, bool bHoldDone)
 	UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this);
 	if (!CS || !Tiles.IsValidIndex(Idx)) return false;
 	const FFTTileView T = Tiles[Idx];
+	const auto Failed = [&](const TCHAR* Fallback)
+	{
+		PPSay(CS->bSaveError && !CS->SaveError.IsEmpty() ? CS->SaveError : FString(Fallback), true);
+	};
 	if (T.State == EFTTile::Soon) { PPSay(FString::Printf(TEXT("COMING SOON: %s"), *T.Needs), true); return false; }
 	if (Tab == EFTTab::Skills)
 	{
@@ -578,16 +614,27 @@ bool AFTGameMode::PPActivate(int32 Idx, bool bHoldDone)
 		if (T.State != EFTTile::Available) { PPSay(FString::Printf(TEXT("NEEDS: %s"), *T.Needs), true); return false; }
 		const bool bOk = CS->BuySkill(FName(*T.Id));
 		if (bOk) { CS->C.bTipSeen = true; PPSay(FString::Printf(TEXT("%s PENDING · READY TO KEEP IT"), *T.Title), false); }
+		else Failed(TEXT("SKILL NOT ADDED"));
 		return bOk;
 	}
 	// cosmetics: owned -> equip (free, instant); an equipped optional slot comes off
 	if ((Tab == EFTTab::Custom || Tab == EFTTab::Sfx) && (T.State == EFTTile::Owned || T.State == EFTTile::Equipped))
 	{
 		const bool bFixed = T.Slot == TEXT("paint") || T.Slot == TEXT("rims") || T.Slot == TEXT("neon") || T.Slot == TEXT("nitro");
-		if (T.State == EFTTile::Equipped) { if (!bFixed) { CS->Equip(T.Slot, NAME_None); PPSay(TEXT("TAKEN OFF"), false); return true; } PPSay(TEXT("EQUIPPED"), false); return false; }
-		CS->Equip(T.Slot, FName(*T.Id)); PPSay(FString::Printf(TEXT("%s EQUIPPED"), *T.Title), false); return true;
+		if (T.State == EFTTile::Equipped)
+		{
+			if (bFixed) { PPSay(TEXT("EQUIPPED"), false); return false; }
+			if (!CS->Equip(T.Slot, NAME_None)) { Failed(TEXT("COULD NOT TAKE OFF")); return false; }
+			PPSay(TEXT("TAKEN OFF"), false); return true;
+		}
+		if (!CS->Equip(T.Slot, FName(*T.Id))) { Failed(TEXT("COULD NOT EQUIP")); return false; }
+		PPSay(FString::Printf(TEXT("%s EQUIPPED"), *T.Title), false); return true;
 	}
-	if (T.Id == TEXT("sequel") && T.State == EFTTile::Owned) { CS->ToggleSequel(); PPSay(CS->C.bSequelOn ? TEXT("SEQUEL MODE ON") : TEXT("SEQUEL MODE OFF"), false); return true; }
+	if (T.Id == TEXT("sequel") && T.State == EFTTile::Owned)
+	{
+		if (!CS->ToggleSequel()) { Failed(TEXT("SEQUEL MODE NOT CHANGED")); return false; }
+		PPSay(CS->C.bSequelOn ? TEXT("SEQUEL MODE ON") : TEXT("SEQUEL MODE OFF"), false); return true;
+	}
 	if (T.State == EFTTile::Owned) { PPSay(TEXT("OWNED"), false); return false; }
 	if (T.State == EFTTile::Locked) { PPSay(FString::Printf(TEXT("NEEDS: %s"), *T.Needs), true); return false; }
 	if (T.bCash && !bHoldDone) { PPSay(TEXT("HOLD ENTER / A (OR THE BUY BUTTON) 0.5 s TO BUY"), false); return false; }
@@ -598,8 +645,19 @@ bool AFTGameMode::PPActivate(int32 Idx, bool bHoldDone)
 	else if (T.Id.StartsWith(TEXT("greenlight-"))) bOk = CS->BuyGreenlight(T.Id.RightChop(11));
 	else if (T.Id == TEXT("sequel")) bOk = CS->BuySequel();
 	else if (T.Id == TEXT("respec")) bOk = CS->Respec();
-	else { bOk = CS->BuyCosmetic(FName(*T.Id)); if (bOk) CS->Equip(T.Slot, FName(*T.Id)); }
-	PPSay(bOk ? FString::Printf(TEXT("%s · DONE"), *T.Title) : TEXT("NOT BOUGHT"), !bOk);
+	else
+	{
+		bOk = CS->BuyCosmetic(FName(*T.Id));
+		if (bOk && !CS->Equip(T.Slot, FName(*T.Id)))
+		{
+			// The purchase is durable even if the separate equip save failed and rolled back.
+			PPSay(FString::Printf(TEXT("%s BOUGHT · EQUIP FAILED: %s"), *T.Title,
+				CS->SaveError.IsEmpty() ? TEXT("TRY EQUIPPING AGAIN") : *CS->SaveError), true);
+			return true;
+		}
+	}
+	if (bOk) PPSay(FString::Printf(TEXT("%s · DONE"), *T.Title), false);
+	else Failed(TEXT("NOT BOUGHT"));
 	return bOk;
 }
 
@@ -654,19 +712,20 @@ void AFTGameMode::TickPreProduction(float RDt)
 			break;
 		}
 	}
-	// READY: Space, pad Start, or the button (Esc too when this came from the title)
+	// READY: Space, pad Y, or the button. Start / Escape always open the system pause.
 	// (3.9: where the button is, once, and what pressed it, so a real-input test can click it and see it register)
 	if (ReadyRect.bIsValid && !bReadyRectLogged) { bReadyRectLogged = true; UE_LOG(LogFT, Display, TEXT("FT SCREEN name=PreProduction ready=%.0f,%.0f,%.0f,%.0f cursor=%d"), ReadyRect.Min.X, ReadyRect.Min.Y, ReadyRect.Max.X, ReadyRect.Max.Y, PC->bMenuMouse ? 1 : 0); }
-	if (PC->Hit(EKeys::SpaceBar) || PC->Hit(EKeys::Gamepad_Special_Right) || PC->Clicked(ReadyRect) || (bPPFromTitle && PC->Hit(EKeys::Escape)))
+	if (PC->Hit(EKeys::SpaceBar) || PC->Hit(EKeys::Gamepad_FaceButton_Top) || PC->Clicked(ReadyRect))
 	{
-		UE_LOG(LogFT, Display, TEXT("FT INPUT screen=PreProduction ready by=%s"), PC->Clicked(ReadyRect) ? TEXT("click") : PC->Hit(EKeys::SpaceBar) ? TEXT("Space") : TEXT("pad/Esc"));
+		UE_LOG(LogFT, Display, TEXT("FT INPUT screen=PreProduction ready by=%s"), PC->Clicked(ReadyRect) ? TEXT("click") : PC->Hit(EKeys::SpaceBar) ? TEXT("Space") : TEXT("padY"));
 		LeavePreProduction(); return;
 	}
 	// UNDO: Backspace / pad B / the button
 	if (PC->Hit(EKeys::BackSpace) || PC->Hit(EKeys::Delete) || PC->Hit(EKeys::Gamepad_FaceButton_Right) || PC->Clicked(UndoRect))
 	{
 		const FName Id = (Tab == EFTTab::Skills && Tiles.IsValidIndex(Sel) && Tiles[Sel].State == EFTTile::Pending) ? FName(*Tiles[Sel].Id) : NAME_None;
-		if (CS->UndoSkill(Id)) PPSay(TEXT("UNDONE · SKILL POINTS BACK"), false); else PPSay(TEXT("NOTHING PENDING TO UNDO"), true);
+		if (CS->UndoSkill(Id)) PPSay(TEXT("UNDONE · SKILL POINTS BACK"), false);
+		else PPSay(CS->bSaveError && !CS->SaveError.IsEmpty() ? CS->SaveError : FString(TEXT("NOTHING PENDING TO UNDO")), true);
 		return;
 	}
 	// BUY: Enter / pad A (cash: hold 0.5 s), or hold the mouse on the BUY button
@@ -695,6 +754,7 @@ void AFTGameMode::TickPreProduction(float RDt)
 // ============================================================================================== the start of a level (harness and flow)
 void AFTGameMode::StartLevelAt(int32 L, int32 SceneIdx, bool bSequel)
 {
+	if (bSystemPaused) ResumeSystemPause();
 	UFTGameInstance* G = GI();
 	L = FMath::Clamp(L, 0, FTData::NumLevels() - 1);
 	if (G) { G->PendingScene = FMath::Max(0, SceneIdx); G->bHarnessSequel = bSequel; }

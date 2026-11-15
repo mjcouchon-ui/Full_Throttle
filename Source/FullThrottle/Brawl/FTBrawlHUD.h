@@ -39,6 +39,8 @@ private:
 	void DamageMeter(float X, float Y, float W, float H, float Frac, float Trail, const FLinearColor& C, int32 Segments);
 	void Callout(const FString& Str, float Cx, float Y, const FLinearColor& Accent, float Height, float A = 1.f);
 	void Card(const FString& Title, const FString& Sub, const FString& Keys, const FLinearColor& Accent, float A = 1.f);
+	void DrawSystemMenu(class AFTBrawlGameMode* G);
+	void DrawSaveIndicator(class AFTBrawlGameMode* G);
 	void DrawCut(class AFTBrawlGameMode* G);   // night 1's cutscenes: letterbox, dialogue box, title cards, flash, the end card
 	void DrawItemCues(const class AFTBrawlGameMode& Game);
 	TArray<FString> Wrap(const FString& Str, float MaxW, float Height, bool bDisplay);

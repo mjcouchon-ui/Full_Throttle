@@ -1,0 +1,37 @@
+# Relaunch the same profile: title must stay title, with saved race metadata.
+wait 2
+ft.SessionState
+# Continue focus 0 -> New Game focus 1. Confirmation defaults to Cancel.
+ft.Press Right
+wait 0.4
+ft.Press Enter
+waitfor FT SYSTEM dialog=1 action=3 | 10
+shot main-03-newgame-confirm
+ft.Press Enter
+waitfor FT SYSTEM resumed phase=0 | 10
+wait 0.6
+ft.SessionState
+ft.Press Left
+wait 0.4
+ft.Press Enter
+waitfor FT SESSION continue kind=race | 25
+waitfor FT LEVEL id= | 35
+r.SetRes 1280x720w
+wait 4
+FTInvuln 1
+ft.Press Gamepad_Special_Right
+waitfor FT SYSTEM pause phase=2 | 10
+ft.SessionState
+wait 2
+ft.SessionState
+shot main-03-continued-race-paused
+ft.Press Escape
+wait 0.7
+# Native close must use the same restart-race confirmation.
+ft.WindowClose
+waitfor FT SYSTEM dialog=2 action=1 | 10
+ft.Press Right
+wait 0.4
+ft.Press Enter
+wait 3
+quit

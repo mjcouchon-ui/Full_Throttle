@@ -1,0 +1,6 @@
+# Fresh isolated profile. Raw test-runner exit deliberately avoids creating a campaign.
+wait 2
+ft.SessionState
+shot main-01-fresh-title
+wait 1
+quit

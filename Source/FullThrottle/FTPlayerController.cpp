@@ -5,6 +5,7 @@
 #include "TimerManager.h"
 #include "InputKeyEventArgs.h"
 #include "HAL/IConsoleManager.h"
+#include "Containers/Ticker.h"
 
 // test hooks that go through the player's real input path (WasInputKeyJustPressed sees them like a key):
 //   ft.Press <Key>          press and release a key, mouse or pad button (Enter, SpaceBar, Gamepad_Special_Right, ...)
@@ -17,8 +18,11 @@ namespace
 		if (!PC || !K.IsValid()) { UE_LOG(LogTemp, Warning, TEXT("ft.Press: no player or bad key")); return; }
 		PC->InputKey(FInputKeyEventArgs::CreateSimulated(K, IE_Pressed, 1.f));
 		TWeakObjectPtr<APlayerController> Weak(PC);
-		FTimerHandle H;
-		World->GetTimerManager().SetTimer(H, FTimerDelegate::CreateLambda([Weak, K]() { if (Weak.IsValid()) Weak->InputKey(FInputKeyEventArgs::CreateSimulated(K, IE_Released, 0.f)); }), 0.12f, false);
+		FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([Weak, K](float)
+		{
+			if (Weak.IsValid()) Weak->InputKey(FInputKeyEventArgs::CreateSimulated(K, IE_Released, 0.f));
+			return false;
+		}), 0.12f);
 		UE_LOG(LogTemp, Display, TEXT("FTINPUT tap %s"), *K.ToString());
 	}
 	FAutoConsoleCommandWithWorldAndArgs GFTPress(TEXT("ft.Press"), TEXT("FULL THROTTLE tests: press and release a key through the player's input"),
@@ -51,6 +55,8 @@ void AFTCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTime)
 
 AFTPlayerController::AFTPlayerController()
 {
+	PrimaryActorTick.bTickEvenWhenPaused = true;
+	bShouldPerformFullTickWhenPaused = true;
 	PlayerCameraManagerClass = AFTCameraManager::StaticClass();
 	bShowMouseCursor = false;
 }
@@ -148,12 +154,34 @@ float AFTPlayerController::PadSteer() const
 	return S;
 }
 
+void AFTPlayerController::BlockMenuInputUntilRelease()
+{
+	bReleaseMenuInput = true;
+	MenuInputReleasedAfter = FPlatformTime::Seconds() + 0.12;
+	In = FFTInput();
+	bSwallowFire = true;
+	bPrevPadMissile = bPrevDrift = false;
+}
+
 void AFTPlayerController::PlayerTick(float Dt)
 {
 	Super::PlayerTick(Dt);
 	UFTGameInstance* GI = GetGameInstance<UFTGameInstance>();
 	if (!GI) return;
 	const float RealDt = FApp::GetDeltaTime();
+	if (bReleaseMenuInput)
+	{
+		bool bHeld = false;
+		for (const FKey& K : { EKeys::Escape, EKeys::Enter, EKeys::SpaceBar, EKeys::P,
+			EKeys::LeftMouseButton, EKeys::RightMouseButton, EKeys::Gamepad_Special_Right,
+			EKeys::Gamepad_FaceButton_Bottom, EKeys::Gamepad_FaceButton_Right,
+			EKeys::Gamepad_FaceButton_Left, EKeys::Gamepad_FaceButton_Top })
+			bHeld |= IsInputKeyDown(K);
+		if (!bHeld && FPlatformTime::Seconds() >= MenuInputReleasedAfter) bReleaseMenuInput = false;
+		In = FFTInput();
+		return;
+	}
+	if (bMenuMouse || IsPaused()) { In = FFTInput(); return; }
 
 	// the layout follows the steering keys
 	if (bRaceInput && !bCapture)
@@ -214,7 +242,7 @@ bool AFTPlayerController::MenuRight() const
 }
 bool AFTPlayerController::MenuUp() const { return Hit(EKeys::Up) || Hit(EKeys::W) || Hit(EKeys::Gamepad_DPad_Up) || Hit(EKeys::Gamepad_LeftStick_Up); }
 bool AFTPlayerController::MenuDown() const { return Hit(EKeys::Down) || Hit(EKeys::S) || Hit(EKeys::Gamepad_DPad_Down) || Hit(EKeys::Gamepad_LeftStick_Down); }
-bool AFTPlayerController::MenuOk() const { return Hit(EKeys::Enter) || Hit(EKeys::SpaceBar) || Hit(EKeys::Gamepad_FaceButton_Bottom) || Hit(EKeys::Gamepad_Special_Right); }
+bool AFTPlayerController::MenuOk() const { return Hit(EKeys::Enter) || Hit(EKeys::SpaceBar) || Hit(EKeys::Gamepad_FaceButton_Bottom); }
 bool AFTPlayerController::MenuBack() const { return Hit(EKeys::Escape) || Hit(EKeys::Gamepad_FaceButton_Right) || Hit(EKeys::Gamepad_Special_Left); }
 
 bool AFTPlayerController::PollCapture(FKey& Out)

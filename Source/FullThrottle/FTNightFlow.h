@@ -62,4 +62,15 @@ public:
 	static bool Go(const UObject* Ctx, const FString& Spec);
 	/** The brawl asks once at BeginPlay: open this night on its boss? */
 	static bool TakeGoBoss(const UObject* Ctx);
+
+	/** Continue restores a checkpoint, never an arbitrary running simulation. */
+	static bool ResumeSaved(const UObject* Ctx);
+	/** Clear transient handoffs without changing the saved career. */
+	static void ClearSession(const UObject* Ctx);
+	/** Caller saves first or explicitly discards; title reloads the persisted career. */
+	static bool ReturnToTitle(const UObject* Ctx);
+	/** One-shot night entry: Wave=-1/Cut=1 is the intro, Cut=2/3 a completed boss's outro. */
+	static bool TakeResumeCheckpoint(const UObject* Ctx, int32& OutWave, int32& OutCut);
+	bool bResumeCheckpoint = false;
+	int32 ResumeWave = -1, ResumeCut = 0;
 };

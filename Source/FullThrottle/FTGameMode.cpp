@@ -25,6 +25,7 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "HAL/PlatformTime.h"
+#include "HAL/FileManager.h"
 #include "GameFramework/GameUserSettings.h"
 #include "RHI.h"
 #include "DynamicRHI.h"
@@ -122,17 +123,11 @@ void AFTGameMode::BeginPlay()
 		if (CS->C.PendingLevel == -2 && Level >= FTData::NumLevels() - 1) PayNext = 2;
 		EnterPreProduction(CS->C.PendingLevel, CS->C.bPendingFromTitle);
 	}
-	else if (CS && CS->C.PendingLevel != -1 && !(G && (G->bBench || G->bAutoDrive || G->bExecScript)))
-	{
-		// 09 §1: closing the game mid-PRE-PRODUCTION reopens PRE-PRODUCTION exactly there
-		UE_LOG(LogFT, Display, TEXT("FT SCREEN name=PreProduction reopened=1"));
-		EnterPreProduction(CS->C.PendingLevel, CS->C.bPendingFromTitle);
-	}
 	else
 	{
 		// 3.0: an attract cut keeps the title as it was (the selection, the time on it) and opens the wipe
 		const bool bCut = G && G->bAttractCut;
-		if (bCut) { G->bAttractCut = false; TitleSel = G->KeepTitleSel; TitleT = G->KeepTitleT; }
+		if (bCut) { G->bAttractCut = false; TitleSel = G->KeepTitleSel; TitleT = G->KeepTitleT; TitleActionFocus = G->KeepTitleActionFocus; }
 		EnterTitle(bCut);
 		bAttractCutIn = bCut && bAttract;
 	}
@@ -242,6 +237,11 @@ void AFTGameMode::StartRace(bool bRetake)
 	if (!bAttract)
 	{
 		if (UFTGameInstance* G = GI()) G->StopTitleMusic(1.2f);
+		if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController()))
+		{
+			PC->SetMenuMouse(false);
+			if (!bRetake) PC->BlockMenuInputUntilRelease();
+		}
 	}
 	ClearEnts();
 	Hazards.Reset();
@@ -316,6 +316,9 @@ void AFTGameMode::StartRace(bool bRetake)
 	HalfSection = -1; HalfSide = 0; BldgSection = -1; bOnCoaster = false; CoasterMode = -1; bHopAir = false;
 	HideFlyer(); bFlyDone = false; GrindT = GrindPayT = 0.f;
 	if (BoltComp) BoltComp->SetVisibility(false);
+	if (!bRetake && !bAttract)
+		if (UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this))
+			CS->SetCheckpoint(TEXT("race"), Level, 0, false, TEXT("RaceStart"));
 }
 
 void AFTGameMode::BeginPlayPhase()
@@ -405,6 +408,7 @@ void AFTGameMode::Wreck()
 	}
 	CutT = RealClock + 0.6f;
 	Clips.RemoveAll([this](const FFTClip& C) { return C.Scene >= Scene && !C.bBoss; });
+	if (bOutOfFilm) RateAndCommit();
 }
 
 void AFTGameMode::Wrap(bool bEscape)
@@ -435,6 +439,7 @@ void AFTGameMode::Wrap(bool bEscape)
 		Caption = FString::Printf(TEXT("%s GOT AWAY..."), *Def().BossName); CaptionT = RealClock;
 	}
 	CutT = RealClock + 0.8f;
+	RateAndCommit();
 }
 
 void AFTGameMode::RateAndCommit()
@@ -482,6 +487,22 @@ void AFTGameMode::Tick(float Dt)
 	Super::Tick(Dt);
 	if (!Track || !Car) return;
 	const float RDt = FMath::Min(FApp::GetDeltaTime(), 0.1f);
+	AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController());
+	UFTGameInstance* G = GI();
+	// System input wins before any phase timer, reward navigation, driving or attract simulation.
+	if (Overlay != EFTOverlay::None)
+	{
+		if (G && PC && PC->Hit(EKeys::M)) { G->bMuted = !G->bMuted; G->ApplyMute(); G->SaveSettings(); }
+		TickOverlay(RDt);
+		return;
+	}
+	if (PC && PC->MenuInputBlocked()) return;
+	if (PC && !bAttract && Phase != EFTPhase::Title &&
+		(PC->Hit(EKeys::P) || PC->Hit(EKeys::Escape) || PC->Hit(EKeys::Gamepad_Special_Right)))
+	{
+		OpenSystemPause();
+		return;
+	}
 	RealClock += RDt;
 	Fps = RDt > 0.f ? 1.f / RDt : 0.f;
 	FpsSmoothed = FMath::Lerp(FpsSmoothed, Fps, 0.05f);
@@ -495,15 +516,6 @@ void AFTGameMode::Tick(float Dt)
 			++HitchCount;
 			UE_LOG(LogFT, Display, TEXT("FTHITCH ms=%.0f phase=%d phaseT=%.2f level=%d d=%.0f n=%d"), RawMs, (int32)Phase, PhaseT, Level, Car->D / 100.f, HitchCount);
 		}
-	}
-	AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController());
-	UFTGameInstance* G = GI();
-
-	// 3.0: the attract mode holds still while the controls or options are open over the title
-	if (bAttract && (Overlay != EFTOverlay::None) != bAttractPaused)
-	{
-		bAttractPaused = Overlay != EFTOverlay::None;
-		UGameplayStatics::SetGamePaused(this, bAttractPaused);
 	}
 
 	if (G && PC)
@@ -519,13 +531,6 @@ void AFTGameMode::Tick(float Dt)
 		if (Rotor && Rotor->bIsPaused == bRaceAudio) { Rotor->SetPaused(!bRaceAudio); UE_LOG(LogFT, Display, TEXT("FT AUDIO loops paused=%d phase=%d overlay=%d"), bRaceAudio ? 0 : 1, (int32)Phase, (int32)Overlay); }
 		if (PropAudio && PropAudio->bIsPaused == bRaceAudio) PropAudio->SetPaused(!bRaceAudio);
 	}
-	// loop cycle 5 (Justin's audit): the scene slate, ACTION!, the director's line and the shout are timed on the real
-	// clock, which runs on in the pause menu, so a pause ate them unread. Hold them while a race is paused.
-	if (Overlay != EFTOverlay::None && !bAttract && (Phase == EFTPhase::Play || Phase == EFTPhase::Wreck || Phase == EFTPhase::Card))
-	{
-		for (float* T : { &SceneSlateT, &ActionT, &LineT, &ShoutT }) if (*T > -5.f) *T += RDt;
-	}
-	if (Overlay != EFTOverlay::None) { TickOverlay(RDt); return; }
 
 	// music ducking
 	if (Music && Phase != EFTPhase::Title)
@@ -600,9 +605,9 @@ void AFTGameMode::Tick(float Dt)
 		// title, both through PRE-PRODUCTION
 		if (PC && PhaseT > 1.0f)
 		{
-			if (PC->Hit(EKeys::R)) { PayNext = 1; EnterPreProduction(Level, false); }
-			else if (PC->MenuBack()) { PayNext = 2; EnterPreProduction(-2, false); }
-			else if (PhaseT > 2.9f && (PC->MenuOk() || PC->Clicked(ResultsContinueRect))) EnterPaycheck();
+			if (PC->Hit(EKeys::R) && RequireProgressSaved()) { PayNext = 1; EnterPreProduction(Level, false); }
+			else if (PC->MenuBack()) { RequestSystemQuit(false); }
+			else if (PhaseT > 2.9f && (PC->MenuOk() || PC->Clicked(ResultsContinueRect)) && RequireProgressSaved()) EnterPaycheck();
 		}
 		break;
 	}
@@ -718,47 +723,59 @@ void AFTGameMode::TickTitle(float RDt)
 		if (PC->Hit(Number[I])) { TitleSel = I; TitleActionFocus = INDEX_NONE; }
 
 	const FVector2D Mouse = PC->MousePos();
-	const bool bMoved = Mouse.X >= 0.f && (TitleMouse.X < 0.f || FVector2D::Distance(Mouse, TitleMouse) > 1.5f);
+	const bool bMoved = Mouse.X >= 0.f && TitleMouse.X >= 0.f && FVector2D::Distance(Mouse, TitleMouse) > 1.5f;
 	TitleMouse = Mouse;
 	int32 Activate = INDEX_NONE;
 	for (int32 I = 0; I < TitleRowRects.Num() && I < Levels; ++I)
 	{
 		if (!PC->MouseIn(TitleRowRects[I])) continue;
 		if (bMoved || PC->Hit(EKeys::LeftMouseButton)) { TitleSel = I; TitleActionFocus = INDEX_NONE; }
-		if (PC->Hit(EKeys::LeftMouseButton)) Activate = 0;
+		if (PC->Hit(EKeys::LeftMouseButton)) Activate = 4;
 		break;
 	}
 	for (int32 I = 0; I < TitleBtnRects.Num(); ++I)
 		if (PC->Clicked(TitleBtnRects[I])) { Activate = I; break; }
 
-	if (PC->Hit(EKeys::C) || PC->Hit(EKeys::Gamepad_FaceButton_Top)) Activate = 2;
-	else if (PC->Hit(EKeys::O)) Activate = 3;
-	else if (PC->Hit(EKeys::G) || PC->Hit(EKeys::Gamepad_Special_Left)) Activate = 1;
-	else if (PC->Hit(EKeys::Escape)) Activate = 4;
-	else if (Activate == INDEX_NONE && PC->MenuOk() && TitleT > .4f) Activate = FMath::Max(0, TitleActionFocus);
+	if (PC->Hit(EKeys::C) || PC->Hit(EKeys::Gamepad_FaceButton_Top)) Activate = 5;
+	else if (PC->Hit(EKeys::O)) Activate = 2;
+	else if (PC->Hit(EKeys::G) || PC->Hit(EKeys::Gamepad_Special_Left)) Activate = 6;
+	else if (PC->Hit(EKeys::Escape)) Activate = 3;
+	else if (Activate == INDEX_NONE && (PC->MenuOk() || PC->Hit(EKeys::Gamepad_Special_Right)) && TitleT > .4f)
+		Activate = TitleActionFocus == INDEX_NONE ? 4 : TitleActionFocus;
 	const UFTGameInstance* GT = GI();
 	if (Activate == INDEX_NONE && ((CVarFTAutopilot.GetValueOnGameThread() > 0 && TitleT > 1.5f) || (GT && GT->bAutoDrive && TitleT > 3.5f)))
-		Activate = 0;
+		Activate = 4;
 
 	if (TitleSel != PreviousLevel || TitleActionFocus != PreviousAction || Activate != INDEX_NONE) LastMenuInputT = RealClock;
 	if (TitleSel != PreviousLevel) UE_LOG(LogFT, Display, TEXT("FT TITLE sel=%d"), TitleSel + 1);
 	switch (Activate)
 	{
-	case 0: MenuCue(TEXT("Clap")); TitleStart(); return;
-	case 1: StopAttract(); EnterPreProduction(-2, true); return;
-	case 2:
-		MenuCue(TEXT("Near"), 1.35f);
-		UE_LOG(LogFT, Display, TEXT("FT TITLE overlay=Controls"));
-		Overlay = EFTOverlay::Controls; ControlsRow = 0; ControlsCol = GT ? GT->Layout : 0; OverlayFeedback.Reset();
+	case 0:
+		if (UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this); CS && CS->HasContinue())
+		{
+			StopAttract();
+			PC->BlockMenuInputUntilRelease();
+			if (UFTNightFlow::ResumeSaved(this)) return;
+			SystemMessage = TEXT("This checkpoint could not be opened. Your saved progress is unchanged.");
+			EnterTitle(false);
+		}
 		return;
-	case 3:
-		MenuCue(TEXT("Near"), 1.35f);
-		UE_LOG(LogFT, Display, TEXT("FT TITLE overlay=Options"));
+	case 1:
+		if (const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this); CS && (CS->HasContinue() || CS->bLoadError || IFileManager::Get().FileExists(*CS->FilePath()) || IFileManager::Get().FileExists(*(CS->FilePath() + TEXT(".bak")))))
+			OpenSystemDialog(EFTSystemDialog::NewGame, 3);
+		else { SystemAction = 3; AttemptSystemAction(); }
+		return;
+	case 2:
+		OpenSystemPause(); bOverlayFromPause = false;
 		Overlay = EFTOverlay::Options; OptionsRow = 0;
 		return;
-	case 4:
-		if (TitleT > 1.f) UKismetSystemLibrary::QuitGame(this, PC, EQuitPreference::Quit, false);
+	case 3: RequestSystemQuit(true); return;
+	case 4: MenuCue(TEXT("Clap")); TitleStart(); return;
+	case 5:
+		OpenSystemPause(); bOverlayFromPause = false;
+		Overlay = EFTOverlay::Controls; ControlsRow = 0; ControlsCol = GT ? GT->Layout : 0; OverlayFeedback.Reset();
 		return;
+	case 6: StopAttract(); EnterPreProduction(-2, true); return;
 	default:
 		if (TitleSel != PreviousLevel || TitleActionFocus != PreviousAction) MenuCue(TEXT("Near"), 1.6f);
 		break;
@@ -767,7 +784,15 @@ void AFTGameMode::TickTitle(float RDt)
 
 void AFTGameMode::TitleStart()
 {
-	if (UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this); CS && TitleSel == 0) { CS->C.Stats.Runs++; CS->Save(TEXT("Run")); }
+	if (UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this); CS && TitleSel == 0)
+	{
+		CS->C.Stats.Runs++;
+		if (!CS->Save(TEXT("Run")))
+		{
+			CS->C.Stats.Runs--;
+			SystemMessage = CS->SaveError; OpenSystemDialog(EFTSystemDialog::SaveFailed, 4); return;
+		}
+	}
 	UE_LOG(LogFT, Display, TEXT("FT TITLE start level=%d attract=%d"), TitleSel + 1, bAttract ? 1 : 0);
 	// level 1 from the title: day 1's cutscene BEFORE THE DRIVE (L_Day1Set) first, its ENTER starts the race (FTNightFlow);
 	// autopilot / script / bench runs go straight to the race as before unless -ftday1
@@ -790,7 +815,7 @@ void AFTGameMode::EnterTitle(bool bKeepTitleT)
 {
 	UFTGameInstance* G = GI();
 	Phase = EFTPhase::Title; PhaseT = 0.f;
-	if (!bKeepTitleT) { TitleT = 0.f; TitleActionFocus = INDEX_NONE; }
+	if (!bKeepTitleT) { TitleT = 0.f; const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this); TitleActionFocus = CS && CS->HasContinue() ? 0 : 1; }
 	TitleRowRects.Reset(); TitleBtnRects.Reset();
 	if (Music && Music->IsPlaying()) Music->Stop();
 	bBossMusic = false;
@@ -888,7 +913,7 @@ void AFTGameMode::CutAttract()
 	int32 S = 0, K = 0; float D0 = 600.f;
 	PickAttractShot(Next, S, K, D0);
 	G->AttractD0 = D0; G->AttractScene = S; G->AttractSpawn = K; G->bAttractCut = true;
-	G->KeepTitleSel = TitleSel; G->KeepTitleT = TitleT; G->AttractCuts++;
+	G->KeepTitleSel = TitleSel; G->KeepTitleT = TitleT; G->KeepTitleActionFocus = TitleActionFocus; G->AttractCuts++;
 	UE_LOG(LogFT, Display, TEXT("FT ATTRACT cut from=%d to=%d scene=%d spawn=%d D0=%.0f"), Level + 1, Next + 1, S + 1, K, D0);
 	GoToLevel(Next, false);
 }
@@ -913,6 +938,161 @@ void AFTGameMode::MenuCue(const TCHAR* Name, float Pitch)
 	Sfx(Name, .32f, Pitch);
 }
 
+FString AFTGameMode::ResumeDescription() const
+{
+	const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this);
+	return CS && CS->HasContinue() ? CS->ContinueLabel() : TEXT("No saved campaign checkpoint yet.");
+}
+
+void AFTGameMode::OpenSystemPause()
+{
+	if (!bSystemPaused)
+	{
+		bSystemPaused = true;
+		if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController()))
+		{
+			bPauseMouse = PC->bMenuMouse;
+			PC->bRaceInput = false;
+			PC->In = FFTInput();
+			PC->SetMenuMouse(true);
+		}
+		bMusicWasPaused = Music && Music->bIsPaused;
+		bRotorWasPaused = Rotor && Rotor->bIsPaused;
+		bPropWasPaused = PropAudio && PropAudio->bIsPaused;
+		if (Music) Music->SetPaused(true);
+		if (Rotor) Rotor->SetPaused(true);
+		if (PropAudio) PropAudio->SetPaused(true);
+		if (UFTGameInstance* G = GI(); G && G->TitleMusic)
+		{
+			bTitleMusicWasPaused = G->TitleMusic->bIsPaused;
+			G->TitleMusic->SetPaused(true);
+		}
+		UGameplayStatics::SetGamePaused(this, true);
+	}
+	Overlay = EFTOverlay::Pause; PauseRow = 0;
+	bOverlayFromPause = true;
+	DrawnOverlay = EFTOverlay::None;
+	UE_LOG(LogFT, Display, TEXT("FT SYSTEM pause phase=%d phaseT=%.3f"), int32(Phase), PhaseT);
+	UE_LOG(LogFT, Display, TEXT("FT SCREEN name=Pause state=opened"));
+}
+
+void AFTGameMode::ResumeSystemPause()
+{
+	Overlay = EFTOverlay::None;
+	DrawnOverlay = EFTOverlay::None;
+	SystemDialog = EFTSystemDialog::None;
+	SystemAction = 0; bPendingSystemSave = false;
+	bOverlayFromPause = false;
+	if (bSystemPaused)
+	{
+		if (Music) Music->SetPaused(bMusicWasPaused);
+		if (Rotor) Rotor->SetPaused(bRotorWasPaused);
+		if (PropAudio) PropAudio->SetPaused(bPropWasPaused);
+		if (UFTGameInstance* G = GI(); G && G->TitleMusic) G->TitleMusic->SetPaused(bTitleMusicWasPaused);
+	}
+	bSystemPaused = false;
+	UGameplayStatics::SetGamePaused(this, false);
+	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController()))
+	{
+		PC->SetMenuMouse(bPauseMouse || bAttract || Phase == EFTPhase::Title || Phase == EFTPhase::Reel ||
+			Phase == EFTPhase::Rating || Phase == EFTPhase::Paycheck || Phase == EFTPhase::PreProduction);
+		PC->ApplyMouseMode(TEXT("system-resume"));
+		PC->BlockMenuInputUntilRelease();
+	}
+	UE_LOG(LogFT, Display, TEXT("FT SYSTEM resumed phase=%d phaseT=%.3f"), int32(Phase), PhaseT);
+	UE_LOG(LogFT, Display, TEXT("FT SCREEN name=Pause state=resumed"));
+}
+
+void AFTGameMode::OpenSystemDialog(EFTSystemDialog Dialog, int32 Action)
+{
+	if (Overlay != EFTOverlay::System) bDialogFromPause = bSystemPaused;
+	if (!bSystemPaused) OpenSystemPause();
+	SystemDialog = Dialog; SystemAction = Action; SystemRow = 0;
+	Overlay = EFTOverlay::System; DrawnOverlay = EFTOverlay::None;
+	UE_LOG(LogFT, Display, TEXT("FT SYSTEM dialog=%d action=%d"), int32(Dialog), Action);
+}
+
+void AFTGameMode::CloseSystemDialog()
+{
+	SystemDialog = EFTSystemDialog::None; SystemAction = 0; bPendingSystemSave = false;
+	SystemMessage.Reset();
+	if (bDialogFromPause) { Overlay = EFTOverlay::Pause; PauseRow = 0; DrawnOverlay = EFTOverlay::None; }
+	else ResumeSystemPause();
+}
+
+void AFTGameMode::RequestSystemQuit(bool bDesktop)
+{
+	const int32 Action = bDesktop ? 1 : 2;
+	if (SystemDialog == EFTSystemDialog::SaveFailed && SystemAction == Action) return;
+	SystemAction = Action;
+	UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this);
+	if (CS && CS->bSaving)
+	{
+		OpenSystemPause(); bPendingSystemSave = true;
+		SystemMessage = TEXT("Finishing the save before leaving...");
+		return;
+	}
+	const bool bRestartRace = !bAttract && !bRunCommitted &&
+		(Phase == EFTPhase::Play || Phase == EFTPhase::Card || Phase == EFTPhase::Wreck || Phase == EFTPhase::Wrap);
+	if (bRestartRace)
+	{
+		SystemMessage = TEXT("Continue will restart this race from its beginning. This take's score and position will not be kept.");
+		OpenSystemDialog(EFTSystemDialog::ExitCheckpoint, Action);
+		return;
+	}
+	AttemptSystemAction();
+}
+
+void AFTGameMode::AttemptSystemAction(bool bWithoutSaving)
+{
+	UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this);
+	const int32 Action = SystemAction;
+	if (!Action) return;
+	if (CS && CS->bSaving) { bPendingSystemSave = true; return; }
+	bPendingSystemSave = false;
+	const bool bSaved = bWithoutSaving || (CS && (Action == 3 ? CS->Reset() : CS->Save(
+		Action == 1 ? TEXT("QuitDesktop") : Action == 2 ? TEXT("QuitTitle") : TEXT("RetryCheckpoint"))));
+	if (!bSaved)
+	{
+		SystemMessage = CS ? CS->SaveError : TEXT("The campaign save system is unavailable.");
+		OpenSystemDialog(EFTSystemDialog::SaveFailed, Action);
+		return;
+	}
+	UE_LOG(LogFT, Display, TEXT("FT SYSTEM action=%d saved=%d explicitDiscard=%d"), Action, bWithoutSaving ? 0 : 1, bWithoutSaving ? 1 : 0);
+	if (Action == 4)
+	{
+		if (bPayValid) Pay.bSaved = true;
+		CloseSystemDialog();
+		return;
+	}
+	if (bSystemPaused) ResumeSystemPause();
+	if (Action == 1)
+	{
+		if (UFTGameInstance* G = GI()) G->AllowWindowClose();
+		UKismetSystemLibrary::QuitGame(this, GetWorld()->GetFirstPlayerController(), EQuitPreference::Quit, false);
+	}
+	else if (Action == 2) UFTNightFlow::ReturnToTitle(this);
+	else if (Action == 3)
+	{
+		UFTNightFlow::ClearSession(this);
+		SystemMessage.Reset();
+		TitleSel = 0;
+		TitleStart();
+	}
+}
+
+bool AFTGameMode::RequireProgressSaved()
+{
+	UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this);
+	if (!CS || CS->bSaveError || CS->bSaving || (bPayValid && !Pay.bSaved))
+	{
+		SystemMessage = CS ? CS->SaveError : TEXT("The campaign save system is unavailable.");
+		OpenSystemDialog(EFTSystemDialog::SaveFailed, 4);
+		return false;
+	}
+	return true;
+}
+
 void AFTGameMode::TickOverlay(float RDt)
 {
 	AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController());
@@ -923,42 +1103,63 @@ void AFTGameMode::TickOverlay(float RDt)
 		return DrawnOverlay == Overlay && OverlayRects.IsValidIndex(Index) && PC->Clicked(OverlayRects[Index]);
 	};
 	const bool bConfirm = PC->Hit(EKeys::Enter) || PC->Hit(EKeys::Gamepad_FaceButton_Bottom);
+	if (bPendingSystemSave)
+	{
+		const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this);
+		if (!CS || !CS->bSaving) AttemptSystemAction();
+		return;
+	}
+	if (Overlay == EFTOverlay::System)
+	{
+		const bool bFailure = SystemDialog == EFTSystemDialog::SaveFailed;
+		const bool bExit = SystemAction == 1 || SystemAction == 2;
+		const int32 Rows = bFailure && bExit ? 3 : 2;
+		if (PC->MenuUp() || PC->MenuLeft()) SystemRow = (SystemRow + Rows - 1) % Rows;
+		if (PC->MenuDown() || PC->MenuRight()) SystemRow = (SystemRow + 1) % Rows;
+		int32 Action = bConfirm ? SystemRow : INDEX_NONE;
+		for (int32 I = 0; I < Rows; ++I) if (Clicked(I)) Action = I;
+		if (PC->MenuBack() || PC->Hit(EKeys::Gamepad_Special_Right)) { CloseSystemDialog(); return; }
+		if (Action == INDEX_NONE) return;
+		if (bFailure)
+		{
+			if (Action == 0) AttemptSystemAction();
+			else if (Action == 1) CloseSystemDialog();
+			else AttemptSystemAction(true);
+		}
+		else if (Action == 0) CloseSystemDialog();
+		else AttemptSystemAction();
+		return;
+	}
 	if (Overlay == EFTOverlay::Pause)
 	{
+		if (PC->Hit(EKeys::R))
+		{
+			if (const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this); CS && CS->bSaveError)
+			{ SystemMessage = CS->SaveError; OpenSystemDialog(EFTSystemDialog::SaveFailed, 4); return; }
+		}
 		constexpr int32 Rows = 5;
 		const int32 Was = PauseRow;
 		if (PC->MenuUp()) PauseRow = (PauseRow + Rows - 1) % Rows;
 		if (PC->MenuDown()) PauseRow = (PauseRow + 1) % Rows;
 		int32 Action = bConfirm ? PauseRow : INDEX_NONE;
-		for (int32 I = 0; I < Rows; ++I)
-			if (Clicked(I)) { Action = I; break; }
+		for (int32 I = 0; I < Rows; ++I) if (Clicked(I)) Action = I;
 		if (PC->Hit(EKeys::P) || PC->MenuBack() || PC->Hit(EKeys::Gamepad_Special_Right)) Action = 0;
-		else if (PC->Hit(EKeys::C) || PC->Hit(EKeys::Gamepad_FaceButton_Top)) Action = 1;
-		else if (PC->Hit(EKeys::O)) Action = 2;
-		else if (PC->Hit(EKeys::R)) Action = 3;
-		else if (PC->Hit(EKeys::T)) Action = 4;
-		if (Action == INDEX_NONE)
-		{
-			if (Was != PauseRow) MenuCue(TEXT("Near"), 1.6f);
-			return;
-		}
+		else if (PC->Hit(EKeys::O)) Action = 1;
+		else if (PC->Hit(EKeys::C) || PC->Hit(EKeys::Gamepad_FaceButton_Top)) Action = 2;
+		else if (PC->Hit(EKeys::T)) Action = 3;
+		if (Action == INDEX_NONE) { if (Was != PauseRow) MenuCue(TEXT("Near"), 1.6f); return; }
 		MenuCue(TEXT("Near"), Action == 0 ? .9f : 1.35f);
-		if (Action == 1) { Overlay = EFTOverlay::Controls; ControlsRow = 0; ControlsCol = G->Layout; OverlayFeedback.Reset(); return; }
-		if (Action == 2) { Overlay = EFTOverlay::Options; OptionsRow = 0; return; }
-		Overlay = EFTOverlay::None;
-		PC->SetMenuMouse(false);
-		UGameplayStatics::SetGamePaused(this, false);
-		if (Action == 0) { if (Music) Music->SetPaused(false); PC->bSwallowFire = true; UE_LOG(LogFT, Display, TEXT("FT SCREEN name=Pause state=resumed")); }
-		else GoToLevel(Level, Action == 3);
+		if (Action == 0) ResumeSystemPause();
+		else if (Action == 1) { Overlay = EFTOverlay::Options; OptionsRow = 0; bOverlayFromPause = true; }
+		else if (Action == 2) { Overlay = EFTOverlay::Controls; ControlsRow = 0; ControlsCol = G->Layout; OverlayFeedback.Reset(); bOverlayFromPause = true; }
+		else RequestSystemQuit(Action == 4);
 		return;
 	}
-
-	const bool bFromPause = !bAttract && (Phase == EFTPhase::Play || Phase == EFTPhase::Wreck || Phase == EFTPhase::Card);
 	const auto Close = [&]()
 	{
 		MenuCue(TEXT("Near"), .9f);
-		Overlay = bFromPause ? EFTOverlay::Pause : EFTOverlay::None;
-		DrawnOverlay = EFTOverlay::None;
+		if (bOverlayFromPause) { Overlay = EFTOverlay::Pause; DrawnOverlay = EFTOverlay::None; }
+		else ResumeSystemPause();
 	};
 	if (Overlay == EFTOverlay::Controls)
 	{
@@ -1001,7 +1202,7 @@ void AFTGameMode::TickOverlay(float RDt)
 			}
 			return;
 		}
-		if (Clicked(0) || PC->MenuBack() || PC->Hit(EKeys::C)) { Close(); return; }
+		if (Clicked(0) || PC->MenuBack() || PC->Hit(EKeys::C) || PC->Hit(EKeys::Gamepad_Special_Right)) { Close(); return; }
 		const int32 MaxRows = UFTGameInstance::NumActions + 1;
 		const int32 BeforeRow = ControlsRow, BeforeCol = ControlsCol;
 		if (PC->MenuUp()) ControlsRow = (ControlsRow + MaxRows - 1) % MaxRows;
@@ -1033,7 +1234,7 @@ void AFTGameMode::TickOverlay(float RDt)
 
 	if (Overlay == EFTOverlay::Options)
 	{
-		if (Clicked(0) || PC->MenuBack() || PC->Hit(EKeys::O) || PC->Hit(EKeys::Enter)) { Close(); return; }
+		if (Clicked(0) || PC->MenuBack() || PC->Hit(EKeys::O) || PC->Hit(EKeys::Enter) || PC->Hit(EKeys::Gamepad_Special_Right)) { Close(); return; }
 		constexpr int32 Rows = 4;
 		const int32 Was = OptionsRow;
 		if (PC->MenuUp()) OptionsRow = (OptionsRow + Rows - 1) % Rows;
@@ -1068,20 +1269,7 @@ void AFTGameMode::TickPlay(float Dt, float RDt)
 {
 	AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController());
 	if (PC) PC->bRaceInput = !bAttract;
-	if (PC && !bAttract)
-	{
-		if (PC->Hit(EKeys::P) || PC->Hit(EKeys::Escape) || PC->Hit(EKeys::Gamepad_Special_Right))
-		{
-			Overlay = EFTOverlay::Pause; PauseRow = 0;
-			DrawnOverlay = EFTOverlay::None;
-			PC->bRaceInput = false;
-			PC->SetMenuMouse(true);
-			UGameplayStatics::SetGamePaused(this, true);
-			if (Music) Music->SetPaused(true);
-			UE_LOG(LogFT, Display, TEXT("FT SCREEN name=Pause state=opened"));
-			return;
-		}
-	}
+
 	Clock += Dt;
 	Timecode += Dt;
 	// the level clock (03 §3): game time from ACTION! to the boss going down; retakes do not reset it

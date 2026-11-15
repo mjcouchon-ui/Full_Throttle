@@ -42,8 +42,9 @@ bool UFTNightFlow::GoToNight(const UObject* Ctx, int32 L, int32 Next)
 	UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(Ctx);
 	const FString Map = NightMapAfter(L);
 	if (!NF || !G || !CS || G->bBench || Next < 0 || Next >= FTData::NumLevels() || Map.IsEmpty() || FParse::Param(FCommandLine::Get(), TEXT("ftnonights"))) return false;
-	// what PRE-PRODUCTION would have saved: quitting during the night reopens PRE-PRODUCTION for the next level
-	CS->C.PendingLevel = Next; CS->C.bPendingFromTitle = false; CS->Save(TEXT("Night"));
+	// Preserve the night itself; PRE-PRODUCTION is saved only after its final card.
+	CS->C.PendingLevel = Next; CS->C.bPendingFromTitle = false;
+	CS->SetCheckpoint(TEXT("night"), L, -1, false, TEXT("Night"));
 	NF->NextLevel = Next; NF->FromLevel = L;
 	UE_LOG(LogFT, Display, TEXT("FT NIGHT start after=L%d map=%s next=L%d"), L + 1, *Map, Next + 1);
 	G->StopTitleMusic(0.3f);   // 3.9.1: a night opened from the title (the FTGo / -ftgo jump) kept the title song playing under the fight
@@ -75,6 +76,11 @@ bool UFTNightFlow::NightOver(const UObject* Ctx)
 	NF->NextLevel = -1; NF->FromLevel = -1;
 	// the race's own flow from here: the finished level's map opens PRE-PRODUCTION for the career's pending level
 	// (= Next, saved by GoToNight), the same screen the paycheck leads to; its READY loads the next race
+	if (UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(Ctx))
+	{
+		CS->C.PendingLevel = Next; CS->C.bPendingFromTitle = false;
+		CS->SetCheckpoint(TEXT("preproduction"), Next, 0, false, TEXT("NightComplete"));
+	}
 	G->bPendingPreProd = true;
 	UE_LOG(LogFT, Display, TEXT("FT NIGHT over next=L%d preproduction on=%s"), Next + 1, *FTData::Level(From).Map.ToString());
 	UGameplayStatics::SetGlobalTimeDilation(Ctx, 1.f);
@@ -97,7 +103,7 @@ bool UFTNightFlow::Go(const UObject* Ctx, const FString& SpecIn)
 		UE_LOG(LogFT, Warning, TEXT("FT GO bad spec=%s (L<n>[boss] or N<n>[boss])"), *SpecIn);
 		return false;
 	}
-	NF->bDay1 = false; NF->DayLevel = -1; NF->bDayWrap = false;
+	ClearSession(Ctx);
 	if (S[0] == TEXT('N'))
 	{
 		// the night after race N, as the paycheck opens it: afterwards PRE-PRODUCTION on race N's map for race N+1
@@ -146,6 +152,8 @@ bool UFTNightFlow::GoToDayCut(const UObject* Ctx, int32 L, bool bWrap)
 	// autopilot / script runs (benches, the night tests) keep the old flow unless they ask for the days (-ftdays)
 	if (L > 0 || bWrap) { if ((G->bAutoDrive || G->bExecScript) && !FParse::Param(Cl, TEXT("ftdays"))) return false; }
 	NF->bDay1 = true; NF->DayLevel = L; NF->bDayWrap = bWrap;
+	if (UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(Ctx))
+		CS->SetCheckpoint(TEXT("day"), L, 0, bWrap, TEXT("DayCut"));
 	if (!bWrap) { NF->NextLevel = -1; NF->FromLevel = -1; }
 	if (L == 0 && !bWrap) UE_LOG(LogFT, Display, TEXT("FT DAY1 start map=%s then=L1"), Day1Map);
 	UE_LOG(LogFT, Display, TEXT("FT DAY start day=%d cut=%s map=%s"), L + 1, bWrap ? TEXT("wrap") : TEXT("before"), Day1Map);
@@ -190,6 +198,8 @@ bool UFTNightFlow::DayCutOver(const UObject* Ctx)
 	{
 		// BEFORE THE DRIVE: what PRE-PRODUCTION's READY (or the title's start for level 1) did: the map opens and the race starts
 		G->PendingLevel = L; G->bStartRace = true;
+		if (UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(Ctx))
+			CS->SetCheckpoint(TEXT("race"), L, 0, false, TEXT("DayBeforeComplete"));
 		if (L == 0) UE_LOG(LogFT, Display, TEXT("FT DAY1 over race=L1 map=%s"), *FTData::Level(0).Map.ToString());
 		UE_LOG(LogFT, Display, TEXT("FT DAY over day=%d cut=before race=L%d"), L + 1, L + 1);
 		UGameplayStatics::OpenLevel(Ctx, FTData::Level(L).Map);
@@ -200,8 +210,98 @@ bool UFTNightFlow::DayCutOver(const UObject* Ctx)
 	const int32 Next = L + 1 < FTData::NumLevels() ? L + 1 : -2;
 	UE_LOG(LogFT, Display, TEXT("FT DAY over day=%d cut=wrap next=%s"), L + 1, Next >= 0 ? *FString::Printf(TEXT("night %d"), L + 1) : TEXT("title"));
 	if (Next >= 0 && GoToNight(Ctx, L, Next)) return true;
-	if (UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(Ctx)) { CS->C.PendingLevel = Next; CS->C.bPendingFromTitle = false; CS->Save(TEXT("Wrap")); }
+	if (UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(Ctx))
+	{
+		CS->C.PendingLevel = Next; CS->C.bPendingFromTitle = false;
+		CS->SetCheckpoint(Next >= 0 ? TEXT("preproduction") : TEXT("complete"), Next >= 0 ? Next : L, 0, false, TEXT("Wrap"));
+	}
 	G->bPendingPreProd = true;
 	UGameplayStatics::OpenLevel(Ctx, FTData::Level(L).Map);
+	return true;
+}
+
+// Checkpoint handoffs live in the persistent game instance; map actors remain disposable.
+void UFTNightFlow::ClearSession(const UObject* Ctx)
+{
+	if (UFTNightFlow* NF = Get(Ctx))
+	{
+		NF->NextLevel = NF->FromLevel = NF->DayLevel = -1;
+		NF->bDay1 = NF->bDayWrap = NF->bGoBoss = NF->bResumeCheckpoint = false;
+		NF->ResumeWave = -1; NF->ResumeCut = 0;
+	}
+	if (UFTGameInstance* G = Ctx && Ctx->GetWorld() ? Ctx->GetWorld()->GetGameInstance<UFTGameInstance>() : nullptr)
+	{
+		G->PendingLevel = -1; G->PendingScene = 0; G->bStartRace = G->bPendingPreProd = false;
+		G->GoLanding = 0; G->bAttractCut = false; G->AttractD0 = -1.f;
+		G->KeepTitleSel = 0; G->KeepTitleActionFocus = INDEX_NONE; G->KeepTitleT = 0.f;
+	}
+}
+
+bool UFTNightFlow::TakeResumeCheckpoint(const UObject* Ctx, int32& OutWave, int32& OutCut)
+{
+	UFTNightFlow* NF = Get(Ctx);
+	if (!NF || !NF->bResumeCheckpoint) return false;
+	OutWave = NF->ResumeWave; OutCut = NF->ResumeCut;
+	NF->bResumeCheckpoint = false;
+	return true;
+}
+
+bool UFTNightFlow::ReturnToTitle(const UObject* Ctx)
+{
+	UFTGameInstance* G = Ctx && Ctx->GetWorld() ? Ctx->GetWorld()->GetGameInstance<UFTGameInstance>() : nullptr;
+	if (!G) return false;
+	ClearSession(Ctx);
+	if (UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(Ctx)) CS->Load();
+	G->StopTitleMusic(0.f);
+	UGameplayStatics::SetGlobalTimeDilation(Ctx, 1.f);
+	UGameplayStatics::SetGamePaused(Ctx, false);
+	UE_LOG(LogFT, Display, TEXT("FT SESSION return=title"));
+	UGameplayStatics::OpenLevel(Ctx, FTData::Level(0).Map);
+	return true;
+}
+
+bool UFTNightFlow::ResumeSaved(const UObject* Ctx)
+{
+	UFTNightFlow* NF = Get(Ctx);
+	UFTGameInstance* G = Ctx && Ctx->GetWorld() ? Ctx->GetWorld()->GetGameInstance<UFTGameInstance>() : nullptr;
+	UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(Ctx);
+	if (!NF || !G || !CS || !CS->HasContinue()) return false;
+	const FString Kind = CS->C.ResumeKind;
+	const int32 L = CS->C.ResumeLevel, Stage = CS->C.ResumeStage;
+	if (L < 0 || L >= FTData::NumLevels()) return false;
+	FName Map;
+	ClearSession(Ctx);
+	if (Kind == TEXT("race"))
+	{
+		Map = FTData::Level(L).Map;
+		G->PendingLevel = L; G->bStartRace = true;
+	}
+	else if (Kind == TEXT("day"))
+	{
+		if (!FPackageName::DoesPackageExist(Day1Map)) return false;
+		Map = FName(Day1Map); NF->bDay1 = true; NF->DayLevel = L; NF->bDayWrap = CS->C.bResumeWrap;
+	}
+	else if (Kind == TEXT("night") || Kind == TEXT("nightoutro"))
+	{
+		const FString NightMap = NightMapAfter(L);
+		if (NightMap.IsEmpty() || L + 1 >= FTData::NumLevels()) return false;
+		Map = FName(*NightMap); NF->FromLevel = L; NF->NextLevel = L + 1;
+		NF->bResumeCheckpoint = true;
+		NF->ResumeWave = Kind == TEXT("night") ? Stage : -1;
+		NF->ResumeCut = Kind == TEXT("nightoutro") ? FMath::Clamp(Stage, 2, L == 0 ? 3 : 2) : Stage < 0 ? 1 : 0;
+		CS->C.PendingLevel = L + 1; CS->C.bPendingFromTitle = false;
+	}
+	else if (Kind == TEXT("preproduction") || Kind == TEXT("complete"))
+	{
+		CS->C.PendingLevel = Kind == TEXT("complete") ? -2 : L;
+		CS->C.bPendingFromTitle = false; G->bPendingPreProd = true;
+		Map = FTData::Level(Kind == TEXT("complete") ? L : FMath::Max(0, L - 1)).Map;
+	}
+	else return false;
+	G->StopTitleMusic(0.3f);
+	UGameplayStatics::SetGlobalTimeDilation(Ctx, 1.f);
+	UGameplayStatics::SetGamePaused(Ctx, false);
+	UE_LOG(LogFT, Display, TEXT("FT SESSION continue kind=%s level=%d stage=%d wrap=%d"), *Kind, L + 1, Stage, CS->C.bResumeWrap ? 1 : 0);
+	UGameplayStatics::OpenLevel(Ctx, Map);
 	return true;
 }

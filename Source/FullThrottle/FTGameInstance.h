@@ -70,6 +70,7 @@ public:
 	int32 AttractScene = 0, AttractSpawn = 0;
 	bool bAttractCut = false;
 	int32 KeepTitleSel = 0;
+	int32 KeepTitleActionFocus = INDEX_NONE;
 	float KeepTitleT = 0.f;
 	int32 AttractCuts = 0;
 	UPROPERTY(Transient) TObjectPtr<class UAudioComponent> TitleMusic;
@@ -118,6 +119,11 @@ public:
 	/** Loop cycle 6: every map load puts the engine's master volume back to 1 (UEngine::LoadMap), and only the race's maps
 	 *  applied mute again; the nights (Brawl maps) played at full volume for a muted player. */
 	void OnPostLoadMap(UWorld* World);
+	/** Native window close follows the same checkpoint/save-failure UI as the pause menu. */
+	bool HandleWindowClose();
+	void OnPreLoadMap(const FString& MapName);
+	void AllowWindowClose() { bAllowWindowClose = true; bWindowCloseQueued = false; }
+	bool bAllowWindowClose = false, bWindowCloseQueued = false, bSessionLoading = false;
 	/** Loop cycle 1: every gameplay sound, effect and vehicle mesh is loaded in the background once, while the title is up,
 	 *  and held for the session. Before, the first explosion / chopper / fire / barrel of a race each loaded synchronously
 	 *  mid-race (54 blocking loads in Level 1's first two minutes, some reloaded after each GC) - stalls on a cold disk. */

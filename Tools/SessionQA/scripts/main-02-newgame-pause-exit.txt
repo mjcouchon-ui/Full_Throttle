@@ -1,0 +1,55 @@
+# Fresh title defaults to New Game. Keep -ftday1 -ftdays enabled.
+wait 2
+ft.SessionState
+ft.Press Enter
+waitfor FT DAY start day=1 cut=before | 35
+wait 2
+ft.Press Escape
+waitfor FT BRAWL SYSTEM screen=2 paused=1 | 10
+ft.SessionState
+wait 2
+ft.SessionState
+shot main-02-day-paused
+ft.Press Gamepad_Special_Right
+waitfor FT BRAWL SYSTEM screen=0 paused=0 | 10
+wait 0.8
+ft.Press Tab
+waitfor FTBRAWL cut end card | 15
+wait 0.8
+ft.Press Gamepad_FaceButton_Bottom
+waitfor FT LEVEL id= | 35
+r.SetRes 1280x720w
+wait 4
+FTInvuln 1
+ft.SessionState
+ft.Press Escape
+waitfor FT SYSTEM pause phase=2 | 10
+ft.SessionState
+wait 2
+ft.SessionState
+# 1280x720 canvas: pause Options is the second row.
+ft.Click 640 312
+wait 0.7
+shot main-02-race-options
+ft.Press Escape
+wait 0.7
+ft.Press Gamepad_Special_Right
+waitfor FT SYSTEM resumed phase=2 | 10
+wait 0.8
+ft.Press Escape
+wait 0.5
+ft.Press T
+waitfor FT SYSTEM dialog=2 action=2 | 10
+ft.Press Right
+wait 0.4
+ft.Press Enter
+waitfor FT SESSION return=title | 20
+wait 2
+r.SetRes 1280x720w
+wait 1
+ft.SessionState
+shot main-02-saved-race-title
+# Real title Quit action. Fallback quit must never execute.
+ft.Press Escape
+wait 3
+quit

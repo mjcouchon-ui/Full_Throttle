@@ -24,7 +24,8 @@ UENUM()
 enum class EFTPhase : uint8 { Title, Card, Play, Wreck, Wrap, Reel, Rating, Paycheck, PreProduction };
 
 UENUM()
-enum class EFTOverlay : uint8 { None, Pause, Controls, Options };
+enum class EFTOverlay : uint8 { None, Pause, Controls, Options, System };
+enum class EFTSystemDialog : uint8 { None, NewGame, ExitCheckpoint, SaveFailed };
 
 // 2.6 PRE-PRODUCTION tabs (spec 10 §4)
 enum class EFTTab : uint8 { Skills, Garage, Custom, Sfx, Extras, Count };
@@ -159,6 +160,15 @@ public:
 	bool ComputeCamera(FMinimalViewInfo& POV, float Dt);
 	/** Render the game camera to Saved/Shots/<Name>.png (tests; works with the window in the background). */
 	void Snap(const FString& Name);
+	/** Shared orderly exit path for menu actions and ordinary window-close requests. */
+	void RequestSystemQuit(bool bDesktop = true);
+	void OpenSystemPause();
+	void ResumeSystemPause();
+	void AttemptSystemAction(bool bWithoutSaving = false);
+	void OpenSystemDialog(EFTSystemDialog Dialog, int32 Action);
+	void CloseSystemDialog();
+	bool RequireProgressSaved();
+	FString ResumeDescription() const;
 
 	// ---- state the HUD reads
 	EFTPhase Phase = EFTPhase::Title;
@@ -191,6 +201,12 @@ public:
 	float LastRumbleT = -10.f;
 	int32 OptionsRow = 0, ControlsRow = 0, ControlsCol = 0; bool bControlsWaiting = false;
 	int32 PauseRow = 0;
+	EFTSystemDialog SystemDialog = EFTSystemDialog::None;
+	int32 SystemRow = 0, SystemAction = 0; // 1 desktop, 2 title, 3 new campaign, 4 retry checkpoint
+	bool bSystemPaused = false, bDialogFromPause = false, bOverlayFromPause = false;
+	bool bPauseMouse = false, bPendingSystemSave = false;
+	bool bMusicWasPaused = false, bRotorWasPaused = false, bPropWasPaused = false, bTitleMusicWasPaused = false;
+	FString SystemMessage;
 	EFTOverlay DrawnOverlay = EFTOverlay::None;
 	TArray<FBox2D> OverlayRects;
 	FString OverlayFeedback;
@@ -241,7 +257,7 @@ public:
 	float AttractCover() const;
 	float LastMenuInputT = -10.f;
 	TArray<FBox2D> TitleRowRects;    // the HUD writes the level rows and the buttons here for the mouse
-	TArray<FBox2D> TitleBtnRects;    // ROLL CAMERA, PRE-PRODUCTION, CONTROLS, OPTIONS, QUIT
+	TArray<FBox2D> TitleBtnRects;    // Continue, New Game, Options, Quit, selected shoot
 	int32 TitleActionFocus = INDEX_NONE;
 	float LastMenuSoundT = -10.f;
 	FVector2D TitleMouse = FVector2D(-1, -1);

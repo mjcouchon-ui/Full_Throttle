@@ -1,0 +1,52 @@
+# Restart again: second wave must restore with full health, no introduction.
+waitfor FT BRAWL SYSTEM screen=1|15
+press Enter
+waitfor FT BRAWL CONTINUE night=1 wave=1 cut=0 hp=150|25
+wait 0.5
+# Force boss result only for a short targeted outro/failure case; wave coverage was natural in 02.
+ft.SaveFail 1
+mark
+ftb.Win 1
+waitfor FT BRAWL SAVE result=failed reason=BossDefeatedTest kind=nightoutro level=0 stage=2|8
+press Escape
+waitfor FT BRAWL SYSTEM screen=6|5
+shot brawl03-save-failure
+# Retry still fails while the fault is present.
+mark
+press Enter
+waitfor FT BRAWL SAVE result=failed reason=Exit|5
+ft.SaveFail 0
+mark
+press Enter
+waitfor FT BRAWL SAVE result=ok reason=Exit kind=nightoutro level=0 stage=2|8
+waitfor FT BRAWL SYSTEM screen=2|5
+press Enter
+waitfor FTBRAWL cut start 2|10
+wait 0.5
+mark
+press Tab
+waitfor FTBRAWL cut start 3|8
+waitfor FT BRAWL SAVE result=ok reason=StoryCheckpoint kind=nightoutro level=0 stage=3|8
+wait 0.8
+press Escape
+press Down
+press Down
+press Enter
+waitfor FT BRAWL SYSTEM screen=5|5
+mark
+press Down
+press Enter
+waitfor FT BRAWL SYSTEM screen=1|20
+# Replacing progress requires confirmation. Cancel must preserve the outro checkpoint.
+press Down
+press Enter
+waitfor FT BRAWL SYSTEM screen=4|5
+shot brawl03-newgame-confirm
+mark
+press Enter
+waitfor FT BRAWL SYSTEM screen=1|5
+shot brawl03-newgame-cancelled
+press Down
+press Down
+press Down
+press Enter

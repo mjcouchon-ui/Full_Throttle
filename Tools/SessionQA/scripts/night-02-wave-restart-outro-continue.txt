@@ -1,0 +1,53 @@
+# MAIN executable, same night profile as process1. No FTGo on this restart.
+wait 2
+ft.SessionState
+ft.Press Enter
+waitfor FT SESSION continue kind=night level=2 | 25
+waitfor FT BRAWL CONTINUE night=2 | 35
+wait 1
+r.SetRes 1280x720w
+wait 1
+ft.SessionState
+# Verified existing win hook advances the real boss-result checkpoint; no manual save mutation.
+ftb.Win 1
+waitfor FTBRAWL won (ftb.Win) | 15
+waitfor FTBRAWL cut start 2 | 15
+wait 0.8
+ft.Press Escape
+waitfor FT BRAWL SYSTEM screen=2 paused=1 | 10
+ft.SessionState
+wait 2
+ft.SessionState
+shot night-02-outro-checkpoint-paused
+ft.Press Down
+wait 0.4
+ft.Press Down
+wait 0.4
+ft.Press Enter
+waitfor FT BRAWL SYSTEM screen=5 paused=1 | 10
+ft.Press Down
+wait 0.4
+ft.Press Enter
+waitfor FT SESSION return=title | 20
+wait 2
+r.SetRes 1280x720w
+wait 1
+ft.SessionState
+shot night-02-outro-main-title
+ft.Press Enter
+waitfor FT SESSION continue kind=nightoutro level=2 stage=2 | 25
+waitfor FT BRAWL CONTINUE night=2 | 35
+wait 1
+r.SetRes 1280x720w
+wait 1
+ft.Press Escape
+waitfor FT BRAWL SYSTEM screen=2 paused=1 | 10
+ft.SessionState
+shot night-02-restored-outro
+ft.WindowClose
+waitfor FT BRAWL SYSTEM screen=5 paused=1 | 10
+ft.Press Down
+wait 0.4
+ft.Press Enter
+wait 3
+quit

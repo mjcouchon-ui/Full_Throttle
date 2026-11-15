@@ -1,0 +1,24 @@
+# Restart after the committed reward. Continue must open Day 1 THE WRAP, not replay the race/payout.
+wait 2
+ft.SessionState
+ft.Press Enter
+waitfor FT SESSION continue kind=day | 25
+wait 2
+r.SetRes 1280x720w
+wait 1
+ft.SessionState
+shot main-05-wrap-story
+ft.Press Escape
+waitfor FT BRAWL SYSTEM screen=2 paused=1 | 10
+ft.SessionState
+wait 2
+ft.SessionState
+shot main-05-wrap-story-paused
+# Exercise real Brawl-side native close over a campaign story checkpoint.
+ft.WindowClose
+waitfor FT BRAWL SYSTEM screen=5 paused=1 | 10
+ft.Press Down
+wait 0.5
+ft.Press Enter
+wait 3
+quit

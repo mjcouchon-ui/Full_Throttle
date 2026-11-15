@@ -1,0 +1,39 @@
+# Fifth application restart proves discard did not advance the saved campaign.
+waitfor FT BRAWL SYSTEM screen=1|15
+press Enter
+waitfor FT BRAWL CONTINUE night=1 wave=3 cut=3 hp=150|25
+wait 0.8
+press Escape
+press Down
+press Down
+press Enter
+waitfor FT BRAWL SYSTEM screen=5|5
+mark
+press Down
+press Enter
+waitfor FT BRAWL SYSTEM screen=1|20
+# Confirm replacement this time. Preferences from case01 must survive.
+press Down
+press Enter
+waitfor FT BRAWL SYSTEM screen=4|5
+mark
+press Down
+press Enter
+waitfor FT BRAWL SAVE result=ok reason=NewGame kind=day level=0 stage=0|8
+waitfor FTBRAWL start DAY 1 ON SET before|20
+wait 0.8
+press Escape
+press Down
+press Enter
+waitfor FT BRAWL SYSTEM screen=3|5
+shot brawl05-preferences-after-replacement
+press Escape
+press Enter
+wait 0.4
+# Native window close now follows the successful save/quit path.
+mark
+ftb.WindowClose
+waitfor FT BRAWL SYSTEM screen=5|5
+shot brawl05-window-close-confirm
+press Down
+press Enter

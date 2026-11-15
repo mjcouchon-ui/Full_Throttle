@@ -247,7 +247,7 @@ void AFTBrawlGameMode::StartCut(int32 Id)
 {
 	for (auto& Kv : CutCast) if (Kv.Value.A) Kv.Value.A->Destroy();
 	CutCast.Reset(); Beats.Reset();
-	CutId = Id; CutBeat = -1; CutT = 0; CutLine.Reset(); CutWho.Reset(); bCutWait = false; CutTitleT = -1;
+	CutId = Id; SaveCheckpoint(TEXT("StoryCheckpoint")); CutBeat = -1; CutT = 0; CutLine.Reset(); CutWho.Reset(); bCutWait = false; CutTitleT = -1;
 	bCutPrev = bCutEnterPrev = bCutSkipPrev = true;   // 3.9: a key or click still held from the fight is not a press here
 	CutCard.Reset(); CutCardSub.Reset(); CutCardKeys.Reset();
 	CutBarsGoal = 1;
@@ -539,6 +539,7 @@ void AFTBrawlGameMode::EndCut()
 	UE_LOG(LogFTCut, Log, TEXT("FTBRAWL cut end %d"), Was);
 	if (Was == 1)
 	{
+		SaveCheckpoint(TEXT("IntroductionCompleted"));
 		// into the fight: Nova where the cutscene left him
 		// into the fight exactly as it starts without the cutscene: Nova on his mark (he walks there in the last beat),
 		// the same random stream (the cutscene's blood used some)

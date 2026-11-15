@@ -42,7 +42,9 @@ public:
 	bool bRaceInput = false;      // the race is running (layout switching only then)
 
 	// menus
-	bool Hit(const FKey& K) const { return WasInputKeyJustPressed(K); }
+	bool Hit(const FKey& K) const { return !bReleaseMenuInput && WasInputKeyJustPressed(K); }
+	void BlockMenuInputUntilRelease();
+	bool MenuInputBlocked() const { return bReleaseMenuInput; }
 	bool MenuLeft() const;
 	bool MenuRight() const;
 	bool MenuUp() const;
@@ -67,6 +69,8 @@ public:
 	bool PollCapture(FKey& Out);
 
 private:
+	bool bReleaseMenuInput = false;
+	double MenuInputReleasedAfter = 0.0;
 	bool Down(const FKey& K) const;
 	bool BindDown(int32 Action, int32 Layout) const;
 	bool BindHit(int32 Action, int32 Layout) const;

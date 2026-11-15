@@ -75,6 +75,8 @@ private:
 	void DrawReelContinue(AFTGameMode* G);
 	TArray<FString> WrapText(const FString& Text, float MaxWidth, float FontHeight, bool bDisplay = false);
 	void DrawPause(AFTGameMode* G);
+	void DrawSystemDialog(AFTGameMode* G);
+	void DrawSaveStatus(AFTGameMode* G);
 	void DrawControls(AFTGameMode* G);
 	void DrawOptions(AFTGameMode* G);
 };

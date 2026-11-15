@@ -1,0 +1,42 @@
+# Restart at already-defeated boss's pier outro; no boss or combat replay.
+waitfor FT BRAWL SYSTEM screen=1|15
+press Enter
+waitfor FT BRAWL CONTINUE night=1 wave=3 cut=3 hp=150|25
+wait 0.8
+ft.SaveFail 1
+mark
+press Tab
+waitfor FTBRAWL cut end card|8
+wait 0.8
+press Enter
+waitfor FTBRAWL start DAY 2 ON SET before|25
+waitfor FT BRAWL SAVE result=failed reason=EncounterEntered kind=day level=1 stage=0|8
+wait 0.8
+press Escape
+waitfor FT BRAWL SYSTEM screen=6|5
+# Back from retry-only panel, then choose Quit to Title explicitly.
+press Down
+press Enter
+waitfor FT BRAWL SYSTEM screen=2|5
+press Down
+press Down
+press Enter
+waitfor FT BRAWL SYSTEM screen=5|5
+mark
+press Down
+press Enter
+waitfor FT BRAWL SAVE result=failed reason=Exit kind=day level=1 stage=0|8
+waitfor FT BRAWL SYSTEM screen=6|5
+shot brawl04-explicit-discard-choice
+mark
+press Down
+press Enter
+waitfor FT BRAWL SYSTEM exit=title discard=1|8
+waitfor FT BRAWL SYSTEM screen=1|20
+shot brawl04-discard-restored-title
+# The unchanged primary must still be nightoutro, level0, stage3. Fault has no effect on title quit.
+ft.SaveFail 0
+press Down
+press Down
+press Down
+press Enter

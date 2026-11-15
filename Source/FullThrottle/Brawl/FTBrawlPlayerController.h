@@ -10,9 +10,21 @@ class AFTBrawlPlayerController : public APlayerController
 {
 	GENERATED_BODY()
 public:
+	AFTBrawlPlayerController();
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
+	virtual void PlayerTick(float DeltaTime) override;
+	void ResetSystemPointer();
 
 private:
-	void QuitBrawl();
+	void PauseBrawl();
+	void MenuUp();
+	void MenuDown();
+	void MenuAccept();
+	void MenuBack();
+	void MenuClick();
+	int32 MouseRow() const;
+	FVector2D LastMouse = FVector2D::ZeroVector;
+	bool bPointerReady = false;
+	double NextStickAt = 0;
 };

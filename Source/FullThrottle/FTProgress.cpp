@@ -1,5 +1,6 @@
 #include "FTProgress.h"
 #include "FTGameInstance.h"
+#include "FTSaveIO.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Misc/DateTime.h"
@@ -384,6 +385,9 @@ UFTCareerSubsystem* UFTCareerSubsystem::Get(const UObject* Ctx)
 
 FString UFTCareerSubsystem::FilePath() const
 {
+#if WITH_DEV_AUTOMATION_TESTS
+	if (!TestSavePath.IsEmpty()) return TestSavePath;
+#endif
 	const UFTGameInstance* GI = Cast<UFTGameInstance>(GetGameInstance());
 	const FString Dir = GI ? GI->SaveDir() : FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("FullThrottle"));
 	return FPaths::Combine(Dir, Slot + TEXT(".json"));
@@ -415,18 +419,32 @@ void UFTCareerSubsystem::Fresh()
 	for (const FFTGarageLine& G : FFTProgressData::Get().Garage) C.Garage.Add(G.Key, 0);
 }
 
-void UFTCareerSubsystem::Reset()
+bool UFTCareerSubsystem::Reset()
 {
+	const FFTCareer Before = C;
+	const bool WasLoadError = bLoadError, WasPreserveBackup = bPreserveBackup;
+	const FString PreviousLoadError = LoadError;
 	Fresh();
+	bPreserveBackup = bPreserveBackup || bLoadError;
+	bLoadError = false; LoadError.Reset();
+	// A fresh campaign starts at the first day's supported story checkpoint.
+	C.ResumeKind = TEXT("day"); C.ResumeLevel = 0;
 	UE_LOG(LogFT, Display, TEXT("FT CAREER reset slot=%s"), *Slot);
-	Save(TEXT("Reset"));
+	if (!Save(TEXT("Reset")))
+	{
+		C = Before; bLoadError = WasLoadError; LoadError = PreviousLoadError; bPreserveBackup = WasPreserveBackup;
+		return false;
+	}
 	LogCareer();
+	bRecoveredFromBackup = false;
+	return true;
 }
 
 void UFTCareerSubsystem::Drop()
 {
 	// the backup and any half-written file go with it: a dropped career must not come back from its .bak
 	for (const TCHAR* Ext : { TEXT(""), TEXT(".bak"), TEXT(".tmp") }) IFileManager::Get().Delete(*(FilePath() + Ext));
+	bHasPersistedCareer = false; LastSavedText.Reset();
 	UE_LOG(LogFT, Display, TEXT("FT SAVE slot=%s reason=Drop"), *Slot);
 }
 
@@ -443,13 +461,113 @@ namespace
 		if (!J->TryGetArrayField(K, A)) return;
 		for (int32 i = 0; i < A->Num() && i < Out.Num(); ++i) Out[i] = Conv((*A)[i]);
 	}
+
+	bool ValidCheckpoint(const FString& Kind, int32 Level, int32 Stage)
+	{
+		if (Kind == TEXT("none")) return Level == 0 && Stage == 0;
+		if (Level < 0 || Level >= FTData::NumLevels()) return false;
+		if (Kind == TEXT("night")) return Level < 7 && Stage >= -1 && Stage <= 3;   // three waves, then the boss
+		if (Kind == TEXT("nightoutro")) return Level < 7 && (Stage == 2 || (Level == 0 && Stage == 3));
+		return Stage == 0 && (Kind == TEXT("race") || Kind == TEXT("day") || Kind == TEXT("preproduction") || Kind == TEXT("complete"));
+	}
+
+	bool ValidateCareer(const TSharedPtr<FJsonObject>& J, FString& Error)
+	{
+		if (!J.IsValid()) { Error = TEXT("The career save is not valid JSON."); return false; }
+		double Version = 0;
+		if (!J->TryGetNumberField(TEXT("v"), Version) || (Version != 1 && Version != 2))
+		{ Error = FString::Printf(TEXT("Unsupported career save version %.0f. The file has been preserved."), Version); return false; }
+		const TSharedPtr<FJsonObject>* Driver = nullptr;
+		double Value = 0;
+		if (!J->TryGetObjectField(TEXT("driver"), Driver) || !J->HasTypedField<EJson::Object>(TEXT("stats"))
+			|| !J->TryGetNumberField(TEXT("cash"), Value) || !FMath::IsFinite(Value)
+			|| !J->TryGetNumberField(TEXT("cashEarned"), Value) || !FMath::IsFinite(Value))
+		{ Error = TEXT("The career save is missing required progress data."); return false; }
+		for (const TCHAR* Field : { TEXT("level"), TEXT("xp"), TEXT("sp"), TEXT("spSpent") })
+			if (!(*Driver)->TryGetNumberField(Field, Value) || !FMath::IsFinite(Value) || Value < 0 || Value > (FCString::Strcmp(Field, TEXT("xp")) == 0 ? 9.0e15 : 2.0e9))
+			{ Error = TEXT("The career save contains invalid driver progress."); return false; }
+		// Reject wrong container/element types before the older field readers run.
+		auto Container = [&](const TCHAR* Field, EJson Type, EJson Element = EJson::None)
+		{
+			const TSharedPtr<FJsonValue> V = J->TryGetField(Field);
+			if (!V.IsValid()) return true;
+			if (V->Type != Type) return false;
+			if (Element != EJson::None && Type == EJson::Array)
+				for (const auto& X : V->AsArray()) if (!X.IsValid() || X->Type != Element) return false;
+			if (Element != EJson::None && Type == EJson::Object)
+				for (const auto& X : V->AsObject()->Values) if (!X.Value.IsValid() || X.Value->Type != Element) return false;
+			return true;
+		};
+		if (!Container(TEXT("garage"), EJson::Object, EJson::Number) || !Container(TEXT("notes"), EJson::Object, EJson::Boolean)
+			|| !Container(TEXT("greenlit"), EJson::Array, EJson::String) || !Container(TEXT("feats"), EJson::Array, EJson::String)
+			|| !Container(TEXT("legendary"), EJson::Array, EJson::Boolean) || !Container(TEXT("bosses"), EJson::Array, EJson::Boolean)
+			|| !Container(TEXT("pending"), EJson::Object) || !Container(TEXT("extras"), EJson::Object) || !Container(TEXT("custom"), EJson::Object))
+		{ Error = TEXT("The career save contains invalid progress fields."); return false; }
+		if (J->HasField(TEXT("skills")) && !Container(TEXT("skills"), EJson::Object, EJson::Boolean) && !Container(TEXT("skills"), EJson::Array, EJson::String))
+		{ Error = TEXT("The career save contains invalid skills."); return false; }
+		auto Typed = [](const TSharedPtr<FJsonObject>& Object, const TCHAR* Field, EJson Type, EJson Element = EJson::None, bool bAllowNull = false)
+		{
+			const auto V = Object->TryGetField(Field);
+			if (!V.IsValid()) return true;
+			if (V->IsNull()) return bAllowNull;
+			if (V->Type != Type) return false;
+			if (Type == EJson::Number) return FMath::IsFinite(V->AsNumber()) && V->AsNumber() >= 0 && V->AsNumber() <= 2.0e9;
+			if (Type == EJson::Array)
+				for (const auto& X : V->AsArray())
+					if (!X.IsValid() || X->Type != Element || (Element == EJson::Number && (!FMath::IsFinite(X->AsNumber()) || X->AsNumber() < 0 || X->AsNumber() > 2.0e9))) return false;
+			return true;
+		};
+		bool FieldsValid = Typed(J, TEXT("respecs"), EJson::Number) && Typed(J, TEXT("tipSeen"), EJson::Boolean) && Typed(J, TEXT("updated"), EJson::String);
+		const TSharedPtr<FJsonObject>* Part = nullptr;
+		if (J->TryGetObjectField(TEXT("pending"), Part)) FieldsValid &= Typed(*Part, TEXT("skills"), EJson::Array, EJson::String) && Typed(*Part, TEXT("level"), EJson::Number, EJson::None, true) && Typed(*Part, TEXT("fromTitle"), EJson::Boolean);
+		if (J->TryGetObjectField(TEXT("extras"), Part)) FieldsValid &= Typed(*Part, TEXT("film"), EJson::Number) && Typed(*Part, TEXT("sequel"), EJson::Boolean) && Typed(*Part, TEXT("sequelOn"), EJson::Boolean);
+		if (J->TryGetObjectField(TEXT("garage"), Part)) for (const auto& X : (*Part)->Values) FieldsValid &= FMath::IsFinite(X.Value->AsNumber()) && X.Value->AsNumber() >= 0 && X.Value->AsNumber() <= 2.0e9;
+		if (J->TryGetObjectField(TEXT("custom"), Part))
+		{
+			FieldsValid &= Typed(*Part, TEXT("own"), EJson::Array, EJson::String);
+			for (const TCHAR* Key : { TEXT("paint"), TEXT("rims"), TEXT("neon"), TEXT("nitro"), TEXT("exhaust"), TEXT("trail"), TEXT("smoke"), TEXT("wreck"), TEXT("finisher") }) FieldsValid &= Typed(*Part, Key, EJson::String, EJson::None, true);
+		}
+		if (J->TryGetObjectField(TEXT("stats"), Part))
+		{
+			for (const TCHAR* Key : { TEXT("runs"), TEXT("wraps"), TEXT("wrecks"), TEXT("leftBehind"), TEXT("civilians"), TEXT("trucks"), TEXT("snakeEyes") }) FieldsValid &= Typed(*Part, Key, EJson::Number);
+			for (const TCHAR* Key : { TEXT("bestCarnage"), TEXT("bestTime"), TEXT("bestRating"), TEXT("bossWrecks") }) FieldsValid &= Typed(*Part, Key, EJson::Array, EJson::Number);
+			for (const TCHAR* Key : { TEXT("wrapped"), TEXT("runDown") }) FieldsValid &= Typed(*Part, Key, EJson::Array, EJson::Boolean);
+			FieldsValid &= Typed(*Part, TEXT("cleanWrap"), EJson::Boolean) && Typed(*Part, TEXT("armorWrap"), EJson::Boolean);
+		}
+		if (!FieldsValid) { Error = TEXT("The career save contains damaged progress values."); return false; }
+		if (Version == 2)
+		{
+			const TSharedPtr<FJsonObject>* Resume = nullptr;
+			FString Kind, RunId, CommitId; double Level = -1, Stage = -99; bool Wrap = false;
+			if (!J->TryGetObjectField(TEXT("resume"), Resume) || !(*Resume)->TryGetStringField(TEXT("kind"), Kind)
+				|| !(*Resume)->TryGetNumberField(TEXT("level"), Level) || !(*Resume)->TryGetNumberField(TEXT("stage"), Stage)
+				|| !FMath::IsFinite(Level) || !FMath::IsFinite(Stage) || Level < 0 || Level >= FTData::NumLevels() || Stage < -1 || Stage > 99
+				|| Level != FMath::FloorToDouble(Level) || Stage != FMath::FloorToDouble(Stage)
+				|| !(*Resume)->TryGetBoolField(TEXT("wrap"), Wrap) || !ValidCheckpoint(Kind, int32(Level), int32(Stage))
+				|| !J->TryGetStringField(TEXT("runId"), RunId) || !J->TryGetStringField(TEXT("lastCommitId"), CommitId)
+				|| ((Kind == TEXT("race") || !CommitId.IsEmpty()) && RunId.IsEmpty()))
+			{ Error = TEXT("The career checkpoint is invalid or unsupported."); return false; }
+		}
+		return true;
+	}
+
+	bool ReadCareer(const FString& Path, TSharedPtr<FJsonObject>& J, FString& Text, FString& Error)
+	{
+		Text.Reset(); J.Reset();
+		if (!FFileHelper::LoadFileToString(Text, *Path)) { Error = TEXT("The career save could not be read."); return false; }
+		if (!FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Text), J)) { Error = TEXT("The career save is damaged or incomplete."); return false; }
+		return ValidateCareer(J, Error);
+	}
 }
 
-void UFTCareerSubsystem::Save(const TCHAR* Reason)
+bool UFTCareerSubsystem::Save(const TCHAR* Reason)
 {
-	if (bLoadError) { UE_LOG(LogFT, Error, TEXT("FT SAVE slot=%s reason=%s result=refused (%s)"), *Slot, Reason, *LoadError); return; }
-	if (const UFTGameInstance* GI = Cast<UFTGameInstance>(GetGameInstance()); GI && GI->bBench) return;
-	C.Updated = FDateTime::UtcNow().ToIso8601();
+	if (bLoadError) { bSaveError = true; SaveError = LoadError; UE_LOG(LogFT, Warning, TEXT("FT SAVE slot=%s reason=%s result=refused (%s)"), *Slot, Reason, *LoadError); return false; }
+	if (const UFTGameInstance* GI = Cast<UFTGameInstance>(GetGameInstance()); GI && GI->bBench) return true;
+	if (!bHasPersistedCareer && C.ResumeKind == TEXT("none")) { bSaveError = false; SaveError.Reset(); return true; }   // first-launch exit has no campaign to save
+	if (bSaving) { bSaveError = true; SaveError = TEXT("A save is already in progress. Please retry."); return false; }
+	bSaving = true;
+	C.V = 2;
 	TSharedRef<FJsonObject> J = MakeShared<FJsonObject>();
 	J->SetNumberField(TEXT("v"), C.V);
 	TSharedRef<FJsonObject> Dr = MakeShared<FJsonObject>();
@@ -488,73 +606,73 @@ void UFTCareerSubsystem::Save(const TCHAR* Reason)
 	J->SetObjectField(TEXT("stats"), St);
 	J->SetBoolField(TEXT("tipSeen"), C.bTipSeen);
 	J->SetStringField(TEXT("updated"), C.Updated);
+	TSharedRef<FJsonObject> Resume = MakeShared<FJsonObject>();
+	Resume->SetStringField(TEXT("kind"), C.ResumeKind); Resume->SetNumberField(TEXT("level"), C.ResumeLevel);
+	Resume->SetNumberField(TEXT("stage"), C.ResumeStage); Resume->SetBoolField(TEXT("wrap"), C.bResumeWrap);
+	J->SetObjectField(TEXT("resume"), Resume); J->SetStringField(TEXT("runId"), C.RunId); J->SetStringField(TEXT("lastCommitId"), C.LastCommitId);
 	FString Out;
 	FJsonSerializer::Serialize(J, TJsonWriterFactory<>::Create(&Out));
-	// Written beside the file and moved over it, with the file it replaces kept as .bak: the save used to be written
-	// straight onto career.json, so a crash or a power cut in the middle left half a career, which then refused every
-	// later save (see Load).
-	const FString Path = FilePath(), Tmp = Path + TEXT(".tmp"), Bak = Path + TEXT(".bak");
-	IFileManager& FM = IFileManager::Get();
-	FM.MakeDirectory(*FPaths::GetPath(Path), true);
-	bool bOk = FFileHelper::SaveStringToFile(Out, *Tmp);
+	bool bFaultInjected = false;
+#if !UE_BUILD_SHIPPING
+	if (const IConsoleVariable* Fault = IConsoleManager::Get().FindConsoleVariable(TEXT("ft.SaveFail"))) bFaultInjected = Fault->GetInt() != 0;
+#endif
+	if (!bFaultInjected && !bPreserveBackup && bHasPersistedCareer && Out == LastSavedText)
+	{ bSaving = false; bSaveError = false; SaveError.Reset(); return true; }
+	const FString Updated = FDateTime::UtcNow().ToIso8601(); J->SetStringField(TEXT("updated"), Updated);
+	Out.Reset(); FJsonSerializer::Serialize(J, TJsonWriterFactory<>::Create(&Out));
+	bool bOk = ValidateCareer(J, SaveError) && FTSaveIO::Write(FilePath(), Out, SaveError, bPreserveBackup);
+	bSaving = false; bSaveError = !bOk;
 	if (bOk)
 	{
-		if (FM.FileExists(*Path)) FM.Move(*Bak, *Path, true, true);
-		bOk = FM.Move(*Path, *Tmp, true, true);
+		C.Updated = Updated; PersistedCareer = C; bHasPersistedCareer = true; LastSavedText = Out;
+		LastSaveTime = FPlatformTime::Seconds(); bPreserveBackup = false; SaveError.Reset();
 	}
 	UE_LOG(LogFT, Display, TEXT("FT SAVE slot=%s reason=%s result=%s"), *Slot, Reason, bOk ? TEXT("ok") : TEXT("failed"));
+	return bOk;
 }
 
 void UFTCareerSubsystem::Load()
 {
-	bLoadError = false; LoadError.Reset();
+	bLoadError = false; LoadError.Reset(); bSaveError = false; SaveError.Reset();
+	bRecoveredFromBackup = false; bPreserveBackup = false; bHasPersistedCareer = false;
+	LastSavedText.Reset(); LastSaveTime = 0; LastCommitOut = FFTCommitOut();
 	Fresh();
-	FString Text;
+	FString Text, PrimaryError, BackupError;
 	const FString Path = FilePath(), Bak = Path + TEXT(".bak");
 	IFileManager& FM = IFileManager::Get();
 	UFTGameInstance* Banner = Cast<UFTGameInstance>(GetGameInstance());
 	TSharedPtr<FJsonObject> J;
-	auto Read = [&Text, &J](const FString& P)
+	const bool bHave = FM.FileExists(*Path), bHaveBackup = FM.FileExists(*Bak);
+	bool bRead = bHave && ReadCareer(Path, J, Text, PrimaryError);
+	if (!bRead && bHaveBackup)
 	{
-		Text.Reset(); J.Reset();
-		return FFileHelper::LoadFileToString(Text, *P) && FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Text), J) && J.IsValid();
-	};
-	const bool bHave = FM.FileExists(*Path);
-	bool bRead = Read(Path), bRecovered = false;
-	if (!bRead && (bHave || FM.FileExists(*Bak)))
-	{
-		// A career that is there but cannot be read (cut short by a crash mid-save, or damaged). It used to set
-		// bLoadError, which refuses every save from then on without a word on screen: a career that could never
-		// progress again. Now: the damaged file is kept beside the save, the last good save (.bak) is used if there is
-		// one, and otherwise a new career starts. Either way the title says so, and saving works.
-		UE_LOG(LogFT, Error, TEXT("FT LOAD slot=%s result=bad_json"), *Slot);
-		if (bHave) FM.Move(*(Path + TEXT(".damaged")), *Path, true, true);
-		bRead = bRecovered = Read(Bak);
-		UE_LOG(LogFT, Warning, TEXT("FT LOAD slot=%s recovery=%s damaged=%s"), *Slot, bRead ? TEXT("backup") : TEXT("new_career"), bHave ? TEXT("kept") : TEXT("none"));
-		if (Banner) Banner->TitleBanner = bRead ? TEXT("SAVE RESTORED FROM BACKUP") : TEXT("SAVE DAMAGED: NEW CAREER");
+		bRead = ReadCareer(Bak, J, Text, BackupError);
+		bRecoveredFromBackup = bRead;
+		bPreserveBackup = bRead;
+		if (bRead && Banner) Banner->TitleBanner = TEXT("SAVE RESTORED FROM BACKUP · ORIGINAL FILE PRESERVED");
 	}
 	if (!bRead)
 	{
-		// no career: a fresh career plus the one-time back-catalogue bonus (01 §7)
-		const UFTGameInstance* GI = Cast<UFTGameInstance>(GetGameInstance());
-		int64 Best = 0;
-		if (GI) for (int32 i = 0; i < 3; ++i) Best += GI->BestScore[i];
-		const int64 Bonus = Best / 30;
-		UE_LOG(LogFT, Display, TEXT("FT LOAD slot=%s result=new backCatalogue=%lld"), *Slot, Bonus);
-		if (Bonus > 0) GiveXP(Bonus, TEXT("BackCatalogue"));
-		Save(TEXT("New"));
-		LogCareer();
+		if (bHave || bHaveBackup)
+		{
+			bLoadError = true;
+			LoadError = PrimaryError.IsEmpty() ? BackupError : PrimaryError;
+			if (LoadError.IsEmpty()) LoadError = TEXT("The save could not be recovered. Start New Game to replace it.");
+			if (Banner) Banner->TitleBanner = TEXT("SAVE UNAVAILABLE · ORIGINAL FILES PRESERVED");
+			UE_LOG(LogFT, Warning, TEXT("FT LOAD slot=%s result=refused error=%s"), *Slot, *LoadError);
+		}
+		else
+		{
+			// First launch is strictly read-only. The optional legacy bonus stays in
+			// memory until an explicit campaign start; no empty Continue is created.
+			int64 Best = 0;
+			if (Banner) for (int32 i = 0; i < 3; ++i) Best += Banner->BestScore[i];
+			if (Best > 0) GiveXP(Best / 30, TEXT("BackCatalogue"));
+			UE_LOG(LogFT, Display, TEXT("FT LOAD slot=%s result=missing"), *Slot);
+		}
 		return;
 	}
 	int32 V = 1; J->TryGetNumberField(TEXT("v"), V);
-	if (V > 1)
-	{
-		// a newer build's career is never written over: saving stays refused, and now the title says why
-		bLoadError = true; LoadError = FString::Printf(TEXT("career save v%d is newer than this build"), V);
-		UE_LOG(LogFT, Error, TEXT("FT LOAD slot=%s result=too_new v=%d"), *Slot, V);
-		if (Banner) Banner->TitleBanner = TEXT("NEWER SAVE: NOT SAVING");
-		return;
-	}
 	const TSharedPtr<FJsonObject>* O;
 	if (J->TryGetObjectField(TEXT("driver"), O))
 	{
@@ -605,9 +723,70 @@ void UFTCareerSubsystem::Load()
 	J->TryGetBoolField(TEXT("tipSeen"), C.bTipSeen);
 	J->TryGetStringField(TEXT("updated"), C.Updated);
 	Fix();
+	if (V == 2 && J->TryGetObjectField(TEXT("resume"), O))
+	{
+		(*O)->TryGetStringField(TEXT("kind"), C.ResumeKind); (*O)->TryGetNumberField(TEXT("level"), C.ResumeLevel);
+		(*O)->TryGetNumberField(TEXT("stage"), C.ResumeStage); (*O)->TryGetBoolField(TEXT("wrap"), C.bResumeWrap);
+		J->TryGetStringField(TEXT("runId"), C.RunId); J->TryGetStringField(TEXT("lastCommitId"), C.LastCommitId);
+	}
+	else if (V == 1)
+	{
+		// Old saves have no active encounter. Resume at their saved preparation
+		// screen, or at preparation for the first unfinished race; never repay it.
+		if (C.PendingLevel == -2) { C.ResumeKind = TEXT("complete"); C.ResumeLevel = FTData::NumLevels() - 1; }
+		else if (C.PendingLevel >= 0) { C.ResumeKind = TEXT("preproduction"); C.ResumeLevel = C.PendingLevel; }
+		else if (C.Stats.Runs > 0 || C.XP > 0 || C.CashEarned > 0 || C.Skills.Num() > 0)
+		{
+			int32 Next = 0; while (Next < C.Stats.Wrapped.Num() && C.Stats.Wrapped[Next]) ++Next;
+			C.ResumeKind = Next >= FTData::NumLevels() ? TEXT("complete") : TEXT("preproduction");
+			C.ResumeLevel = FMath::Min(Next, FTData::NumLevels() - 1);
+		}
+	}
+	C.V = 2;
 	UE_LOG(LogFT, Display, TEXT("FT LOAD slot=%s result=ok"), *Slot);
-	if (bRecovered) Save(TEXT("Recovered"));   // the backup becomes the career again
+	PersistedCareer = C; bHasPersistedCareer = true;
+	if (V == 2 && !bRecoveredFromBackup) LastSavedText = Text;
 	LogCareer();
+}
+
+bool UFTCareerSubsystem::HasContinue() const
+{
+	return bHasPersistedCareer && !bLoadError && PersistedCareer.ResumeKind != TEXT("none")
+		&& ValidCheckpoint(PersistedCareer.ResumeKind, PersistedCareer.ResumeLevel, PersistedCareer.ResumeStage);
+}
+
+FString UFTCareerSubsystem::ContinueLabel() const
+{
+	if (!HasContinue()) return bLoadError ? LoadError : TEXT("NO SAVED CAMPAIGN");
+	const FFTCareer& Saved = PersistedCareer;
+	const int32 Day = Saved.ResumeLevel + 1;
+	if (Saved.ResumeKind == TEXT("race")) return FString::Printf(TEXT("DAY %d · %s · RESTART RACE"), Day, *FTData::Level(Saved.ResumeLevel).Zone);
+	if (Saved.ResumeKind == TEXT("day")) return FString::Printf(TEXT("DAY %d · %s"), Day, Saved.bResumeWrap ? TEXT("THE WRAP") : TEXT("BEFORE THE DRIVE"));
+	if (Saved.ResumeKind == TEXT("night") || Saved.ResumeKind == TEXT("nightoutro"))
+	{
+		static const TCHAR* Venues[] = { TEXT("THE RUSTY ANCHOR"), TEXT("THE VELVET ROOM"), TEXT("THE LUCKY 7"), TEXT("THE TIKI TORCH"), TEXT("STRIKE CITY"), TEXT("FROSTBITE LODGE"), TEXT("THE SEA BISCUIT") };
+		const FString Point = Saved.ResumeKind == TEXT("nightoutro") ? TEXT("LAST CALL") : Saved.ResumeStage < 0 ? TEXT("INTRODUCTION") : FString::Printf(TEXT("RESTART ENCOUNTER %d"), Saved.ResumeStage + 1);
+		return FString::Printf(TEXT("NIGHT %d · %s · %s"), Day, Venues[Saved.ResumeLevel], *Point);
+	}
+	if (Saved.ResumeKind == TEXT("complete")) return TEXT("CAMPAIGN COMPLETE · PRE-PRODUCTION");
+	return FString::Printf(TEXT("DAY %d · PRE-PRODUCTION"), Day);
+}
+
+bool UFTCareerSubsystem::SetCheckpoint(const FString& Kind, int32 Level, int32 Stage, bool bWrap, const TCHAR* Reason)
+{
+	if (!ValidCheckpoint(Kind, Level, Stage))
+	{ bSaveError = true; SaveError = TEXT("The requested checkpoint is not supported."); return false; }
+	if (Kind == TEXT("race") && (C.RunId.IsEmpty() || C.RunId == C.LastCommitId || C.ResumeKind != Kind || C.ResumeLevel != Level))
+		C.RunId = FGuid::NewGuid().ToString(EGuidFormats::Digits);
+	C.ResumeKind = Kind; C.ResumeLevel = Level; C.ResumeStage = Stage; C.bResumeWrap = bWrap;
+	return Save(Reason);
+}
+
+bool UFTCareerSubsystem::SaveMutation(const FFTCareer& Before, const TCHAR* Reason)
+{
+	if (Save(Reason)) return true;
+	C = Before;
+	return false;
 }
 
 void UFTCareerSubsystem::Fix()
@@ -729,30 +908,32 @@ EFTTile UFTCareerSubsystem::SkillState(FName Id, FString* Needs) const
 
 bool UFTCareerSubsystem::BuySkill(FName Id)
 {
+	const FFTCareer Before = C;
 	if (SkillState(Id) != EFTTile::Available) { UE_LOG(LogFT, Display, TEXT("FT SKILL id=%s state=refused"), *Id.ToString()); return false; }
 	C.PendingSkills.Add(Id);
 	UE_LOG(LogFT, Display, TEXT("FT SKILL id=%s state=PENDING"), *Id.ToString());
 	UE_LOG(LogFT, Display, TEXT("FT SP left=%d spent=%d"), SPLeft(), C.SPSpent + PendingCost());
-	Save(TEXT("Purchase"));
-	return true;
+	return SaveMutation(Before, TEXT("Purchase"));
 }
 
 bool UFTCareerSubsystem::UndoSkill(FName Id)
 {
+	const FFTCareer Before = C;
 	if (Id.IsNone()) { if (!C.PendingSkills.Num()) return false; Id = C.PendingSkills.Last(); }
 	if (!C.PendingSkills.Contains(Id)) return false;
 	const FFTSkillNodeRow* N = FFTProgressData::Get().Node(Id);
-	// not under a pending node that stands on it
-	if (N) { const FName Below(*FString::Printf(TEXT("%s%d"), *N->Branch, N->Tier + 1)); if (C.PendingSkills.Contains(Below)) return UndoSkill(Below) && UndoSkill(Id); }
+	// Remove dependent pending nodes in this same transaction, so a failed write
+	// cannot leave only half of a branch undone.
+	if (N) C.PendingSkills.RemoveAll([N](FName Candidate) { const FFTSkillNodeRow* Other = FFTProgressData::Get().Node(Candidate); return Other && Other->Branch == N->Branch && Other->Tier > N->Tier; });
 	C.PendingSkills.Remove(Id);
 	UE_LOG(LogFT, Display, TEXT("FT SKILL id=%s state=UNDONE"), *Id.ToString());
 	UE_LOG(LogFT, Display, TEXT("FT SP left=%d spent=%d"), SPLeft(), C.SPSpent + PendingCost());
-	Save(TEXT("Undo"));
-	return true;
+	return SaveMutation(Before, TEXT("Undo"));
 }
 
-void UFTCareerSubsystem::Ready()
+bool UFTCareerSubsystem::Ready()
 {
+	const FFTCareer Before = C;
 	const FFTProgressData& D = FFTProgressData::Get();
 	for (const FName& Id : C.PendingSkills)
 	{
@@ -764,7 +945,7 @@ void UFTCareerSubsystem::Ready()
 	C.PendingSkills.Reset();
 	C.PendingLevel = -1; C.bPendingFromTitle = false;
 	UE_LOG(LogFT, Display, TEXT("FT SP left=%d spent=%d"), C.SP, C.SPSpent);
-	Save(TEXT("Ready"));
+	return SaveMutation(Before, TEXT("Ready"));
 }
 
 EFTTile UFTCareerSubsystem::GreenlightState(const FString& Code, FString* Needs) const
@@ -784,18 +965,19 @@ bool UFTCareerSubsystem::Spend(int64 Price, const TCHAR* What)
 
 bool UFTCareerSubsystem::BuyGreenlight(const FString& Code)
 {
+	const FFTCareer Before = C;
 	if (IsGreenlit(Code)) return false;
 	if (!Spend(FFTProgressData::Get().GreenlightPrice, *(TEXT("greenlight-") + Code))) return false;
 	C.Greenlit.Add(Code);
 	UE_LOG(LogFT, Display, TEXT("FT SKILL greenlight=%s"), *Code);
-	Save(TEXT("Purchase"));
-	return true;
+	return SaveMutation(Before, TEXT("Purchase"));
 }
 
 int32 UFTCareerSubsystem::RespecPrice() const { return C.Respecs == 0 ? 0 : FFTProgressData::Get().RespecPrice; }
 
 bool UFTCareerSubsystem::Respec()
 {
+	const FFTCareer Before = C;
 	const int32 Price = RespecPrice();
 	if (C.Cash < Price) { UE_LOG(LogFT, Display, TEXT("FT CASH refused what=respec price=%d cash=%lld"), Price, C.Cash); return false; }
 	C.Cash -= Price;
@@ -805,8 +987,7 @@ bool UFTCareerSubsystem::Respec()
 	C.Respecs++;
 	UE_LOG(LogFT, Display, TEXT("FT SKILL respec=%d"), C.Respecs);
 	UE_LOG(LogFT, Display, TEXT("FT SP left=%d spent=%d"), C.SP, C.SPSpent);
-	Save(TEXT("Purchase"));
-	return true;
+	return SaveMutation(Before, TEXT("Purchase"));
 }
 
 // ------------------------------------------------------------------------------------------------ feats
@@ -869,6 +1050,7 @@ EFTTile UFTCareerSubsystem::GarageState(FName Key, int32 R, FString* Needs) cons
 
 bool UFTCareerSubsystem::BuyGarage(FName Key, int32 R)
 {
+	const FFTCareer Before = C;
 	FString Why;
 	if (GarageState(Key, R, &Why) != EFTTile::Available) { UE_LOG(LogFT, Display, TEXT("FT GARAGE key=%s rank=%d refused needs=\"%s\""), *Key.ToString(), R, *Why); return false; }
 	const FFTGarageLine* G = FFTProgressData::Get().Line(Key);
@@ -876,8 +1058,7 @@ bool UFTCareerSubsystem::BuyGarage(FName Key, int32 R)
 	if (!Spend(Price, *Key.ToString())) return false;
 	C.Garage.Add(Key, R);
 	UE_LOG(LogFT, Display, TEXT("FT GARAGE key=%s rank=%d price=%d"), *Key.ToString(), R, Price);
-	Save(TEXT("Purchase"));
-	return true;
+	return SaveMutation(Before, TEXT("Purchase"));
 }
 
 // ------------------------------------------------------------------------------------------------ cosmetics
@@ -897,33 +1078,32 @@ EFTTile UFTCareerSubsystem::CosmeticState(FName Id, FString* Needs) const
 
 bool UFTCareerSubsystem::BuyCosmetic(FName Id)
 {
+	const FFTCareer Before = C;
 	FString Why;
 	if (CosmeticState(Id, &Why) != EFTTile::Available) { UE_LOG(LogFT, Display, TEXT("FT SHOP id=%s refused needs=\"%s\""), *Id.ToString(), *Why); return false; }
 	const FFTCosmeticRow* R = FFTProgressData::Get().Cosmetic(Id);
 	if (!Spend(R->Price, *Id.ToString())) return false;
 	C.Own.AddUnique(Id);
 	UE_LOG(LogFT, Display, TEXT("FT SHOP id=%s price=%d"), *Id.ToString(), R->Price);
-	Save(TEXT("Purchase"));
-	return true;
+	return SaveMutation(Before, TEXT("Purchase"));
 }
 
 bool UFTCareerSubsystem::Equip(FName SlotName, FName Id)
 {
+	const FFTCareer Before = C;
 	const bool bFixed = SlotName == TEXT("paint") || SlotName == TEXT("rims") || SlotName == TEXT("neon") || SlotName == TEXT("nitro");
 	if (Id.IsNone() || Id == TEXT("none"))
 	{
 		if (bFixed) { UE_LOG(LogFT, Display, TEXT("FT SHOP equip refused slot=%s"), *SlotName.ToString()); return false; }
 		C.Wear.Add(SlotName, NAME_None);
 		UE_LOG(LogFT, Display, TEXT("FT SHOP equip slot=%s id=null"), *SlotName.ToString());
-		Save(TEXT("Equip"));
-		return true;
+		return SaveMutation(Before, TEXT("Equip"));
 	}
 	const FFTCosmeticRow* R = FFTProgressData::Get().Cosmetic(Id);
 	if (!R || R->Slot != SlotName || !Owns(Id)) { UE_LOG(LogFT, Display, TEXT("FT SHOP equip refused slot=%s id=%s"), *SlotName.ToString(), *Id.ToString()); return false; }
 	C.Wear.Add(SlotName, Id);
 	UE_LOG(LogFT, Display, TEXT("FT SHOP equip slot=%s id=%s"), *SlotName.ToString(), *Id.ToString());
-	Save(TEXT("Equip"));
-	return true;
+	return SaveMutation(Before, TEXT("Equip"));
 }
 
 // ------------------------------------------------------------------------------------------------ extras
@@ -934,20 +1114,20 @@ EFTTile UFTCareerSubsystem::FilmState(FString* Needs) const
 }
 bool UFTCareerSubsystem::BuyFilm()
 {
+	const FFTCareer Before = C;
 	if (FilmState() != EFTTile::Available || !Spend(FFTProgressData::Get().FilmPrice, TEXT("film"))) return false;
 	C.Film++;
-	Save(TEXT("Purchase"));
-	return true;
+	return SaveMutation(Before, TEXT("Purchase"));
 }
 EFTTile UFTCareerSubsystem::SequelState(FString* Needs) const { return C.bSequel ? EFTTile::Owned : EFTTile::Available; }
 bool UFTCareerSubsystem::BuySequel()
 {
+	const FFTCareer Before = C;
 	if (C.bSequel || !Spend(FFTProgressData::Get().SequelPrice, TEXT("sequel"))) return false;
 	C.bSequel = true; C.bSequelOn = true;
-	Save(TEXT("Purchase"));
-	return true;
+	return SaveMutation(Before, TEXT("Purchase"));
 }
-void UFTCareerSubsystem::ToggleSequel() { if (C.bSequel) { C.bSequelOn = !C.bSequelOn; Save(TEXT("Equip")); } }
+bool UFTCareerSubsystem::ToggleSequel() { if (!C.bSequel) return false; const FFTCareer Before = C; C.bSequelOn = !C.bSequelOn; return SaveMutation(Before, TEXT("Equip")); }
 
 FFTCareerSnapshot UFTCareerSubsystem::Snapshot() const
 {
@@ -980,6 +1160,20 @@ FFTCommitOut UFTCareerSubsystem::Commit(const FFTLevelCommit& In)
 	FFTCommitOut Out;
 	const FFTLevelResult& R = In.R;
 	const int32 Lv = FMath::Clamp(R.Level, 0, FTData::NumLevels() - 1);
+	if (C.RunId.IsEmpty()) C.RunId = FGuid::NewGuid().ToString(EGuidFormats::Digits);
+	if (C.LastCommitId == C.RunId)
+	{
+		Out = LastCommitOut;
+		if (!Out.Pay.Lines.Num()) Out.Pay = FTPay::Compute(R, Snapshot(), D);
+		Out.bDuplicate = true;
+		Out.bSaved = Save(TEXT("PaycheckRetry"));
+		UE_LOG(LogFT, Display, TEXT("FT PAY duplicate run=%s saved=%d"), *C.RunId, Out.bSaved ? 1 : 0);
+		return Out;
+	}
+	const FString NextKind = In.NextKind.IsEmpty() ? (R.Outcome == EFTOutcome::Wrap ? TEXT("day") : TEXT("preproduction")) : In.NextKind;
+	const int32 NextLevel = In.NextLevel < 0 ? Lv : In.NextLevel;
+	if (!ValidCheckpoint(NextKind, NextLevel, In.NextStage) || NextKind == TEXT("none"))
+	{ bSaveError = true; SaveError = TEXT("The reward's next checkpoint is invalid. No rewards were applied."); return Out; }
 	const bool bWrap = R.Outcome == EFTOutcome::Wrap, bAway = R.Outcome == EFTOutcome::GotAway;
 	const TSet<FString> Before = LockedSet();
 	Out.LevelBefore = C.Level; Out.XPBefore = C.XP;
@@ -1053,6 +1247,234 @@ FFTCommitOut UFTCareerSubsystem::Commit(const FFTLevelCommit& In)
 			Out.Unlocks.Add(FString::Printf(TEXT("%s UNLOCKED · %s"), *Cr->Name.ToUpper(), Cr->Shop == TEXT("SFX") ? TEXT("IN THE SFX DEPT") : TEXT("IN CUSTOM")));
 	}
 	for (const FString& U : Out.Unlocks) UE_LOG(LogFT, Display, TEXT("FT PAY line=\"%s\""), *U);
-	Save(TEXT("Paycheck"));
+	// Reward ledger and the next playable checkpoint are one disk transaction.
+	// On failure retain this staged result for Retry Save; never credit it twice.
+	C.LastCommitId = C.RunId;
+	C.ResumeKind = NextKind; C.ResumeLevel = NextLevel; C.ResumeStage = In.NextStage;
+	C.bResumeWrap = In.NextKind.IsEmpty() ? R.Outcome == EFTOutcome::Wrap : In.bNextWrap;
+	Out.bSaved = Save(TEXT("Paycheck"));
+	LastCommitOut = Out;
 	return Out;
 }
+
+#if WITH_DEV_AUTOMATION_TESTS
+namespace
+{
+struct FFTSaveTestScope
+{
+	FString Directory, Path;
+	IConsoleVariable* Fault = nullptr;
+	int32 PreviousFault = 0;
+	FFTSaveTestScope()
+	{
+		Directory = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Automation"), TEXT("Career-") + FGuid::NewGuid().ToString(EGuidFormats::Digits));
+		Path = FPaths::Combine(Directory, TEXT("career.json"));
+		IFileManager::Get().MakeDirectory(*Directory, true);
+		Fault = IConsoleManager::Get().FindConsoleVariable(TEXT("ft.SaveFail"));
+		if (Fault) { PreviousFault = Fault->GetInt(); Fault->Set(0, ECVF_SetByConsole); }
+	}
+	~FFTSaveTestScope()
+	{
+		if (Fault) Fault->Set(PreviousFault, ECVF_SetByConsole);
+		FPlatformFileManager::Get().GetPlatformFile().SetReadOnly(*Path, false);
+		IFileManager::Get().DeleteDirectory(*Directory, false, true);
+	}
+	UFTCareerSubsystem* Career()
+	{
+		UGameInstance* Owner = NewObject<UGameInstance>();
+		UFTCareerSubsystem* Career = NewObject<UFTCareerSubsystem>(Owner);
+		Career->TestSavePath = Path; Career->Load();
+		return Career;
+	}
+	FString Read(const FString& File = FString()) const
+	{
+		FString Text; FFileHelper::LoadFileToString(Text, *(File.IsEmpty() ? Path : File)); return Text;
+	}
+};
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFTCareerFirstLaunchTest, "FT.Save.FirstLaunchAndMigration", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+bool FFTCareerFirstLaunchTest::RunTest(const FString&)
+{
+	FFTSaveTestScope Files;
+	UFTCareerSubsystem* Career = Files.Career();
+	TestFalse(TEXT("No Continue before a campaign exists"), Career->HasContinue());
+	TestTrue(TEXT("First-launch window close has nothing to save"), Career->Save(TEXT("WindowClose")));
+	TestFalse(TEXT("Load and first-launch exit create no file"), IFileManager::Get().FileExists(*Files.Path));
+	TestTrue(TEXT("New Game writes its first checkpoint"), Career->Reset());
+	TestTrue(TEXT("New Game can Continue immediately"), Files.Career()->HasContinue());
+	TestEqual(TEXT("First checkpoint is the before-drive story"), Files.Career()->C.ResumeKind, FString(TEXT("day")));
+	TSharedPtr<FJsonObject> Legacy;
+	FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Files.Read()), Legacy);
+	Legacy->SetNumberField(TEXT("v"), 1); Legacy->RemoveField(TEXT("resume")); Legacy->RemoveField(TEXT("runId")); Legacy->RemoveField(TEXT("lastCommitId"));
+	Legacy->GetObjectField(TEXT("pending"))->SetNumberField(TEXT("level"), 2);
+	FString Text; FJsonSerializer::Serialize(Legacy.ToSharedRef(), TJsonWriterFactory<>::Create(&Text));
+	FFileHelper::SaveStringToFile(Text, *Files.Path);
+	UFTCareerSubsystem* Migrated = Files.Career();
+	TestTrue(TEXT("Valid old save migrates in memory"), Migrated->HasContinue());
+	TestEqual(TEXT("Legacy pending level becomes preparation checkpoint"), Migrated->C.ResumeLevel, 1);
+	TestEqual(TEXT("Migration does not write during Load"), Files.Read(), Text);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFTCareerRecoveryTest, "FT.Save.BackupAndUnsupportedVersion", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+bool FFTCareerRecoveryTest::RunTest(const FString&)
+{
+	FFTSaveTestScope Files;
+	UFTCareerSubsystem* Career = Files.Career();
+	TestTrue(TEXT("Initial checkpoint"), Career->Reset());
+	Career->C.Cash = 100; TestTrue(TEXT("Updated progress"), Career->Save(TEXT("Fixture")));
+	const FString Backup = Files.Read(Files.Path + TEXT(".bak"));
+	FFileHelper::SaveStringToFile(TEXT("{interrupted"), *Files.Path);
+	UFTCareerSubsystem* Recovered = Files.Career();
+	TestTrue(TEXT("Valid backup is offered"), Recovered->bRecoveredFromBackup && Recovered->HasContinue());
+	TestEqual(TEXT("Recovery returns prior durable currency"), Recovered->C.Cash, int64(0));
+	TestEqual(TEXT("Load never renames or overwrites damaged primary"), Files.Read(), FString(TEXT("{interrupted")));
+	TestTrue(TEXT("Explicit later save repairs primary"), Recovered->Save(TEXT("Recovery")));
+	TestEqual(TEXT("Known-good backup survives recovery save"), Files.Read(Files.Path + TEXT(".bak")), Backup);
+	TSharedPtr<FJsonObject> Unsupported;
+	FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Files.Read()), Unsupported);
+	Unsupported->SetNumberField(TEXT("v"), 999);
+	FString Text; FJsonSerializer::Serialize(Unsupported.ToSharedRef(), TJsonWriterFactory<>::Create(&Text));
+	FFileHelper::SaveStringToFile(Text, *Files.Path);
+	IFileManager::Get().Delete(*(Files.Path + TEXT(".bak")));
+	UFTCareerSubsystem* Refused = Files.Career();
+	TestTrue(TEXT("Unsupported version is visibly refused"), Refused->bLoadError);
+	TestFalse(TEXT("Unsupported version has no Continue"), Refused->HasContinue());
+	TestFalse(TEXT("Autosave cannot overwrite incompatible data"), Refused->Save(TEXT("WindowClose")));
+	TestEqual(TEXT("Incompatible primary preserved byte-for-byte"), Files.Read(), Text);
+	FFileHelper::SaveStringToFile(TEXT("{}"), *Files.Path);
+	UFTCareerSubsystem* Damaged = Files.Career();
+	TestTrue(TEXT("Parseable but incomplete JSON is damaged, not fresh progress"), Damaged->bLoadError);
+	TestTrue(TEXT("Explicit New Game replaces unrecoverable progress"), Damaged->Reset());
+	FFileHelper::SaveStringToFile(TEXT("{second interruption"), *Files.Path);
+	TestTrue(TEXT("Replacement without old backup creates a valid new backup"), Files.Career()->HasContinue());
+	TestTrue(TEXT("Night introduction is supported"), ValidCheckpoint(TEXT("night"), 0, -1));
+	TestFalse(TEXT("Damaged out-of-range night stage is rejected"), ValidCheckpoint(TEXT("night"), 0, 99));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFTCareerAtomicFailureTest, "FT.Save.AtomicFailureAndInterruptedWrite", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+bool FFTCareerAtomicFailureTest::RunTest(const FString&)
+{
+	FFTSaveTestScope Files;
+	UFTCareerSubsystem* Career = Files.Career();
+	TestTrue(TEXT("Create durable save"), Career->Reset());
+	const FString Before = Files.Read();
+	IPlatformFile& Platform = FPlatformFileManager::Get().GetPlatformFile();
+	TestTrue(TEXT("Set actual filesystem write protection"), Platform.SetReadOnly(*Files.Path, true));
+	Career->C.Cash = 111;
+	TestFalse(TEXT("Read-only primary replacement fails"), Career->Save(TEXT("ReadonlyTest")));
+	TestTrue(TEXT("Failure is exposed to UI"), Career->bSaveError && !Career->SaveError.IsEmpty());
+	TestEqual(TEXT("Failed replacement preserves valid primary"), Files.Read(), Before);
+	Platform.SetReadOnly(*Files.Path, false);
+	TestNotNull(TEXT("Non-shipping fault hook is registered"), Files.Fault);
+	if (!Files.Fault) return false;
+	Files.Fault->Set(2, ECVF_SetByConsole);
+	TestFalse(TEXT("Simulated interruption leaves a verified temp only"), Career->Save(TEXT("InterruptTest")));
+	TestEqual(TEXT("Interrupted write keeps primary"), Files.Read(), Before);
+	UFTCareerSubsystem* Reloaded = Files.Career();
+	TestEqual(TEXT("Reload ignores orphan temporary file"), Reloaded->C.Cash, int64(0));
+	Files.Fault->Set(0, ECVF_SetByConsole);
+	TestTrue(TEXT("Retry stores staged progress"), Career->Save(TEXT("Retry")));
+	TestEqual(TEXT("Retry is durable after reload"), Files.Career()->C.Cash, int64(111));
+	const FString Durable = Files.Read();
+	Files.Fault->Set(1, ECVF_SetByConsole);
+	TestFalse(TEXT("Failed New Game does not replace career"), Career->Reset());
+	TestEqual(TEXT("Failed New Game restores in-memory progress"), Career->C.Cash, int64(111));
+	TestEqual(TEXT("Failed New Game preserves file"), Files.Read(), Durable);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFTCareerRewardTransactionTest, "FT.Save.IdempotentRewardsAndPurchases", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+bool FFTCareerRewardTransactionTest::RunTest(const FString&)
+{
+	FFTSaveTestScope Files;
+	UFTCareerSubsystem* Career = Files.Career();
+	TestTrue(TEXT("New campaign"), Career->Reset());
+	TestTrue(TEXT("Race checkpoint creates an attempt ID"), Career->SetCheckpoint(TEXT("race"), 0));
+	const FString RunId = Career->C.RunId;
+	TestTrue(TEXT("Continuing same race checkpoint"), Career->SetCheckpoint(TEXT("race"), 0));
+	TestEqual(TEXT("Continuing keeps the reward ledger identity"), Career->C.RunId, RunId);
+	FFTLevelCommit Result;
+	Result.R.Level = 0; Result.R.Wrecked = 1; Result.R.ScriptTotal = 1; Result.R.Outcome = EFTOutcome::Wrap;
+	Result.XP = 100; Result.NextKind = TEXT("day"); Result.NextLevel = 0; Result.bNextWrap = true;
+	TestTrue(TEXT("Rewards and following story checkpoint save together"), Career->Commit(Result).bSaved);
+	const int64 Cash = Career->C.Cash, XP = Career->C.XP;
+	TestTrue(TEXT("Duplicate commit identified"), Career->Commit(Result).bDuplicate);
+	TestEqual(TEXT("Duplicate does not pay again"), Career->C.Cash, Cash);
+	TestEqual(TEXT("Duplicate does not grant XP again"), Career->C.XP, XP);
+	UFTCareerSubsystem* Reloaded = Files.Career();
+	TestEqual(TEXT("Reload resumes post-reward story"), Reloaded->C.ResumeKind, FString(TEXT("day")));
+	TestTrue(TEXT("Duplicate is blocked after full reload"), Reloaded->Commit(Result).bDuplicate);
+	TestEqual(TEXT("Reloaded ledger prevents a second payment"), Reloaded->C.Cash, Cash);
+	TestTrue(TEXT("New race attempt"), Reloaded->SetCheckpoint(TEXT("race"), 0));
+	TestNotEqual(TEXT("Committed attempt gets a new ID on replay"), Reloaded->C.RunId, RunId);
+	TestNotNull(TEXT("Fault hook"), Files.Fault); if (!Files.Fault) return false;
+	Files.Fault->Set(1, ECVF_SetByConsole);
+	TestFalse(TEXT("Failed reward save is not reported as stored"), Reloaded->Commit(Result).bSaved);
+	const int64 StagedCash = Reloaded->C.Cash;
+	TestTrue(TEXT("Retrying commit cannot repeat staged rewards"), Reloaded->Commit(Result).bDuplicate);
+	TestEqual(TEXT("Failed retry does not duplicate reward"), Reloaded->C.Cash, StagedCash);
+	Files.Fault->Set(0, ECVF_SetByConsole);
+	TestTrue(TEXT("Retry Save commits staged ledger and checkpoint"), Reloaded->Save(TEXT("Retry")));
+	TestEqual(TEXT("Retried reward survives restart"), Files.Career()->C.Cash, StagedCash);
+	Reloaded->C.Cash = 100000; Reloaded->C.Film = 0; TestTrue(TEXT("Purchase fixture"), Reloaded->Save(TEXT("Fixture")));
+	Files.Fault->Set(1, ECVF_SetByConsole);
+	TestFalse(TEXT("Purchase reports write failure"), Reloaded->BuyFilm());
+	TestEqual(TEXT("Unconfirmed purchase does not charge cash"), Reloaded->C.Cash, int64(100000));
+	TestEqual(TEXT("Unconfirmed purchase does not duplicate inventory"), Reloaded->C.Film, 0);
+	Files.Fault->Set(0, ECVF_SetByConsole);
+	const FFTProgressData& Data = FFTProgressData::Get();
+	const FName Blue(TEXT("p-bayshore-blue")), Skill(TEXT("WHL1"));
+	const FFTCosmeticRow* Paint = Data.Cosmetic(Blue);
+	const FFTSkillNodeRow* Node = Data.Node(Skill);
+	TestNotNull(TEXT("Purchase fixture uses a shipped paint"), Paint);
+	TestNotNull(TEXT("Skill fixture uses a shipped node"), Node);
+	if (!Paint || !Node) return false;
+	Reloaded->C.Cash = 1000000;
+	Reloaded->GiveXP(10000, TEXT("PurchaseFixture")); // Earn real levels/SP, so reload has a consistent driver state.
+	TestTrue(TEXT("Fund the purchase fixture"), Reloaded->Save(TEXT("Fixture")));
+	const int64 PurchaseCash = Reloaded->C.Cash;
+	const int32 SkillPoints = Reloaded->C.SP, SpentPoints = Reloaded->C.SPSpent;
+	TestTrue(TEXT("Film purchase saves successfully"), Reloaded->BuyFilm());
+	TestTrue(TEXT("Paint purchase saves successfully"), Reloaded->BuyCosmetic(Blue));
+	TestTrue(TEXT("Equipping purchased paint saves successfully"), Reloaded->Equip(TEXT("paint"), Blue));
+	TestTrue(TEXT("Sequel purchase saves successfully"), Reloaded->BuySequel());
+	TestTrue(TEXT("Sequel equipment toggle saves successfully"), Reloaded->ToggleSequel());
+	TestTrue(TEXT("Skill allocation saves pending choice"), Reloaded->BuySkill(Skill));
+	const int64 ExpectedCash = PurchaseCash - Data.FilmPrice - Paint->Price - Data.SequelPrice;
+	UFTCareerSubsystem* Purchased = Files.Career();
+	TestEqual(TEXT("Confirmed purchases retain their exact total charge after reload"), Purchased->C.Cash, ExpectedCash);
+	TestEqual(TEXT("Purchased film survives reload exactly once"), Purchased->C.Film, 1);
+	TestTrue(TEXT("Purchased cosmetic ownership survives reload"), Purchased->Owns(Blue));
+	TestEqual(TEXT("Equipped cosmetic survives reload"), Purchased->Worn(TEXT("paint")), Blue);
+	TestTrue(TEXT("Purchased sequel ownership survives reload"), Purchased->C.bSequel);
+	TestFalse(TEXT("Confirmed sequel toggle survives reload"), Purchased->C.bSequelOn);
+	TestTrue(TEXT("Pending skill survives reload"), Purchased->C.PendingSkills.Contains(Skill));
+	TestFalse(TEXT("Pending skill is not applied before Ready"), Purchased->C.Skills.Contains(Skill));
+	TestEqual(TEXT("Pending allocation reserves its skill point once"), Purchased->SPLeft(), SkillPoints - Node->SP);
+	TestTrue(TEXT("Ready durably confirms the skill allocation"), Purchased->Ready());
+	UFTCareerSubsystem* Equipped = Files.Career();
+	TestTrue(TEXT("Confirmed skill survives reload"), Equipped->C.Skills.Contains(Skill));
+	TestFalse(TEXT("Confirmed skill is no longer pending"), Equipped->C.PendingSkills.Contains(Skill));
+	TestEqual(TEXT("Ready charges skill points once"), Equipped->C.SP, SkillPoints - Node->SP);
+	TestEqual(TEXT("Ready records the exact spent points"), Equipped->C.SPSpent, SpentPoints + Node->SP);
+	TestFalse(TEXT("Already-owned paint cannot be purchased twice"), Equipped->BuyCosmetic(Blue));
+	TestEqual(TEXT("Refused duplicate purchase does not charge again"), Equipped->C.Cash, ExpectedCash);
+	const FString BeforeEquipFailure = Files.Read();
+	Files.Fault->Set(1, ECVF_SetByConsole);
+	TestFalse(TEXT("Equipment change reports write failure"), Equipped->Equip(TEXT("paint"), TEXT("p-kestrel-red")));
+	TestEqual(TEXT("Failed equipment change restores the previously equipped paint"), Equipped->Worn(TEXT("paint")), Blue);
+	TestFalse(TEXT("Sequel toggle reports write failure"), Equipped->ToggleSequel());
+	TestFalse(TEXT("Failed sequel toggle restores the previous mode"), Equipped->C.bSequelOn);
+	TestEqual(TEXT("Failed equipment writes preserve the durable file"), Files.Read(), BeforeEquipFailure);
+	Files.Fault->Set(0, ECVF_SetByConsole);
+	TestTrue(TEXT("Retry after rolled-back equipment failure clears the error"), Equipped->Save(TEXT("Retry")));
+	UFTCareerSubsystem* Stable = Files.Career();
+	TestEqual(TEXT("Equipment failure and retry do not lose confirmed purchases"), Stable->C.Cash, ExpectedCash);
+	TestEqual(TEXT("Original equipment remains durable after failure and retry"), Stable->Worn(TEXT("paint")), Blue);
+	TestTrue(TEXT("Confirmed skill remains durable after failure and retry"), Stable->C.Skills.Contains(Skill));
+	return true;
+}
+#endif

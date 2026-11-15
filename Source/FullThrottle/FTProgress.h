@@ -98,7 +98,7 @@ struct FFTCareerStats
 
 struct FFTCareer
 {
-	int32 V = 1;
+	int32 V = 2;
 	int32 Level = 1;
 	int64 XP = 0;
 	int32 SP = 0, SPSpent = 0;
@@ -120,6 +120,10 @@ struct FFTCareer
 	FFTCareerStats Stats;
 	bool bTipSeen = false;
 	FString Updated;
+	FString ResumeKind = TEXT("none");
+	int32 ResumeLevel = 0, ResumeStage = 0;
+	bool bResumeWrap = false;
+	FString RunId, LastCommitId;
 };
 
 // ------------------------------------------------------------------------------------------------ paycheck (03)
@@ -165,6 +169,9 @@ struct FFTLevelCommit
 	bool bRunDown = false;
 	double ExactCarnage = 0;
 	int32 BestScore = 0;
+	FString NextKind;
+	int32 NextLevel = -1, NextStage = 0;
+	bool bNextWrap = false;
 };
 
 struct FFTCommitOut
@@ -176,6 +183,7 @@ struct FFTCommitOut
 	TArray<TPair<int32, int32>> LevelUps; // level, sp
 	TArray<FString> Unlocks;
 	int32 LegendarySP = 0;
+	bool bSaved = false, bDuplicate = false;
 };
 
 // ------------------------------------------------------------------------------------------------ tile states (PRE-PRODUCTION)
@@ -192,12 +200,21 @@ public:
 	FFTCareer C;
 	FString Slot = TEXT("career");
 	bool bLoadError = false; FString LoadError;
+	bool bSaveError = false, bSaving = false, bRecoveredFromBackup = false;
+	FString SaveError;
+	double LastSaveTime = 0;
+#if WITH_DEV_AUTOMATION_TESTS
+	FString TestSavePath;   // automation never touches a player's real slot
+#endif
 
 	FString FilePath() const;
 	void UseTestSlot();
 	void Load();
-	void Save(const TCHAR* Reason);
-	void Reset();          // a fresh career (no back-catalogue bonus)
+	bool Save(const TCHAR* Reason);
+	bool Reset();          // explicit New Game; a failed replacement restores the previous career
+	bool HasContinue() const;
+	FString ContinueLabel() const;
+	bool SetCheckpoint(const FString& Kind, int32 Level, int32 Stage = 0, bool bWrap = false, const TCHAR* Reason = TEXT("Checkpoint"));
 	void Drop();           // remove the career file of this slot
 	FString Dump() const;
 	void LogCareer() const;
@@ -216,7 +233,7 @@ public:
 	EFTTile SkillState(FName Id, FString* Needs = nullptr) const;
 	bool BuySkill(FName Id);
 	bool UndoSkill(FName Id);    // NAME_None: the last pending one
-	void Ready();                // pending -> owned, save
+	bool Ready();                // pending -> owned, save; false leaves allocations unchanged
 	bool IsGreenlit(const FString& Code) const { return C.Greenlit.Contains(Code); }
 	EFTTile GreenlightState(const FString& Code, FString* Needs = nullptr) const;
 	bool BuyGreenlight(const FString& Code);
@@ -240,7 +257,7 @@ public:
 	bool BuyFilm();
 	EFTTile SequelState(FString* Needs = nullptr) const;
 	bool BuySequel();
-	void ToggleSequel();
+	bool ToggleSequel();
 
 	// feats (04 §3, 07 §6) shared by the garage and the shop
 	bool IsFeatMet(const FFTFeatSpec& F, FString* Needs = nullptr) const;
@@ -254,6 +271,11 @@ public:
 	TSet<FString> LockedSet() const;
 
 private:
+	FFTCareer PersistedCareer;
+	bool bHasPersistedCareer = false, bPreserveBackup = false;
+	FString LastSavedText;
+	FFTCommitOut LastCommitOut;
+	bool SaveMutation(const FFTCareer& Before, const TCHAR* Reason);
 	void Fix();            // the load integrity rules (09 §4)
 	void Fresh();
 	bool Spend(int64 Price, const TCHAR* What);

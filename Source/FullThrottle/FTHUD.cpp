@@ -203,6 +203,9 @@ void AFTHUD::UpdateMenuMotion(const AFTGameMode& G)
 			View = EMenuView::Pause;
 			Selection = G.PauseRow;
 			break;
+		case EFTOverlay::System:
+			View = EMenuView::Pause; Page = int32(G.SystemDialog) + 1; Selection = G.SystemRow;
+			break;
 		case EFTOverlay::Controls:
 			View = EMenuView::Controls;
 			Selection = (G.ControlsRow * 2 + G.ControlsCol) * 2 + int32(G.bControlsWaiting);
@@ -319,8 +322,10 @@ void AFTHUD::DrawHUD()
 	case EFTOverlay::Pause: DrawPause(G); break;
 	case EFTOverlay::Controls: DrawControls(G); break;
 	case EFTOverlay::Options: DrawOptions(G); break;
+	case EFTOverlay::System: DrawSystemDialog(G); break;
 	default: break;
 	}
+	DrawSaveStatus(G);
 	if (const UFTGameInstance* GI = G->GI())
 	{
 		if (GI->bShowFps) Print(FString::Printf(TEXT("%.0f FPS  %.1f ms"), G->FpsSmoothed, 1000.f / FMath::Max(1.f, G->FpsSmoothed)), W - 12 * S, H - 22 * S, Green, LabelSize, 2);
@@ -383,7 +388,7 @@ void AFTHUD::DrawTitle(AFTGameMode* G)
 	const int32 Count = FTData::NumLevels();
 	G->TitleRowRects.SetNum(Count);
 	const int32 Selection = FMath::Clamp(G->TitleSel, 0, Count - 1);
-	const float RowH = FMath::Min(39.f, 312.f / Count) * S;
+	const float RowH = FMath::Min(34.f, 272.f / Count) * S;
 	for (int32 I = 0; I < Count; ++I)
 	{
 		const FFTLevelDef& Level = FTData::Level(I);
@@ -418,12 +423,22 @@ void AFTHUD::DrawTitle(AFTGameMode* G)
 		}
 		G->TitleRowRects[I] = Row;
 	}
-	if (const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(G))
-		Print(FString::Printf(TEXT("DRIVER LV %d   /   %s   /   %d SKILL POINTS"), CS->C.Level, *Money(CS->C.Cash), CS->SPLeft()),
-			X + 16 * S, Y + 573 * S, Yellow, Body, 0, false, BoardW - 32 * S);
+	const UFTCareerSubsystem* Career = UFTCareerSubsystem::Get(G);
+	const bool bContinue = Career && Career->HasContinue();
+	if (Career)
+	{
+		Print(FString::Printf(TEXT("DRIVER LV %d   /   %s   /   %d SKILL POINTS"), Career->C.Level, *Money(Career->C.Cash), Career->SPLeft()),
+			X + 16 * S, Y + 532 * S, Yellow, Body, 0, false, BoardW - 32 * S);
+		Print(bContinue ? Career->ContinueLabel() : TEXT("NEW CAMPAIGN READY"), X + 16 * S, Y + 555 * S,
+			bContinue ? Cyan : Grey, Body, 0, false, BoardW - 32 * S);
+		FString SaveDetail = Career->C.Updated.IsEmpty() ? TEXT("Progress saves automatically at checkpoints.") : TEXT("LAST SAVE  ") + Career->C.Updated;
+		if (Career->bRecoveredFromBackup) SaveDetail = TEXT("BACKUP RECOVERED  /  ") + Career->C.Updated;
+		if (Career->bSaveError || Career->bLoadError) SaveDetail = TEXT("SAVE NEEDS ATTENTION  /  New Game can replace it.");
+		Print(SaveDetail, X + 16 * S, Y + 580 * S, Career->bSaveError || Career->bLoadError ? Amber : Grey, LabelSize, 0, false, BoardW - 32 * S);
+	}
 
-	static const TCHAR* Actions[] = { TEXT("ROLL CAMERA"), TEXT("PRE-PRODUCTION"), TEXT("CONTROLS"), TEXT("OPTIONS"), TEXT("QUIT") };
-	static const TCHAR* Hints[] = { TEXT("ENTER / A"), TEXT("G / PAD BACK"), TEXT("C / Y"), TEXT("O"), TEXT("ESC") };
+	static const TCHAR* Actions[] = { TEXT("CONTINUE"), TEXT("NEW GAME"), TEXT("OPTIONS"), TEXT("QUIT DESKTOP"), TEXT("PLAY SELECTED") };
+	static const TCHAR* Hints[] = { TEXT("SAVED CHECKPOINT"), TEXT("FRESH CAMPAIGN"), TEXT("O"), TEXT("ESC"), TEXT("SELECTED SHOOT") };
 	const AFTPlayerController* PC = Cast<AFTPlayerController>(GetOwningPlayerController());
 	const float BarW = Right - X - Safe * S, LeadW = 272 * S;
 	const float OtherW = (BarW - LeadW - 4 * Gap * S) * .25f;
@@ -433,19 +448,28 @@ void AFTHUD::DrawTitle(AFTGameMode* G)
 	{
 		const float Bw = I == 0 ? LeadW : OtherW;
 		const FBox2D ButtonRect = Rect(Bx, ActionY, Bw, 50 * S);
-		const bool bEnabled = I != 4 || G->TitleT > 1.f;
-		const bool bFocus = I == (G->TitleActionFocus == INDEX_NONE ? 0 : G->TitleActionFocus);
+		const bool bEnabled = I != 0 || bContinue;
+		const bool bFocus = I == G->TitleActionFocus;
 		EControl State = bInteractive ? ControlState(ButtonRect, bFocus, bEnabled) : EControl::Idle;
-		if (bFocus && bInteractive && PC && (PC->IsInputKeyDown(EKeys::Enter) || PC->IsInputKeyDown(EKeys::Gamepad_FaceButton_Bottom)))
+		if (bEnabled && bFocus && bInteractive && PC && (PC->IsInputKeyDown(EKeys::Enter) || PC->IsInputKeyDown(EKeys::Gamepad_FaceButton_Bottom)))
 			State = EControl::Pressed;
-		G->TitleBtnRects[I] = Control(ButtonRect, Actions[I], Hints[I], State, I == 0 ? Cyan : Pink);
+		// loop run 2 cycle 4: a first launch has no save; the greyed CONTINUE said "SAVED CHECKPOINT" anyway
+		G->TitleBtnRects[I] = Control(ButtonRect, Actions[I], I == 0 && !bContinue ? TEXT("NO SAVE YET") : Hints[I], State, I == 0 ? Cyan : Pink);
 		if (bFocus && bEnabled && G->TitleActionFocus != INDEX_NONE)
 			FocusAccent(ButtonRect, MenuAge(EMenuView::Title, true), I == 0 ? Cyan : Pink);
 		Bx += Bw + Gap * S;
 	}
-	Print(G->TitleActionFocus == INDEX_NONE ? TEXT("TAB / RB   ACTIONS") : TEXT("LEFT-RIGHT / D-PAD   ACTIONS     TAB / RB   SHOOTS"),
+	Print(G->TitleActionFocus == INDEX_NONE ? TEXT("TAB / RB   ACTIONS     G   PRE-PRODUCTION     C   CONTROLS") : TEXT("LEFT-RIGHT / D-PAD   ACTIONS     TAB / RB   SHOOTS     G   PRE-PRODUCTION     C   CONTROLS"),
 		W * .5f, ActionY + 58 * S, Grey, LabelSize, 1);
 
+	if (!G->SystemMessage.IsEmpty() && G->Overlay == EFTOverlay::None)
+	{
+		const float Center = (X + BoardW + Right) * .5f;
+		const FBox2D Notice = Rect(Center - 252 * S, Y + 327 * S, 504 * S, 88 * S);
+		Plate(Notice, Amber, Ink);
+		const TArray<FString> Lines = WrapText(G->SystemMessage, 464 * S, Body);
+		for (int32 I = 0; I < Lines.Num() && I < 3; ++I) Print(Lines[I], Notice.Min.X + 20 * S, Notice.Min.Y + (15 + I * 21) * S, Amber, Body);
+	}
 	if (G->bAttract) DrawAttractOsd(G);
 	if (GI && !GI->TitleBanner.IsEmpty() && G->TitleT < 8.f)
 	{
@@ -887,7 +911,7 @@ void AFTHUD::DrawRating(AFTGameMode* G)
 	const FBox2D Continue = Rect(R - 442 * S, Y + 481 * S, 442 * S, 55 * S);
 	G->ResultsContinueRect = Control(Continue, TEXT("CONTINUE TO PAYCHECK"), TEXT("ENTER / A"),
 		ControlState(Continue, true, G->PhaseT > 2.9f), Cyan);
-	Print(TEXT("R   RESHOOT     ESC / B   TITLE"), X + 2 * S, Y + 499 * S, Grey, Body);
+	Print(TEXT("R   RESHOOT     B   TITLE     ESC / START   PAUSE"), X + 2 * S, Y + 499 * S, Grey, Body);
 }
 
 TArray<FString> AFTHUD::WrapText(const FString& Text, float MaxWidth, float FontHeight, bool bDisplay)
@@ -1116,7 +1140,7 @@ void AFTHUD::DrawPreProduction(AFTGameMode* G)
 
 	const FBox2D Ready = Rect(R - 344 * S, Bottom + 13 * S, 344 * S, 54 * S);
 	const FString ReadyLabel = G->bPPFromTitle || G->PPNextLevel < 0 ? TEXT("READY / TITLE") : FString::Printf(TEXT("READY / LEVEL %d"), G->PPNextLevel + 1);
-	G->ReadyRect = Control(Ready, ReadyLabel, TEXT("SPACE / START / CLICK"), ControlState(Ready, false, G->PhaseT >= .3f), Cyan);
+	G->ReadyRect = Control(Ready, ReadyLabel, TEXT("SPACE / Y / CLICK"), ControlState(Ready, false, G->PhaseT >= .3f), Cyan);
 	const bool bFeedback = T - G->PPMsgT < 2.2f && !G->PPMsg.IsEmpty();
 	if (bFeedback)
 	{
@@ -1236,7 +1260,7 @@ void AFTHUD::DrawPaycheck(AFTGameMode* G)
 	const FBox2D Continue = Rect(R - 447 * S, Y + 622 * S, 447 * S, 54 * S);
 	G->ResultsContinueRect = Control(Continue, TEXT("CONTINUE"), TEXT("ENTER / A"),
 		ControlState(Continue, true, G->PhaseT >= .6f), Cyan);
-	Print(TEXT("R   RESHOOT     ESC / B   TITLE"), X, Y + 638 * S, Grey, Body);
+	Print(TEXT("R   RESHOOT     B   TITLE     ESC / START   PAUSE"), X, Y + 638 * S, Grey, Body);
 }
 
 // ---------------------------------------------------------------------------------------------- cosmetic overlays (07): wreck FX and boss finishers
@@ -1280,20 +1304,68 @@ void AFTHUD::DrawPause(AFTGameMode* G)
 	Plate(Rect(X, Y, WidthPx, 468 * S), Yellow, Ink);
 	AccentSweep(Rect(X + 2 * S, Y + 2 * S, WidthPx - 4 * S, 4 * S), Entry, Yellow, MenuEntrance);
 	Print(TEXT("CAMERAS HOLDING"), X + (24.f + 9.f * (1.f - In)) * S, Y + 23 * S, White, Heading, 0, true);
-	Print(FString::Printf(TEXT("SCENE %02d   /   TAKE %02d"), G->Scene + 1, G->Take), X + 24 * S, Y + 67 * S, Grey, Body);
+	Print(G->ResumeDescription(), X + 24 * S, Y + 67 * S, Grey, Body, 0, false, WidthPx - 48 * S);
 	Print(TEXT("PAUSED"), X + WidthPx - 24 * S, Y + 30 * S, Yellow, LabelSize, 2, true);
-	static const TCHAR* Names[] = { TEXT("RESUME"), TEXT("CONTROLS"), TEXT("OPTIONS"), TEXT("RESHOOT LEVEL"), TEXT("TITLE") };
-	static const TCHAR* Hints[] = { TEXT("P / ESC / START"), TEXT("C / Y"), TEXT("O"), TEXT("R"), TEXT("T") };
+	static const TCHAR* Names[] = { TEXT("RESUME"), TEXT("OPTIONS"), TEXT("CONTROLS"), TEXT("QUIT TO TITLE"), TEXT("QUIT TO DESKTOP") };
+	static const TCHAR* Hints[] = { TEXT("ESC / START"), TEXT("O"), TEXT("C / Y"), TEXT("SAVE AND RETURN / T"), TEXT("SAVE AND EXIT") };
 	for (int32 I = 0; I < UE_ARRAY_COUNT(Names); ++I)
 	{
 		const FBox2D Row = Rect(X + 24 * S, Y + (108 + 60 * I) * S, WidthPx - 48 * S, 51 * S);
 		const FLinearColor& Accent = I == 0 ? Cyan : Pink;
 		const bool bSelected = G->PauseRow == I;
-		G->OverlayRects.Add(Control(Row, Names[I], Hints[I], ControlState(Row, bSelected), Accent));
+		G->OverlayRects.Add(Control(Row, Names[I], Hints[I], ControlState(Row, bSelected, !G->bPendingSystemSave), Accent));
 		if (bSelected) FocusAccent(Row, MenuAge(EMenuView::Pause, true), Accent);
 	}
-	Print(TEXT("UP-DOWN / D-PAD   NAVIGATE     ENTER / A   SELECT     M   MUTE     F1   FPS"),
+	Print(G->bPendingSystemSave ? G->SystemMessage : TEXT("UP-DOWN / D-PAD   NAVIGATE     ENTER / A   SELECT     R   RETRY SAVE"),
 		X + 24 * S, Y + 420 * S, Grey, Body, 0, false, WidthPx - 48 * S);
+}
+
+void AFTHUD::DrawSystemDialog(AFTGameMode* G)
+{
+	Box(0, 0, W, H, Alpha(Deep, .86f));
+	const bool bFailure = G->SystemDialog == EFTSystemDialog::SaveFailed;
+	const bool bNew = G->SystemDialog == EFTSystemDialog::NewGame;
+	const bool bExit = G->SystemAction == 1 || G->SystemAction == 2;
+	const float X = W * .5f - 328 * S, Y = (H - CanvasHeight * S) * .5f + 157 * S;
+	const FLinearColor Accent = bFailure ? Red : Amber;
+	Plate(Rect(X, Y, 656 * S, 382 * S), Accent, Ink);
+	Print(bFailure ? TEXT("SAVE COULD NOT COMPLETE") : bNew ? TEXT("START A NEW CAMPAIGN?") : TEXT("LEAVE THIS TAKE?"),
+		X + 25 * S, Y + 25 * S, White, Heading, 0, true, 606 * S);
+	FString Message = bNew ? TEXT("This replaces your campaign, including cash, XP, skills, gear and story progress. Your controls and display preferences are kept.") : G->SystemMessage;
+	if (bFailure && Message.IsEmpty()) Message = TEXT("Your last successful save is still available. Retry the save, or cancel and stay here.");
+	const TArray<FString> Lines = WrapText(Message, 596 * S, Strong);
+	for (int32 I = 0; I < Lines.Num() && I < 5; ++I)
+		Print(Lines[I], X + 29 * S, Y + (88 + 26 * I) * S, bFailure ? Amber : Grey, Strong);
+	if (!bNew && !bFailure)
+		Print(G->ResumeDescription(), X + 29 * S, Y + 221 * S, Cyan, Body, 0, false, 596 * S);
+	const int32 Rows = bFailure && bExit ? 3 : 2;
+	const float Bw = (598.f - 12.f * (Rows - 1)) / Rows;
+	for (int32 I = 0; I < Rows; ++I)
+	{
+		const TCHAR* Label = bFailure ? (I == 0 ? TEXT("RETRY") : I == 1 ? TEXT("CANCEL") : TEXT("QUIT WITHOUT SAVING"))
+			: (I == 0 ? TEXT("CANCEL") : bNew ? TEXT("START NEW GAME") : G->SystemAction == 1 ? TEXT("SAVE AND QUIT") : TEXT("SAVE AND RETURN"));
+		const FBox2D Row = Rect(X + (29 + I * (Bw + 12)) * S, Y + 273 * S, Bw * S, 57 * S);
+		G->OverlayRects.Add(Control(Row, Label, FString(), ControlState(Row, G->SystemRow == I, !G->bPendingSystemSave), I == 2 ? Red : Cyan));
+	}
+	Print(TEXT("LEFT-RIGHT / D-PAD   CHOOSE     ENTER / A   SELECT     ESC / B   CANCEL"),
+		X + 29 * S, Y + 349 * S, Grey, LabelSize, 0, false, 598 * S);
+}
+
+void AFTHUD::DrawSaveStatus(AFTGameMode* G)
+{
+	const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(G);
+	if (!CS) return;
+	FString Status;
+	FLinearColor Color = Cyan;
+	if (CS->bSaving) Status = TEXT("SAVING...");
+	else if (CS->bSaveError) { Status = TEXT("SAVE FAILED  /  PAUSE THEN R TO RETRY"); Color = Amber; }
+	else if (CS->LastSaveTime > 0 && FPlatformTime::Seconds() - CS->LastSaveTime < 3.) Status = TEXT("CHECKPOINT SAVED");
+	if (!Status.IsEmpty())
+	{
+		const FBox2D R = Rect(Right - 340 * S, 104 * S, 308 * S, 31 * S);
+		Plate(R, Color, Ink);
+		Print(Status, R.Max.X - 11 * S, R.Min.Y + 7 * S, Color, LabelSize, 2, true, 284 * S);
+	}
 }
 
 void AFTHUD::DrawControls(AFTGameMode* G)

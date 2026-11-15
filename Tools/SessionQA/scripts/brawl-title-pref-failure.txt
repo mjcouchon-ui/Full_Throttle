@@ -1,0 +1,37 @@
+# Independent fresh profile. Covers title Options failure with no campaign yet.
+waitfor FT BRAWL SYSTEM screen=1|15
+r.SetRes 1280x720w
+wait 0.4
+click 640 437
+waitfor FT BRAWL SYSTEM screen=3|5
+ft.SaveFail 1
+mark
+click 640 341
+waitfor FT BRAWL SYSTEM screen=6|5
+shot title-prefs-failed
+# Retry fails while fault remains, and must not leave the title for gameplay.
+mark
+press Enter
+waitfor FT BRAWL SYSTEM screen=6|5
+ft.SaveFail 0
+mark
+press Enter
+waitfor FT BRAWL SYSTEM screen=3|5
+shot title-prefs-retry-succeeded
+press Escape
+mark
+click 640 437
+waitfor FT BRAWL SYSTEM screen=3|5
+ft.SaveFail 1
+mark
+click 640 389
+waitfor FT BRAWL SYSTEM screen=6|5
+# A native close from a title-owned error panel must offer an explicit discard exit.
+mark
+ftb.WindowClose
+waitfor FT BRAWL SYSTEM screen=6|5
+shot title-prefs-explicit-discard
+press Down
+press Enter
+# Expect actual exit=desktop discard=1 before any fallback. Settings on disk:
+# muted=true, reducedMotion=false. No campaign primary should have been created.
