@@ -185,6 +185,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Track|Tools") float ToolBank(float D) const { return Sample(D).Bank; }
 	/** 3.1: the height of the floor under the whole level (Bayshore: its sea level), in the track's own space. */
 	UFUNCTION(BlueprintCallable, Category = "Track|Tools") float ToolFloorZ() const { return FloorZ; }
+	/** 3.6 test probe (game run with -ftbedprobe): how far a point stands above the bed (the land under and beside the
+	 *  road) at road distance D, cm; negative = under the ground. False when the probe is off or the point is past the bed. */
+	bool BedClearance(const FVector& WorldP, float D, float& OutAbove) const;
 
 	void Rebuild();
 	bool IsBuilt() const { return Frames.Num() > 1; }
@@ -230,6 +233,7 @@ protected:
 	float LightAt = -1.f;
 	double MeshCreateMs = 0.0, CookMs = 0.0, RegisterMs = 0.0;
 	float FloorZ = 0.f; // 3.1: the floor under the whole level, below its lowest land
+	TArray<TArray<FVector2D>> BedProbe; // 3.6: each frame's bed line (x, z over the base path), only with -ftbedprobe
 
 	TArray<FFTFrame> Frames;
 	TArray<float> SectionStart; // cm

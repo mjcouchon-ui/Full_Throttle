@@ -53,7 +53,8 @@ namespace FTBrawl
 	static const float W = 960.f;             // the web game's screen width (px)
 	static const float FT = 360.f, FB = 560.f; // the floor band (feet y)
 	static const float P_HP = 150.f;
-	static const float CamZ = 540.f;          // camera height (cm): side-on, a little above the floor band
+	static const float CamZ = 540.f;
+	static const float KeepIn = 70.f;         // a foe on the locked screen keeps his middle this far inside its edges (the camera shows ~Cam+30..Cam+930 at chest height on the near line)          // camera height (cm): side-on, a little above the floor band
 	static TAutoConsoleVariable<int32> CVarAuto(TEXT("ftb.Auto"), 0, TEXT("Brawl autopilot: 1 = Nova fights by himself (tests)"));
 	static TAutoConsoleVariable<int32> CVarWin(TEXT("ftb.Win"), 0, TEXT("1 = win the fight now (tests)"));
 	static FLinearColor Hex(const TCHAR* H) { return FLinearColor(FColor::FromHex(H)); }
@@ -224,7 +225,9 @@ void AFTBrawlGameMode::BeginPlay()
 	SetupNight();
 	bAuto = FParse::Param(FCommandLine::Get(), TEXT("brawlauto"));
 	bKeyTest = FParse::Param(FCommandLine::Get(), TEXT("brawlkeytest"));                    // the autopilot plays on the keyboard
-	bAutoGrab = bKeyTest || FParse::Param(FCommandLine::Get(), TEXT("brawlgrab"));          // ... and grabs and throws
+	bAutoGrab = bKeyTest || FParse::Param(FCommandLine::Get(), TEXT("brawlgrab"));
+	bCamCheck = FParse::Param(FCommandLine::Get(), TEXT("brawlcamcheck"));
+	bNoKeepIn = FParse::Param(FCommandLine::Get(), TEXT("brawlnokeepin"));          // ... and grabs and throws
 	if (bKeyTest) bAuto = false;
 	BuildVenue();
 	if (bDay)
@@ -502,7 +505,7 @@ void AFTBrawlGameMode::HitFoe(FFTBrawlBody& F, float Dmg, bool bDown)
 {
 	if (F.St == TEXT("dizzy")) Dmg *= 1.5f;   // Vinnie, dizzy after his whirlwind: the time to hit him
 	if (F.St == TEXT("draw") || F.St == TEXT("fire")) { F.SlamCd = 2.5f; UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL boss revolver interrupted")); }   // hit him out of his draw
-	F.Hp -= Dmg; F.Flash = 0.12f;
+	F.Hp -= Dmg; F.Flash = 0.12f; F.bIn = true;   // hit = in the fight: the screen edge holds him from now on (KeepOnScreen)
 	Shake = FMath::Min(1.f, Shake + (bDown ? 0.55f : 0.3f));
 	Chain++; if (Chain > Best) Best = Chain;
 	// no comic words: a spray of blood off the face, more on the big ones, and it stays on the floor
@@ -685,7 +688,7 @@ void AFTBrawlGameMode::UpdateFoes(float Dt)
 		}
 		if (F.St == TEXT("down"))
 		{
-			if (F.Hp <= 0) { if (F.T > 0.9f) { F.St = TEXT("dead"); F.T = 0; Kos++; DropFrom(F); Splat(World(F.X - F.Dir * 50, F.Y, 0), 2.6f); if (F.bBoss) { bWon = true; WinT = 0; UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL won kos=%d best=%d hits=%d time=%.0f"), Kos, Best, Hits, Time); } } }
+			if (F.Hp <= 0) { if (F.T > 0.9f) { F.St = TEXT("dead"); F.T = 0; Kos++; DropFrom(F); Splat(World(F.X - F.Dir * 50, F.Y, 0), 2.6f); if (F.bBoss) { bWon = true; WinT = 0; UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL won kos=%d best=%d hits=%d time=%.0f"), Kos, Best, Hits, Time); if (bCamCheck) UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL camcheck night=%d frames=%d offcam=%d worst=%.2f keepin=%d"), Night, CamFrames, CamOff, CamWorst, bNoKeepIn ? 0 : 1); } } }
 			else if (F.T > (F.bBoss ? 0.7f : 0.75f)) { F.St = TEXT("getup"); F.T = 0; }
 			continue;
 		}
@@ -761,10 +764,14 @@ void AFTBrawlGameMode::UpdateFoes(float Dt)
 			if (F.St == TEXT("wind") || F.St == TEXT("swing")) { F.St = TEXT("walk"); F.T = 0; }
 			F.Cd -= Dt; F.Dir = Dx > 0 ? 1 : -1;
 			if (F.Cd <= 0 && Ad < 640 && FMath::Abs(Dy) < (bDealer ? 14.f : 70.f) && P.Hp > 0) { F.St = TEXT("throw"); F.T = 0; F.bStruck = false; F.Hold = 0; continue; }
-			const float Tx = P.X - F.Dir * (bDealer ? 380 : 330), Ty = bDealer ? P.Y : P.Y + (F.Id % 2 ? -30 : 30);
+			float Tx = P.X - F.Dir * (bDealer ? 380 : 330); const float Ty = bDealer ? P.Y : P.Y + (F.Id % 2 ? -30 : 30);
+			if (!bNoKeepIn && LockX >= 0) Tx = FMath::Clamp(Tx, LockX + KeepIn, LockX + W - KeepIn);   // backs off, but only to the screen's edge
+			const float X0 = F.X;
 			const float Mx = Tx - F.X, My = Ty - F.Y, D = FMath::Sqrt(Mx * Mx + My * My);
 			if (D > 10) { F.X += Mx / D * K.Sp * Dt; F.Y += My / D * K.Sp * 0.7f * Dt; F.Walk += Dt * 1.1f; F.St = TEXT("walk"); } else F.St = TEXT("idle");
-			F.X = FMath::Clamp(F.X, LockX - 40, LockX + W + 40); F.Y = FMath::Clamp(F.Y, FT, FB);
+			if (bNoKeepIn) F.X = FMath::Clamp(F.X, LockX - 40, LockX + W + 40);
+			else if (LockX >= 0) F.X = FMath::Clamp(F.X, FMath::Min(X0, LockX + KeepIn), FMath::Max(X0, LockX + W - KeepIn));   // walking in from off screen is fine; out is not
+			F.Y = FMath::Clamp(F.Y, FT, FB);
 			continue;
 		}
 		// BIG EARL's special: the GROUND SLAM. He winds up (0.55 s), leaps and drops; the shockwave floors anyone near who isn't in the air
@@ -899,6 +906,41 @@ void AFTBrawlGameMode::UpdateFoes(float Dt)
 		if (D > 8) { F.X += Mx / D * K.Sp * Dt; F.Y += My / D * K.Sp * 0.7f * Dt; F.Walk += Dt * 1.1f; F.St = TEXT("walk"); } else F.St = TEXT("idle");
 		F.Y = FMath::Clamp(F.Y, FT, FB);
 		if (Want && F.Cd <= 0 && Ad < K.Reach + 6 && FMath::Abs(Dy) < 22) { F.St = TEXT("wind"); F.T = 0; Engaged++; if (FighterRole == TEXT("guard") || F.bBoss) F.Combo = (F.Combo + 1) % 2; }
+	}
+	KeepOnScreen();
+}
+
+// keep every foe on screen (owner, 15 Nov 2026: a bottle thrower backed off camera and you punched blind): once a foe has come
+// onto the locked screen, nothing (his own walk, a charge, a knockback, a throw) takes his middle past KeepIn from its edges
+void AFTBrawlGameMode::KeepOnScreen()
+{
+	if (bNoKeepIn || LockX < 0) return;
+	const float Lo = LockX + KeepIn, Hi = LockX + W - KeepIn;
+	for (FFTBrawlBody& F : Foes)
+	{
+		if (F.St == TEXT("dead") || F.St == TEXT("lifted")) continue;   // Nova carries a lifted one (and Nova stays on screen)
+		if (!F.bIn) { F.bIn = F.X >= Lo && F.X <= Hi; continue; }
+		if (F.X < Lo || F.X > Hi) { F.X = FMath::Clamp(F.X, Lo, Hi); if (F.St == TEXT("fly") || F.St == TEXT("hurled")) F.Vx = 0; }
+	}
+}
+
+// test hook -brawlcamcheck: every rendered frame, each living foe's middle through the real camera (its place, turn and
+// 46 deg width); one that has been on screen and is now off it logs FTBRAWL OFFCAM, and the night's tally goes in the log
+void AFTBrawlGameMode::CheckOnCamera()
+{
+	if (!bCamCheck || !CamActor || LockX < 0 || bWon) return;
+	const FVector C = CamActor->GetActorLocation(); const FRotator R = CamActor->GetActorRotation();
+	const float Tan = FMath::Tan(FMath::DegreesToRadians(CamActor->GetCameraComponent()->FieldOfView * 0.5f));
+	CamFrames++;
+	for (FFTBrawlBody& F : Foes)
+	{
+		if (F.St == TEXT("dead") || F.St == TEXT("lifted")) continue;
+		const FVector V = R.UnrotateVector(World(F.X, F.Y, F.Z + 60) - C);   // x ahead, y right
+		const float Ndc = V.X > 1 ? V.Y / (V.X * Tan) : 9.f;               // -1..1 = on screen
+		if (FMath::Abs(Ndc) <= 0.97f) { F.bSeen = true; continue; }
+		if (!F.bSeen) continue;                                               // still walking on
+		CamOff++; CamWorst = FMath::Max(CamWorst, FMath::Abs(Ndc));
+		UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL OFFCAM %s%s st=%s x=%.0f lock=%.0f ndc=%.2f"), F.bBoss ? TEXT("boss ") : TEXT(""), *F.K.Role.ToString(), *F.St.ToString(), F.X - LockX, LockX, Ndc);
 	}
 }
 
@@ -1373,6 +1415,7 @@ void AFTBrawlGameMode::SyncActors(float RealDt)
 		const float Sway = BuzzT > 0 ? FMath::Sin(StT * 1.6f) * 1.8f * FMath::Min(1.f, BuzzT) : 0.f;
 		CamActor->SetActorRotation(FRotator(-16.f + Sway * 0.3f, -90.f, Sway));
 	}
+	CheckOnCamera();
 }
 
 // ---------------------------------------------------------------- blood

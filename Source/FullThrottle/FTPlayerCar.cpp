@@ -515,6 +515,27 @@ void AFTPlayerCar::Tick(float Dt)
 				Vehicle->Wheels.Num() > 3 ? (int32)Vehicle->Wheels[0]->IsInAir() : -1, Vehicle->Wheels.Num() > 3 ? (int32)Vehicle->Wheels[1]->IsInAir() : -1, Vehicle->Wheels.Num() > 3 ? (int32)Vehicle->Wheels[2]->IsInAir() : -1, Vehicle->Wheels.Num() > 3 ? (int32)Vehicle->Wheels[3]->IsInAir() : -1);
 	}
 
+#if !UE_BUILD_SHIPPING
+	// 3.6 (owner: "a part of the track in level 2 where my car hit and slowed it down a lot"): every sudden loss of
+	// speed, with where it happened and what the car last touched (test runs read FTBUMP)
+	if (!bWrecked && !Drive.bFrozen && GetWorld())
+	{
+		static TArray<FVector2f> Hist; static float LastBumpT = -10.f;
+		const float Now = GetWorld()->GetTimeSeconds();
+		Hist.Add(FVector2f(Now, Speed));
+		while (Hist.Num() && Hist[0].X < Now - 0.5f) Hist.RemoveAt(0, 1, EAllowShrinking::No);
+		float Peak = Speed; float PeakT = Now;
+		for (const FVector2f& Hs : Hist) if (Hs.Y > Peak) { Peak = Hs.Y; PeakT = Hs.X; }
+		if (Peak - Speed > 1800.f && Speed < Peak * 0.75f && Now - LastBumpT > 1.5f)
+		{
+			LastBumpT = Now;
+			float U = 0.f; const FFTSection* Sc = Track->SectionAt(D, &U);
+			UE_LOG(LogFT, Display, TEXT("FTBUMP D=%.0f X=%.0f H=%.0f v=%.0f from %.0f in %.2fs target=%.0f section=%d shape=%d u=%.2f flags=%d wheels=%d hit(%.2fs ago)=%s"),
+				D, X, H, Speed, Peak, Now - PeakT, Drive.TargetSpeed, F.Section, Sc ? (int32)Sc->Shape : -1, U, (int32)F.Flags, WheelsDown,
+				Now - LastHitT, Now - LastHitT < 0.7f ? *LastHit : TEXT("-"));
+		}
+	}
+#endif
 	// capsized for a while: the crew rights the car where it is
 	if (!bWrecked && !Drive.bFrozen)
 	{
@@ -828,6 +849,31 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 		}
 	}
 
+	// 3.6 (owner: "a part of the track in level 2 where my car hit and slowed it down a lot"): every gap jump's landing
+	// took 35-45% of the car's speed in one hit (Chemical Works' pond and Mega Vat jumps: ~7,200 -> ~4,100 cm/s, under
+	// cruising speed, FTBUMP). Touching down after a jump or a ramp launch it now keeps the speed along the road it flew
+	// with, easing back to the governor's speed over about a second (no engine braking meanwhile, like a set piece).
+	{
+		const float VRoadL = FVector::DotProduct(Chassis->GetPhysicsLinearVelocity(), F.Fwd);
+		const bool bJumpAir = !bGrounded && ((F.Flags & (FTFlag::Kicker | FTFlag::Gap | FTFlag::Landing)) || LaunchT > 0.f);
+		if (bJumpAir) { bLandArmed = true; LandAirV = VRoadL; }
+		else if (bGrounded && bLandArmed)
+		{
+			bLandArmed = false;
+			LandFloor = FMath::Min(LandAirV, 11000.f) * 0.97f;
+			LandHoldT = LandFloor > Drive.TargetSpeed + 100.f ? 1.5f : 0.f;
+			if (LandHoldT > 0.f) UE_LOG(LogFT, Display, TEXT("FTLAND D=%.0f air=%.0f hit=%.0f floor=%.0f target=%.0f"), D, LandAirV, VRoadL, LandFloor, Drive.TargetSpeed);
+		}
+		else if (bGrounded) bLandArmed = false;
+		if (LandHoldT > 0.f)
+		{
+			LandHoldT -= Dt;
+			LandFloor = FMath::FInterpTo(LandFloor, Drive.TargetSpeed, Dt, 2.f);
+			if (bWrecked || LandFloor <= Drive.TargetSpeed + 50.f) LandHoldT = 0.f;
+			else if (VRoadL < LandFloor) Chassis->SetPhysicsLinearVelocity(Chassis->GetPhysicsLinearVelocity() + F.Fwd * (LandFloor - VRoadL));
+		}
+	}
+
 	// 2.5: you always clear a gap (the 1.x rule). The 2.4 runs fell short of the jumps whenever the car reached the
 	// lip under ~5,000 cm/s (a 30 m drop and a reset); off the kicker it now leaves at 6,800 or more.
 	if ((F.Flags & FTFlag::Kicker) && !bWrecked)
@@ -889,14 +935,25 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 	if (!bCoaster && !bWrecked && !bRealJump && (bGrounded || (F.Flags & FTFlag::SetPiece)))
 	{
 		const FVector Vc = Chassis->GetPhysicsLinearVelocity();
+		const FFTFrame F2 = Track->Sample(D + 100.f);
+		const float DRoll = FMath::Atan2(FVector::DotProduct(FVector::CrossProduct(F.Up, F2.Up), F.Fwd), FVector::DotProduct(F.Up, F2.Up));
+		const float RollRate = DRoll / 100.f * FVector::DotProduct(Vc, F.Fwd);
 		if (F.Flags & FTFlag::Twist)
 		{
 			const float VLatR = FVector::DotProduct(Vc, F.Right);
 			Chassis->AddForce(F.Right * FMath::Clamp(-X * 22.f - VLatR * 9.f, -12000.f, 12000.f), NAME_None, true);
+			// 3.6: and the car rides with the deck's sweep. Off the centreline a rolling deck moves along its own normal
+			// (roll rate x distance out), so a car driving straight was struck by it (Level 2's second corkscrew, entered at
+			// turbo speed: ~8,200 -> ~2,700 cm/s for a frame in every run) or left hanging. Near the surface, its speed along
+			// the normal is the deck's own there. (Tried in the fast pipes too: no clear gain, left out.)
+			if (Lift < 80.f)
+			{
+				const FVector Sweep = (F2.Pos + F2.Right * X) - (F.Pos + F.Right * X);
+				const float VUp = FVector::DotProduct(Sweep, F.Up) / 100.f * FMath::Max(FVector::DotProduct(Vc, F.Fwd), 0.f);
+				if (FMath::Abs(VUp) > 300.f)
+					Chassis->SetPhysicsLinearVelocity(Chassis->GetPhysicsLinearVelocity() + F.Up * (VUp - FVector::DotProduct(Vc, F.Up)));
+			}
 		}
-		const FFTFrame F2 = Track->Sample(D + 100.f);
-		const float DRoll = FMath::Atan2(FVector::DotProduct(FVector::CrossProduct(F.Up, F2.Up), F.Fwd), FVector::DotProduct(F.Up, F2.Up));
-		const float RollRate = DRoll / 100.f * FVector::DotProduct(Vc, F.Fwd);
 		// plus a pull back square to the surface (the car's own lean off it, about the road's forward axis)
 		const FVector CarUpR = Chassis->GetUpVector();
 		const float RollErr = FMath::Atan2(FVector::DotProduct(FVector::CrossProduct(CarUpR, Up), F.Fwd), FVector::DotProduct(CarUpR, Up));
@@ -1011,14 +1068,14 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 	// Chaos inputs: the engine drives the rear wheels; the governor below keeps the arcade speed
 	const float Gap = Drive.TargetSpeed - VAlong;
 	Vehicle->SetThrottleInput(FMath::Clamp(Gap / 900.f + 0.35f, 0.f, 1.f));
-	Vehicle->SetBrakeInput(Gap < -1500.f && VAlong > 800.f && !bInSet ? 0.4f : 0.f);
+	Vehicle->SetBrakeInput(Gap < -1500.f && VAlong > 800.f && !bInSet && LandHoldT <= 0.f ? 0.4f : 0.f);
 	Vehicle->SetSteeringInput(Drive.Steer * (Drive.DriftDir != 0 ? 0.25f : 0.55f));
 
 	if (bGrounded)
 	{
 		// 2.6 (spec 05 §1): speed moves toward the target at the stated rate (420 / 900 su/s, by the Gearbox), both
 		// ways; a stiff gain so it reaches the target instead of settling under it
-		const float A = FMath::Clamp(Gap * 8.f, bInSet ? 0.f : -Drive.Accel, Drive.Accel);
+		const float A = FMath::Clamp(Gap * 8.f, (bInSet || LandHoldT > 0.f) ? 0.f : -Drive.Accel, Drive.Accel);
 		if (AM & 1) Chassis->AddForce(Cf * A, NAME_None, true);
 
 		// grip: remove sideways slip unless sliding on purpose

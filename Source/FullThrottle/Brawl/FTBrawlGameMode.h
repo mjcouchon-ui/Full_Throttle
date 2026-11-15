@@ -42,6 +42,7 @@ struct FFTBrawlBody
 	float SigX = 0;                                                   // nights 4-7 (run 32365): where the flame / lunge starts
 	// rusher / grappler / thrower
 	bool bStruck = false; float Hold = 0; int32 Mash = 0;
+	bool bIn = false; bool bSeen = false;   // has walked onto the locked screen: from then on he stays on it (KeepOnScreen)
 	UPROPERTY() TObjectPtr<AFTBrawlFighter> Actor = nullptr;
 };
 
@@ -246,6 +247,11 @@ private:
 	// grab and throw (run 42137): L / C / pad B lifts the foe in front over his head (state lift -> carry, the foe "lifted"),
 	// L / J / K hurls him (steer = which way): the body ("hurled") flies down the lane and knocks down every foe it meets.
 	int32 GrabId = -1;   // the lifted foe's Id, -1 = none
+	// keep every foe on screen (owner, 15 Nov): test hooks -brawlcamcheck (log any foe the camera can't see) and
+	// -brawlnokeepin (the old rules, to show the bug); CamFrames/CamOff/CamWorst = the check's tally for the night
+	bool bCamCheck = false, bNoKeepIn = false; int32 CamFrames = 0, CamOff = 0; float CamWorst = 0;
+	void KeepOnScreen();
+	void CheckOnCamera();
 	bool bAutoGrab = false, bKeyTest = false;   // -brawlgrab: the autopilot grabs and throws; -brawlkeytest: it presses real keys
 	bool TryGrab();
 	void Hurl();

@@ -394,6 +394,23 @@ in when `FTNightFlow.h` is there, `#if __has_include`). New night maps also go i
   - Tests: `../full-throttle-tests/v330/run_dev.sh coaster|halfpipe|tesla|heli|reel` (Development package), bench in
     `../full-throttle-tests/v330/bench.txt`.
 
+- **3.6.0 (owner's queue, 15 Nov 2026): corkscrews out of the ground, the level 2 hits, louder race music, a perf sweep.**
+  (Track, Driving and Audio sections: `FTTrack.*`, `FTPlayerCar.*`, `FTGameMode.*`.)
+  - *Corkscrews in the ground*: the bed (3.1, the land under the road) was cut only under the deck, so upside down in a
+    corkscrew the car hung under the deck inside the land and the chase camera sat 3-9 m inside it. Where the road leans
+    past 60 degrees (corkscrews, coaster rolls, fast pipes) the bed is now also cut under the room the car and camera take
+    (`BedRoom` 4.5 m over the deck), and a corkscrew's bed looks 14 m either way (`TwistBedReach`). `ft.BedRoom 0` = 3.5.
+    Probe: `-ftbedprobe` logs `FTBEDPROBE` (camera and car clearance over the ground per set piece).
+  - *Level 2 hits*: `FTBUMP` logs every sudden speed loss (non-Shipping). Found: every gap-jump landing took 35-45% of the
+    speed in one hit (Level 2's pond and Mega Vat jumps ~7,200 -> ~4,100 cm/s); a landing now keeps its flying speed and
+    eases back to the governor's over ~1 s (`FTLAND`). Off the centreline a corkscrew's rolling deck struck the car
+    (Level 2's corkscrews: ~8,200 -> ~2,700 cm/s for a frame; the set-piece floor already gave the speed back): the car now
+    rides the deck's sweep in corkscrews. Tried and left out: the corkscrew's centre hold in the fast pipes (halved the
+    triple pipe's put-backs but doubled the first double pipe's). Test cvar `ft.AutoX <cm>` makes the autopilot hold one
+    line across the road.
+  - *Music*: race music volume 0.34 -> 0.5 (+3.4 dB; title song unchanged at 0.55).
+  - Tests: `../full-throttle-tests/v350` (`run.sh`/`run2.sh <script> [args]`, `secat.py`, `bumps.py`).
+
 - **Mac performance audit (14 Nov 2026; taken into the game as 2.9.0 above, Mac bench notes).** On an Apple M1 Max the game ran 19-27 fps: Unreal's synth benchmark reads
   Apple GPUs as far faster than they are, so AUTO picked EPIC (TSR with 200% history ~22 ms, Lumen at Epic ~16 ms; the CPU
   is idle at ~3 ms). This Mac runs Metal SM5: no Nanite, no Virtual Shadow Maps (fallback meshes, cascaded shadows).

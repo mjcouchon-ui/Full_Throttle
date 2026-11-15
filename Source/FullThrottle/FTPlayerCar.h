@@ -160,6 +160,7 @@ protected:
 	float CapsizeT = 0.f;
 	float LaunchT = 0.f;   // a ramp launch is in the air: no glue until it lands
 	// 2.5 set pieces: speed at the way in, held as a floor all the way through; telemetry
+	bool bLandArmed = false; float LandAirV = 0.f, LandFloor = 0.f, LandHoldT = 0.f; // 3.6: a jump's landing keeps its speed
 	bool bInSet = false; uint16 SetKind = 0; float SetEntry = 0.f, SetFloor = 0.f, SetMin = 0.f, SetMaxLift = 0.f, SetAir = 0.f, SetD0 = 0.f; int32 SetSnaps = 0;
 	// 2.5 coaster: the rail the car rides (followed by continuity: the rail point nearest the last one)
 	bool bRailInit = false; FVector2D RailPt = FVector2D::ZeroVector; float HopCd = 0.f;

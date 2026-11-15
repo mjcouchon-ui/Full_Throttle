@@ -63,6 +63,11 @@ namespace
 	constexpr float BedSlope = 1.6f;    // how steeply a cut's sides may climb back to the land (rise per run)
 	constexpr float SkirtOut = 6000.f, SkirtDrop = 6000.f; // the land's outer edge runs on, down to the floor
 	constexpr float FloorHalf = 8000000.f; // the floor reaches 80 km past the track: further than any sky dome
+	// 3.6: the room over the deck the car and the chase camera take (camera 290 cm over a car riding ~90 cm up, plus
+	// its near plane), and how many frames either side a corkscrew's bed looks at (the camera rides ~8-14 m behind
+	// the car, where the road has rolled a different amount)
+	constexpr float BedRoom = 450.f;
+	constexpr int32 TwistBedReach = 7;
 
 	/** One frame's road in the land's own cross-section (x across, z above the land's base path), already lowered by BedClear. */
 	struct FBedSec
@@ -150,6 +155,8 @@ static TAutoConsoleVariable<int32> CVarFTLand(TEXT("ft.Land"), 1,
 	TEXT("3.4: 1 = the land and the bed wear the level's own surface (/Game/Maps/<Level>/Materials/MI_Land: slabs, ripples or cracked ground, ft_world.land_materials); 0 = the plain ground, for before/after checks. Takes effect when a track is rebuilt."));
 static TAutoConsoleVariable<int32> CVarFTDress(TEXT("ft.Dress"), 1,
 	TEXT("3.2: 0 = build tracks without the dressing (districts, sets round landmarks, the horizon), for before/after checks. Takes effect when a track is rebuilt."));
+static TAutoConsoleVariable<int32> CVarFTBedRoom(TEXT("ft.BedRoom"), 1,
+	TEXT("3.6: 1 = the land under a corkscrew (and anywhere the road leans past 60 degrees) is cut under the room the car and the chase camera take, so upside down they no longer drive through the ground; 0 = cut only under the deck, as 3.5 did (before/after checks). Takes effect when a track is rebuilt."));
 namespace { constexpr float RoadCell = 3000.f; inline FIntPoint CellOf(float X, float Y) { return FIntPoint(FMath::FloorToInt(X / RoadCell), FMath::FloorToInt(Y / RoadCell)); } }
 
 void AFTTrack::BuildRoadGrid()
@@ -682,6 +689,20 @@ void AFTTrack::GroundBands(TArray<FVector2D>& GP, TArray<FLinearColor>& GC, floa
 	}
 }
 
+bool AFTTrack::BedClearance(const FVector& WorldP, float D, float& OutAbove) const
+{
+	const int32 i = FMath::RoundToInt(D / Step);
+	if (!BedProbe.IsValidIndex(i) || BedProbe[i].Num() < 2) return false;
+	const FFTFrame& F = Frames[i];
+	const FVector R = GetActorTransform().InverseTransformPosition(WorldP) - F.Ground;
+	const float X = FVector::DotProduct(R, F.GRight);
+	const TArray<FVector2D>& L = BedProbe[i];
+	if (X < L[0].X || X > L.Last().X) { OutAbove = R.Z - GroundZ(X); return true; } // over the land beside the road
+	for (int32 k = 0; k + 1 < L.Num(); ++k)
+		if (X <= L[k + 1].X) { OutAbove = R.Z - FMath::Lerp(L[k].Y, L[k + 1].Y, (X - L[k].X) / FMath::Max(1.0, L[k + 1].X - L[k].X)); return true; }
+	return false;
+}
+
 float AFTTrack::GroundZ(float Xcm) const
 {
 	TArray<FVector2D> GP; TArray<FLinearColor> GC; float WaterX;
@@ -813,6 +834,11 @@ void AFTTrack::BuildMeshes()
 			const FVector R = Fr.Pos + Fr.Right * X + Fr.Up * H - Fr.Ground;
 			S.P.Add(FVector2D(FVector::DotProduct(R, Fr.GRight), R.Z - BedClear));
 		};
+		// 3.6 (owner: "the corkscrews clip through the ground"): the deck's underside was all the bed was cut under. Upside
+		// down in a corkscrew the car hangs under the deck and the chase camera under the car, so both sat inside the
+		// land. Where the road leans past 60 degrees (corkscrews, coaster rolls, loops, pipes) the room over the deck is
+		// cut out too. A level or banked road's room is above its deck and never lowers the bed, so turns are untouched.
+		const bool bRoom = CVarFTBedRoom.GetValueOnAnyThread() != 0 && ((Fr.Flags & (FTFlag::Twist | FTFlag::Coaster)) || Fr.Up.Z < 0.5f);
 		if (Fr.Flags & FTFlag::Coaster)
 		{
 			const FFTRails R = RailsAt(Dj);
@@ -822,6 +848,7 @@ void AFTTrack::BuildMeshes()
 				S.Begin();
 				Put(Xc - W, Hc + GuardH); Put(Xc - W - GuardW, Hc + GuardH); Put(Xc - W - GuardW, Hc - DeckDepth);
 				Put(Xc + W + GuardW, Hc - DeckDepth); Put(Xc + W + GuardW, Hc + GuardH); Put(Xc + W, Hc + GuardH);
+				if (bRoom) { S.Begin(); Put(Xc - W, Hc + BedRoom); Put(Xc, Hc + BedRoom); Put(Xc + W, Hc + BedRoom); }
 			}
 		}
 		else
@@ -832,6 +859,11 @@ void AFTTrack::BuildMeshes()
 			Put(-E, HL + FT::WallH); Put(-E - WallW, HL + FT::WallH); Put(-E - WallW, HL - DeckDepth);
 			for (int32 k = 0; k <= 12; ++k) { const float X = -E + 2.f * E * k / 12.f; Put(X, SurfaceH(Dj, X) - DeckDepth); }
 			Put(E + WallW, HR - DeckDepth); Put(E + WallW, HR + FT::WallH); Put(E, HR + FT::WallH);
+			if (bRoom)
+			{
+				S.Begin();
+				for (int32 k = 0; k <= 12; ++k) { const float X = -E + 2.f * E * k / 12.f; Put(X, SurfaceH(Dj, X) + BedRoom); }
+			}
 		}
 		if (Fr.Flags & FTFlag::Pipe)
 		{
@@ -853,8 +885,16 @@ void AFTTrack::BuildMeshes()
 		Out.Reset();
 		TArray<float> Xs;
 		for (const FVector2D& Q : Secs[i].P) if (Q.X > InL.X + 6.f && Q.X < InR.X - 6.f) Xs.Add(Q.X);
+		// 3.6: a corkscrew's bed is cut under the road's room for 14 m either side (where the chase camera rides),
+		// sampled every 1.5 m across as well as at the road's own points (a frame on its side has them all near x = 0)
+		int32 Reach = 1;
+		if (CVarFTBedRoom.GetValueOnAnyThread())
+			for (const int32 j : { i, FMath::Max(i - TwistBedReach, 0), FMath::Min(i + TwistBedReach, Frames.Num() - 1) })
+				if (Frames[j].Flags & FTFlag::Twist) { Reach = TwistBedReach; break; }
+		if (Reach > 1)
+			for (float X = InL.X + 150.f; X < InR.X - 6.f; X += 150.f) Xs.Add(X);
 		Xs.Sort();
-		const int32 j0 = FMath::Max(i - 1, 0), j1 = FMath::Min(i + 1, Frames.Num() - 1);
+		const int32 j0 = FMath::Max(i - Reach, 0), j1 = FMath::Min(i + Reach, Frames.Num() - 1);
 		Out.Add(InL);
 		for (const float X : Xs)
 		{
@@ -876,6 +916,8 @@ void AFTTrack::BuildMeshes()
 	// the floor: one sheet under the whole level, below its lowest land (made after the chunks, below)
 	FloorZ = MinZ - 150.f;
 	int32 BedTris = 0;
+	BedProbe.Reset();
+	if (FParse::Param(FCommandLine::Get(), TEXT("ftbedprobe"))) BedProbe.SetNum(Frames.Num());
 	// 3.2: the track is locked. A fingerprint of the route (every frame's place and attitude) and of everything solid
 	// (the four sections with collision), logged as FTTRACK, so a scenery change can be shown to have left both alone.
 	uint32 RouteCrc = 0, SolidCrc = 0; int32 SolidTris = 0;
@@ -1287,6 +1329,7 @@ void AFTTrack::BuildMeshes()
 				{
 					TArray<FVector2D> Line;
 					BedLine(i, Line);
+					if (BedProbe.IsValidIndex(i)) BedProbe[i] = Line;
 					TArray<int32> Bd; TArray<float> BdX;
 					for (int32 k = 0; k < Line.Num(); ++k)
 					{

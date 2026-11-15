@@ -480,7 +480,7 @@ protected:
 
 	// time
 	float SlowT = 0.f, SlowScale = 1.f, SlowCool = 0.f, FreezeT = 0.f, TimeScale = 1.f;
-	float DuckT = 0.f, DuckDepth = 1.f, MusicVol = 0.34f;
+	float DuckT = 0.f, DuckDepth = 1.f, MusicVol = 0.5f; // 3.6 (owner: "the music is too quiet" on the driving levels): 0.34 -> 0.5, +3.4 dB
 
 	// camera
 	FVector CamLoc = FVector::ZeroVector, CamUp = FVector::UpVector, CamFwd = FVector::ForwardVector;

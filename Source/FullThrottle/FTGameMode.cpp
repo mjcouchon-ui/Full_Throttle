@@ -40,6 +40,7 @@
 
 // test hooks: ft.Autopilot 1 drives the car (and starts the race from the title); ft.Shots N takes a screenshot every N seconds
 static TAutoConsoleVariable<int32> CVarFTAutopilot(TEXT("ft.Autopilot"), 0, TEXT("FULL THROTTLE: 1 = the autopilot drives and starts races (tests, benchmarks)"));
+static TAutoConsoleVariable<float> CVarFTAutoX(TEXT("ft.AutoX"), -99999.f, TEXT("FULL THROTTLE 3.6 tests: the autopilot holds this road x (cm, -1371..1371 between the barriers) instead of picking a lane; -99999 = off"));
 static TAutoConsoleVariable<float> CVarFTHp(TEXT("ft.Hp"), 0.f, TEXT("FULL THROTTLE test hook: start each race with this armour, e.g. 30 = already burning (0 = normal)"));
 static TAutoConsoleVariable<int32> CVarFTAttract(TEXT("ft.Attract"), 1, TEXT("FULL THROTTLE 3.0: 1 = the title plays the game by itself and cuts between the levels (attract mode)"));
 static TAutoConsoleVariable<float> CVarFTShots(TEXT("ft.Shots"), 0.f, TEXT("FULL THROTTLE: take a screenshot every N seconds while racing (0 = off)"));
@@ -195,7 +196,7 @@ void AFTGameMode::SetupLevel()
 		L->RegisterComponent();
 		RoadLights.Add(L);
 	}
-	Music = UGameplayStatics::CreateSound2D(this, Load<USoundBase>(*Def().Music), 0.34f, 1.f, 0.f, nullptr, false, false);
+	Music = UGameplayStatics::CreateSound2D(this, Load<USoundBase>(*Def().Music), MusicVol, 1.f, 0.f, nullptr, false, false);
 	if (Music) Music->bIsUISound = true;
 	Rotor = UGameplayStatics::CreateSound2D(this, Load<USoundBase>(TEXT("/Game/Audio/SFX/S_Rotor")), 0.f, 1.f, 0.f, nullptr, false, false);
 	if (Rotor && Rotor->Sound) Rotor->Play();
@@ -333,7 +334,7 @@ void AFTGameMode::BeginPlayPhase()
 		Music->SetSound(LevelTrack);
 		Music->SetVolumeMultiplier(MusicVol);
 		Music->Play();
-		UE_LOG(LogFT, Display, TEXT("FTMUSIC level=%d track=%s"), Level, LevelTrack ? *LevelTrack->GetName() : TEXT("none"));
+		UE_LOG(LogFT, Display, TEXT("FTMUSIC level=%d track=%s vol=%.2f"), Level, LevelTrack ? *LevelTrack->GetName() : TEXT("none"), MusicVol);
 	}
 }
 
@@ -1109,6 +1110,7 @@ void AFTGameMode::TickPlayer(float Dt)
 			if (Room > BestRoom) { BestRoom = Room; BestX = LaneX(l); }
 		}
 		AutoLane = BestX;
+		if (CVarFTAutoX.GetValueOnGameThread() > -9999.f) AutoLane = CVarFTAutoX.GetValueOnGameThread();
 		In = FFTInput();
 		// steer by heading: aim at the chosen lane at a shallow angle
 		const FFTFrame AF = Track->Sample(Car->D);
@@ -3782,6 +3784,35 @@ bool AFTGameMode::ComputeCamera(FMinimalViewInfo& POV, float Dt)
 	CamFov = FMath::FInterpTo(CamFov, FovTarget, RDt, 3.f);
 	POV.FOV = CamFov;
 	(void)Vel;
+#if !UE_BUILD_SHIPPING
+	// 3.6 test probe (-ftbedprobe): through each corkscrew, loop, pipe and coaster, how close the chase camera and the
+	// car came to the ground under them (negative = inside it). One FTBEDPROBE line per set piece.
+	{
+		static int32 ProbeSec = -1; static float CamMin = 0.f, CarMin = 0.f; static int32 CamIn = 0, CarIn = 0, Samples = 0;
+		const bool bSet = Phase == EFTPhase::Play && (F.Flags & (FTFlag::Twist | FTFlag::Loop | FTFlag::Pipe | FTFlag::Coaster));
+		float CarAbove = 0.f, CamAbove = 0.f, Cx = 0.f, Ch = 0.f;
+		const bool bCar = bSet && Track->BedClearance(CarLoc, Car->D, CarAbove);
+		const bool bCam = bSet && Track->BedClearance(CamLoc, Track->Locate(CamLoc, Car->D, Cx, Ch), CamAbove);
+		if ((!bSet || F.Section != ProbeSec) && ProbeSec >= 0 && Samples > 0)
+		{
+			const FFTSection* Sp = Track->SectionAt(Track->StartDOfSection(ProbeSec) + 10.f);
+			UE_LOG(LogFT, Display, TEXT("FTBEDPROBE level=%d section=%d shape=%d samples=%d camera: min=%.0f inside=%d car: min=%.0f inside=%d"),
+				Level, ProbeSec, Sp ? (int32)Sp->Shape : -1, Samples, CamMin, CamIn, CarMin, CarIn);
+			ProbeSec = -1; Samples = 0;
+		}
+		if (bCar && bCam)
+		{
+			if (ProbeSec != F.Section)
+			{
+				ProbeSec = F.Section; CamMin = CarMin = 1e9f; CamIn = CarIn = 0; Samples = 0;
+				const FFTSection* Sp = Track->SectionAt(Car->D);
+				UE_LOG(LogFT, Display, TEXT("FT BEDPROBE enter level=%d section=%d shape=%d"), Level, ProbeSec, Sp ? (int32)Sp->Shape : -1);
+			}
+			CamMin = FMath::Min(CamMin, CamAbove); CarMin = FMath::Min(CarMin, CarAbove);
+			CamIn += CamAbove < 10.f ? 1 : 0; CarIn += CarAbove < 0.f ? 1 : 0; ++Samples;
+		}
+	}
+#endif
 	return true;
 }
 
