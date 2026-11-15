@@ -69,28 +69,29 @@ namespace FTBrawl
 		IT_NUM };
 	enum { TY_BEER, TY_WEAPON, TY_FOOD, TY_POWER };
 	// Px = the object's height in its 1024 px frame (bottom at px 1000), Cm = its height in the bar.
-	// Weapons: damage, reach (brawl px), knocks down, swings before it breaks; the grip pixel, the image angle from the grip
+	// Weapons: damage, reach (brawl px: run 38222 measured it from the art, Tools/weapon_reach.py = where the far end is at the end
+	// of the swing + 16, as a kick reaches past the boot; a pool cue hits from its tip), knocks down, swings before it breaks; the grip pixel, the image angle from the grip
 	// to the far end (degrees, 0 = right, 90 = up) and the angle it is carried at (0 = forward, 90 = up).
 	struct FItemDef { const TCHAR* Name; const TCHAR* Tex; float Px, Cm; int32 Type; float Dmg, Reach; bool bDown; int32 Uses; float Gu, Gv, Tip, Carry; };
 	static const FItemDef GItems[IT_NUM] = {
 		{ TEXT("BEER"), TEXT("/Game/Brawl/Sprites/Items/T_item_beer.T_item_beer"), 474, 40, TY_BEER, 0, 0, false, 0, 640, 760, 90, 90 },
-		{ TEXT("BOTTLE"), TEXT("/Game/Brawl/Sprites/Items/T_item_bottle.T_item_bottle"), 608, 46, TY_WEAPON, 11, 80, false, 3, 511, 420, -90, -95 },
-		{ TEXT("POOL CUE"), TEXT("/Game/Brawl/Sprites/Items/T_item_cue.T_item_cue"), 896, 165, TY_WEAPON, 10, 128, false, 6, 511, 930, 90, 70 },
-		{ TEXT("BAR STOOL"), TEXT("/Game/Brawl/Sprites/Props/T_prop_stool.T_prop_stool"), 361, 92, TY_WEAPON, 18, 100, true, 4, 418, 985, 90, -80 },
-		{ TEXT("FRYING PAN"), TEXT("/Game/Brawl/Sprites/Items/T_item_pan.T_item_pan"), 540, 58, TY_WEAPON, 15, 84, true, 5, 700, 480, -126.6f, -60 },
+		{ TEXT("BOTTLE"), TEXT("/Game/Brawl/Sprites/Items/T_item_bottle.T_item_bottle"), 608, 46, TY_WEAPON, 11, 89, false, 3, 511, 420, -90, -95 },
+		{ TEXT("POOL CUE"), TEXT("/Game/Brawl/Sprites/Items/T_item_cue.T_item_cue"), 896, 165, TY_WEAPON, 10, 166, false, 6, 511, 930, 90, 70 },
+		{ TEXT("BAR STOOL"), TEXT("/Game/Brawl/Sprites/Props/T_prop_stool.T_prop_stool"), 361, 92, TY_WEAPON, 18, 120, true, 4, 418, 985, 90, -80 },
+		{ TEXT("FRYING PAN"), TEXT("/Game/Brawl/Sprites/Items/T_item_pan.T_item_pan"), 540, 58, TY_WEAPON, 15, 101, true, 5, 700, 480, -126.6f, -60 },
 		{ TEXT("CHILI DOG"), TEXT("/Game/Brawl/Sprites/Items/T_item_hotdog.T_item_hotdog"), 381, 40, TY_FOOD, 0, 0, false, 0, 512, 1000, 90, 0 },
 		{ TEXT("BRASS KNUCKLES"), TEXT("/Game/Brawl/Sprites/Items/T_item_knucks.T_item_knucks"), 280, 30, TY_POWER, 0, 0, false, 0, 512, 1000, 90, 0 },
 		{ TEXT("LEATHER JACKET"), TEXT("/Game/Brawl/Sprites/Items/T_item_jacket.T_item_jacket"), 421, 48, TY_POWER, 0, 0, false, 0, 512, 1000, 90, 0 },
 		{ TEXT("COCKTAIL"), TEXT("/Game/Brawl/Sprites/Items/T_item_cocktail.T_item_cocktail"), 651, 40, TY_BEER, 0, 0, false, 0, 512, 820, 90, 90 },
-		{ TEXT("MIC STAND"), TEXT("/Game/Brawl/Sprites/Items/T_item_mic.T_item_mic"), 889, 165, TY_WEAPON, 10, 128, false, 6, 512, 900, 90, 70 },
+		{ TEXT("MIC STAND"), TEXT("/Game/Brawl/Sprites/Items/T_item_mic.T_item_mic"), 889, 165, TY_WEAPON, 10, 162, false, 6, 512, 900, 90, 70 },
 		{ TEXT("ICE BUCKET"), TEXT("/Game/Brawl/Sprites/Items/T_item_bucket.T_item_bucket"), 728, 55, TY_WEAPON, 15, 84, true, 5, 296, 600, 0, 0 },
-		{ TEXT("CHAMPAGNE"), TEXT("/Game/Brawl/Sprites/Items/T_item_champ.T_item_champ"), 747, 52, TY_WEAPON, 12, 82, false, 3, 512, 300, -90, -95 },
-		{ TEXT("BAR STOOL"), TEXT("/Game/Brawl/Sprites/Props/T_prop_vstool.T_prop_vstool"), 328, 90, TY_WEAPON, 18, 100, true, 4, 440, 990, 90, -80 },
+		{ TEXT("CHAMPAGNE"), TEXT("/Game/Brawl/Sprites/Items/T_item_champ.T_item_champ"), 747, 52, TY_WEAPON, 12, 92, false, 3, 512, 300, -90, -95 },
+		{ TEXT("BAR STOOL"), TEXT("/Game/Brawl/Sprites/Props/T_prop_vstool.T_prop_vstool"), 328, 90, TY_WEAPON, 18, 120, true, 4, 440, 990, 90, -80 },
 		{ TEXT("WHISKEY"), TEXT("/Game/Brawl/Sprites/Items/T_item_whiskey.T_item_whiskey"), 397, 30, TY_BEER, 0, 0, false, 0, 512, 820, 90, 90 },
-		{ TEXT("CROUPIER'S RAKE"), TEXT("/Game/Brawl/Sprites/Items/T_item_rake.T_item_rake"), 905, 155, TY_WEAPON, 10, 128, false, 6, 512, 930, 90, 70 },
-		{ TEXT("WHISKEY BOTTLE"), TEXT("/Game/Brawl/Sprites/Items/T_item_wbottle.T_item_wbottle"), 638, 46, TY_WEAPON, 11, 80, false, 3, 511, 410, -90, -95 },
-		{ TEXT("CASH BOX"), TEXT("/Game/Brawl/Sprites/Items/T_item_cashbox.T_item_cashbox"), 341, 42, TY_WEAPON, 15, 84, true, 5, 512, 672, -90, -90 },
-		{ TEXT("CASINO STOOL"), TEXT("/Game/Brawl/Sprites/Props/T_prop_cstool.T_prop_cstool"), 428, 100, TY_WEAPON, 18, 100, true, 4, 512, 990, 90, -80 } };
+		{ TEXT("CROUPIER'S RAKE"), TEXT("/Game/Brawl/Sprites/Items/T_item_rake.T_item_rake"), 905, 155, TY_WEAPON, 10, 160, false, 6, 512, 930, 90, 70 },
+		{ TEXT("WHISKEY BOTTLE"), TEXT("/Game/Brawl/Sprites/Items/T_item_wbottle.T_item_wbottle"), 638, 46, TY_WEAPON, 11, 88, false, 3, 511, 410, -90, -95 },
+		{ TEXT("CASH BOX"), TEXT("/Game/Brawl/Sprites/Items/T_item_cashbox.T_item_cashbox"), 341, 42, TY_WEAPON, 15, 89, true, 5, 512, 672, -90, -90 },
+		{ TEXT("CASINO STOOL"), TEXT("/Game/Brawl/Sprites/Props/T_prop_cstool.T_prop_cstool"), 428, 100, TY_WEAPON, 18, 127, true, 4, 512, 990, 90, -80 } };
 	static bool IsGlass(int32 K) { return K == IT_BOTTLE || K == IT_CHAMP || K == IT_WBOTTLE; }
 	static const float NovaCmPerPx = 228.f / 600.f;   // Nova's sprite scale (SpawnFighter)
 	static const float DropLife = 16.f, PowerTime = 12.f, BuzzTime = 10.f;
@@ -153,8 +154,8 @@ void AFTBrawlGameMode::SetupNight()
 	}
 	if (IsN47())
 	{
-		// nights 4-7 from the story flow (prototypes/brawl/mode.js VENUES): the story's waves as the roles we have
-		// (tough = the Punk, drunk = the Sleaze, bouncer = the Bouncer, guard = the Guard), one grappler more in each
+		// nights 4-7 from the story flow (prototypes/brawl/mode.js VENUES): the story's waves as roles (tough = rusher,
+		// drunk = thrower, bouncer = heavy, guard = guard), played by each night's own regulars (GNightFoes, run 97578), one grappler more in each
 		// like nights 1 and 2; the boss's numbers a little over the web game's, like nights 2 and 3
 		struct FN { const TCHAR *Name, *Tag, *Boss, *Title, *Call, *Who; float Hp, Sp, Dmg, Wind, Reach, Ht; uint32 Neon; int32 Seed; };
 		static const FN Ns[4] = {
@@ -180,8 +181,23 @@ void AFTBrawlGameMode::SetupNight()
 		Rnd.Initialize(1986 + V.Seed);
 		return;
 	}
+	int32 DayArg = 0;
+	FParse::Value(FCommandLine::Get(), TEXT("brawlday="), DayArg);   // which day on L_Day1Set (the night maps stay nights)
 	bDay = (GetWorld() && GetWorld()->GetMapName().Contains(TEXT("Day1"))) || FParse::Param(FCommandLine::Get(), TEXT("brawlday"));
-	if (bDay) { Night = 1; VenueName = TEXT("ROUTE 9"); VenueTag = TEXT("DAY 1 · SCENE 1 · ON SET"); }
+	if (bDay)
+	{
+		// which day (run 77694): the career's (FTNightFlow), else the map's ?brawlday=N option (the brawl on its own goes
+		// day -> night -> next day), else -brawlday=N; -brawlwrap / ?wrap = THE WRAP after the drive
+		DayN = 1; bDayWrap = FParse::Param(FCommandLine::Get(), TEXT("brawlwrap"));
+		if (DayArg > 0) DayN = DayArg;
+		if (const FString Opt = UGameplayStatics::ParseOption(OptionsString, TEXT("brawlday")); !Opt.IsEmpty()) { DayN = FCString::Atoi(*Opt); bDayWrap = UGameplayStatics::HasOption(OptionsString, TEXT("wrap")); }
+#if FTB_CAREER
+		int32 CDay = 0; bool bCWrap = false;
+		if (UFTNightFlow::DayCutNow(this, CDay, bCWrap)) { DayN = CDay; bDayWrap = bCWrap; }
+#endif
+		DayN = FMath::Clamp(DayN, 1, 8);
+		Night = 1; VenueName = TEXT("ROUTE 9"); VenueTag = FString::Printf(TEXT("DAY %d · ON SET"), DayN);
+	}
 	if (IsLucky())
 	{
 		// night 3 from the story flow: THE LUCKY 7, 'A CASINO ON FREMONT STREET · THE HOUSE ALWAYS WINS', boss THE PIT BOSS,
@@ -224,7 +240,8 @@ void AFTBrawlGameMode::BeginPlay()
 	Rnd.Initialize(1986 + 11);
 	SetupNight();
 	bAuto = FParse::Param(FCommandLine::Get(), TEXT("brawlauto"));
-	bKeyTest = FParse::Param(FCommandLine::Get(), TEXT("brawlkeytest"));                    // the autopilot plays on the keyboard
+	bPadTest = FParse::Param(FCommandLine::Get(), TEXT("brawlpadtest"));
+	bKeyTest = bPadTest || FParse::Param(FCommandLine::Get(), TEXT("brawlkeytest"));
 	bAutoGrab = bKeyTest || FParse::Param(FCommandLine::Get(), TEXT("brawlgrab"));
 	bCamCheck = FParse::Param(FCommandLine::Get(), TEXT("brawlcamcheck"));
 	bNoKeepIn = FParse::Param(FCommandLine::Get(), TEXT("brawlnokeepin"));          // ... and grabs and throws
@@ -236,11 +253,13 @@ void AFTBrawlGameMode::BeginPlay()
 		ResetState(0, false);
 		BuildSet();
 		bCuts = true;
-		UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL start DAY 1 ON SET"));
-		StartCut(10);
+		UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL start DAY %d ON SET %s"), DayN, bDayWrap ? TEXT("wrap") : TEXT("before"));
+		SetSetLight(bDayWrap);
+		StartCut(bDayWrap ? 11 : 10);
 		return;
 	}
 	GetWorld()->SpawnActor<AFTBrawlMusic>();   // Matt's fight music, looping all night
+	InitCombatPresentation();
 	ResetState(0, false);
 	// night 1 opens on its cutscene (run 49531, FTBrawlCutscene.cpp); -brawlnocut goes straight into the fight,
 	// -brawlcut=2|3 starts at LAST CALL / the pier (tests)
@@ -279,11 +298,37 @@ void AFTBrawlGameMode::ResetState(int32 WaveIdx, bool bKeep)
 		A = SpawnFighter(NK, L);
 	}
 	P.Actor = A;
+	Buffered = {};
+	ContactPause = 0.f;
+	SustainedTravel = 0.f;
+	for (FCombatEffect& Effect : CombatEffects) Effect.Size = 0.f;
+	for (AStaticMeshActor* Quad : CombatQuads) if (Quad) Quad->SetActorHiddenInGame(true);
 	Pops.Reset(); Bottles.Reset(); Drops.Reset(); Shots.Reset(); Fires.Reset();
 	if (!bKeep && SplatIsm) { SplatIsm->ClearInstances(); SplatNext = 0; }
 	if (!bKeep) SpawnPickups();   // the bar's weapons and beers, fresh each night
 	else { Held = -1; HeldUses = 0; PowerT = ToughT = BuzzT = 0; }
 }
+
+// each night its own regulars (run 95562; owner, 15 Nov: "each of the nights needs to have its own enemies ... some cross
+// over"). The roles (rusher / grappler / thrower / heavy / guard / dealer) keep their moves; this picks who plays them on
+// that night: Sprite = /Game/Brawl/Sprites/<Sprite>/T_<sprite>_<frame> (ArtSource/tools/frames.py), H = sprite height (cm).
+// A (night, role) not listed falls back to the Rusty Anchor's cast in SpawnFighter's Looks (night 1 = the bar's own).
+struct FNightFoe { int32 Night; const TCHAR* Role; const TCHAR* Sprite; float H; };
+static const FNightFoe GNightFoes[] = {
+	// night 2, THE VELVET ROOM: the Disco Dude, the Hustler, the Barman (new); the Guard; the Bouncer works the rope here too
+	{ 2, TEXT("rusher"), TEXT("Disco"), 228.f }, { 2, TEXT("grappler"), TEXT("Hustler"), 236.f }, { 2, TEXT("thrower"), TEXT("Barman"), 220.f },
+	// night 3, THE LUCKY 7: the High Roller and the Muscle (new); the Dealer; the casino hires the Velvet Room's Guard
+	{ 3, TEXT("rusher"), TEXT("Roller"), 230.f }, { 3, TEXT("heavy"), TEXT("Muscle"), 272.f },
+	// nights 4-7 (run 97578): four new regulars a night, one per role the night's waves use, themed to the venue
+	// night 4, THE TIKI TORCH: the Fire Dancer, the Surfer, the Tourist (throws his tiki mug), the Pit Cook
+	{ 4, TEXT("rusher"), TEXT("Firedancer"), 228.f }, { 4, TEXT("grappler"), TEXT("Surfer"), 240.f }, { 4, TEXT("thrower"), TEXT("Tourist"), 216.f }, { 4, TEXT("heavy"), TEXT("Pitcook"), 268.f },
+	// night 5, STRIKE CITY: the Pinsetter, the Leaguer, the Shoe Clerk (throws rental shoes), the Lane Hog
+	{ 5, TEXT("rusher"), TEXT("Pinsetter"), 226.f }, { 5, TEXT("grappler"), TEXT("Leaguer"), 240.f }, { 5, TEXT("thrower"), TEXT("Shoeclerk"), 216.f }, { 5, TEXT("heavy"), TEXT("Lanehog"), 268.f },
+	// night 6, THE FROSTBITE LODGE: the Ski Bum, the Linemate (Sven's hockey team), the Snowboarder (snowballs), the Goalie
+	{ 6, TEXT("rusher"), TEXT("Skibum"), 228.f }, { 6, TEXT("grappler"), TEXT("Linemate"), 240.f }, { 6, TEXT("thrower"), TEXT("Boarder"), 218.f }, { 6, TEXT("heavy"), TEXT("Goalie"), 272.f },
+	// night 7, THE SEA BISCUIT: the Deckhand, the First Mate (belaying pin, the guard's moves), the Waiter (champagne), the Tux Brute
+	{ 7, TEXT("rusher"), TEXT("Deckhand"), 228.f }, { 7, TEXT("guard"), TEXT("Firstmate"), 232.f }, { 7, TEXT("thrower"), TEXT("Waiter"), 218.f }, { 7, TEXT("heavy"), TEXT("Tuxbrute"), 268.f },
+};
 
 AFTBrawlFighter* AFTBrawlGameMode::SpawnFighter(const FFTBrawlKind& K, const FFTBrawlLook& L)
 {
@@ -304,6 +349,10 @@ AFTBrawlFighter* AFTBrawlGameMode::SpawnFighter(const FFTBrawlKind& K, const FFT
 	bool bOk = false;
 	if (K.Who == TEXT("Nova")) bOk = A->SetSprite(TEXT("Nova"), 228.f);
 	else
+	{
+		for (const FNightFoe& NF : GNightFoes)   // tonight's own regular for this role (run 95562)
+			if (NF.Night == Night && K.Role == NF.Role) { bOk = A->SetSprite(NF.Sprite, NF.H); break; }
+		if (!bOk)
 		for (const FRoleLook& R : Looks)
 			if (K.Role == R.Role)
 			{
@@ -312,6 +361,7 @@ AFTBrawlFighter* AFTBrawlGameMode::SpawnFighter(const FFTBrawlKind& K, const FFT
 				if (K.Role == TEXT("boss") && K.Who != TEXT("Earl") && K.Who != TEXT("Vinnie")) { bOk = A->SetSprite(K.Who, K.Height * 1.4f) || A->SetSprite(TEXT("Earl"), 300.f); break; }   // nights 4-7 (run 32365): Frankie, the Kingpin, Sven, the Commodore
 				bOk = A->SetSprite(R.Sprite, R.H) || A->SetSprite(TEXT("Dock"), R.H); break;
 			}
+	}
 	if (bOk && K.Who != TEXT("Nova")) A->SetEnemyPresentation(K.Who, K.Role);
 	if (!bOk && !A->SetCast(K.Who, K.Height)) A->SetLook(L);
 	return A;
@@ -353,7 +403,7 @@ void AFTBrawlGameMode::SpawnBoss()
 	FFTBrawlLook L; L.Shirt = Hex(TEXT("f4efe2")); L.Pants = Hex(TEXT("3a2a1e")); L.Hair = Hex(TEXT("8a8a8a")); L.Skin = Hex(TEXT("d99a74")); L.Girth = 1.45f;
 	B.Actor = SpawnFighter(BossK, L); B.SlamCd = IsVelvet() || IsLucky() || IsN47() ? 2.0f : 3.0f;   // Vinnie / the Pit Boss / nights 4-7 show their move early
 	Foes.Add(B);
-	BossIntro = 2.2f; bBossOut = true; bSpawned = true;
+	BossIntro = 2.2f; BossEntranceAt = StT; bBossOut = true; bSpawned = true;
 	UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL boss %s"), *BossName);
 }
 
@@ -382,10 +432,12 @@ AFTBrawlGameMode::FIn AFTBrawlGameMode::ReadInput()
 	// loop cycle 2: with a pad, A (the jump button) also works the cards and the K.O. / knocked-out screens; only Start did
 	if (!I.Enter && D(EKeys::Gamepad_FaceButton_Bottom) && (InCut() || P.Hp <= 0 || bWon)) I.Enter = true;
 	I.Grab = D(EKeys::L) || D(EKeys::C) || D(EKeys::Gamepad_FaceButton_Right);
-	// loop cycle 8: which device the player is on, for the controls line
-	if (FMath::Abs(SX) > 0.3f || FMath::Abs(SY) > 0.3f || D(EKeys::Gamepad_FaceButton_Bottom) || D(EKeys::Gamepad_FaceButton_Left) || D(EKeys::Gamepad_FaceButton_Top)
-		|| D(EKeys::Gamepad_FaceButton_Right) || D(EKeys::Gamepad_DPad_Left) || D(EKeys::Gamepad_DPad_Right) || D(EKeys::Gamepad_Special_Right)) bPadLast = true;
-	else if (D(EKeys::W) || D(EKeys::A) || D(EKeys::S) || D(EKeys::D) || D(EKeys::Up) || D(EKeys::Down) || D(EKeys::Left) || D(EKeys::Right) || D(EKeys::J) || D(EKeys::K) || D(EKeys::L) || D(EKeys::SpaceBar)) bPadLast = false;
+	if (FMath::Abs(SX) > 0.3f || FMath::Abs(SY) > 0.3f || D(EKeys::Gamepad_FaceButton_Bottom) || D(EKeys::Gamepad_FaceButton_Left) ||
+		D(EKeys::Gamepad_FaceButton_Top) || D(EKeys::Gamepad_FaceButton_Right) || D(EKeys::Gamepad_DPad_Left) ||
+		D(EKeys::Gamepad_DPad_Right) || D(EKeys::Gamepad_DPad_Up) || D(EKeys::Gamepad_DPad_Down) || D(EKeys::Gamepad_Special_Right))
+		bPadLast = true;
+	else if (I.Steer != 0 || I.Throttle != 0 || I.Fire || I.Kick || I.Jump || I.Grab || I.Enter)
+		bPadLast = false;
 	return I;
 }
 
@@ -488,10 +540,19 @@ AFTBrawlGameMode::FIn AFTBrawlGameMode::AutoInput()
 	else if ((Dx > 0) != (P.Dir > 0)) I.Steer = Dx > 0 ? 0.3f : -0.3f;
 	const int32 Ph = int32(StT * 10) % 4;
 	const float WantW = Held >= 0 ? FMath::Max(Want, GItems[Held].Reach - 20) : Want;   // a cue keeps them at its length
+	static const bool bTestAerial = FParse::Param(FCommandLine::Get(), TEXT("brawlairtest"));
+	if (bTestAerial && P.Hp > 0.f && Held < 0 && FMath::Abs(Dx) < 115.f && FMath::Abs(Dy) < 30.f)
+	{
+		I.Jump = P.Z <= 0.f && P.St == TEXT("walk");
+		I.Kick = P.St == TEXT("jump") && P.T >= 0.1f;
+		return I;
+	}
 	// test hook (run 32365): -brawlpassive walks up to the boss but never hits him, so his own move shows (and lands)
 	if (FMath::Abs(Dx) < WantW + 20 && FMath::Abs(Dy) < 22 && !(Tgt->bBoss && FParse::Param(FCommandLine::Get(), TEXT("brawlpassive"))))
 	{
-		const bool bKick = int32(StT * 3) % 5 == 4 && (Held < 0 || HeldUses <= 1);   // with a weapon: swing it, throw it on its last legs
+		static const bool bTestThrow = FParse::Param(FCommandLine::Get(), TEXT("brawlthrowtest"));
+		const bool bKick = (bTestThrow && Held >= 0)
+			|| (int32(StT * 3) % 5 == 4 && (Held < 0 || HeldUses <= 1));
 		// -brawlgrab: with another foe standing to throw him at, grab this one (when he is in reach in front)
 		int32 Up = 0; for (const FFTBrawlBody& F : Foes) if (Standing(F)) Up++;
 		if (bAutoGrab && Held < 0 && !Tgt->bBoss && Standing(*Tgt) && Up >= 2 && FMath::Abs(Dy) < 20 && Dx * P.Dir > -6 && Dx * P.Dir < 66 && Ph < 2) { I.Grab = true; return I; }
@@ -507,7 +568,14 @@ void AFTBrawlGameMode::HitFoe(FFTBrawlBody& F, float Dmg, bool bDown)
 	if (F.St == TEXT("dizzy")) Dmg *= 1.5f;   // Vinnie, dizzy after his whirlwind: the time to hit him
 	if (F.St == TEXT("draw") || F.St == TEXT("fire")) { F.SlamCd = 2.5f; UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL boss revolver interrupted")); }   // hit him out of his draw
 	F.Hp -= Dmg; F.Flash = 0.12f; F.bIn = true;   // hit = in the fight: the screen edge holds him from now on (KeepOnScreen)
+	const bool bFinisher = bDown || F.Hp <= 0.f;
+	const bool bWeapon = P.St == TEXT("wpn");
+	ContactPause = FMath::Max(ContactPause, bFinisher ? 3.f * STEP : 2.f * STEP);
+	CombatCue(bWeapon ? ECombatCue::Weapon : bFinisher ? ECombatCue::Finish : ECombatCue::Jab,
+		World(F.X - P.Dir * 12.f, F.Y + 9.f, F.Z + 105.f * F.K.Height / 175.f), P.Dir);
 	Shake = FMath::Min(1.f, Shake + (bDown ? 0.55f : 0.3f));
+	Rumble(bDown || F.Hp <= 0 ? 0.55f : 0.3f, bDown || F.Hp <= 0 ? 0.16f : 0.09f, bDown || F.Hp <= 0 ? TEXT("knock") : TEXT("hit"));
+	if (F.Hp > 0 && !bDown) { static const TCHAR* Grunts[] = { TEXT("hurt1"), TEXT("hurt2"), TEXT("hurt3") }; Sfx(Grunts[Voice++ % 3], 0.5f, (F.bBoss ? 0.78f : 1.f) * (0.92f + 0.05f * (F.Id % 4))); }
 	Chain++; if (Chain > Best) Best = Chain;
 	// no comic words: a spray of blood off the face, more on the big ones, and it stays on the floor
 	Bleed(F.X + P.Dir * 6, F.Y, 120 * F.K.Height / 175.f, P.Dir, bDown ? 34 : 14, bDown ? 1.4f : 1.f);
@@ -521,19 +589,35 @@ void AFTBrawlGameMode::HitFoe(FFTBrawlBody& F, float Dmg, bool bDown)
 	else F.X += P.Dir * 4;
 }
 
+void AFTBrawlGameMode::BufferInput(const FIn& In)
+{
+	if (InCut() || bWon || P.Hp <= 0.f || BossIntro > 0.f) Buffered = {};
+	else
+	{
+		if (In.Fire && !Latch.Fire) Buffered.Fire = 0.12f;
+		if (In.Kick && !Latch.Kick) Buffered.Kick = 0.10f;
+		if (In.Jump && !Latch.Jump) Buffered.Jump = 0.10f;
+		if (In.Grab && !Latch.Grab) Buffered.Grab = 0.10f;
+	}
+	Latch = In;
+}
+
 void AFTBrawlGameMode::UpdatePlayer(float Dt, const FIn& In)
 {
-	const bool FirePress = In.Fire && !Latch.Fire, JumpPress = In.Jump && !Latch.Jump, KickPress = In.Kick && !Latch.Kick, GrabPress = In.Grab && !Latch.Grab;
-	Latch = In;
+	const bool FirePress = Buffered.Fire > 0.f, JumpPress = Buffered.Jump > 0.f;
+	const bool KickPress = Buffered.Kick > 0.f, GrabPress = Buffered.Grab > 0.f;
 	P.T += Dt; if (P.Inv > 0) P.Inv -= Dt; if (P.ComboT > 0) P.ComboT -= Dt; else P.Combo = 0;
-	const bool Can = P.St == TEXT("idle") || P.St == TEXT("walk");
 	if (P.Z > 0 || P.Vz > 0)
 	{
 		P.Vz -= 1700 * Dt; P.Z += P.Vz * Dt; P.X += P.JVx * Dt; P.Y += P.JVy * Dt;
-		if ((FirePress || KickPress) && P.St == TEXT("jump")) { P.St = TEXT("jumpkick"); P.T = 0; P.HitIds.Reset(); }
+		if ((FirePress || KickPress) && P.St == TEXT("jump")) { Buffered.Fire = Buffered.Kick = 0; P.St = TEXT("jumpkick"); P.T = 0; P.HitIds.Reset(); Sfx(TEXT("whoosh"), 0.55f, 0.75f); }
 		if (P.Z <= 0) { P.Z = 0; P.Vz = 0; P.St = TEXT("idle"); P.T = 0; }
 	}
-	else if (P.St == TEXT("held")) { if (FirePress || KickPress || JumpPress) P.Mash++; if (P.T > 3.5f) { P.St = TEXT("idle"); P.T = 0; } }
+	else if (P.St == TEXT("held"))
+	{
+		if (FirePress || KickPress || JumpPress) { P.Mash++; Buffered = {}; }
+		if (P.T > 3.5f) { P.St = TEXT("idle"); P.T = 0; }
+	}
 	else if (P.St == TEXT("hurt")) { if (P.T > 0.3f) P.St = TEXT("idle"); }
 	else if (P.St == TEXT("down")) { if (P.T > 0.9f && P.Hp > 0) { P.St = TEXT("getup"); P.T = 0; } }
 	else if (P.St == TEXT("getup")) { if (P.T > 0.35f) { P.St = TEXT("idle"); P.Inv = 1.0f; } }
@@ -544,14 +628,14 @@ void AFTBrawlGameMode::UpdatePlayer(float Dt, const FIn& In)
 	else if (P.St == TEXT("lift")) { if (P.T > 0.22f) { P.St = TEXT("carry"); P.T = 0; } }
 	else if (P.St == TEXT("carry"))
 	{
-		if (GrabPress || FirePress || KickPress || P.T > 1.6f) { if (In.Steer != 0) P.Dir = In.Steer > 0 ? 1 : -1; P.St = TEXT("hurl"); P.T = 0; }
+		if (GrabPress || FirePress || KickPress || P.T > 1.6f) { Buffered = {}; if (In.Steer != 0) P.Dir = In.Steer > 0 ? 1 : -1; P.St = TEXT("hurl"); P.T = 0; }
 		else
 		{
 			P.X += In.Steer * 200 * Dt; P.Y -= In.Throttle * 140 * Dt;
 			if (In.Steer != 0) { P.Dir = In.Steer > 0 ? 1 : -1; P.Walk += Dt * 1.2f; }
 		}
 	}
-	else if (P.St == TEXT("hurl")) { if (P.T >= 0.1f && GrabId != -1) Hurl(); if (P.T > 0.34f) P.St = TEXT("idle"); }
+	else if (P.St == TEXT("hurl")) { if (P.T >= 0.1f && GrabId != -1) { Hurl(); Sfx(TEXT("whooshbig"), 0.8f, 0.7f); } if (P.T > 0.34f) P.St = TEXT("idle"); }
 	else if (P.St == TEXT("drink"))
 	{
 		if (P.T > 0.95f)
@@ -568,47 +652,44 @@ void AFTBrawlGameMode::UpdatePlayer(float Dt, const FIn& In)
 		{
 			FFTBrawlItem It; It.Kind = Held; It.Uses = HeldUses; It.bThrown = true; It.X = P.X + P.Dir * 30; It.Y = P.Y; It.Z = 110; It.Vx = P.Dir * 950;
 			Items.Add(It);
+			CombatCue(ECombatCue::Throw, World(It.X, It.Y + 6.f, It.Z), P.Dir);
 			UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL throw %s"), GItems[Held].Name);
 			Held = -1; HeldUses = 0;
 		}
 		if (P.T > 0.32f) P.St = TEXT("idle");
 	}
+	const bool Can = P.St == TEXT("idle") || P.St == TEXT("walk");
 	bool bUsed = false;
-	if (Can && FirePress)
+	if (Can && Buffered.Fire > 0.f)
 	{
-		const int32 Ii = ItemAt();
-		if (Ii != INDEX_NONE)
-		{
-			FFTBrawlItem It = Items[Ii];
-			if (It.Actor.IsValid()) It.Actor->Destroy();
-			Items.RemoveAt(Ii);
-			if (GItems[It.Kind].Type == TY_BEER) { P.St = TEXT("drink"); P.T = 0; P.Dir = 1; UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL grab beer off the bar x=%.0f (%s)"), It.X, GItems[It.Kind].Name); }
-			else
-			{
-				if (Held >= 0) DropItem(Held, P.X - P.Dir * 24, P.Y, HeldUses, true, false);   // swap: the old one goes down
-				Held = It.Kind; HeldUses = FMath::Max(1, It.Uses); P.St = TEXT("pickup"); P.T = 0;
-				UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL pickup %s uses=%d"), GItems[Held].Name, HeldUses);
-			}
-			bUsed = true;
-		}
-		else if (Held >= 0) { P.St = TEXT("wpn"); P.T = 0; P.HitIds.Reset(); bWpnHit = false; bUsed = true; }
+		bUsed = UseGroundItem();
+		if (!bUsed && Held >= 0) { P.St = TEXT("wpn"); P.T = 0; P.HitIds.Reset(); bWpnHit = false; bUsed = true; Sfx(TEXT("whooshbig"), 0.7f, GItems[Held].Reach > 140 ? 0.85f : 1.05f); }
 	}
-	if (Can && KickPress && Held >= 0) { P.St = TEXT("toss"); P.T = 0; bUsed = true; }
-	if (Can && !bUsed && GrabPress && TryGrab()) bUsed = true;
+	if (bUsed) Buffered.Fire = 0.f;
+	if (Can && !bUsed && Buffered.Kick > 0.f && Held >= 0) { Buffered.Kick = 0; P.St = TEXT("toss"); P.T = 0; bUsed = true; Sfx(TEXT("whooshbig"), 0.6f, 1.2f); }
+	if (Can && !bUsed && Buffered.Grab > 0.f && TryGrab()) { Buffered.Grab = 0; bUsed = true; }
 	if (!bUsed && (Can || (P.St == TEXT("punch") && P.T > 0.12f)))
 	{
-		if (FirePress) { P.Combo = P.ComboT > 0 && P.Combo < 3 ? P.Combo + 1 : 1; P.ComboT = 0.5f; P.St = TEXT("punch"); P.T = 0; P.HitIds.Reset(); }
-		else if (KickPress && Can) { P.St = TEXT("kick"); P.T = 0; P.HitIds.Reset(); }
-		else if (JumpPress && Can) { P.St = TEXT("jump"); P.T = 0; P.Vz = 600; P.Z = 0.01f; P.JVx = In.Steer * 320; P.JVy = -In.Throttle * 120; P.HitIds.Reset(); }
+		if (Buffered.Fire > 0.f) { Buffered.Fire = 0; P.Combo = P.ComboT > 0 && P.Combo < 3 ? P.Combo + 1 : 1; P.ComboT = 0.5f; P.St = TEXT("punch"); P.T = 0; P.HitIds.Reset(); Sfx(TEXT("whoosh"), 0.45f, 1.f + 0.08f * P.Combo); }
+		else if (Can && Buffered.Kick > 0.f) { Buffered.Kick = 0; P.St = TEXT("kick"); P.T = 0; P.HitIds.Reset(); Sfx(TEXT("whoosh"), 0.55f, 0.8f); }
+		else if (Can && Buffered.Jump > 0.f) { Buffered.Jump = 0; P.St = TEXT("jump"); P.T = 0; P.Vz = 600; P.Z = 0.01f; P.JVx = In.Steer * 320; P.JVy = -In.Throttle * 120; P.HitIds.Reset(); }
 	}
+	auto AgePress = [Dt](float& Remaining) { Remaining = FMath::Max(0.f, Remaining - Dt); };
+	AgePress(Buffered.Fire);
+	AgePress(Buffered.Kick);
+	AgePress(Buffered.Jump);
+	AgePress(Buffered.Grab);
 	if (P.St == TEXT("idle") || P.St == TEXT("walk"))
 	{
 		const float Mx = In.Steer, My = -In.Throttle;
+		SustainedTravel = FMath::Abs(Mx) > 0.5f && My == 0.f && FMath::Sign(Mx) == P.Dir
+			? FMath::Min(0.3f, SustainedTravel + Dt) : 0.f;
 		P.X += Mx * 330 * Dt; P.Y += My * 210 * Dt;
 		if (BuzzT > 0 && (Mx != 0 || My != 0)) { P.Y += FMath::Sin(StT * 2.3f) * 40 * Dt; P.X += FMath::Cos(StT * 1.7f) * 25 * Dt; }   // a little unsteady
 		if (Mx != 0) P.Dir = Mx > 0 ? 1 : -1;
 		P.St = (Mx != 0 || My != 0) ? TEXT("walk") : TEXT("idle"); if (Mx != 0 || My != 0) P.Walk += Dt * 1.5f;
 	}
+	else SustainedTravel = 0.f;
 	P.Y = FMath::Clamp(P.Y, FT, FB);
 	const float Lo = LockX >= 0 ? LockX + 30 : Cam + 30, Hi = LockX >= 0 ? LockX + W - 30 : ArenaEnd() + W - 30;
 	P.X = FMath::Clamp(P.X, Lo, Hi);
@@ -639,6 +720,13 @@ void AFTBrawlGameMode::UpdatePlayer(float Dt, const FIn& In)
 			const float Dx = (F.X - P.X) * P.Dir;
 			if (Dx > -10 && Dx < Reach + (F.bBoss ? 20 : 0) && FMath::Abs(F.Y - P.Y) < (F.bBoss ? 34 : 26))
 			{
+				if (P.HitIds.Num() == 0)   // one impact sound a swing, however many it hits
+				{
+					if (P.St == TEXT("wpn") && Held >= 0) ImpactSfx(Held);
+					else if (P.St == TEXT("punch")) Sfx(P.Combo == 3 ? TEXT("punchbig") : (P.Combo == 2 ? TEXT("punch2") : TEXT("punch")), P.Combo == 3 ? 0.95f : 0.8f, 0.95f + 0.04f * P.Combo);
+					else Sfx(TEXT("kick"), 0.95f, P.St == TEXT("jumpkick") ? 0.9f : 1.f);
+					UE_LOG(LogFTBrawl, Verbose, TEXT("FTBRAWL swing hit %s dx=%.0f reach=%.0f on %s"), P.St == TEXT("wpn") && Held >= 0 ? GItems[Held].Name : *P.St.ToString(), Dx, Reach, *F.K.Role.ToString());
+				}
 				P.HitIds.Add(F.Id); HitFoe(F, Dmg, bDown);
 				if (P.St == TEXT("wpn") && Held >= 0)
 				{
@@ -657,8 +745,11 @@ void AFTBrawlGameMode::HurtPlayer(float Dmg, bool bDown, const FFTBrawlBody& Fro
 	if (BuzzT > 0) Dmg *= 0.8f;                                           // a beer in him: feels it less
 	if (P.St == TEXT("drink")) Bleed(P.X, P.Y, 150, -P.Dir, 10, 0.6f, true);   // the beer goes everywhere
 	P.Hp -= Dmg; Hits++; Chain = 0; Shake = FMath::Min(1.f, Shake + 0.6f);
+	{ const bool bFloor = bDown || P.Hp <= 0; Sfx(bFloor ? TEXT("novadown") : TEXT("novahurt"), bFloor ? 1.f : 0.85f); Rumble(bFloor ? 0.95f : 0.65f, bFloor ? 0.38f : 0.2f, bFloor ? TEXT("floored") : TEXT("hurt")); }
 	UE_LOG(LogFTBrawl, Verbose, TEXT("FTBRAWL hurt by %s dmg=%.0f down=%d hp=%.0f"), From.K.Role.IsNone() ? TEXT("shot") : *From.K.Role.ToString(), Dmg, bDown ? 1 : 0, P.Hp);
 	P.Dir = From.X > P.X ? 1 : -1;
+	ContactPause = FMath::Max(ContactPause, bDown ? 3.f * STEP : STEP);
+	CombatCue(ECombatCue::Hurt, World(P.X + P.Dir * 13.f, P.Y + 9.f, P.Z + 116.f), -P.Dir);
 	Bleed(P.X, P.Y, 125, -P.Dir, bDown ? 26 : 12, bDown ? 1.3f : 0.9f);
 	if (P.Z > 0) { P.Z = 0; P.Vz = 0; }
 	if (bDown || P.Hp <= 0)
@@ -684,7 +775,7 @@ void AFTBrawlGameMode::UpdateFoes(float Dt)
 		if (F.St == TEXT("fly"))
 		{
 			F.Vz -= 1500 * Dt; F.Z += F.Vz * Dt; F.X += F.Vx * Dt;
-			if (F.Z <= 0 && F.T > 0.05f) { F.Z = 0; F.St = TEXT("down"); F.T = 0; Shake = FMath::Min(1.f, Shake + 0.3f); }
+			if (F.Z <= 0 && F.T > 0.05f) { F.Z = 0; F.St = TEXT("down"); F.T = 0; Shake = FMath::Min(1.f, Shake + 0.3f); Sfx(TEXT("down"), F.bBoss ? 1.f : 0.85f, F.bBoss ? 0.8f : 1.f); Rumble(F.bBoss ? 0.7f : 0.45f, F.bBoss ? 0.3f : 0.16f, TEXT("down")); }
 			continue;
 		}
 		if (F.St == TEXT("down"))
@@ -721,7 +812,7 @@ void AFTBrawlGameMode::UpdateFoes(float Dt)
 			if (F.St == TEXT("grab") && F.T > 0.45f) { F.St = TEXT("knee"); F.T = 0; }
 			else if (F.St == TEXT("knee") && F.T > 0.12f && !F.bStruck)
 			{
-				F.bStruck = true; P.Hp -= K.Dmg; Hits++; Chain = 0; Shake = FMath::Min(1.f, Shake + 0.45f);
+				F.bStruck = true; P.Hp -= K.Dmg; Hits++; Chain = 0; Shake = FMath::Min(1.f, Shake + 0.45f); Sfx(TEXT("novahurt"), 0.85f, 1.05f); Rumble(0.6f, 0.18f, TEXT("knee"));
 				Bleed(P.X, P.Y, 115, -F.Dir, 14, 0.9f);
 				if (P.Hp <= 0) { P.St = TEXT("down"); P.T = 0; P.Inv = 2; F.St = TEXT("walk"); F.T = 0; F.Cd = 1.5f; continue; }
 			}
@@ -951,6 +1042,8 @@ void AFTBrawlGameMode::Step(float Dt, const FIn& In)
 	StT += Dt; Time += Dt;
 	if (BannerT >= 0) { BannerT += Dt; if (BannerT > 2.4f) BannerT = -1; }
 	StepFx(Dt);
+	TickCombatPresentation(Dt);
+	if (ContactPause > 0.f) { ContactPause = FMath::Max(0.f, ContactPause - Dt); return; }
 	if (Shake > 0) Shake = FMath::Max(0.f, Shake - Dt * 1.8f);
 	for (FFTBrawlPop& E : Pops) E.T += Dt;
 	while (Pops.Num() && Pops[0].T > 1) Pops.RemoveAt(0);
@@ -986,6 +1079,7 @@ void AFTBrawlGameMode::Step(float Dt, const FIn& In)
 	else if (bSpawned && !bBossOut && !Foes.ContainsByPredicate([](const FFTBrawlBody& F) { return F.St != TEXT("dead"); }))
 	{
 		Wave++; LockX = -1; bSpawned = false; Go = 2.0f;
+		CombatCue(ECombatCue::Clear, World(P.X, P.Y, 70.f), P.Dir);
 		UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL wave cleared -> %d (kos=%d)"), Wave, Kos);
 	}
 	if (Go > 0) Go -= Dt;
@@ -1089,7 +1183,7 @@ void AFTBrawlGameMode::BossSig47(FFTBrawlBody& F, float Dt, bool& bDone)
 			}
 			if (F.T > 0.6f)
 			{
-				F.T = 0; F.Hold += 1; P.Hp -= 7; Hits++; Chain = 0; Shake = FMath::Min(1.f, Shake + 0.5f);
+				F.T = 0; F.Hold += 1; P.Hp -= 7; Hits++; Chain = 0; Shake = FMath::Min(1.f, Shake + 0.5f); Sfx(TEXT("novahurt"), 0.85f, 0.95f); Rumble(0.65f, 0.2f, TEXT("hug"));
 				Bleed(P.X, P.Y, 140, -F.Dir, 10, 0.7f);
 				if (F.Hold >= 3 || P.Hp <= 0) { P.St = TEXT("idle"); P.Inv = 0; HurtPlayer(8, true, F); After(); UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL boss bear hug throw hp=%.0f"), P.Hp); }
 			}
@@ -1167,7 +1261,13 @@ void AFTBrawlGameMode::GoOn()
 	if (UFTNightFlow::NightOver(this)) { UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL on to the next race")); return; }
 #endif
 	const TCHAR* Next = NightMap(Night + 1);
-	if (!bDay && Next && FPackageName::DoesPackageExist(Next)) { UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL on to night %d"), Night + 1); UGameplayStatics::OpenLevel(this, FName(Next)); }
+	// run 77694: the next day's BEFORE THE DRIVE and THE WRAP on the Route 9 set come first (-brawlnodays: night to night)
+	if (!bDay && Next && !FParse::Param(FCommandLine::Get(), TEXT("brawlnodays")) && FPackageName::DoesPackageExist(TEXT("/Game/Brawl/Maps/L_Day1Set")))
+	{
+		UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL on to day %d"), Night + 1);
+		UGameplayStatics::OpenLevel(this, FName(TEXT("/Game/Brawl/Maps/L_Day1Set")), true, FString::Printf(TEXT("brawlday=%d"), Night + 1));
+	}
+	else if (!bDay && Next && FPackageName::DoesPackageExist(Next)) { UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL on to night %d"), Night + 1); UGameplayStatics::OpenLevel(this, FName(Next)); }
 	else { if (InCut()) EndCut(); Restart(); }
 }
 
@@ -1177,6 +1277,7 @@ FString AFTBrawlGameMode::NextLabel() const
 	if (UFTNightFlow::InCareer(this)) return UFTNightFlow::NextDay(this);
 #endif
 	const TCHAR* Next = NightMap(Night + 1);
+	if (Next && !FParse::Param(FCommandLine::Get(), TEXT("brawlnodays")) && FPackageName::DoesPackageExist(TEXT("/Game/Brawl/Maps/L_Day1Set"))) return FString::Printf(TEXT("DAY %d"), Night + 1);
 	return Next && FPackageName::DoesPackageExist(Next) ? NextVenue : FString();
 }
 
@@ -1204,6 +1305,7 @@ void AFTBrawlGameMode::Tick(float Dt)
 		PressKeys(K);
 	}
 	const FIn In = (bAuto || CVarAuto.GetValueOnGameThread()) ? AutoInput() : ReadInput();
+	BufferInput(In);
 	if (InCut())   // night 1's cutscenes play instead of the fight (FTBrawlCutscene.cpp)
 	{
 		const bool bBot = bAuto || CVarAuto.GetValueOnGameThread();
@@ -1226,6 +1328,7 @@ void AFTBrawlGameMode::Tick(float Dt)
 	if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
 		if (CamActor && PC->GetViewTarget() != CamActor) PC->SetViewTarget(CamActor);
 	PlaceMoon();
+	TickVenueAmbience(Dt);
 	// test hook: -brawlshots=<abs dir> saves the game view every 4 s as <dir>/shot_NN.png (look checks without an editor)
 	static FString ShotDir; static bool bShotInit = false; static float ShotT = 0; static int32 ShotN = 0;
 	static float ShotEvery = 4.f;
@@ -1258,14 +1361,18 @@ void AFTBrawlGameMode::SyncActors(float RealDt)
 		if (F.St == TEXT("dead")) bVis = F.Actor->HasSprite() ? (F.T < 0.5f || (int32(F.T * 14) % 2 == 0 && F.T < 1.3f))   // lies there, blinks out
 			: F.Actor->HasCast() ? F.T < 1.3f : (int32(F.T * 14) % 2 == 0 && F.T < 0.8f);
 		FName St = F.St;
+		if (F.bPlayer && St == TEXT("walk") && SustainedTravel >= 0.24f) St = TEXT("run");
+		float PoseTime = F.T;
+		if (F.bBoss) StyleBossPose(St, PoseTime);
 		if (F.bPlayer && bWon) St = TEXT("cheer");
 		if (F.bPlayer && F.Inv > 0 && F.St != TEXT("down")) bVis = int32(StT * 16) % 2 == 0;
 		F.Actor->SetActorLocationAndRotation(World(F.X, F.Y, F.Z), FRotator(0, F.Dir > 0 ? 0 : 180, 0));
 		F.Actor->SetActorScale3D(FVector(F.Actor->HasCast() ? 1.f : F.S / 2.05f));
-		F.Actor->Pose(St, F.T, F.Walk, F.Combo, Lean, F.Flash > 0 ? 0.7f : 0.f, bVis);
+		F.Actor->Pose(St, PoseTime, F.Walk, F.Combo, Lean, F.Flash > 0 ? 0.7f : 0.f, bVis);
 	};
 	Sync(P);
 	for (FFTBrawlBody& F : Foes) Sync(F);
+	SyncBossAccent();
 	SyncItems();
 	// blood drops, glass and bottles in flight
 	if (DropIsm && GlassIsm)
@@ -1412,7 +1519,7 @@ void AFTBrawlGameMode::SyncActors(float RealDt)
 		float Sx = 0, Sz = 0;
 		if (Shake > 0) { const float Tr = Shake * Shake * 10 * PX; Sx = FMath::Sin(StT * 61) * Tr; Sz = FMath::Cos(StT * 53) * Tr; }
 		const FVector Mid = World(Cam + W / 2, (FT + FB) / 2, 0);
-		CamActor->SetActorLocation(FVector(Mid.X + Sx, 1450.f, CamZ + Sz));
+		CamActor->SetActorLocation(FVector(Mid.X + Sx + BossEntranceCameraOffset(), 1450.f, CamZ + Sz));
 		// buzzed: the room sways a little
 		const float Sway = BuzzT > 0 ? FMath::Sin(StT * 1.6f) * 1.8f * FMath::Min(1.f, BuzzT) : 0.f;
 		CamActor->SetActorRotation(FRotator(-16.f + Sway * 0.3f, -90.f, Sway));
@@ -1517,6 +1624,7 @@ void AFTBrawlGameMode::BuildVenue()
 	UTexture* Floor = Tex(TEXT("/Game/Brawl/Backdrop/T_floor.T_floor"));
 	UTexture* Panels[3] = { Tex(TEXT("/Game/Brawl/Backdrop/T_bg_bar.T_bg_bar")), Tex(TEXT("/Game/Brawl/Backdrop/T_bg_games.T_bg_games")), Tex(TEXT("/Game/Brawl/Backdrop/T_bg_booths.T_bg_booths")) };
 	const bool bPainted = PaintM && SpriteM && PlaneM && Floor && Panels[0] && Panels[1] && Panels[2];
+	if (bPainted && !bDay) BuildVenueAmbience(X0, X1, -Back);
 	// the night pass (brawl_night.py): a dark dive bar lit by its neon and bar lamps, real windows onto the harbour
 	UMaterialInterface* Wall2DM = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Brawl/Materials/M_BrawlWall2D.M_BrawlWall2D"), nullptr, LOAD_Quiet | LOAD_NoWarn);
 	UMaterialInterface* OutM = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Brawl/Materials/M_BrawlOutside.M_BrawlOutside"), nullptr, LOAD_Quiet | LOAD_NoWarn);
@@ -1885,10 +1993,13 @@ void AFTBrawlGameMode::BuildVenue()
 		}
 		// the foreground: a pier post now and then between the camera and the fight (no shadow: it would cut across the
 		// whole floor), barrels and tables along the bottom edge
+		const float EarlEntryX = (ArenaEnd() + W + 80.f) * PX;
 		int32 Fi = 0;
 		for (float X = X0 + 2600.f; X < X1; X += 1450.f, Fi++)
 		{
-			if (Fi % 2 == 0) Prop(Post, X, 600.f, false, false);
+			// Leave the entrance sightline open at Earl's arena. The nearer post otherwise covers his entrance pose.
+			if (Fi % 2 == 0 && (Night != 1 || FMath::Abs(X - EarlEntryX) >= 360.f))
+				Prop(Post, X, 600.f, false, false);
 			if (Fi % 2 == 0) Prop(Barrel, X + 520.f, 470.f); else Prop(Table, X, 460.f, true);
 		}
 		// overhead: warm bar lamps every few metres, these cast the sprites' shadows on the planks
@@ -2156,6 +2267,11 @@ void AFTBrawlGameMode::SpawnPickups()
 void AFTBrawlGameMode::DropItem(int32 Kind, float X, float Y, int32 Uses, bool bHop, bool bDrop)
 {
 	if (LockX >= 0) X = FMath::Clamp(X, LockX + 40, LockX + W - 40);   // never out of reach past the locked screen's edge (run 52616)
+	if (GItems[Kind].Type == TY_WEAPON && Uses <= 0)
+	{
+		BreakItem(Kind, X, Y, 42.f, P.Dir);
+		return;
+	}
 	FFTBrawlItem It; It.Kind = Kind; It.X = X; It.Y = FMath::Clamp(Y, FT + 6, FB); It.Uses = Uses; It.bDrop = bDrop;
 	if (bHop) { It.Z = 30; It.Vz = 420; It.Vx = (Rand() - 0.5f) * 120; }
 	Items.Add(It);
@@ -2178,34 +2294,109 @@ void AFTBrawlGameMode::DropFrom(const FFTBrawlBody& F)
 
 int32 AFTBrawlGameMode::ItemAt() const
 {
-	if (P.Hp <= 0 || P.Z > 0) return INDEX_NONE;
-	int32 Best_ = INDEX_NONE; float Bd = 1e9f;
-	for (int32 i = 0; i < Items.Num(); i++)
+	if (bWon || bDay || InCut() || BossIntro > 0 || P.Hp <= 0 || P.Z > 0 ||
+		(P.St != TEXT("idle") && P.St != TEXT("walk"))) return INDEX_NONE;
+	int32 Nearest = INDEX_NONE;
+	float BestDistance = MAX_flt;
+	for (int32 Index = 0; Index < Items.Num(); ++Index)
 	{
-		const FFTBrawlItem& It = Items[i];
-		if (It.bThrown || It.Z > 1) continue;
-		const FItemDef& D = GItems[It.Kind];
-		float Dd = 1e9f;
-		if (It.bBar) { if (P.Y < FT + 40 && FMath::Abs(P.X - It.X) < 46) Dd = FMath::Abs(P.X - It.X); }
-		else if (D.Type == TY_WEAPON && FMath::Abs(P.X - It.X) < 44 && FMath::Abs(P.Y - It.Y) < 26) Dd = FMath::Abs(P.X - It.X) + FMath::Abs(P.Y - It.Y);
-		if (Dd < Bd) { Bd = Dd; Best_ = i; }
+		const FFTBrawlItem& Item = Items[Index];
+		if (Item.bThrown || Item.Z > 1.f) continue;
+		const float Dx = FMath::Abs(P.X - Item.X), Dy = FMath::Abs(P.Y - Item.Y);
+		const bool bReach = Item.bBar ? P.Y < FT + 40.f && Dx < 46.f
+			: GItems[Item.Kind].Type == TY_WEAPON && Item.Uses > 0 && Dx < 44.f && Dy < 26.f;
+		const float Distance = Item.bBar ? Dx : Dx + Dy;
+		if (bReach && Distance < BestDistance)
+		{
+			Nearest = Index;
+			BestDistance = Distance;
+		}
 	}
-	return Best_;
+	return Nearest;
+}
+
+bool AFTBrawlGameMode::CanWalkPickup() const
+{
+	return P.Hp > 0.f && P.Z < 20.f && P.St != TEXT("down") && P.St != TEXT("held");
+}
+
+int32 AFTBrawlGameMode::NearbyWalkPickup() const
+{
+	if (!CanWalkPickup()) return INDEX_NONE;
+	int32 Nearest = INDEX_NONE;
+	float BestDistance = MAX_flt;
+	for (int32 Index = 0; Index < Items.Num(); ++Index)
+	{
+		const FFTBrawlItem& Item = Items[Index];
+		const int32 Type = GItems[Item.Kind].Type;
+		if (Item.bThrown || Item.Z > 0.f || Item.Vz > 0.f || (Type != TY_FOOD && Type != TY_POWER)) continue;
+		const float Dx = FMath::Abs(P.X - Item.X), Dy = FMath::Abs(P.Y - Item.Y);
+		if (Dx < 98.f && Dy < 48.f && Dx + Dy < BestDistance)
+		{
+			Nearest = Index;
+			BestDistance = Dx + Dy;
+		}
+	}
+	return Nearest;
+}
+
+bool AFTBrawlGameMode::DescribeItem(const FFTBrawlItem& Item, FFTBrawlItemPresentation& Out) const
+{
+	if (Item.bThrown || Item.Z > 1.f || !Item.Actor.IsValid()) return false;
+	const FItemDef& Def = GItems[Item.Kind];
+	Out.Kind = Def.Type == TY_BEER ? EFTBrawlItemCue::Drink : Def.Type == TY_FOOD ? EFTBrawlItemCue::Food
+		: Def.Type == TY_POWER ? EFTBrawlItemCue::Power : EFTBrawlItemCue::Weapon;
+	Out.Feet = Item.bBar ? Item.BarAt : World(Item.X, Item.Y, 1.f);
+	Out.Top = Out.Feet + FVector(0, 0, Def.Cm + 10.f);
+	const float Distance = FMath::Abs(Item.X - P.X) + FMath::Abs(Item.Y - P.Y);
+	Out.Strength = FMath::Clamp(1.f - (Distance - 160.f) / 560.f, 0.24f, 1.f);
+	if (Item.bDrop && Item.T > DropLife - 3.f)
+		Out.Strength *= 0.6f + 0.4f * FMath::Clamp((DropLife - Item.T) / 3.f, 0.f, 1.f);
+	return true;
+}
+
+bool AFTBrawlGameMode::UseGroundItem()
+{
+	const int32 Index = ItemAt();
+	if (Index == INDEX_NONE) return false;
+	const FFTBrawlItem Item = Items[Index];
+	if (Item.Actor.IsValid()) Item.Actor->Destroy();
+	Items.RemoveAt(Index);
+	Sfx(TEXT("pickup"), 0.6f, Item.bBar ? 1.25f : 1.f);
+	if (Item.bBar)
+	{
+		P.St = TEXT("drink"); P.T = 0; P.Dir = 1;
+		UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL grab beer off the bar x=%.0f (%s)"), Item.X, GItems[Item.Kind].Name);
+	}
+	else
+	{
+		if (Held >= 0) DropItem(Held, P.X - P.Dir * 24, P.Y, HeldUses, true, false);
+		Held = Item.Kind; HeldUses = Item.Uses; P.St = TEXT("pickup"); P.T = 0;
+		UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL pickup %s uses=%d"), GItems[Held].Name, HeldUses);
+	}
+	return true;
+}
+
+void AFTBrawlGameMode::BreakItem(int32 Kind, float X, float Y, float Z, float Dir)
+{
+	const bool bGlass = IsGlass(Kind);
+	Bleed(X, Y, FMath::Max(Z, 4.f), Dir, bGlass ? 22 : 18, bGlass ? 0.9f : 0.8f, bGlass, !bGlass);
+	Pop(X, Y, Z + 28.f, bGlass ? TEXT("SHATTERED") : TEXT("BROKEN"), FLinearColor(1.f, 0.78f, 0.4f));
 }
 
 void AFTBrawlGameMode::BreakHeld()
 {
 	if (Held < 0) return;
-	const float Hz = 110;
-	if (IsGlass(Held)) Bleed(P.X + P.Dir * 50, P.Y, Hz, P.Dir, 22, 0.9f, true);   // smashes over somebody
-	else Bleed(P.X + P.Dir * 50, P.Y, Hz, P.Dir, 18, 0.8f, false, true);              // splinters
+	BreakItem(Held, P.X + P.Dir * 50.f, P.Y, 110.f, P.Dir);
 	Shake = FMath::Min(1.f, Shake + 0.3f);
+	Sfx(IsGlass(Held) ? TEXT("glass") : TEXT("break"), 0.9f, IsGlass(Held) ? 1.15f : 1.f);
 	UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL weapon broke %s"), GItems[Held].Name);
 	Held = -1; HeldUses = 0;
 }
 
 void AFTBrawlGameMode::StepItems(float Dt)
 {
+	if (Held >= 0 && HeldUses <= 0 && P.St != TEXT("wpn")) BreakHeld();
 	if (PowerT > 0) PowerT -= Dt;
 	if (ToughT > 0) ToughT -= Dt;
 	if (BuzzT > 0) BuzzT -= Dt;
@@ -2226,13 +2417,14 @@ void AFTBrawlGameMode::StepItems(float Dt)
 				if (!Standing(F)) continue;
 				if (FMath::Abs(F.X - It.X) < 44 && FMath::Abs(F.Y - It.Y) < 28)
 				{
+					ImpactSfx(It.Kind);
 					const float SaveDir = P.Dir; P.Dir = Sg; HitFoe(F, D.Dmg * 1.4f * (PowerT > 0 ? 1.5f : 1.f), true); P.Dir = SaveDir;
 					bHit = true; UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL thrown %s hit %s"), D.Name, *F.K.Role.ToString()); break;
 				}
 			}
 			if (bHit || It.T > 0.7f || It.X < Lo - 60 || It.X > Hi + 60)
 			{
-				if (IsGlass(It.Kind) || It.Uses <= 1) { Bleed(It.X, It.Y, It.Z, Sg, 18, 0.8f, IsGlass(It.Kind), !IsGlass(It.Kind)); bGone = true; }
+				if (IsGlass(It.Kind) || It.Uses <= 1) { BreakItem(It.Kind, It.X, It.Y, It.Z, Sg); bGone = true; }
 				else { It.bThrown = false; It.Uses--; It.Vx = -Sg * 90; It.Vz = 260; It.Spin = 0; It.X = FMath::Clamp(It.X, Lo, Hi); }
 			}
 		}
@@ -2241,9 +2433,10 @@ void AFTBrawlGameMode::StepItems(float Dt)
 			It.Vz -= 1500 * Dt; It.Z += It.Vz * Dt; It.X += It.Vx * Dt;
 			if (It.Z <= 0) { It.Z = 0; It.Vz = 0; It.Vx = 0; }
 		}
-		else if ((D.Type == TY_FOOD || D.Type == TY_POWER) && P.Hp > 0 && P.Z < 20 && P.St != TEXT("down") && P.St != TEXT("held")
+		else if ((D.Type == TY_FOOD || D.Type == TY_POWER) && CanWalkPickup()
 			&& FMath::Abs(P.X - It.X) < 36 && FMath::Abs(P.Y - It.Y) < 24)
 		{
+			Sfx(TEXT("powerup"), 0.6f, It.Kind == IT_HOTDOG ? 0.9f : 1.f);
 			if (It.Kind == IT_HOTDOG) { const float H0 = P.Hp; P.Hp = FMath::Min(P.Max, P.Hp + 40); Pop(P.X, P.Y, 170, TEXT("+HP"), FLinearColor(0.62f, 0.91f, 0.44f)); UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL eat %s hp=%.0f->%.0f"), D.Name, H0, P.Hp); }
 			else if (It.Kind == IT_KNUCKS) { PowerT = PowerTime; Pop(P.X, P.Y, 170, TEXT("POWER!"), FLinearColor(1.f, 0.82f, 0.25f), true); UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL power %s %.0fs"), D.Name, PowerTime); }
 			else if (It.Kind == IT_JACKET) { ToughT = PowerTime; Pop(P.X, P.Y, 170, TEXT("TOUGH!"), FLinearColor(0.21f, 0.95f, 1.f), true); UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL power %s %.0fs"), D.Name, PowerTime); }
@@ -2291,22 +2484,43 @@ void AFTBrawlGameMode::PlaceItem(AActor* A, int32 Kind, const FVector& Anchor, f
 
 void AFTBrawlGameMode::SyncItems()
 {
-	const float Pulse = 0.22f + 0.16f * (0.5f + 0.5f * FMath::Sin(StT * 5.f));   // pickups glow a little so they read in the dark bar
-	for (FFTBrawlItem& It : Items)
+	const int32 PressFocus = ItemAt();
+	const int32 Focus = PressFocus != INDEX_NONE ? PressFocus : NearbyWalkPickup();
+	for (int32 Index = 0; Index < Items.Num(); ++Index)
 	{
+		FFTBrawlItem& It = Items[Index];
 		if (!It.Actor.IsValid()) It.Actor = ItemActor(It.Kind);
 		AStaticMeshActor* A = It.Actor.Get();
 		if (!A) continue;
 		const FItemDef& D = GItems[It.Kind];
-		const bool bBlink = It.bDrop && It.T > DropLife - 3.f && int32(It.T * 10) % 2;
-		A->SetActorHiddenInGame(bBlink);
-		if (It.bBar) PlaceItem(A, It.Kind, It.BarAt, 512, 1000, 0, false, Pulse);
-		else if (It.bThrown) PlaceItem(A, It.Kind, World(It.X, It.Y, It.Z), D.Gu, D.Gv, (It.Vx > 0 ? -1.f : 1.f) * It.Spin, It.Vx < 0, 0.3f);
-		else PlaceItem(A, It.Kind, World(It.X, It.Y, It.Z), 512, 1000, (It.Kind == IT_CUE || It.Kind == IT_MIC || It.Kind == IT_RAKE) ? -8.f : 0.f, false, Pulse);
+		const float Pulse = 0.04f * FMath::Sin(StT * 4.f + It.X * 0.013f);
+		const float Glow = (Index == Focus ? 0.68f : (D.Type == TY_WEAPON ? 0.33f : 0.44f)) + Pulse;
+		if (It.bBar) PlaceItem(A, It.Kind, It.BarAt, 512, 1000, 0, false, Glow);
+		else if (It.bThrown) PlaceItem(A, It.Kind, World(It.X, It.Y, It.Z), D.Gu, D.Gv, (It.Vx > 0 ? -1.f : 1.f) * It.Spin, It.Vx < 0, 0.42f);
+		else PlaceItem(A, It.Kind, World(It.X, It.Y, It.Z), 512, 1000, (It.Kind == IT_CUE || It.Kind == IT_MIC || It.Kind == IT_RAKE) ? -8.f : 0.f, false, Glow);
 	}
 	// in his hand: where the fist is in the frame he shows (ArtSource/frames/nova_*), the angle the state swings it to
 	auto Hand = [this](float& Hx, float& Hy)
 	{
+		static const TMap<FName, FVector2D> GripByFrame = {
+			{ TEXT("T_nova_walkdown"), { 636, 642 } }, { TEXT("T_nova_walkpass"), { 622, 640 } },
+			{ TEXT("T_nova_walklift"), { 638, 637 } }, { TEXT("T_nova_walkpush"), { 620, 632 } },
+			{ TEXT("T_nova_stepstart"), { 630, 618 } }, { TEXT("T_nova_stepstop"), { 635, 641 } },
+			{ TEXT("T_nova_turn"), { 569, 614 } }, { TEXT("T_nova_takeoff"), { 580, 624 } },
+			{ TEXT("T_nova_jumpfall"), { 632, 649 } }, { TEXT("T_nova_jumpkickout"), { 691, 720 } },
+			{ TEXT("T_nova_liftload"), { 630, 853 } }, { TEXT("T_nova_overheadaim"), { 432, 394 } },
+			{ TEXT("T_nova_bashrecover"), { 628, 681 } }, { TEXT("T_nova_hurtrecover"), { 612, 560 } },
+			{ TEXT("T_nova_landing"), { 632, 637 } },
+		};
+		if (P.Actor)
+		{
+			if (const FVector2D* Grip = GripByFrame.Find(P.Actor->CurrentSpriteFrame()))
+			{
+				Hx = Grip->X;
+				Hy = Grip->Y;
+				return;
+			}
+		}
 		const FName S = P.St;
 		if (S == TEXT("walk")) { Hx = 622; Hy = 630; }
 		else if (S == TEXT("jump") || S == TEXT("jumpkick")) { Hx = 614; Hy = 665; }
@@ -2319,7 +2533,12 @@ void AFTBrawlGameMode::SyncItems()
 	};
 	const bool bFlip = P.Dir < 0;
 	const bool bShow = P.Actor && !P.Actor->IsHidden() && P.St != TEXT("down") && P.Hp > 0;
-	auto HandAt = [&](float Hx, float Hy) { return World(P.X, P.Y, P.Z) + FVector(P.Dir * (Hx - 512.f) * NovaCmPerPx, 4.f, (1000.f - Hy) * NovaCmPerPx); };
+	auto HandAt = [&](float Hx, float Hy)
+	{
+		FVector Position;
+		if (P.Actor && P.Actor->SpritePixelToWorld(FVector2D(Hx, Hy), Position)) return Position + FVector(0, 4, 0);
+		return World(P.X, P.Y, P.Z) + FVector(P.Dir * (Hx - 512.f) * NovaCmPerPx, 4.f, (1000.f - Hy) * NovaCmPerPx);
+	};
 	if (Held >= 0 && bShow && P.St != TEXT("drink") && !(P.St == TEXT("toss") && P.T >= 0.14f))
 	{
 		if (!HeldA || HeldA->Tags.Num() == 0 || HeldA->Tags[0] != FName(*FString::FromInt(Held))) { if (HeldA) HeldA->Destroy(); HeldA = ItemActor(Held); }
@@ -2383,6 +2602,7 @@ void AFTBrawlGameMode::Hurl()
 	if (!G) return;
 	G->St = TEXT("hurled"); G->T = 0; G->HitIds.Reset();
 	G->X = P.X + P.Dir * 30; G->Y = P.Y; G->Z = 108; G->Vx = P.Dir * 720; G->Vz = 230; G->Dir = P.Dir;
+	CombatCue(ECombatCue::Throw, World(G->X, G->Y + 8.f, G->Z), P.Dir);
 	Shake = FMath::Min(1.f, Shake + 0.3f);
 	UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL hurl %s dir=%.0f"), *G->K.Role.ToString(), P.Dir);
 }
@@ -2404,6 +2624,7 @@ void AFTBrawlGameMode::StepHurled(FFTBrawlBody& F, float Dt)
 		if (FMath::Abs(O.X - F.X) < (O.bBoss ? 62.f : 50.f) && FMath::Abs(O.Y - F.Y) < (O.bBoss ? 36.f : 30.f) && F.Z < 160)
 		{
 			F.HitIds.Add(O.Id);
+			Sfx(TEXT("punchbig"), 0.9f, 0.8f);
 			const float SaveDir = P.Dir; P.Dir = Sg; HitFoe(O, 14 * (BuzzT > 0 ? 1.25f : 1.f), true); P.Dir = SaveDir;   // knocked flying the way the body goes
 			F.Vx *= 0.75f;
 			UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL hurl hit %s (thrown %s) hp=%.0f"), *O.K.Role.ToString(), *F.K.Role.ToString(), O.Hp);
@@ -2417,7 +2638,8 @@ void AFTBrawlGameMode::StepHurled(FFTBrawlBody& F, float Dt)
 	if (F.Z <= 0 && F.T > 0.05f)
 	{
 		F.Z = 0; F.St = TEXT("down"); F.T = 0; F.Hp -= 16; F.Flash = 0.12f;
-		Shake = FMath::Min(1.f, Shake + 0.5f);
+		CombatCue(ECombatCue::Finish, World(F.X, F.Y + 8.f, 20.f), F.Dir);
+		Shake = FMath::Min(1.f, Shake + 0.5f); Sfx(TEXT("down"), 1.f, 0.9f); Rumble(0.6f, 0.22f, TEXT("down"));
 		Bleed(F.X, F.Y, 40, Sg, 22, 1.2f);
 		UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL hurl land %s hp=%.0f hits=%d"), *F.K.Role.ToString(), F.Hp, F.HitIds.Num());
 	}
@@ -2429,16 +2651,64 @@ void AFTBrawlGameMode::PressKeys(const FIn& In)
 {
 	APlayerController* PC = GetWorld()->GetFirstPlayerController();
 	if (!PC) return;
-	static TMap<FName, bool> Down;
-	auto Key = [PC](const FKey& K, bool bOn)
+	auto Key = [this, PC](const FKey& K, bool bOn)
 	{
-		bool& D = Down.FindOrAdd(K.GetFName());
-		if (D == bOn) return;
-		D = bOn;
+		if (TestKeysDown.Contains(K.GetFName()) == bOn) return;
+		if (bOn) TestKeysDown.Add(K.GetFName()); else TestKeysDown.Remove(K.GetFName());
 		PC->InputKey(FInputKeyEventArgs::CreateSimulated(K, bOn ? IE_Pressed : IE_Released, bOn ? 1.f : 0.f));
 		if (K == EKeys::L && bOn) UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL key L"));
 	};
-	Key(EKeys::Right, In.Steer > 0.1f); Key(EKeys::Left, In.Steer < -0.1f);
-	Key(EKeys::Up, In.Throttle > 0.1f); Key(EKeys::Down, In.Throttle < -0.1f);
-	Key(EKeys::J, In.Fire); Key(EKeys::K, In.Kick); Key(EKeys::L, In.Grab); Key(EKeys::SpaceBar, In.Jump); Key(EKeys::Enter, In.Enter);
+	Key(bPadTest ? EKeys::Gamepad_DPad_Right : EKeys::Right, In.Steer > 0.1f);
+	Key(bPadTest ? EKeys::Gamepad_DPad_Left : EKeys::Left, In.Steer < -0.1f);
+	Key(bPadTest ? EKeys::Gamepad_DPad_Up : EKeys::Up, In.Throttle > 0.1f);
+	Key(bPadTest ? EKeys::Gamepad_DPad_Down : EKeys::Down, In.Throttle < -0.1f);
+	Key(bPadTest ? EKeys::Gamepad_FaceButton_Left : EKeys::J, In.Fire);
+	Key(bPadTest ? EKeys::Gamepad_FaceButton_Top : EKeys::K, In.Kick);
+	Key(bPadTest ? EKeys::Gamepad_FaceButton_Right : EKeys::L, In.Grab);
+	Key(bPadTest ? EKeys::Gamepad_FaceButton_Bottom : EKeys::SpaceBar, In.Jump);
+	Key(bPadTest ? EKeys::Gamepad_Special_Right : EKeys::Enter, In.Enter);
+}
+
+// ---------------------------------------------------------------- fight-night polish (run 38222; owner, 15 Nov: "in the fight scenes we
+// need to add gamepad rumble. We need soundfx as well"). Sounds: original, synthesized (beat-em-up-unreal/Tools/brawl_sfx_synth.py),
+// played 2D with a little pitch spread so a combo doesn't machine-gun; the M mute (master volume) covers them. Rumble: the pad's
+// motors through the player controller (a no-op without a pad); a bigger one cuts in on a smaller one, smaller ones within 80 ms
+// of the last are dropped. The races' own rumble is AFTGameMode::Shake (loop cycle 9); the nights had none.
+void AFTBrawlGameMode::Sfx(const TCHAR* Name, float Vol, float Pitch)
+{
+	if (InCut()) return;
+	const FName Key(Name);
+	TObjectPtr<USoundBase>* Found = Sounds.Find(Key);
+	USoundBase* S = Found ? Found->Get() : nullptr;
+	if (!Found)
+	{
+		const FString Path = FString::Printf(TEXT("/Game/Brawl/Audio/SFX/S_brawl_%s.S_brawl_%s"), Name, Name);
+		S = LoadObject<USoundBase>(nullptr, *Path, nullptr, LOAD_Quiet | LOAD_NoWarn);
+		Sounds.Add(Key, S);
+		if (!S) UE_LOG(LogFTBrawl, Warning, TEXT("FTBRAWL sfx missing %s (import beat-em-up-unreal/Docs/audio/sfx: Content/Python/brawl_audio.py)"), *Path);
+	}
+	if (!S) return;
+	UGameplayStatics::PlaySound2D(this, S, Vol, Pitch * FMath::FRandRange(0.95f, 1.05f));   // looks only: not the fight's seeded stream
+	NSfx++;
+	UE_LOG(LogFTBrawl, Verbose, TEXT("FTBRAWL sfx %s vol=%.2f n=%d"), Name, Vol, NSfx);
+}
+
+void AFTBrawlGameMode::ImpactSfx(int32 Kind)
+{
+	if (IsGlass(Kind)) Sfx(TEXT("glass"), 0.7f, 1.3f);
+	else if (Kind == IT_PAN || Kind == IT_BUCKET || Kind == IT_CASHBOX || Kind == IT_MIC) Sfx(TEXT("metal"), 0.75f, Kind == IT_MIC ? 1.3f : (Kind == IT_PAN ? 1.f : 0.85f));
+	else Sfx(TEXT("wood"), 0.95f, Kind == IT_CUE || Kind == IT_RAKE ? 1.25f : 0.9f);   // a cue cracks higher than a stool
+}
+
+void AFTBrawlGameMode::Rumble(float Intensity, float Dur, const TCHAR* Why)
+{
+	if (InCut() || Intensity <= 0) return;
+	const double Now = FPlatformTime::Seconds();
+	if (Now - RumbleAt < 0.08 && Intensity <= RumbleI) return;
+	APlayerController* PC = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+	if (!PC) return;
+	FLatentActionInfo Li; Li.CallbackTarget = this; Li.UUID = 38222; Li.Linkage = 0;   // one channel: a new rumble replaces the last
+	PC->PlayDynamicForceFeedback(FMath::Clamp(Intensity, 0.f, 1.f), Dur, true, true, true, true, EDynamicForceFeedbackAction::Start, Li);
+	RumbleAt = Now; RumbleI = Intensity; NRumble++;
+	UE_LOG(LogFTBrawl, Verbose, TEXT("FTBRAWL rumble %s intensity=%.2f dur=%.2f n=%d out=%.2f"), Why, Intensity, Dur, NRumble, PC->ForceFeedbackValues.LeftLarge);
 }

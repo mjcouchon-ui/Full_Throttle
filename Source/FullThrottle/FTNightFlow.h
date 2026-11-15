@@ -31,4 +31,25 @@ public:
 	static FString NextDay(const UObject* Ctx);
 	/** From the brawl, when the night is over: PRE-PRODUCTION for the next level (on the finished level's map). False if not in the career. */
 	static bool NightOver(const UObject* Ctx);
+
+	// Day 1's cutscene BEFORE THE DRIVE (map L_Day1Set, FTBrawlCutscene.cpp cut 10) before L1 BAYSHORE when the career
+	// starts from the title (owner's queue, 15 Nov). Off with -ftnoday1 / -ftnonights and in benches.
+	/** True while day 1's cutscene runs as the career's opening (its ENTER then starts the race, not night 1). */
+	bool bDay1 = false;
+	/** From the title, level 1 picked: opens L_Day1Set and returns true, or false (no map, a bench, turned off). */
+	static bool GoToDay1(const UObject* Ctx);
+	static bool InDay1(const UObject* Ctx);
+	/** From the cutscene's last card: L1 BAYSHORE opens and its race starts, as the title's start did. False if not from the title. */
+	static bool Day1Over(const UObject* Ctx);
+
+	// Every day (run 77694): BEFORE THE DRIVE before its race (PRE-PRODUCTION's READY) and THE WRAP after it (the paycheck,
+	// before the night), on the same map; FTBrawlCutscene.cpp cuts 10 / 11. bDay1 = a day's cutscene runs for the career.
+	// Off with -ftnodays / -ftnonights, in benches, and in autopilot / script runs unless -ftdays.
+	int32 DayLevel = -1; bool bDayWrap = false;
+	/** Opens the set for level L's (0-based) BEFORE THE DRIVE or THE WRAP; false if it doesn't play (then go on as before). */
+	static bool GoToDayCut(const UObject* Ctx, int32 L, bool bWrap);
+	/** For the brawl's game mode on the set: which day (1-8) and which cutscene the career asked for. */
+	static bool DayCutNow(const UObject* Ctx, int32& Day, bool& bWrap);
+	/** From the day's end card: BEFORE -> the race starts; THE WRAP -> the night (or PRE-PRODUCTION when there is none). */
+	static bool DayCutOver(const UObject* Ctx);
 };

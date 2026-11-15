@@ -39,6 +39,8 @@ public:
 	bool SetSprite(const FString& Who, float HeightCm, const FLinearColor& Tint = FLinearColor::White);
 	bool HasSprite() const { return Sprite != nullptr; }
 	bool HasFrame(FName N) const { return Frames.Contains(N); }   // cutscenes: pick a pose the sheet has (run 32365)
+	FName CurrentSpriteFrame() const;
+	bool SpritePixelToWorld(const FVector2D& Pixel, FVector& Point) const;
 	void SetTint(const FLinearColor& C);   // multiplies the paint (power-up glow)
 	void SetEnemyPresentation(const FString& Who, FName FighterRole);
 	// Pose: state name as in brawl.js, t = time in state, walk phase, lean in degrees (+ = backwards), flash 0..1
@@ -68,7 +70,12 @@ private:
 	UPROPERTY() TMap<FName, TObjectPtr<UTexture>> Frames;
 	UPROPERTY() TObjectPtr<UTexture> CurFrame;
 	bool bEnemySprite = false;
+	bool bCardDealerSprite = false;
 	float EnemyRim = -1.f;
+	FName LastSpriteState, PreviousSpriteState;
+	float SpriteStateStarted = 0.f;
+	float TurnStarted = -1.f;
+	bool bSpriteFacesRight = true;
 	UTexture* Frame(std::initializer_list<const TCHAR*> Names) const;
 	void PoseSprite(FName St, float T, float Walk, int32 Combo, float LeanDeg, float Flash, bool bVisible);
 };

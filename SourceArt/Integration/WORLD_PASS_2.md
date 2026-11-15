@@ -81,8 +81,10 @@ Before and after, from one build: `K:\Full Throttle\SkyScratch\HandBack\jam\dres
 
 Still weak here:
 - Panels are flat and 11 m long: at a lap a faint tick shows where two meet, most on Ice Mountain's snow.
-- The Volcano's and the Chemical Works' are the brightest thing near the road on a dark level. They are unlit; if
-  they pull the eye, the body colour is one word in each kit (`cut_basalt`, `cut_ash`, `cut_revet`).
+- The Chemical Works' facing is the brightest thing near the road on a dark level. It is unlit; if it pulls the eye,
+  the slab colour is one word in the kit (`cut_revet`). The Volcano's columns and ash were darkened once after the
+  first real-game frames: under the game's own light they stood as the palest big thing on screen (the editor's
+  captures are darker than the game and had hidden it).
 - Under the Sea is now over the pass's guide of 8,000 placed pieces (8,095). Frame time is still not measured.
 - The Chemical Works' finale: the 50 bare lengths are where a panel's box came within 15 m of the other lap. The
   test is cautious (a box round a tilted panel); a finer one would fill most of them.

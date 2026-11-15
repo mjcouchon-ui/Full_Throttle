@@ -35,5 +35,6 @@ private:
 	void Callout(const FString& Str, float Cx, float Y, const FLinearColor& Accent, float Height, float A = 1.f);
 	void Card(const FString& Title, const FString& Sub, const FString& Keys, const FLinearColor& Accent, float A = 1.f);
 	void DrawCut(class AFTBrawlGameMode* G);   // night 1's cutscenes: letterbox, dialogue box, title cards, flash, the end card
+	void DrawItemCues(const class AFTBrawlGameMode& Game);
 	TArray<FString> Wrap(const FString& Str, float MaxW, float Height, bool bDisplay);
 };

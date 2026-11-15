@@ -7,6 +7,8 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
 #include "Engine/Texture.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 
 // colour slots: 0 skin, 1 shirt, 2 pants, 3 hair
 AFTBrawlFighter::AFTBrawlFighter()
@@ -202,7 +204,14 @@ namespace
 		TEXT("draw"), TEXT("aim"), TEXT("fire"),                           // the Pit Boss's revolver (run 52616)
 		// nights 4-7 (run 32365): Flambe Frankie's fire breath, the Kingpin's bowling, Big Sven's bear hug, the Commodore's
 		// anchor; sad = the boss beaten, in the LAST CALL cutscene
-		TEXT("swig"), TEXT("breathe"), TEXT("hold"), TEXT("bowl"), TEXT("gloves"), TEXT("lunge"), TEXT("hug"), TEXT("windup"), TEXT("sweep"), TEXT("sad") };
+		TEXT("swig"), TEXT("breathe"), TEXT("hold"), TEXT("bowl"), TEXT("gloves"), TEXT("lunge"), TEXT("hug"), TEXT("windup"), TEXT("sweep"), TEXT("sad"),
+		TEXT("intro"), TEXT("intro2"), TEXT("defeat"), TEXT("signatureprep"), TEXT("signaturefollow"),
+		TEXT("walkdown"), TEXT("walkpass"), TEXT("walklift"), TEXT("walkpush"), TEXT("walkload"),
+		TEXT("runpush"), TEXT("runland"), TEXT("runpass"), TEXT("stepstart"), TEXT("stepstop"), TEXT("turn"),
+		TEXT("takeoff"), TEXT("landing"), TEXT("jumpfall"), TEXT("jumpkickout"),
+		TEXT("jabprep"), TEXT("jabrecover"), TEXT("crossprep"), TEXT("crossrecover"), TEXT("upperprep"), TEXT("upperrecover"),
+		TEXT("kickchamber"), TEXT("kickrecover"), TEXT("hurtrecover"), TEXT("liftload"), TEXT("overheadaim"),
+		TEXT("bashrecover"), TEXT("strikefollow"), TEXT("strikefollowalt") };
 	const float FramePx = 1024.f, FeetPx = 1000.f, StandPx = 600.f;
 }
 
@@ -218,6 +227,7 @@ bool AFTBrawlFighter::SetSprite(const FString& Who, float HeightCm, const FLinea
 		if (UTexture* Tx = LoadObject<UTexture>(nullptr, *A, nullptr, LOAD_Quiet | LOAD_NoWarn)) Frames.Add(FName(N), Tx);
 	}
 	if (!Frames.Contains(TEXT("idle"))) { Frames.Reset(); return false; }
+	bCardDealerSprite = Who == TEXT("Dealer");
 	Sprite = NewObject<UStaticMeshComponent>(this, TEXT("Sprite"));
 	Sprite->SetupAttachment(Body);
 	Sprite->SetStaticMesh(Plane);
@@ -294,13 +304,51 @@ UTexture* AFTBrawlFighter::Frame(std::initializer_list<const TCHAR*> Names) cons
 	return Frames.FindRef(TEXT("idle"));
 }
 
+FName AFTBrawlFighter::CurrentSpriteFrame() const
+{
+	return CurFrame ? CurFrame->GetFName() : NAME_None;
+}
+
+bool AFTBrawlFighter::SpritePixelToWorld(const FVector2D& Pixel, FVector& Point) const
+{
+	if (!Sprite || !Body) return false;
+	const double CmPerPx = Sprite->GetRelativeScale3D().X * (100.0 / FramePx);
+	Point = Body->GetComponentTransform().TransformPosition(
+		FVector((Pixel.X - FramePx * 0.5) * CmPerPx, 0.0, (FeetPx - Pixel.Y) * CmPerPx));
+	return true;
+}
+
 void AFTBrawlFighter::PoseSprite(FName St, float T, float Walk, int32 Combo, float LeanDeg, float Flash, bool bVisible)
 {
 	SetActorHiddenInGame(!bVisible);
 	const FString S = St.ToString();
+	if (St != LastSpriteState || T < SpriteStateStarted)
+	{
+		PreviousSpriteState = LastSpriteState;
+		LastSpriteState = St;
+		SpriteStateStarted = T;
+		TurnStarted = -1.f;
+	}
+	const float StateAge = T - SpriteStateStarted;
+	const bool bFacesRight = GetActorForwardVector().X >= 0.f;
+	if (bFacesRight != bSpriteFacesRight && S == TEXT("walk")) TurnStarted = T;
+	bSpriteFacesRight = bFacesRight;
 	auto Cycle = [&](float Phase) -> UTexture*
 	{
 		const float F = FMath::Frac(Phase);
+		if (HasFrame(TEXT("walkdown")))
+		{
+			static const TCHAR* Steps[] = { TEXT("walk1"), TEXT("walkdown"), TEXT("walk2"), TEXT("walkpass"),
+				TEXT("walk3"), TEXT("walklift"), TEXT("walk2"), TEXT("walkpush") };
+			constexpr int32 Count = UE_ARRAY_COUNT(Steps);
+			return Frame({ Steps[FMath::Clamp(int32(F * Count), 0, Count - 1)] });
+		}
+		if (HasFrame(TEXT("walkload")))
+		{
+			static const TCHAR* Steps[] = { TEXT("walk1"), TEXT("walkload"), TEXT("walk2"), TEXT("walkpass") };
+			constexpr int32 Count = UE_ARRAY_COUNT(Steps);
+			return Frame({ Steps[FMath::Clamp(int32(F * Count), 0, Count - 1)] });
+		}
 		if (Frames.Contains(TEXT("walk3")))
 		{
 			static const TCHAR* Four[] = { TEXT("walk1"), TEXT("walk2"), TEXT("walk3"), TEXT("walk2") };
@@ -310,8 +358,34 @@ void AFTBrawlFighter::PoseSprite(FName St, float T, float Walk, int32 Combo, flo
 	};
 	UTexture* Tx = nullptr;
 	float Lean = 0.f, Squash = 1.f;
-	if (S == TEXT("walk")) Tx = Cycle(Walk);
+	if ((S == TEXT("walk") || S == TEXT("idle")) && HasFrame(TEXT("landing")) && StateAge < 0.09f
+		&& (PreviousSpriteState == TEXT("jump") || PreviousSpriteState == TEXT("jumpkick")))
+		Tx = Frame({ TEXT("landing") });
+	else if (S == TEXT("walk") && TurnStarted >= 0.f && T - TurnStarted < 0.065f && HasFrame(TEXT("turn")))
+		Tx = Frame({ TEXT("turn") });
+	else if (S == TEXT("walk") && StateAge < 0.07f && PreviousSpriteState == TEXT("idle") && HasFrame(TEXT("stepstart")))
+		Tx = Frame({ TEXT("stepstart") });
+	else if (S == TEXT("idle") && StateAge < 0.09f && PreviousSpriteState == TEXT("walk") && HasFrame(TEXT("stepstop")))
+		Tx = Frame({ TEXT("stepstop") });
+	else if (S == TEXT("walk")) Tx = Cycle(Walk);
+	else if ((S == TEXT("run") || S == TEXT("dash")) && HasFrame(TEXT("runpush")))
+	{
+		const int32 Step = FMath::FloorToInt(FMath::Max(T, 0.f) / 0.075f) % 4;
+		if (Step == 0) Tx = Frame({ TEXT("runpush"), TEXT("run") });
+		else if (Step == 1) Tx = Frame({ TEXT("run") });
+		else if (Step == 2) Tx = Frame({ TEXT("runland"), TEXT("run") });
+		else Tx = Frame({ TEXT("runpass"), TEXT("runpush"), TEXT("run") });
+	}
 	else if (S == TEXT("run") || S == TEXT("dash") || S == TEXT("charge")) Tx = Frames.Contains(TEXT("run")) ? Frame({ TEXT("run") }) : Frames.Contains(TEXT("kick")) ? Frame({ TEXT("kick") }) : Cycle(T * 3.f);
+	else if (S == TEXT("intro") || S == TEXT("intro2")) Tx = Frame({ S == TEXT("intro") ? TEXT("intro") : TEXT("intro2"), TEXT("intro"), TEXT("taunt"), TEXT("idle") });
+	else if (S == TEXT("defeat")) Tx = Frame({ TEXT("defeat"), TEXT("down") });
+	else if (S == TEXT("signaturefollow")) Tx = Frame({ TEXT("signaturefollow"), TEXT("idle") });
+	else if (T < 0.29f && HasFrame(TEXT("signatureprep")) && (S == TEXT("whirltell") || S == TEXT("draw") ||
+		S == TEXT("swig") || S == TEXT("hold") || S == TEXT("gloves") || S == TEXT("windup") || S == TEXT("slamwind")))
+		Tx = Frame({ TEXT("signatureprep") });
+	else if (HasFrame(TEXT("signaturefollow")) && ((T >= 0.16f && (S == TEXT("slam") || S == TEXT("sweep"))) ||
+		(T >= 0.33f && S == TEXT("bowl")) || (T >= 0.23f && (S == TEXT("lunge") || S == TEXT("breathe")))))
+		Tx = Frame({ TEXT("signaturefollow") });
 	else if (S == TEXT("whirltell")) Tx = Frame({ TEXT("taunt"), TEXT("wind") });                           // Vinnie points at the sky: the spotlight finds him
 	else if (S == TEXT("whirl")) Tx = int32(T / 0.09f) % 2 ? Frame({ TEXT("spinb"), TEXT("kick") }) : Frame({ TEXT("spin"), TEXT("kick") });
 	else if (S == TEXT("draw")) Tx = T < 0.3f ? Frame({ TEXT("draw"), TEXT("wind") }) : Frame({ TEXT("aim"), TEXT("wind") });   // the Pit Boss draws, then holds the aim
@@ -326,27 +400,64 @@ void AFTBrawlFighter::PoseSprite(FName St, float T, float Walk, int32 Combo, flo
 	else if (S == TEXT("windup")) Tx = Frame({ TEXT("windup"), TEXT("wind") });
 	else if (S == TEXT("sweep")) Tx = Frame({ TEXT("sweep"), TEXT("bash"), TEXT("punch") });
 	else if (S == TEXT("dizzy")) { Tx = Frame({ TEXT("dizzy"), TEXT("hurt") }); Lean = FMath::Sin(T * 9.f) * 7.f; }
-	else if (S == TEXT("punch")) Tx = Combo == 3 ? Frame({ TEXT("upper"), TEXT("punch") }) : Combo == 2 ? Frame({ TEXT("cross"), TEXT("punch") }) : Frame({ TEXT("jab"), TEXT("punch") });
-	else if (S == TEXT("kick")) Tx = Frame({ TEXT("kick"), TEXT("punch") });
-	else if (S == TEXT("jump")) Tx = Frame({ TEXT("jump"), TEXT("idle") });
-	else if (S == TEXT("jumpkick")) Tx = Frame({ TEXT("jumpkick"), TEXT("kick"), TEXT("punch") });
+	else if (S == TEXT("punch"))
+	{
+		const TCHAR* Contact = Combo == 3 ? TEXT("upper") : Combo == 2 ? TEXT("cross") : TEXT("jab");
+		const TCHAR* Prep = Combo == 3 ? TEXT("upperprep") : Combo == 2 ? TEXT("crossprep") : TEXT("jabprep");
+		const TCHAR* Return = Combo == 3 ? TEXT("upperrecover") : Combo == 2 ? TEXT("crossrecover") : TEXT("jabrecover");
+		const TCHAR* Key = T < 0.06f ? Prep : T < 0.14f ? Contact : Return;
+		Tx = Frame({ Key, Contact, TEXT("punch") });
+	}
+	else if (S == TEXT("kick"))
+	{
+		const TCHAR* Key = T < 0.12f ? TEXT("kickchamber") : T < 0.24f ? TEXT("kick") : TEXT("kickrecover");
+		Tx = Frame({ Key, TEXT("kick"), TEXT("punch") });
+	}
+	else if (S == TEXT("jump"))
+	{
+		const TCHAR* Key = T < 0.08f ? TEXT("takeoff") : T < 0.43f ? TEXT("jump") : TEXT("jumpfall");
+		Tx = Frame({ Key, TEXT("jump"), TEXT("idle") });
+	}
+	else if (S == TEXT("jumpkick")) Tx = Frame({ T < 0.16f ? TEXT("jumpkick") : TEXT("jumpkickout"), TEXT("jumpkick"), TEXT("kick"), TEXT("punch") });
 	else if (S == TEXT("wind") || S == TEXT("aim")) Tx = Frame({ TEXT("wind"), TEXT("idle") });
 	else if (S == TEXT("slamwind")) Tx = Frame({ TEXT("jump"), TEXT("wind"), TEXT("idle") });   // Earl's leap
 	else if (S == TEXT("slam")) Tx = Frame({ TEXT("slam"), TEXT("punch"), TEXT("cross") });
+	else if (S == TEXT("throw") && HasFrame(TEXT("strikefollow")))
+	{
+		const float FirstRelease = bCardDealerSprite ? 0.22f : 0.32f;
+		const bool bLaunching = (T >= FirstRelease && T < FirstRelease + 0.10f)
+			|| (bCardDealerSprite && T >= 0.42f && T < 0.52f);
+		Tx = Frame({ bLaunching ? TEXT("throw") : T < FirstRelease ? TEXT("wind") : TEXT("strikefollow"),
+			TEXT("throw"), TEXT("punch"), TEXT("cross") });
+	}
 	else if (S == TEXT("throw")) Tx = Frame({ TEXT("throw"), TEXT("punch"), TEXT("cross") });
-	else if (S == TEXT("grab") || S == TEXT("knee")) Tx = Frame({ TEXT("grab"), TEXT("punch"), TEXT("cross") });
+	else if (S == TEXT("grab") || S == TEXT("knee"))
+		Tx = Frame({ S == TEXT("knee") && T > 0.19f ? TEXT("strikefollow") : TEXT("grab"), TEXT("grab"), TEXT("punch"), TEXT("cross") });
+	else if (S == TEXT("swing") && T > 0.10f && HasFrame(TEXT("strikefollow")))
+		Tx = Frame({ Combo != 1 ? TEXT("strikefollowalt") : TEXT("strikefollow"), TEXT("strikefollow") });
 	else if (S == TEXT("swing")) Tx = Combo == 1 ? Frame({ TEXT("bash"), TEXT("kick"), TEXT("punch"), TEXT("cross") }) : Frame({ TEXT("punch"), TEXT("cross") });   // every other swing: the nightstick / Vinnie's kick
 	else if (S == TEXT("drink")) Tx = Frame({ TEXT("drink"), TEXT("taunt"), TEXT("idle") });
 	else if (S == TEXT("pickup")) Tx = Frame({ TEXT("pickup"), TEXT("getup"), TEXT("idle") });
-	else if (S == TEXT("wpn") || S == TEXT("toss")) Tx = T < 0.12f ? Frame({ TEXT("overhead"), TEXT("jump") }) : Frame({ TEXT("bash"), TEXT("cross") });
-	else if (S == TEXT("hurt") || S == TEXT("held")) Tx = Frame({ TEXT("hurt") });
+	else if (S == TEXT("wpn") || S == TEXT("toss"))
+	{
+		if (T < 0.12f) Tx = Frame({ T >= 0.055f ? TEXT("overheadaim") : TEXT("overhead"), TEXT("overhead"), TEXT("jump") });
+		else Tx = Frame({ T >= 0.21f ? TEXT("bashrecover") : TEXT("bash"), TEXT("bash"), TEXT("cross") });
+	}
+	else if (S == TEXT("hurt") || S == TEXT("held"))
+		Tx = Frame({ S == TEXT("hurt") && T > 0.12f ? TEXT("hurtrecover") : TEXT("hurt"), TEXT("hurt") });
 	// grab and throw (run 42137): Nova lifts him (pickup), holds him overhead, hurls him (bash); the foe lies flat up there and in flight
-	else if (S == TEXT("lift")) Tx = Frame({ TEXT("pickup"), TEXT("getup"), TEXT("idle") });
+	else if (S == TEXT("lift")) Tx = Frame({ T < 0.09f ? TEXT("pickup") : TEXT("liftload"), TEXT("pickup"), TEXT("getup"), TEXT("idle") });
 	else if (S == TEXT("carry")) Tx = Frame({ TEXT("overhead"), TEXT("jump"), TEXT("idle") });
-	else if (S == TEXT("hurl")) Tx = T < 0.1f ? Frame({ TEXT("overhead"), TEXT("jump") }) : Frame({ TEXT("bash"), TEXT("cross"), TEXT("punch") });
+	else if (S == TEXT("hurl")) Tx = T < 0.1f
+		? Frame({ TEXT("overheadaim"), TEXT("overhead"), TEXT("jump") })
+		: Frame({ T >= 0.19f ? TEXT("bashrecover") : TEXT("bash"), TEXT("bash"), TEXT("cross"), TEXT("punch") });
 	else if (S == TEXT("lifted")) Tx = Frame({ TEXT("down"), TEXT("hurt") });
 	else if (S == TEXT("hurled")) { Tx = Frame({ TEXT("down"), TEXT("hurt") }); Lean = FMath::Sin(T * 18.f) * 10.f; }
-	else if (S == TEXT("fly")) { Tx = Frame({ TEXT("hurt") }); Lean = FMath::Min(70.f, LeanDeg); }
+	else if (S == TEXT("fly"))
+	{
+		Tx = Frame({ T >= 0.11f ? TEXT("hurtrecover") : TEXT("hurt"), TEXT("hurt") });
+		Lean = FMath::Min(70.f, LeanDeg);
+	}
 	else if (S == TEXT("down") || S == TEXT("dead")) Tx = Frame({ TEXT("down") });
 	else if (S == TEXT("getup")) Tx = Frame({ TEXT("getup"), TEXT("down") });
 	else if (S == TEXT("cheer")) Tx = Frame({ TEXT("win"), TEXT("taunt"), TEXT("idle") });
@@ -379,7 +490,23 @@ void AFTBrawlFighter::PoseSprite(FName St, float T, float Walk, int32 Combo, flo
 			EnemyRim = Rim;
 		}
 	}
-	if (Tx && Tx != CurFrame) { SpriteMid->SetTextureParameterValue(TEXT("Tex"), Tx); CurFrame = Tx; }
+	if (Tx && Tx != CurFrame)
+	{
+		SpriteMid->SetTextureParameterValue(TEXT("Tex"), Tx);
+		CurFrame = Tx;
+	}
+#if !UE_BUILD_SHIPPING
+	static const bool bLogFrames = FParse::Param(FCommandLine::Get(), TEXT("brawlpolishqa"));
+	if (bLogFrames && bVisible && Tx)
+	{
+		static TSet<FName> Logged;
+		if (!Logged.Contains(Tx->GetFName()))
+		{
+			Logged.Add(Tx->GetFName());
+			UE_LOG(LogTemp, Display, TEXT("FTBRAWL pose state=%s time=%.3f frame=%s"), *S, T, *Tx->GetName());
+		}
+	}
+#endif
 	SpriteMid->SetScalarParameterValue(TEXT("Flash"), FMath::Clamp(Flash, 0.f, 1.f) * 1.6f);
 	// knocked flying: the hurt frame tips back about the feet; a hit shudders the body
 	Body->SetRelativeRotation(FRotator(Lean, 0, 0));

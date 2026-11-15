@@ -481,6 +481,12 @@ protected:
 	// time
 	float SlowT = 0.f, SlowScale = 1.f, SlowCool = 0.f, FreezeT = 0.f, TimeScale = 1.f;
 	float DuckT = 0.f, DuckDepth = 1.f, MusicVol = 0.5f; // 3.6 (owner: "the music is too quiet" on the driving levels): 0.34 -> 0.5, +3.4 dB
+	// 3.8 (owner: boss music): the vehicle boss track plays from the boss's arrival; the replay, the dailies, the paycheck
+	// and PRE-PRODUCTION switch back to the level's own track. Same Music component, so pause/duck/mute still apply.
+	static constexpr const TCHAR* BossTrackPath = TEXT("/Game/Audio/Music/M_BossVehicle");
+	bool bBossMusic = false;
+	void SetBossMusic(bool bOn);
+	USoundBase* LevelTrack() const;
 
 	// camera
 	FVector CamLoc = FVector::ZeroVector, CamUp = FVector::UpVector, CamFwd = FVector::ForwardVector;

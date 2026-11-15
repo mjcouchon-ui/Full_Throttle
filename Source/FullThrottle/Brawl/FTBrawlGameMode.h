@@ -80,6 +80,15 @@ struct FFTBrawlItem
 	TWeakObjectPtr<class AStaticMeshActor> Actor;
 };
 
+enum class EFTBrawlItemCue : uint8 { Weapon, Drink, Food, Power };
+
+struct FFTBrawlItemPresentation
+{
+	FVector Feet = FVector::ZeroVector, Top = FVector::ZeroVector;
+	EFTBrawlItemCue Kind = EFTBrawlItemCue::Weapon;
+	float Strength = 1.f;
+};
+
 UCLASS()
 class AFTBrawlGameMode : public AGameModeBase
 {
@@ -116,6 +125,15 @@ public:
 	// day 1 (run 73444): L_Day1Set (or -brawlday) is no fight, only the cutscene BEFORE THE DRIVE on the Route 9 film set
 	// (FTBrawlCutscene.cpp, cut 10); it ends on the THE DRIVE card and Enter goes on to night 1, the Rusty Anchor.
 	bool bDay = false;
+	// the days (run 77694): the same set plays every day's BEFORE THE DRIVE (cut 10) and THE WRAP after it (cut 11), days 1-8,
+	// with the crew on screen (Voss, Kip, Rosa Delgado, Gail Prentiss, Dee Dee Starr, the Commodore). Which day: the main
+	// game's career (FTNightFlow), else -brawlday=N / the map's ?brawlday=N option; -brawlwrap (or ?wrap) starts on THE WRAP.
+	int32 DayN = 1; bool bDayWrap = false;
+	void StartDayCut(int32 Id, TFunctionRef<void(const TCHAR*, const FString&, float, TFunction<void()>)> B);   // days 1-8
+	void DayCutDone();                       // ENTER on a day's end card
+	void SetSetLight(bool bDusk);            // morning for BEFORE THE DRIVE, the golden hour for THE WRAP
+	UPROPERTY() TObjectPtr<class ADirectionalLight> SetSun;
+	UPROPERTY() TObjectPtr<class ASpotLight> SetLamp;
 	FString VenueName = TEXT("THE RUSTY ANCHOR"), VenueTag = TEXT("WATERED BEER · DIRTY MONEY · NO COPS AFTER 2 AM");
 	FString BossName = TEXT("BIG EARL"), BossTitle = TEXT("OWNS THE PLACE · WATERS THE BEER · BREAKS THUMBS"), BossCall = TEXT("EARL: \"BOYS! PUT HIM IN THE BAY!\"");
 	FLinearColor Neon = FLinearColor(0.02f, 0.88f, 1.f);
@@ -138,12 +156,30 @@ public:
 	float PowerT = 0, ToughT = 0, BuzzT = 0;   // brass knuckles, leather jacket, a beer from the bar
 	static FString ItemName(int32 Kind);
 	int32 ItemAt() const;   // the item J would grab right now (a weapon at his feet or a beer on the bar), INDEX_NONE if none
+	int32 NearbyWalkPickup() const;
+	bool DescribeItem(const FFTBrawlItem& Item, FFTBrawlItemPresentation& Out) const;
 
 private:
 	struct FIn { float Steer = 0, Throttle = 0; bool Fire = false, Kick = false, Jump = false, Enter = false, Grab = false; };
 	FIn ReadInput();
 	FIn AutoInput();
 	FIn Latch;
+	struct FBufferedInput { float Fire = 0, Kick = 0, Jump = 0, Grab = 0; };
+	FBufferedInput Buffered;
+	void BufferInput(const FIn& In);
+	float ContactPause = 0.f;
+	float SustainedTravel = 0.f;
+	enum class ECombatCue : uint8 { Jab, Finish, Weapon, Throw, Hurt, Clear, Count };
+	struct FCombatEffect { FVector At; float Age = 0.f, Size = 0.f, Dir = 1.f; };
+	void InitCombatPresentation();
+	void CombatCue(ECombatCue Cue, const FVector& At, float Direction);
+	void TickCombatPresentation(float Dt);
+	UPROPERTY() TArray<TObjectPtr<class USoundBase>> CombatSounds;
+	UPROPERTY() TArray<TObjectPtr<class UTexture>> CombatTextures;
+	UPROPERTY() TArray<TObjectPtr<class AStaticMeshActor>> CombatQuads;
+	TArray<FCombatEffect> CombatEffects;
+	float CueCooldowns[static_cast<int32>(ECombatCue::Count)] = {};
+	int32 NextCombatQuad = 0;
 	void Step(float Dt, const FIn& In);
 	void UpdatePlayer(float Dt, const FIn& In);
 	void UpdateFoes(float Dt);
@@ -186,7 +222,10 @@ private:
 	void DropFrom(const FFTBrawlBody& F);
 	void StepItems(float Dt);
 	void SyncItems();
+	bool CanWalkPickup() const;
+	bool UseGroundItem();
 	void BreakHeld();
+	void BreakItem(int32 Kind, float X, float Y, float Z, float Dir);
 	void ClearItems();
 	class AStaticMeshActor* ItemActor(int32 Kind);
 	void PlaceItem(AActor* A, int32 Kind, const FVector& Anchor, float Px, float Py, float RotDeg, bool bFlip, float Glow);
@@ -195,6 +234,17 @@ private:
 	bool bWpnHit = false;
 	AFTBrawlFighter* SpawnFighter(const FFTBrawlKind& K, const FFTBrawlLook& L);
 	void BuildVenue();
+	void BuildVenueAmbience(float StartX, float EndX, float BackWallY);
+	void TickVenueAmbience(float RealDt);
+	void StyleBossPose(FName& Pose, float& PoseTime) const;
+	float BossEntranceCameraOffset() const;
+	void SyncBossAccent();
+	UPROPERTY() TArray<TObjectPtr<class AStaticMeshActor>> VenueAmbience;
+	TArray<FVector> VenueAmbienceOrigins;
+	UPROPERTY() TObjectPtr<class APointLight> BossAccent;
+	UPROPERTY() TObjectPtr<class AStaticMeshActor> SlamAccent;
+	float VenueAmbienceTime = 0.f;
+	float BossEntranceAt = 0.f;
 	void SetupNight();
 	int32 DrinkKind() const;
 	bool bSigSeen = false;   // the boss's signature move gets its banner the first time
@@ -258,10 +308,20 @@ private:
 	void KeepOnScreen();
 	void CheckOnCamera();
 	bool bAutoGrab = false, bKeyTest = false;   // -brawlgrab: the autopilot grabs and throws; -brawlkeytest: it presses real keys
+	bool bPadTest = false;
+	TSet<FName> TestKeysDown;
 	bool TryGrab();
 	void Hurl();
 	void DropGrab();
 	void StepHurled(FFTBrawlBody& F, float Dt);
 	void PressKeys(const FIn& In);
+	// fight-night polish (run 38222): the fight's sounds (Docs/audio/sfx from Tools/brawl_sfx_synth.py, imported by
+	// Content/Python/brawl_audio.py to /Game/Brawl/Audio/SFX/S_brawl_<Name>) and the pad's rumble (hits landed: a short light
+	// buzz; hits taken and knockdowns: a hard, longer one). Logs FTBRAWL sfx / FTBRAWL rumble (LogFTBrawl Verbose).
+	void Sfx(const TCHAR* Name, float Vol = 1.f, float Pitch = 1.f);
+	void ImpactSfx(int32 Kind);   // a weapon landing: wood, metal or glass
+	void Rumble(float Intensity, float Dur, const TCHAR* Why);
+	UPROPERTY() TMap<FName, TObjectPtr<class USoundBase>> Sounds;
+	double RumbleAt = -1; float RumbleI = 0; int32 Voice = 0, NSfx = 0, NRumble = 0;
 	static bool Standing(const FFTBrawlBody& F);   // on his feet and hittable (not flying, down, getting up, lifted or hurled)
 };

@@ -8,6 +8,7 @@
 #include "FTGameInstance.h"
 #include "FTHUD.h"
 #include "FTProgress.h"
+#include "FTNightFlow.h"
 #include "EngineUtils.h"
 #include "Engine/World.h"
 #include "Engine/Engine.h"
@@ -117,6 +118,8 @@ void AFTGameMode::BeginPlay()
 	{
 		// the flow came here to open PRE-PRODUCTION (after a level, or from the title)
 		G->bPendingPreProd = false;
+		// after the last level's WRAP cutscene (run 77694): READY goes back to the title with "THAT'S A WRAP", as from the paycheck
+		if (CS->C.PendingLevel == -2 && Level >= FTData::NumLevels() - 1) PayNext = 2;
 		EnterPreProduction(CS->C.PendingLevel, CS->C.bPendingFromTitle);
 	}
 	else if (CS && CS->C.PendingLevel != -1 && !(G && (G->bBench || G->bAutoDrive || G->bExecScript)))
@@ -329,15 +332,36 @@ void AFTGameMode::BeginPlayPhase()
 		SayText(RL[(Take - 2) % RL.Num()].Replace(TEXT("{k}"), *FString::FromInt(Take)), 3);
 		CaptionT = RealClock + 2.4f; Caption = Sc.Retake;
 	}
-	if (Music && (!Music->IsPlaying() || Take <= 1))
+	// (3.8: a retake after the boss came on goes back to the level's track until he comes again)
+	if (Music && (!Music->IsPlaying() || Take <= 1 || bBossMusic))
 	{
-		USoundBase* LevelTrack = Load<USoundBase>(*Def().Music);
-		if (!LevelTrack) LevelTrack = Load<USoundBase>(TEXT("/Game/Audio/Music/M_PixelAdventure"));
-		Music->SetSound(LevelTrack);
+		USoundBase* Song = LevelTrack();
+		Music->SetSound(Song);
 		Music->SetVolumeMultiplier(MusicVol);
 		Music->Play();
-		UE_LOG(LogFT, Display, TEXT("FTMUSIC level=%d track=%s vol=%.2f"), Level, LevelTrack ? *LevelTrack->GetName() : TEXT("none"), MusicVol);
+		bBossMusic = false;
+		UE_LOG(LogFT, Display, TEXT("FTMUSIC level=%d track=%s vol=%.2f"), Level, Song ? *Song->GetName() : TEXT("none"), MusicVol);
 	}
+}
+
+USoundBase* AFTGameMode::LevelTrack() const
+{
+	USoundBase* Song = Load<USoundBase>(*Def().Music);
+	return Song ? Song : Load<USoundBase>(TEXT("/Game/Audio/Music/M_PixelAdventure"));
+}
+
+// 3.8: on = the vehicle boss track (the boss arrives); off = back to the level's own track (the screens after the level).
+// Off also starts the level's track when nothing plays (PRE-PRODUCTION after a night opens on a silent map).
+void AFTGameMode::SetBossMusic(bool bOn)
+{
+	if (!Music || bAttract) return;
+	if (bOn == bBossMusic && (bOn || Music->IsPlaying())) return;
+	USoundBase* Song = bOn ? Load<USoundBase>(BossTrackPath) : LevelTrack();
+	if (!Song) { UE_LOG(LogFT, Warning, TEXT("FTMUSIC boss track missing %s"), BossTrackPath); return; }
+	bBossMusic = bOn;
+	Music->SetSound(Song);   // (stops the old track)
+	Music->FadeIn(bOn ? 0.5f : 1.2f, 1.f);
+	UE_LOG(LogFT, Display, TEXT("FTMUSIC %s level=%d track=%s phase=%d"), bOn ? TEXT("boss") : TEXT("back"), Level, *Song->GetName(), (int32)Phase);
 }
 
 void AFTGameMode::Wreck()
@@ -433,6 +457,7 @@ void AFTGameMode::FinishRating()
 	Phase = EFTPhase::Rating; PhaseT = 0.f;
 	ResultsContinueRect = FBox2D(ForceInit);
 	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->SetMenuMouse(true);
+	if (bBossMusic) SetBossMusic(false);   // 3.8 (no reel: straight here from the boss)
 	if (Music) Music->SetVolumeMultiplier(0.25f);
 	UE_LOG(LogFT, Display, TEXT("FT SCREEN name=Dailies"));
 }
@@ -719,6 +744,11 @@ void AFTGameMode::TitleStart()
 {
 	if (UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this); CS && TitleSel == 0) { CS->C.Stats.Runs++; CS->Save(TEXT("Run")); }
 	UE_LOG(LogFT, Display, TEXT("FT TITLE start level=%d attract=%d"), TitleSel + 1, bAttract ? 1 : 0);
+	// level 1 from the title: day 1's cutscene BEFORE THE DRIVE (L_Day1Set) first, its ENTER starts the race (FTNightFlow);
+	// autopilot / script / bench runs go straight to the race as before unless -ftday1
+	const UFTGameInstance* GD = GI();
+	if (TitleSel == 0 && (!(GD && (GD->bAutoDrive || GD->bExecScript)) || FParse::Param(FCommandLine::Get(), TEXT("ftday1"))))
+		if (UFTNightFlow::GoToDay1(this)) { StopAttract(); return; }   // the map opens on the next tick
 	// from the attract mode the race always gets a fresh map (the demo's track may be a light build)
 	if (bAttract || TitleSel != Level || (Track && Track->IsLight())) { StopAttract(); GoToLevel(TitleSel, true); }
 	else StartRace(false);
@@ -738,6 +768,7 @@ void AFTGameMode::EnterTitle(bool bKeepTitleT)
 	if (!bKeepTitleT) { TitleT = 0.f; TitleActionFocus = INDEX_NONE; }
 	TitleRowRects.Reset(); TitleBtnRects.Reset();
 	if (Music && Music->IsPlaying()) Music->Stop();
+	bBossMusic = false;
 	if (G) G->PlayTitleMusic(this, 0.55f);
 	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->SetMenuMouse(true);
 	if (AttractAllowed()) StartAttract();
@@ -1684,6 +1715,7 @@ void AFTGameMode::SpawnGroup(const TArray<EFTKind>& Kinds)
 			UE_LOG(LogFT, Display, TEXT("FT BOSS state=Arrive armor=%.0f escape=%.0f clock=0.0"), E.Hp, BossEscapeT);
 			UE_LOG(LogFT, Display, TEXT("FT BOSS firstAttack t1=%.1f t2=%.1f t3=%.1f"), E.T1, E.T2, E.T3);   // (the harness checks these: see AUDIT.md item 1)
 			Sfx(TEXT("BossIntro")); Duck(0.35f, 1.6f);
+			SetBossMusic(true);   // 3.8: the vehicle boss track, under the intro sting
 			break;
 		}
 		default: break;
@@ -4005,6 +4037,7 @@ void AFTGameMode::StartReel()
 	UE_LOG(LogFT, Display, TEXT("FTFLOW reel start, %d shots"), ReelList.Num());
 	Phase = EFTPhase::Reel; PhaseT = 0.f; ReelLoop = 0; ReelLoopT = -10.f; ReelContinueRect = FBox2D(ForceInit); ReelHoldT = 0.f; bReelDone = false;
 	UE_LOG(LogFT, Display, TEXT("FT SCREEN name=Reel"));
+	if (bBossMusic) SetBossMusic(false);   // 3.8: the replay plays the level's own track again
 	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->SetMenuMouse(true);
 	ReelClip = 0; ReelT = ReelList[0].T0; ReelShots = ReelList.Num(); ReelTitleT = 2.2f; ReelCamClip = -1;
 	// hide the live scene; ghosts play the recording

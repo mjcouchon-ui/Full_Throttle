@@ -5,7 +5,6 @@
 #include "Engine/Font.h"
 #include "CanvasItem.h"
 #if __has_include("FTGameInstance.h")   // the main game: M mutes in the nights too (loop cycle 6), pad prompts (loop cycle 8)
-#define FT_BRAWL_MAIN_HUD 1
 #define FT_BRAWL_MUTE_HINT "   /   M  MUTE"
 #define FT_BRAWL_ENTER "ENTER / A"
 #define FT_BRAWL_SKIP "TAB / BACK"
@@ -32,6 +31,13 @@ namespace
 	const FLinearColor Red(1.f, 0.23f, 0.27f);
 	const FLinearColor Green(0.38f, 1.f, 0.55f);
 	constexpr float Safe = 32.f, Corner = 12.f, Label = 15.f, Body = 18.f, Strong = 21.f, Heading = 33.f, Readout = 46.f;
+	constexpr float TitleWidth = 680.f, TitleY = 720.f * 0.32f, TitleHeight = 112.f;
+
+	bool IsFightTutorial(const AFTBrawlGameMode& Game)
+	{
+		return Game.BannerT >= 0.f && Game.bBossOut && Game.BossIntro <= 0.f && !Game.bWon
+			&& !Game.BannerSub.IsEmpty() && Game.Banner != Game.VenueName && Game.Banner != TEXT("FIGHT!");
+	}
 }
 
 // the races' fonts have no arrow, and Orbitron no middle dot or accents: swap them for what they do draw
@@ -124,13 +130,98 @@ void AFTBrawlHUD::Callout(const FString& Str, float Cx, float Y, const FLinearCo
 // the races' title card (FTHUD::DrawCut): a wide plate, the title in Orbitron in the accent, the line under it in Rajdhani, keys in yellow
 void AFTBrawlHUD::Card(const FString& Title, const FString& Sub, const FString& Keys, const FLinearColor& Accent, float A)
 {
-	const float W = Canvas->ClipX / S, Cw = 680.f, Cx = W / 2, Y = 720.f * 0.32f;
-	const float Ch = 112.f + (Keys.IsEmpty() ? 0.f : 30.f);
+	const float W = Canvas->ClipX / S, Cw = TitleWidth, Cx = W / 2, Y = TitleY;
+	const float Ch = TitleHeight + (Keys.IsEmpty() ? 0.f : 30.f);
 	Plate(Cx - Cw / 2, Y, Cw, Ch, Accent, A);
 	Rect(Cx - Cw / 2, Y + Ch - 4.f, Cw - Corner, 3.f, Al(Accent, A));
 	Txt(Title, Cx, Y + 9.f, Al(Accent, A), Readout, 1, true, Cw - 40.f);
 	Txt(Sub, Cx, Y + 66.f, Al(White, A), Strong, 1, false, Cw - 44.f);
 	if (!Keys.IsEmpty()) Txt(Keys, Cx, Y + 96.f, Al(Yellow, A), Label, 1, true, Cw - 44.f);
+}
+
+void AFTBrawlHUD::DrawItemCues(const AFTBrawlGameMode& Game)
+{
+	if (Game.bDay || Game.bWon || Game.P.Hp <= 0 || Game.BossIntro > 0) return;
+
+	const int32 Manual = Game.ItemAt();
+	const int32 Focus = Manual != INDEX_NONE ? Manual : Game.NearbyWalkPickup();
+	const float Width = Canvas->ClipX / S;
+	auto Line = [&](const FVector2D& A, const FVector2D& B, const FLinearColor& Color, float Weight)
+	{
+		FCanvasLineItem Stroke(A * S, B * S);
+		Stroke.SetColor(Color);
+		Stroke.LineThickness = FMath::Max(1.f, Weight * S);
+		Canvas->DrawItem(Stroke);
+	};
+	auto Mark = [&](int32 Index, bool bFocus)
+	{
+		const FFTBrawlItem& Item = Game.Items[Index];
+		FFTBrawlItemPresentation Data;
+		if (!Game.DescribeItem(Item, Data)) return;
+		const FVector Foot = Canvas->Project(Data.Feet);
+		const float X = float(Foot.X / S), Y = float(Foot.Y / S);
+		if (Foot.Z <= 0 || X < 9.f || X > Width - 9.f || Y < 10.f || Y > 690.f) return;
+
+		const bool bDrink = Data.Kind == EFTBrawlItemCue::Drink;
+		const bool bFood = Data.Kind == EFTBrawlItemCue::Food;
+		const bool bPower = Data.Kind == EFTBrawlItemCue::Power;
+		const FLinearColor Accent = bDrink ? Amber : bFood ? Green : bPower ? Cyan : Yellow;
+		const float Strength = bFocus ? 1.f : Data.Strength;
+		// A short ink-backed mark under every usable sprite stays readable through fighters and shadows.
+		const float Half = bFocus ? 16.f : 9.f;
+		const float Base = Y + 4.f;
+		const FVector2D Left(X - Half, Base), Right(X + Half, Base);
+		Line(Left, Right, Al(Deep, 0.9f * Strength), bFocus ? 7.f : 5.f);
+		Line(Left, Right, Al(Accent, 0.9f * Strength), bFocus ? 3.f : 1.5f);
+		if (bFood)
+		{
+			Line(FVector2D(X, Base - 4.f), FVector2D(X, Base + 4.f), Deep, 5.f);
+			Line(FVector2D(X, Base - 4.f), FVector2D(X, Base + 4.f), Al(Accent, Strength), 1.5f);
+		}
+		else if (bPower || bFocus)
+		{
+			const float Rise = bPower ? 5.f : 3.f;
+			Line(Left, FVector2D(X - Half + 5.f, Base + Rise), Al(Accent, Strength), 1.5f);
+			Line(Right, FVector2D(X + Half - 5.f, Base + Rise), Al(Accent, Strength), 1.5f);
+		}
+		if (!bFocus) return;
+
+		// Anchor the one action label to the item that the pickup command will actually select.
+		const bool bManual = Manual == Index;
+		const FString Key = bManual ? (Game.bPadLast ? TEXT("X") : TEXT("J")) : TEXT("");
+		const TCHAR* Verb = bDrink ? TEXT("DRINK") : bManual ? (Game.Held >= 0 ? TEXT("SWAP FOR") : TEXT("PICK UP")) : TEXT("WALK OVER");
+		const FString Name = AFTBrawlGameMode::ItemName(Item.Kind);
+		const FVector Top = Canvas->Project(Data.Top);
+		if (Top.Z <= 0) return;
+		const float KeyWidth = bManual ? 32.f : 0.f;
+		constexpr float CardHeight = 43.f, Margin = 12.f;
+		const float CardWidth = FMath::Min(Width - 2.f * Margin,
+			FMath::Clamp(FMath::Max(TextW(Verb, 12.f, true), TextW(Name, 16.f, false)) + KeyWidth + 28.f, 118.f, 244.f));
+		if (CardWidth < 80.f) return;
+		const float CardX = FMath::Clamp(float(Top.X / S) - CardWidth * 0.5f, Margin, Width - CardWidth - Margin);
+		float CardY = FMath::Clamp(float(Top.Y / S) - CardHeight - 5.f, 18.f, 630.f);
+		const bool bOverTitle = Game.BannerT >= 0.f && !IsFightTutorial(Game) && CardY + CardHeight > TitleY - 6.f && CardY < TitleY + TitleHeight + 6.f
+			&& CardX + CardWidth > (Width - TitleWidth) * 0.5f - 6.f && CardX < (Width + TitleWidth) * 0.5f + 6.f;
+		if (bOverTitle) CardY = TitleY - CardHeight - 8.f;
+		const float CardPin = FMath::Clamp(X, CardX + 12.f, CardX + CardWidth - 14.f);
+		const FVector2D Pin(CardPin, CardY + CardHeight), Tip(float(Top.X / S), float(Top.Y / S) - 2.f);
+		Line(Pin, Tip, Deep, 4.f);
+		Line(Pin, Tip, Accent, 1.5f);
+		Plate(CardX, CardY, CardWidth, CardHeight, Accent);
+		const float TextX = CardX + 11.f + KeyWidth;
+		if (bManual)
+		{
+			Rect(CardX + 9.f, CardY + 10.f, 24.f, 23.f, Accent);
+			Txt(Key, CardX + 21.f, CardY + 12.f, Deep, 17.f, 1);
+		}
+		Txt(Verb, TextX, CardY + 5.f, Accent, 12.f, 0, true, CardWidth - KeyWidth - 22.f);
+		Txt(Name, TextX, CardY + 20.f, White, 16.f, 0, false, CardWidth - KeyWidth - 22.f);
+	};
+	for (int32 Index = 0; Index < Game.Items.Num(); ++Index)
+	{
+		if (Index != Focus) Mark(Index, false);
+	}
+	if (Focus != INDEX_NONE) Mark(Focus, true);
 }
 
 void AFTBrawlHUD::DrawHUD()
@@ -154,6 +245,7 @@ void AFTBrawlHUD::DrawHUD()
 	const float L = FMath::Max(0.f, (W - 1280.f) / 2) + Safe, R = W - L, Mid = W / 2, Top = 25.f;
 	const FFTBrawlBody& P = G->P;
 	const bool bBlink = int32(G->StT * 6) % 2 != 0;
+	DrawItemCues(*G);
 	// the "!" tells and the hurt bars over heads, the hit words where they landed
 	for (const FFTBrawlBody& F : G->Foes)
 	{
@@ -215,15 +307,6 @@ void AFTBrawlHUD::DrawHUD()
 		Txt(G->bBossOut ? FString(TEXT("THE BOSS")) : FString::Printf(TEXT("WAVE %d / %d"), At, G->NumWaves), X + 14, Top + 58, G->bBossOut ? Red : White, Body);
 		Meter(X + 14, Top + 82, Pw - 28, 5, G->bBossOut ? 1.f : float(At) / (G->NumWaves + 1), G->bBossOut ? Red : G->Neon, G->NumWaves + 1);
 	}
-	// J: GRAB / J: DRINK over his head
-	{
-		const int32 Ii = G->ItemAt();
-		if (Ii != INDEX_NONE && (P.St == TEXT("idle") || P.St == TEXT("walk")))
-		{
-			const FVector Sp = Canvas->Project(G->World(P.X, P.Y, 250));
-			if (Sp.Z > 0) Callout(G->Items[Ii].bBar ? FString(TEXT("J: DRINK")) : FString::Printf(TEXT("J: GRAB %s"), *AFTBrawlGameMode::ItemName(G->Items[Ii].Kind)), Sp.X / S, Sp.Y / S - 12, Yellow, Label);
-		}
-	}
 	// the boss: the races' boss notice (red, a warning plate, his segmented bar), over the key strip
 	const int32 Bi = G->BossIdx();
 	if (Bi != INDEX_NONE && G->Foes[Bi].St != TEXT("dead"))
@@ -241,13 +324,9 @@ void AFTBrawlHUD::DrawHUD()
 	if (G->Foes.Num() && Bi != INDEX_NONE && G->Foes[Bi].St == TEXT("dizzy")) Callout(TEXT("DIZZY! HIT HIM!"), Mid, 196, Yellow, Strong, bBlink ? 1.f : 0.55f);
 	// the key strip: the races' (ink bar, grey Rajdhani, " / " between)
 	{
-#ifdef FT_BRAWL_MAIN_HUD
 		const FString Keys = G->bPadLast
 			? TEXT("STICK  MOVE   /   X  PUNCH, PICK UP, SWING   /   Y  KICK, THROW WEAPON   /   B  GRAB & THROW   /   A  JUMP   /   X AT THE BAR  A DRINK")
 			: TEXT("WASD  MOVE   /   J  PUNCH, PICK UP, SWING   /   K  KICK, THROW WEAPON   /   L  GRAB & THROW   /   SPACE  JUMP   /   J AT THE BAR  A DRINK" FT_BRAWL_MUTE_HINT "   /   ESC  QUIT");
-#else
-		const FString Keys = TEXT("WASD  MOVE   /   J  PUNCH, PICK UP, SWING   /   K  KICK, THROW WEAPON   /   L  GRAB & THROW   /   SPACE  JUMP   /   J AT THE BAR  A DRINK   /   ESC  QUIT");
-#endif
 		const float Kw = FMath::Min(R - L, TextW(Keys, Label, false) + 28.f);
 		Rect(Mid - Kw / 2, H - 32, Kw, 22, Ink);
 		Txt(Keys, Mid, H - 31, Grey, Label, 1, false, Kw - 24);
@@ -255,7 +334,18 @@ void AFTBrawlHUD::DrawHUD()
 	if (G->BannerT >= 0)
 	{
 		const float Bt = G->BannerT, A = FMath::Clamp(FMath::Min3(1.f, Bt * 4, (2.4f - Bt) * 3), 0.f, 1.f);
-		Card(G->Banner, G->BannerSub, FString(), G->Neon, A);
+		if (IsFightTutorial(*G))
+		{
+			const float HeaderGap = 2.f * FMath::Min(Mid - (L + 334.f), (R - 312.f) - Mid);
+			const bool bFitsTop = HeaderGap >= 230.f;
+			const int32 HudRows = int32(G->Held >= 0) + int32(G->PowerT > 0) + int32(G->ToughT > 0) + int32(G->BuzzT > 0);
+			const float Width = bFitsTop ? FMath::Min(510.f, HeaderGap) : FMath::Min(510.f, W - 2.f * Safe);
+			const float Y = bFitsTop ? Top + 6.f : Top + 116.f + 21.f * HudRows;
+			Plate(Mid - 0.5f * Width, Y, Width, 57.f, Red, A);
+			Txt(G->Banner, Mid, Y + 7.f, Al(Yellow, A), Strong, 1, true, Width - 26.f);
+			Txt(G->BannerSub, Mid, Y + 33.f, Al(White, A), Body, 1, false, Width - 28.f);
+		}
+		else Card(G->Banner, G->BannerSub, FString(), G->Neon, A);
 	}
 	if (G->BossIntro > 0) Card(G->BossName, G->BossTitle, FString(), Red);
 	// the boss's last call, from the story (after the K.O.): the races' DIRECTOR line plate, under the card

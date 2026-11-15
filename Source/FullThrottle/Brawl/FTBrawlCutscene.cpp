@@ -3,8 +3,10 @@
 //   1  THAT NIGHT   Nova walks into the Rusty Anchor; the guy with the beer; Big Earl. Then the fight.
 //   2  LAST CALL    after Big Earl goes down.
 //   3  2:40 AM      the in-between story, out back on the pier (owner, 11:03: sleazier, darker, something actually
-//                   happens): Harlan Voss paid the guy to start it, a photographer gets Nova bloody for Channel 9, and
-//                   the guy who wanted more money goes off the end of the pier. Ends on the END OF NIGHT 1 card.
+//                   happens): Kip Lorenzo (the other double) paid the guy to start it, a photographer gets Nova bloody
+//                   for Channel 9, and the guy who wanted more money goes off the end of the pier, punched by Kip's
+//                   heavy. Sets up Kip sabotaging Nova from night 5; Voss is not in it (owner, 15 Nov: Voss isn't evil).
+//                   Ends on the END OF NIGHT 1 card.
 // The lines of 1 and 2 are the story flow's (~/Wisper/docs/full-throttle-flow, N1 THE RUSTY ANCHOR), word for word.
 // A cutscene is a list of beats (FFTCutBeat): each one moves the cast and the camera, then types its line.
 // Enter / J / Space hurries a line, Tab skips the cutscene, lines also run on by themselves (autopilot tests too).
@@ -14,6 +16,13 @@
 //                  (the other double) turning up by the KESTREL; Nova gets in and the car pulls away into THE DRIVE.
 // Its own map L_Day1Set (the game's default map now: day 1 -> Enter -> night 1). The lines are the story flow's
 // (DAY 1 · SCENE 1 · THE HIGHWAY ASSASSINATION, CUTSCENE · BEFORE THE DRIVE), word for word.
+// THE DAYS (run 77694; owner, 15 Nov 01:17: ALL the cutscenes): every day's BEFORE THE DRIVE (cut 10; day 1 keeps its own
+// staging above) and THE WRAP after the drive (cut 11), days 1-8, on the same Route 9 set (the film unit's base camp):
+// morning light before, the golden hour for the wrap. Rosa Delgado, Gail Prentiss and Dee Dee Starr are cut from the
+// career's cast sheets (ArtSource/sheets/rosa_a, gail_a, deedee_a). Lines: the story flow's, word for word (DayCuts).
+// In the main game the career plays them around every race (FTNightFlow): BEFORE -> the race -> paycheck -> THE WRAP ->
+// the night -> PRE-PRODUCTION -> the next day's BEFORE. On its own: day n BEFORE -> THE WRAP -> night n -> day n+1.
+// Test hooks: -brawlday=N (L_Day1Set), -brawlwrap (start on THE WRAP), -brawlnodays (night to night, no days).
 #include "FTBrawlGameMode.h"
 #include "FTBrawlFighter.h"
 #include "Camera/CameraActor.h"
@@ -40,6 +49,13 @@
 #include "Misc/Parse.h"
 #include "Kismet/GameplayStatics.h"
 
+#if __has_include("FTNightFlow.h")   // the main game: day 1 opened from the title hands on to L1 BAYSHORE (FTNightFlow)
+#include "FTNightFlow.h"
+#define FTB_CAREER_DAY1 1
+#else
+#define FTB_CAREER_DAY1 0
+#endif
+
 DEFINE_LOG_CATEGORY_STATIC(LogFTCut, Log, All);
 
 namespace
@@ -55,6 +71,8 @@ namespace
 		{ TEXT("vinnie"), TEXT("VINNIE VELOUR"), TEXT("ff4fb8") }, { TEXT("pitboss"), TEXT("THE PIT BOSS"), TEXT("ffd23f") },   // nights 2-7 (run 32365)
 		{ TEXT("frankie"), TEXT("FLAMBÉ FRANKIE"), TEXT("ff8a3d") }, { TEXT("kingpin"), TEXT("THE KINGPIN"), TEXT("36f1ff") },
 		{ TEXT("sven"), TEXT("BIG SVEN"), TEXT("ff4f6e") }, { TEXT("commodore"), TEXT("THE COMMODORE"), TEXT("f4f4f0") },
+		{ TEXT("rosa"), TEXT("ROSA DELGADO"), TEXT("ff6a4d") }, { TEXT("gail"), TEXT("GAIL PRENTISS"), TEXT("c9b8e8") },   // the days (run 77694)
+		{ TEXT("deedee"), TEXT("DEE DEE STARR"), TEXT("ff4fb8") },
 		{ TEXT("vo"), TEXT(""), TEXT("f4e9d8") } };
 
 	// NIGHTS 2-7's cutscenes (run 32365; owner, 15 Nov 01:17: "ALL the cutscenes for every night (before/after, same beats as
@@ -72,7 +90,7 @@ namespace
 		const TCHAR* LastSub; const TCHAR* Next;         // LAST CALL's card, the END OF NIGHT card's NEXT line
 	};
 	const FNightCut NightCuts[6] = {
-		{ TEXT("NIGHT 2 · THE VELVET ROOM"), TEXT("A DISCO ON SUNSET · NO SNEAKERS"), TEXT("vinnie"), TEXT("Vinnie"), 272.f, TEXT("Punk"), 228.f, nullptr, 0.f,
+		{ TEXT("NIGHT 2 · THE VELVET ROOM"), TEXT("A DISCO ON SUNSET · NO SNEAKERS"), TEXT("vinnie"), TEXT("Vinnie"), 272.f, TEXT("Disco"), 228.f, nullptr, 0.f,
 			{ { TEXT("vo"), TEXT("The Velvet Room on Sunset. Just one dance.") }, { TEXT("guy"), TEXT("That’s my girl you’re dancing with.") },
 			  { TEXT("nova"), TEXT("Then she’s got great taste in partners. Better than in boyfriends.") }, { TEXT("vinnie"), TEXT("Nobody out-dances Vinnie Velour in Vinnie Velour’s room.") } },
 			{ { TEXT("vo"), TEXT("Vinnie Velour went through his own light-up floor.") }, { TEXT("vinnie"), TEXT("My floor… my beautiful floor…") }, { TEXT("nova"), TEXT("I’m a lover. Mostly.") } },
@@ -82,27 +100,115 @@ namespace
 			  { TEXT("nova"), TEXT("Watch me count to five, then.") }, { TEXT("pitboss"), TEXT("Close the doors. And somebody bring me my piece.") } },
 			{ { TEXT("vo"), TEXT("The Pit Boss folded.") }, { TEXT("nova"), TEXT("The house always wins? Not tonight.") }, { TEXT("vo"), TEXT("Hollywood After Dark had it by breakfast.") } },
 			TEXT("THE LUCKY 7 · 3:05 AM"), TEXT("NEXT: DAY 4 · MOUNT KALDERA  →  NIGHT 4 · THE TIKI TORCH") },
-		{ TEXT("NIGHT 4 · THE TIKI TORCH"), TEXT("A LUAU LOUNGE BELOW MOUNT KALDERA · FIRE SHOW AT TEN"), TEXT("frankie"), TEXT("Frankie"), 286.f, TEXT("Sleaze"), 218.f, nullptr, 0.f,
+		{ TEXT("NIGHT 4 · THE TIKI TORCH"), TEXT("A LUAU LOUNGE BELOW MOUNT KALDERA · FIRE SHOW AT TEN"), TEXT("frankie"), TEXT("Frankie"), 286.f, TEXT("Tourist"), 216.f, nullptr, 0.f,
 			{ { TEXT("vo"), TEXT("The Tiki Torch, at the foot of the mountain. The crew luau.") }, { TEXT("frankie"), TEXT("And now, for the volcano boys: the great Flambé Frankie… breathes FIRE!") },
 			  { TEXT("nova"), TEXT("Pal, I just drove through a volcano. You’re a cigarette lighter.") }, { TEXT("frankie"), TEXT("A LIGHTER?!") } },
 			{ { TEXT("vo"), TEXT("Flambé Frankie put himself out in the punch bowl.") }, { TEXT("nova"), TEXT("Somebody get the man a mint.") } },
 			TEXT("THE TIKI TORCH · 1:40 AM"), TEXT("NEXT: DAY 5 · COASTER COVE  →  NIGHT 5 · STRIKE CITY") },
-		{ TEXT("NIGHT 5 · STRIKE CITY"), TEXT("A BOWLING ALLEY OFF THE BOARDWALK · LEAGUE NIGHT"), TEXT("kingpin"), TEXT("Kingpin"), 274.f, TEXT("Punk"), 228.f, nullptr, 0.f,
+		{ TEXT("NIGHT 5 · STRIKE CITY"), TEXT("A BOWLING ALLEY OFF THE BOARDWALK · LEAGUE NIGHT"), TEXT("kingpin"), TEXT("Kingpin"), 274.f, TEXT("Pinsetter"), 226.f, nullptr, 0.f,
 			{ { TEXT("vo"), TEXT("Strike City. League night. Kip said the whole crew would be there. Nobody from the crew is there.") },
 			  { TEXT("kingpin"), TEXT("You’re the stunt guy? Your pal Kip called. Says you said I bowl like a grandma.") }, { TEXT("nova"), TEXT("Never met you. But that shirt is a gutter ball.") } },
 			{ { TEXT("vo"), TEXT("The Kingpin got picked up as a spare.") }, { TEXT("nova"), TEXT("Wait. Kip told him WHAT?") } },
 			TEXT("STRIKE CITY · 1:15 AM"), TEXT("NEXT: DAY 6 · FROSTBITE PEAK  →  NIGHT 6 · THE FROSTBITE LODGE") },
-		{ TEXT("NIGHT 6 · THE FROSTBITE LODGE"), TEXT("AN APRÈS-SKI BAR ON FROSTBITE PEAK · HOT COCOA $1"), TEXT("sven"), TEXT("Sven"), 300.f, TEXT("Biker"), 240.f, nullptr, 0.f,
+		{ TEXT("NIGHT 6 · THE FROSTBITE LODGE"), TEXT("AN APRÈS-SKI BAR ON FROSTBITE PEAK · HOT COCOA $1"), TEXT("sven"), TEXT("Sven"), 300.f, TEXT("Linemate"), 240.f, nullptr, 0.f,
 			{ { TEXT("vo"), TEXT("The Frostbite Lodge. Hot cocoa. A fireplace. Nobody knows him up here.") },
 			  { TEXT("sven"), TEXT("You. Stunt boy. A little guy called. Says you tell people Sven skates like a baby deer.") }, { TEXT("nova"), TEXT("…Kip.") }, { TEXT("sven"), TEXT("Sven drops the gloves.") } },
 			{ { TEXT("vo"), TEXT("Big Sven went past the fireplace, through the window and into a snowbank.") }, { TEXT("nova"), TEXT("Tell Kip I said hi.") } },
 			TEXT("THE FROSTBITE LODGE · 12:50 AM"), TEXT("NEXT: DAY 7 · THE BIG TANK  →  NIGHT 7 · THE SEA BISCUIT") },
-		{ TEXT("NIGHT 7 · THE SEA BISCUIT"), TEXT("THE COMMODORE’S YACHT · BLACK TIE · NO STUNTMEN"), TEXT("commodore"), TEXT("Commodore"), 274.f, TEXT("Guard"), 232.f, TEXT("Kip"), 212.f,
+		{ TEXT("NIGHT 7 · THE SEA BISCUIT"), TEXT("THE COMMODORE’S YACHT · BLACK TIE · NO STUNTMEN"), TEXT("commodore"), TEXT("Commodore"), 274.f, TEXT("Firstmate"), 232.f, TEXT("Kip"), 212.f,
 			{ { TEXT("vo"), TEXT("The Sea Biscuit, the Commodore’s yacht. Nova behaves. For forty minutes.") }, { TEXT("kip"), TEXT("Commodore, sir! He said your boat is a BATHTUB!") },
 			  { TEXT("commodore"), TEXT("A BATHTUB?! Throw him to the fish!") }, { TEXT("nova"), TEXT("Kip!") } },
 			{ { TEXT("vo"), TEXT("The Commodore went over the rail with his own anchor. Kip jumped in after him.") },
 			  { TEXT("commodore"), TEXT("(dripping) …Nobody has hit me since 1951. I like this one. Gail! Put him on the poster.") }, { TEXT("nova"), TEXT("Man overboard. Two men.") } },
 			TEXT("THE SEA BISCUIT · 2:30 AM"), TEXT("NEXT: DAY 8 · MIDTOWN · THE LAST SCENE  →  THE WRAP, THEN THE PREMIERE") } };
+
+	// THE DAYS' cutscenes (run 77694): BEFORE THE DRIVE and THE WRAP of days 1-8, the story flow's lines word for word
+	// (~/Wisper/docs/full-throttle-flow, DAY n · CUTSCENE · BEFORE THE DRIVE / THE WRAP). A line names its speaker and the
+	// pose it is said in (a frame of that sprite).
+	struct FDayLine { const TCHAR* Who; const TCHAR* Pose; const TCHAR* Line; };
+	struct FDayCut
+	{
+		const TCHAR* Title; const TCHAR* Place;          // DAY n · SCENE n · ..., the location (the title card's second line)
+		FDayLine Before[6]; FDayLine Wrap[5];
+		const TCHAR* Drive; const TCHAR* NightName;      // THE DRIVE card's race; the night after the wrap ("" = none, day 8)
+	};
+	const FDayCut DayCuts[8] = {
+		{ TEXT("DAY 1 · SCENE 1 · THE HIGHWAY ASSASSINATION"), TEXT("BAYSHORE · ROUTE 9"),
+			{ },   // day 1's BEFORE THE DRIVE has its own staging (StartCut, Id 10)
+			{ { TEXT("voss"), TEXT("order"), TEXT("That’s scene one. Go home, Kane. Sleep.") },
+			  { TEXT("nova"), TEXT("taunt"), TEXT("Sleep. Sure. Right after one drink.") },
+			  { TEXT("rosa"), TEXT("mad"), TEXT("One. I’m counting.") } },
+			TEXT("L1 BAYSHORE"), TEXT("NIGHT 1 · THE RUSTY ANCHOR") },
+		{ TEXT("DAY 2 · SCENE 2 · THE FORMULA"), TEXT("VOLTA CHEMICAL WORKS"),
+			{ { TEXT("rosa"), TEXT("mad"), TEXT("Is that a black eye?") },
+			  { TEXT("nova"), TEXT("taunt"), TEXT("Makeup. Method.") },
+			  { TEXT("gail"), TEXT("mad"), TEXT("It was on Channel 9, Nova. “STUNTMAN WRECKS PIER BAR.” The insurance people called. Twice.") },
+			  { TEXT("rosa"), TEXT("idle"), TEXT("The tubes, the helix, the reactor. Don’t touch the walls.") } },
+			{ { TEXT("voss"), TEXT("frame"), TEXT("Kane. That was… fine. Fine work.") },
+			  { TEXT("nova"), TEXT("taunt"), TEXT("Fine? I drove on a ceiling. I’m going dancing.") },
+			  { TEXT("gail"), TEXT("talk"), TEXT("Dancing is fine. Dancing is not a fight. Promise me.") },
+			  { TEXT("nova"), TEXT("win"), TEXT("Scout’s honour.") } },
+			TEXT("L2 CHEMICAL WORKS"), TEXT("NIGHT 2 · THE VELVET ROOM") },
+		{ TEXT("DAY 3 · SCENE 3 · ALL IN"), TEXT("NEVADA · HIGHWAY 93"),
+			{ { TEXT("voss"), TEXT("point"), TEXT("Two nights, two fights, two headlines. You are on thin ice, Kane.") },
+			  { TEXT("nova"), TEXT("taunt"), TEXT("Then I drive fast. Ice can’t crack if you never stop.") },
+			  { TEXT("voss"), TEXT("order"), TEXT("Highway 93 to Las Vegas. Bring my car back in one piece.") },
+			  { TEXT("nova"), TEXT("idle"), TEXT("Which piece?") } },
+			{ { TEXT("voss"), TEXT("mega"), TEXT("…That’s the shot. Okay. OKAY! We’re in Vegas tonight. Everybody stays in the hotel.") },
+			  { TEXT("nova"), TEXT("idle"), TEXT("Everybody?") },
+			  { TEXT("voss"), TEXT("shout"), TEXT("ESPECIALLY you.") } },
+			TEXT("L3 NEVADA"), TEXT("NIGHT 3 · THE LUCKY 7") },
+		{ TEXT("DAY 4 · SCENE 4 · BAPTISM OF FIRE"), TEXT("MOUNT KALDERA"),
+			{ { TEXT("deedee"), TEXT("wave"), TEXT("Dee Dee Starr, Hollywood After Dark! Stunt double Nova Kane: three nights, three brawls. Is this man a MENACE?") },
+			  { TEXT("voss"), TEXT("frame"), TEXT("Gail wants you off the picture, Kane. I said one more chance.") },
+			  { TEXT("nova"), TEXT("idle"), TEXT("Thanks, Harlan.") },
+			  { TEXT("voss"), TEXT("point"), TEXT("Don’t thank me. Drive through that volcano.") } },
+			{ { TEXT("rosa"), TEXT("mad"), TEXT("You drove through lava, Nova. Actual lava.") },
+			  { TEXT("nova"), TEXT("taunt"), TEXT("Movie lava.") },
+			  { TEXT("rosa"), TEXT("cheer"), TEXT("It was REAL. Crew luau at the Tiki Torch tonight. Please. Just eat a pineapple.") } },
+			TEXT("L4 VOLCANO"), TEXT("NIGHT 4 · THE TIKI TORCH") },
+		{ TEXT("DAY 5 · SCENE 5 · THE LAST RIDE"), TEXT("COASTER COVE"),
+			{ { TEXT("kip"), TEXT("ask"), TEXT("Mr. Voss, I can do the coaster. I’m rested. I don’t get in fights.") },
+			  { TEXT("voss"), TEXT("order"), TEXT("Kane does the coaster.") },
+			  { TEXT("nova"), TEXT("taunt"), TEXT("Thanks for keeping my seat warm, Kip.") },
+			  { TEXT("kip"), TEXT("smirk"), TEXT("…Any time.") } },
+			{ { TEXT("voss"), TEXT("laugh"), TEXT("A car on a roller coaster. One take. Kane, I could kiss you.") },
+			  { TEXT("nova"), TEXT("idle"), TEXT("Please don’t.") },
+			  { TEXT("kip"), TEXT("wave"), TEXT("Crew bowling league is at Strike City tonight, Nova. Everybody’ll be there. You should come.") } },
+			TEXT("L5 THEME PARK"), TEXT("NIGHT 5 · STRIKE CITY") },
+		{ TEXT("DAY 6 · SCENE 6 · WHITE OUT"), TEXT("FROSTBITE PEAK"),
+			{ { TEXT("nova"), TEXT("idle"), TEXT("Kip sent me into a fight last night, Rosa.") },
+			  { TEXT("rosa"), TEXT("cheer"), TEXT("Kip? Little Kip? He cries at the dailies.") },
+			  { TEXT("voss"), TEXT("mega"), TEXT("Frostbite Peak. The half pipe, the whiteout. Kane: if you fall, fall in a way I can use.") } },
+			{ { TEXT("rosa"), TEXT("mad"), TEXT("I asked around. Kip’s been calling bars all week. Telling the owners you’re coming, and what you said about them.") },
+			  { TEXT("nova"), TEXT("idle"), TEXT("Why?") },
+			  { TEXT("rosa"), TEXT("mad"), TEXT("You get fired, he drives scene eight.") },
+			  { TEXT("nova"), TEXT("taunt"), TEXT("Then tonight I stay in. Hot cocoa. A fireplace. Nobody knows me up here.") } },
+			TEXT("L6 ICE MOUNTAIN"), TEXT("NIGHT 6 · THE FROSTBITE LODGE") },
+		{ TEXT("DAY 7 · SCENE 7 · SINK OR SWIM"), TEXT("THE BIG TANK"),
+			{ { TEXT("gail"), TEXT("talk"), TEXT("The Commodore is on set today. He’s the money, Nova. He is paying for this picture.") },
+			  { TEXT("voss"), TEXT("frame"), TEXT("The big tank. A road on the sea floor and a whole sunken city. Don’t crack my glass.") },
+			  { TEXT("nova"), TEXT("taunt"), TEXT("I’ll be gentle.") } },
+			{ { TEXT("commodore"), TEXT("taunt"), TEXT("Splendid! Splendid driving, young man. Party on my yacht tonight. The whole crew!") },
+			  { TEXT("gail"), TEXT("mad"), TEXT("Nova. He is the money. Do NOT hit the money.") },
+			  { TEXT("nova"), TEXT("taunt"), TEXT("Not even a little?") },
+			  { TEXT("gail"), TEXT("mad"), TEXT("NOVA.") } },
+			TEXT("L7 UNDER THE SEA"), TEXT("NIGHT 7 · THE SEA BISCUIT") },
+		{ TEXT("DAY 8 · SCENE 8 · HOSTILE TAKEOVER"), TEXT("MIDTOWN · FIFTH AND MAIN"),
+			{ { TEXT("voss"), TEXT("order"), TEXT("Kip is fired. The Commodore wants you on the poster. The last scene, Kane: Midtown, midnight, the Chairman.") },
+			  { TEXT("nova"), TEXT("idle"), TEXT("And after the wrap?") },
+			  { TEXT("voss"), TEXT("shout"), TEXT("After the wrap you go HOME.") },
+			  { TEXT("nova"), TEXT("taunt"), TEXT("One drink.") },
+			  { TEXT("rosa"), TEXT("mad"), TEXT("NO.") } },
+			{ { TEXT("voss"), TEXT("laugh"), TEXT("…That’s the movie. Kane. That is the movie.") },
+			  { TEXT("nova"), TEXT("win"), TEXT("Drinks are on me, Harlan. Well. On somebody.") },
+			  { TEXT("rosa"), TEXT("mad"), TEXT("One. I’m counting.") } },
+			TEXT("L8 CITY CENTER"), TEXT("") } };
+	// who is who on set: the sprite folder and the height in cm (Nova is 228)
+	struct FDayActor { const TCHAR* Key; const TCHAR* Sprite; float H; };
+	const FDayActor DayActors[] = { { TEXT("voss"), TEXT("Voss"), 222.f }, { TEXT("kip"), TEXT("Kip"), 212.f }, { TEXT("rosa"), TEXT("Rosa"), 205.f },
+		{ TEXT("gail"), TEXT("Gail"), 212.f }, { TEXT("deedee"), TEXT("Deedee"), 220.f }, { TEXT("commodore"), TEXT("Commodore"), 250.f } };
+	const TCHAR* const SceneWord[8] = { TEXT("ONE"), TEXT("TWO"), TEXT("THREE"), TEXT("FOUR"), TEXT("FIVE"), TEXT("SIX"), TEXT("SEVEN"), TEXT("EIGHT") };
 }
 
 FVector AFTBrawlGameMode::RigLoc() const
@@ -154,6 +260,10 @@ void AFTBrawlGameMode::StartCut(int32 Id)
 	{
 		StartNightCut(Id, B);
 	}
+	else if ((Id == 10 && DayN >= 2) || Id == 11)
+	{
+		StartDayCut(Id, B);
+	}
 	else if (Id == 1)
 	{
 		CutRndSave = Rnd;
@@ -200,37 +310,39 @@ void AFTBrawlGameMode::StartCut(int32 Id)
 	}
 	else if (Id == 3)
 	{
-		// 2:40 AM, out back: the bar's back door at PierX, the pier and the harbour to the right, Voss's limousine
+		// 2:40 AM, out back: the bar's back door at PierX, the pier and the harbour to the right, the limousine Kip came in
 		const float X = PierX;
 		CutFade = 1; CutFadeGoal = 0;
 		AddCast(TEXT("nova"), TEXT("Nova"), Nova, Sc, FVector(X - 20, -318, 0), 1).bHidden = true;
 		AddCast(TEXT("photo"), TEXT("Sleaze"), 218.f, 2.0f / 2.05f, FVector(X + 560, -90, 0), -1).Pose = TEXT("idle");
 		AddCast(TEXT("guy"), TEXT("Punk"), 228.f, 2.0f / 2.05f, FVector(X + 1000, -215, 0), 1);
-		AddCast(TEXT("voss"), TEXT("Voss"), 222.f, 1.f, FVector(X + 1290, -235, 0), -1).Pose = TEXT("smoke");
-		AddCast(TEXT("driver"), TEXT("Bouncer"), 268.f, 2.3f / 2.05f, FVector(X + 1560, -150, 0), -1);
+		AddCast(TEXT("kip"), TEXT("Kip"), 212.f, 1.f, FVector(X + 1290, -235, 0), -1).Pose = TEXT("smirk");
+		AddCast(TEXT("heavy"), TEXT("Bouncer"), 268.f, 2.3f / 2.05f, FVector(X + 1560, -150, 0), -1);
 		if (Limo) { LimoAt = FVector(X + 1720, -318, 0); LimoV = 0; Limo->SetActorHiddenInGame(false); }
 		CamTo(FVector(X + 330, 1350, 520), -16, 50, 1.f, true);
 		B(TEXT(""), TEXT(""), 2.4f, [this, X]() { CutTitle = TEXT("2:40 AM"); CutSub = TEXT("OUT BACK OF THE RUSTY ANCHOR"); CutTitleT = 0;
 			FFTCutActor& N = CutCast[TEXT("nova")]; N.bHidden = false; Walk(TEXT("nova"), FVector(X + 120, -200, 0), 120); });
 		B(TEXT("vo"), TEXT("Out back, the pier was dark. Somebody’s limousine wasn’t."), 1.6f, [this, X]() { CamTo(FVector(X + 1130, 1300, 500), -15, 48, 0.7f); });
-		B(TEXT("guy"), TEXT("He hit back harder than you said, Mr. Voss. That’s extra."), 0.f, [this, X]() { PoseAs(TEXT("guy"), TEXT("idle"), 1); CamTo(FVector(X + 1150, 820, 330), -9, 42, 1.0f); });
-		B(TEXT("voss"), TEXT("Extra. Sure. STUNTMAN WRECKS PIER BAR, Channel 9 by six. That’s a picture people pay to see."), 0.f, [this]() { PoseAs(TEXT("voss"), TEXT("give"), -1); });
+		B(TEXT("guy"), TEXT("He hit back harder than you said, Kip. That’s extra."), 0.f, [this, X]() { PoseAs(TEXT("guy"), TEXT("idle"), 1); CamTo(FVector(X + 1150, 820, 330), -9, 42, 1.0f); });
+		B(TEXT("kip"), TEXT("Extra. Sure. STUNTMAN WRECKS PIER BAR, Channel 9 by six. Let’s see Voss keep him after that."), 0.f, [this]() { PoseAs(TEXT("kip"), TEXT("ask"), -1); });
 		B(TEXT(""), TEXT(""), 0.7f, [this, X]() { PoseAs(TEXT("photo"), TEXT("throw"), -1); CamTo(FVector(X + 380, 900, 360), -10, 44, 2.0f); });
-		B(TEXT("photo"), TEXT("Got him coming out the back, Harlan. Blood and all."), 0.f, [this]() { CutFlash = 1.f; PoseAs(TEXT("nova"), TEXT("hurt"), 1); });
-		B(TEXT("voss"), TEXT("Perfect. Kane bleeds, the picture sells."), 0.f, [this, X]() { PoseAs(TEXT("voss"), TEXT("laugh"), -1); PoseAs(TEXT("nova"), TEXT("idle"), 1); PoseAs(TEXT("photo"), TEXT("idle"), -1);
+		B(TEXT("photo"), TEXT("Got him coming out the back, Kip. Blood and all."), 0.f, [this]() { CutFlash = 1.f; PoseAs(TEXT("nova"), TEXT("hurt"), 1); });
+		B(TEXT("kip"), TEXT("Perfect. Kane bleeds, and the other double gets the part."), 0.f, [this, X]() { PoseAs(TEXT("kip"), TEXT("me"), -1); PoseAs(TEXT("nova"), TEXT("idle"), 1); PoseAs(TEXT("photo"), TEXT("idle"), -1);
 			CamTo(FVector(X + 1150, 820, 330), -9, 42, 1.2f); });
 		B(TEXT("guy"), TEXT("And my extra?"), 0.f, [this, X]() { Walk(TEXT("guy"), FVector(X + 1110, -225, 0), 90); });
-		B(TEXT("voss"), TEXT("Your extra is you were never here."), 0.f, [this]() { PoseAs(TEXT("voss"), TEXT("smoke"), -1); PoseAs(TEXT("driver"), TEXT("wind"), -1); });
-		B(TEXT(""), TEXT(""), 0.35f, [this, X]() { Walk(TEXT("driver"), FVector(X + 1230, -215, 0), 520); });
+		B(TEXT("kip"), TEXT("Your extra is you were never here."), 0.f, [this]() { PoseAs(TEXT("kip"), TEXT("smirk"), -1); PoseAs(TEXT("heavy"), TEXT("wind"), -1); });
+		B(TEXT(""), TEXT(""), 0.35f, [this, X]() { Walk(TEXT("heavy"), FVector(X + 1230, -215, 0), 520); });
 		B(TEXT(""), TEXT(""), 1.9f, [this, X]() {
-			PoseAs(TEXT("driver"), TEXT("punch"), -1); Shake = 1.f;
+			PoseAs(TEXT("heavy"), TEXT("punch"), -1); Shake = 1.f;
 			FFTCutActor& G = CutCast[TEXT("guy")]; G.bFly = true; G.T = 0; G.Vel = FVector(-140, -420, 900); G.Pose = TEXT("fly");
 			Bleed((X + 1110) / CPX, CFB - 225 / CPX, 130, -1, 22, 1.2f);
 			CamTo(FVector(X + 1000, 1250, 470), -15, 48, 1.4f); });
-		B(TEXT("nova"), TEXT("…Harlan?"), 0.f, [this, X]() { PoseAs(TEXT("driver"), TEXT("idle"), -1); Walk(TEXT("nova"), FVector(X + 330, -200, 0), 90); CamTo(FVector(X + 300, 820, 320), -9, 42, 1.2f); });
-		B(TEXT("voss"), TEXT("Tide’s out. He’ll keep."), 0.f, [this, X]() { PoseAs(TEXT("voss"), TEXT("away"), 1); CamTo(FVector(X + 1300, 860, 340), -9, 42, 1.2f); });
+		B(TEXT("nova"), TEXT("…Kip?"), 0.f, [this, X]() { PoseAs(TEXT("heavy"), TEXT("idle"), -1); Walk(TEXT("heavy"), FVector(X + 1560, -150, 0), 160); Walk(TEXT("nova"), FVector(X + 330, -200, 0), 90); CamTo(FVector(X + 300, 820, 320), -9, 42, 1.2f); });
+		B(TEXT("kip"), TEXT("Tide’s out. He’ll keep. See you on set, Kane."), 0.f, [this, X]() { PoseAs(TEXT("kip"), TEXT("wave"), -1); CamTo(FVector(X + 1300, 860, 340), -9, 42, 1.2f); });
+		// Kip and his heavy get in the limousine
+		B(TEXT(""), TEXT(""), 1.4f, [this, X]() { Walk(TEXT("kip"), FVector(X + 1700, -300, 0), 300); Walk(TEXT("heavy"), FVector(X + 1760, -290, 0), 300); });
 		B(TEXT(""), TEXT(""), 3.2f, [this, X]() {
-			CutCast[TEXT("voss")].bHidden = true; CutCast[TEXT("driver")].bHidden = true; LimoV = 30.f;
+			CutCast[TEXT("kip")].bHidden = true; CutCast[TEXT("heavy")].bHidden = true; LimoV = 30.f;
 			Walk(TEXT("photo"), FVector(X + 2600, -60, 0), 260);
 			CamTo(FVector(X + 1100, 1350, 500), -16, 50, 0.8f); });
 		B(TEXT("vo"), TEXT("Nobody ever found the guy. Channel 9 had the picture by six."), 2.0f, [this, X]() { Walk(TEXT("nova"), FVector(X + 1080, -265, 0), 110); CamTo(FVector(X + 900, 1200, 480), -15, 48, 0.6f); });
@@ -287,8 +399,12 @@ void AFTBrawlGameMode::StartCut(int32 Id)
 			FFTCutBeat End; End.bWait = true;
 			End.Start = [this]() {
 				CutCard = TEXT("▶ THE DRIVE");
-				CutCardSub = TEXT("L1 BAYSHORE · ROUTE 9, IN FULL THROTTLE  →  THEN NIGHT 1 · THE RUSTY ANCHOR");
-				CutCardKeys = TEXT("ENTER/A: ON TO NIGHT 1 · THE RUSTY ANCHOR   ·   R: WATCH AGAIN");
+				CutCardSub = TEXT("L1 BAYSHORE · ROUTE 9, IN FULL THROTTLE  →  THEN THE WRAP AND NIGHT 1 · THE RUSTY ANCHOR");
+				CutCardKeys = TEXT("ENTER/A: ON TO DAY 1 · THE WRAP   ·   R: WATCH AGAIN");   // the brawl on its own (run 77694)
+#if FTB_CAREER_DAY1
+				// the main game's career, started from the title: the drive comes next
+				if (UFTNightFlow::InDay1(this)) CutCardKeys = TEXT("ENTER/A: ON TO THE DRIVE · L1 BAYSHORE   ·   R: WATCH AGAIN");
+#endif
 				UE_LOG(LogFTCut, Log, TEXT("FTBRAWL cut end card"));
 			};
 			Beats.Add(MoveTemp(End));
@@ -486,7 +602,7 @@ void AFTBrawlGameMode::StepCut(float Dt, const FIn& In)
 		UE_LOG(LogFTCut, Log, TEXT("FTBRAWL cut %d skipped"), CutId);
 		if (CutId == 1) EndCut();
 		else if (CutId == 2 && Night == 1) StartCut(3);
-		else if (CutId == 10) { if (FFTCutActor* N = CutCast.Find(TEXT("nova"))) N->bHidden = true; if (Limo) Limo->SetActorHiddenInGame(true);
+		else if (CutId == 10 || CutId == 11) { if (FFTCutActor* N = CutCast.Find(TEXT("nova"))) N->bHidden = true; if (Limo) Limo->SetActorHiddenInGame(true);
 			CutBeat = Beats.Num() - 2; CutFade = CutFadeGoal = 0.85f; NextBeat(); }
 		else { CutBeat = Beats.Num() - 2; CutFade = CutFadeGoal = 0.85f; NextBeat(); }
 		return;
@@ -498,14 +614,10 @@ void AFTBrawlGameMode::StepCut(float Dt, const FIn& In)
 	if (Bt.bWait)
 	{
 		const bool bAutoNext = bAuto && FParse::Param(FCommandLine::Get(), TEXT("brawlnext")) && CutT > 3.f;
-		if (CutId == 10)   // day 1: on to night 1 (the drive itself is Full Throttle's level 1), R watches it again
+		if (CutId == 10 || CutId == 11)   // a day: on to the drive / the night (DayCutDone), R watches it again
 		{
-			if ((bEnterPress && CutT > 0.6f) || bAutoNext)
-			{
-				UE_LOG(LogFTCut, Log, TEXT("FTBRAWL on to night 1"));
-				UGameplayStatics::OpenLevel(this, FName(TEXT("/Game/Brawl/Maps/L_RustyAnchor")));
-			}
-			else if (PC && PC->IsInputKeyDown(EKeys::R)) StartCut(10);
+			if ((bEnterPress && CutT > 0.6f) || bAutoNext) DayCutDone();
+			else if (PC && PC->IsInputKeyDown(EKeys::R)) StartCut(CutId);
 			return;
 		}
 		if ((bEnterPress && CutT > 0.6f) || bAutoNext)
@@ -730,6 +842,7 @@ void AFTBrawlGameMode::BuildSet()
 	}
 	// light: the morning sun from the left over the camera, the sky bright, a film lamp on the mark
 	ADirectionalLight* Sun = Wd->SpawnActor<ADirectionalLight>(FVector(X, 0, 800), FRotator::ZeroRotator);
+	SetSun = Sun;   // the days (run 77694): SetSetLight turns it to the golden hour for THE WRAP
 	UDirectionalLightComponent* DL = CastChecked<UDirectionalLightComponent>(Sun->GetLightComponent());
 	DL->SetMobility(EComponentMobility::Movable);
 	Sun->SetActorRotation(FRotator(-34, -55, 0));
@@ -741,10 +854,171 @@ void AFTBrawlGameMode::BuildSet()
 		SL->SetIntensity(1.2f); SL->SetLightColor(Hx(TEXT("c9b8e8"))); SL->RecaptureSky();
 	}
 	ASpotLight* Sp = Wd->SpawnActor<ASpotLight>(FVector(X - 1100, 300, 420), FRotator::ZeroRotator);
+	SetLamp = Sp;
 	Sp->SpotLightComponent->SetMobility(EComponentMobility::Movable);
 	Sp->SetActorRotation((FVector(X, -170, 120) - FVector(X - 1100, 300, 420)).Rotation());
 	Sp->SpotLightComponent->SetIntensity(30000.f); Sp->SpotLightComponent->SetAttenuationRadius(2600.f);
 	Sp->SpotLightComponent->SetInnerConeAngle(16.f); Sp->SpotLightComponent->SetOuterConeAngle(34.f);
 	Sp->SpotLightComponent->SetLightColor(Hx(TEXT("fff2d6"))); Sp->SpotLightComponent->SetCastShadows(false);
 	UE_LOG(LogFTCut, Log, TEXT("FTBRAWL set built at x=%.0f (panels %d, road %d, kestrel %d)"), X, Pa && Pb ? 1 : 0, Road ? 1 : 0, CarT ? 1 : 0);
+}
+
+// ---------------------------------------------------------------- the days (run 77694): BEFORE THE DRIVE (10) and THE WRAP (11)
+// On the Route 9 set: the crew who speak stand on their marks (Voss by his chair, then left to right), Nova's mark is in
+// the middle (SetX + 60), the KESTREL parked behind him. BEFORE: Nova walks in, the lines, he gets in the car and it pulls
+// away (ROLLING), then the THE DRIVE card. THE WRAP: the golden hour, Nova gets out of the car, the lines, he walks off
+// to the night, then the END OF DAY card.
+void AFTBrawlGameMode::StartDayCut(int32 Id, TFunctionRef<void(const TCHAR*, const FString&, float, TFunction<void()>)> B)
+{
+	const int32 D = FMath::Clamp(DayN, 1, 8) - 1;
+	const FDayCut& C = DayCuts[D];
+	const bool bWrap = Id == 11;
+	const FDayLine* Lines = bWrap ? C.Wrap : C.Before;
+	const int32 NL = bWrap ? 5 : 6;
+	const float X = SetX, NX = SetX + 60.f;
+	CutFade = 1; CutFadeGoal = 0;
+	// the crew: everybody who speaks (Voss first, by his chair)
+	TArray<FName> Crew;
+	for (int32 i = 0; i < NL && Lines[i].Who; i++)
+		if (FCString::Strcmp(Lines[i].Who, TEXT("nova")) != 0) Crew.AddUnique(FName(Lines[i].Who));
+	if (Crew.Remove(TEXT("voss"))) Crew.Insert(TEXT("voss"), 0);
+	const float MarkX[] = { X - 330.f, X - 110.f, X + 300.f }, MarkY[] = { -190.f, -160.f, -175.f };
+	TMap<FName, float> At;
+	At.Add(TEXT("nova"), NX);
+	for (int32 i = 0; i < Crew.Num() && i < 3; i++)
+	{
+		const FDayActor* A = nullptr;
+		for (const FDayActor& Da : DayActors) if (Crew[i] == Da.Key) A = &Da;
+		if (!A) continue;
+		AddCast(Crew[i], A->Sprite, A->H, 1.f, FVector(MarkX[i], MarkY[i], 0), MarkX[i] < NX ? 1 : -1);
+		At.Add(Crew[i], MarkX[i]);
+	}
+	if (bWrap) AddCast(TEXT("nova"), TEXT("Nova"), 228.f, 1.f, FVector(X + 380, -235, 0), -1).bHidden = true;   // in the car
+	else AddCast(TEXT("nova"), TEXT("Nova"), 228.f, 1.f, FVector(X + 1250, -150, 0), -1);                    // from the right, past his car
+	if (Limo) { LimoAt = FVector(X + 520, -300, 0); LimoV = 0; Limo->SetActorHiddenInGame(false); }
+	CamTo(FVector(X - 200, 1450, 540), -16, 50, 1.f, true);
+	const FString Title = bWrap ? FString::Printf(TEXT("DAY %d · THE WRAP"), D + 1) : FString(C.Title);
+	const FString Sub = bWrap ? FString::Printf(TEXT("%s · SCENE %s IS IN THE CAN"), C.Place, SceneWord[D]) : FString::Printf(TEXT("%s · ON SET"), C.Place);
+	B(TEXT(""), TEXT(""), 2.8f, [this, Title, Sub, NX, X, bWrap]() {
+		CutTitle = Title; CutSub = Sub; CutTitleT = 0; CutFadeGoal = 0.35f;   // the title over a dimmed set, as day 1
+		FFTCutActor& N = CutCast[TEXT("nova")]; N.bHidden = false;
+		Walk(TEXT("nova"), FVector(NX, -170, 0), bWrap ? 150 : 300);
+		CamTo(FVector(X + 100, 1250, 480), -15, 48, 0.7f); });
+	// the lines: the speaker in the line's pose, facing Nova; Nova faces whoever spoke last; a two-shot of the pair
+	FName Prev = NAME_None, Other = Crew.Num() ? Crew[0] : FName(NAME_None);
+	for (int32 i = 0; i < NL && Lines[i].Who; i++)
+	{
+		const FName Key = Lines[i].Who;
+		const FName Pose = Lines[i].Pose ? FName(Lines[i].Pose) : FName(TEXT("idle"));
+		const bool bNova = Key == TEXT("nova");
+		if (!bNova) Other = Key;
+		const float OX = At.Contains(Other) ? At[Other] : X - 330.f;
+		const float Mx = (OX + NX) / 2, Far = FMath::Abs(OX - NX) > 300.f ? 900.f : 800.f;
+		const FName Was = Prev;
+		B(Lines[i].Who, Lines[i].Line, 0.f, [this, Key, Pose, bNova, Was, OX, NX, Mx, Far]() {
+			CutFadeGoal = 0;
+			if (Was != NAME_None && Was != Key) PoseAs(Was, TEXT("idle"));
+			const float ToNova = OX < NX ? 1 : -1;
+			if (bNova) { PoseAs(TEXT("nova"), Pose, -ToNova); CamTo(FVector(NX - 20, 760, 320), -9, 40, 1.2f); }
+			else { PoseAs(Key, Pose, ToNova); PoseAs(TEXT("nova"), TEXT("idle"), -ToNova); CamTo(FVector(Mx, Far, 330), -9, 42, 1.1f); } });
+		Prev = Key;
+	}
+	if (!bWrap)
+	{
+		// Nova gets in the KESTREL, the car pulls away to the right: ROLLING
+		const bool bVoss = Crew.Contains(TEXT("voss"));
+		B(TEXT(""), TEXT(""), 1.5f, [this, X, Prev, bVoss]() {
+			if (Prev == TEXT("nova")) PoseAs(TEXT("nova"), TEXT("idle"));
+			Walk(TEXT("nova"), FVector(X + 380, -235, 0), 200);
+			if (bVoss) PoseAs(TEXT("voss"), TEXT("shout"), 1);
+			CamTo(FVector(X + 100, 1250, 470), -15, 48, 1.0f); });
+		const FString Roll = FString::Printf(TEXT("SCENE %s · TAKE ONE"), SceneWord[D]);
+		B(TEXT(""), TEXT(""), 3.4f, [this, X, Roll]() {
+			CutCast[TEXT("nova")].bHidden = true; LimoV = 40.f; Shake = 0.35f;
+			CutTitle = TEXT("ROLLING"); CutSub = Roll; CutTitleT = 0;
+			CamTo(FVector(X + 900, 1350, 500), -16, 50, 0.9f); UE_LOG(LogFTCut, Log, TEXT("FTBRAWL cut kestrel away")); });
+		B(TEXT(""), TEXT(""), 1.2f, [this]() { CutFadeGoal = 0.85f; });
+		FFTCutBeat End; End.bWait = true;
+		const FString Drive = C.Drive;
+		End.Start = [this, Drive, D]() {
+			CutCard = TEXT("▶ THE DRIVE");
+			CutCardSub = FString::Printf(TEXT("%s, IN FULL THROTTLE  →  THEN DAY %d · THE WRAP"), *Drive, D + 1);
+			CutCardKeys = FString::Printf(TEXT("ENTER/A: ON TO DAY %d · THE WRAP   ·   R: WATCH AGAIN"), D + 1);
+#if FTB_CAREER_DAY1
+			if (UFTNightFlow::InDay1(this)) CutCardKeys = FString::Printf(TEXT("ENTER/A: ON TO THE DRIVE · %s   ·   R: WATCH AGAIN"), *Drive);
+#endif
+			UE_LOG(LogFTCut, Log, TEXT("FTBRAWL cut end card day %d before"), D + 1);
+		};
+		Beats.Add(MoveTemp(End));
+		return;
+	}
+	// THE WRAP: Nova walks off to the right, into the night
+	B(TEXT(""), TEXT(""), 2.2f, [this, X, Prev]() {
+		if (Prev == TEXT("nova")) PoseAs(TEXT("nova"), TEXT("idle"));
+		Walk(TEXT("nova"), FVector(X + 1500, -150, 0), 200); CamTo(FVector(X + 300, 1250, 470), -15, 48, 0.8f); CutFadeGoal = 1; });
+	B(TEXT(""), TEXT(""), 0.6f, [this]() { CutFadeGoal = 0.85f; });
+	FFTCutBeat End; End.bWait = true;
+	const FString NightName = C.NightName;
+	End.Start = [this, NightName, D]() {
+		CutCard = FString::Printf(TEXT("END OF DAY %d"), D + 1);
+		if (NightName.IsEmpty())
+		{
+			CutCardSub = TEXT("THAT’S A WRAP ON THE PICTURE");
+			CutCardKeys = TEXT("ENTER/A: BACK TO DAY 1   ·   R: WATCH AGAIN");
+#if FTB_CAREER_DAY1
+			if (UFTNightFlow::InDay1(this)) CutCardKeys = TEXT("ENTER/A: ON   ·   R: WATCH AGAIN");
+#endif
+		}
+		else
+		{
+			CutCardSub = FString::Printf(TEXT("NEXT: %s"), *NightName);
+			CutCardKeys = FString::Printf(TEXT("ENTER/A: ON TO %s   ·   R: WATCH AGAIN"), *NightName);
+		}
+		UE_LOG(LogFTCut, Log, TEXT("FTBRAWL cut end card day %d wrap"), D + 1);
+	};
+	Beats.Add(MoveTemp(End));
+}
+
+// ENTER on a day's end card: in the main game's career FTNightFlow takes it from here (the race after BEFORE THE DRIVE,
+// the night after THE WRAP); on its own the brawl plays the day's WRAP after its BEFORE, then that day's night
+void AFTBrawlGameMode::DayCutDone()
+{
+#if FTB_CAREER_DAY1
+	if (UFTNightFlow::DayCutOver(this)) { UE_LOG(LogFTCut, Log, TEXT("FTBRAWL day %d %s over: back to the career"), DayN, CutId == 11 ? TEXT("wrap") : TEXT("before")); return; }
+#endif
+	if (CutId == 10)
+	{
+		UE_LOG(LogFTCut, Log, TEXT("FTBRAWL on to day %d wrap"), DayN);
+		bDayWrap = true; SetSetLight(true); StartCut(11);
+		return;
+	}
+	const TCHAR* Next = NightMap(DayN);
+	if (DayN <= 7 && Next && FPackageName::DoesPackageExist(Next))
+	{
+		UE_LOG(LogFTCut, Log, TEXT("FTBRAWL on to night %d"), DayN);
+		UGameplayStatics::OpenLevel(this, FName(Next));
+	}
+	else
+	{
+		UE_LOG(LogFTCut, Log, TEXT("FTBRAWL back to day 1"));
+		UGameplayStatics::OpenLevel(this, FName(TEXT("/Game/Brawl/Maps/L_Day1Set")), true, TEXT("brawlday=1"));
+	}
+}
+
+// the set's light: the morning call (BEFORE THE DRIVE) or the golden hour (THE WRAP)
+void AFTBrawlGameMode::SetSetLight(bool bDusk)
+{
+	if (SetSun)
+	{
+		SetSun->SetActorRotation(bDusk ? FRotator(-14, -35, 0) : FRotator(-34, -55, 0));
+		UDirectionalLightComponent* DL = CastChecked<UDirectionalLightComponent>(SetSun->GetLightComponent());
+		DL->SetIntensity(bDusk ? 4.2f : 5.f); DL->SetLightColor(Hx(bDusk ? TEXT("ffa860") : TEXT("ffe6c8")));
+	}
+	if (SetLamp) SetLamp->SpotLightComponent->SetLightColor(Hx(bDusk ? TEXT("ffd2a0") : TEXT("fff2d6")));
+	for (TActorIterator<ASkyLight> It(GetWorld()); It; ++It)
+	{
+		USkyLightComponent* SL = It->GetLightComponent();
+		SL->SetIntensity(bDusk ? 1.0f : 1.2f); SL->SetLightColor(Hx(bDusk ? TEXT("e8a8b8") : TEXT("c9b8e8"))); SL->RecaptureSky();
+	}
+	UE_LOG(LogFTCut, Log, TEXT("FTBRAWL set light %s"), bDusk ? TEXT("golden hour") : TEXT("morning"));
 }

@@ -31,7 +31,12 @@ WHO = {'nova': 'Nova', 'dock': 'Dock', 'punk': 'Punk', 'biker': 'Biker', 'sleaze
        'voss': 'Voss', 'car': 'Props',         # night 1's cutscenes (run 49531)
        'kip': 'Kip',                           # day 1's cutscene (run 73444)
        'pitboss': 'Pitboss', 'dealer': 'Dealer',   # night 3, the Lucky 7 (run 52616)
-       'frankie': 'Frankie', 'kingpin': 'Kingpin', 'sven': 'Sven', 'commodore': 'Commodore'}   # nights 4-7 (run 32365)
+       'frankie': 'Frankie', 'kingpin': 'Kingpin', 'sven': 'Sven', 'commodore': 'Commodore',   # nights 4-7 (run 32365)
+       'disco': 'Disco', 'hustler': 'Hustler', 'barman': 'Barman', 'roller': 'Roller', 'muscle': 'Muscle',   # nights 2-3's own regulars (run 95562)
+       'firedancer': 'Firedancer', 'surfer': 'Surfer', 'tourist': 'Tourist', 'pitcook': 'Pitcook', 'pinsetter': 'Pinsetter',
+       'leaguer': 'Leaguer', 'shoeclerk': 'Shoeclerk', 'lanehog': 'Lanehog', 'skibum': 'Skibum', 'linemate': 'Linemate',
+       'boarder': 'Boarder', 'goalie': 'Goalie', 'deckhand': 'Deckhand', 'firstmate': 'Firstmate', 'waiter': 'Waiter',
+       'tuxbrute': 'Tuxbrute'}   # nights 4-7's own regulars (run 97578)
 
 
 def _dir(p):

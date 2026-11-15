@@ -81,3 +81,82 @@ bool UFTNightFlow::NightOver(const UObject* Ctx)
 	UGameplayStatics::OpenLevel(Ctx, FTData::Level(From).Map);
 	return true;
 }
+
+// ---- the days: day 1's cutscene BEFORE THE DRIVE between the title and L1 BAYSHORE (run 34723), and (run 77694) every
+// day's BEFORE THE DRIVE before its race and THE WRAP after it, on the brawl's Route 9 set. Log lines "FT DAY1" / "FT DAY".
+namespace { const TCHAR* const Day1Map = TEXT("/Game/Brawl/Maps/L_Day1Set"); }
+
+bool UFTNightFlow::GoToDay1(const UObject* Ctx)
+{
+	return GoToDayCut(Ctx, 0, false);
+}
+
+bool UFTNightFlow::GoToDayCut(const UObject* Ctx, int32 L, bool bWrap)
+{
+	UFTNightFlow* NF = Get(Ctx);
+	UFTGameInstance* G = Ctx && Ctx->GetWorld() ? Ctx->GetWorld()->GetGameInstance<UFTGameInstance>() : nullptr;
+	const TCHAR* Cl = FCommandLine::Get();
+	if (!NF || !G || G->bBench || L < 0 || L >= FTData::NumLevels() || !FPackageName::DoesPackageExist(Day1Map)
+		|| FParse::Param(Cl, TEXT("ftnoday1")) || FParse::Param(Cl, TEXT("ftnodays")) || FParse::Param(Cl, TEXT("ftnonights"))) return false;
+	// autopilot / script runs (benches, the night tests) keep the old flow unless they ask for the days (-ftdays)
+	if (L > 0 || bWrap) { if ((G->bAutoDrive || G->bExecScript) && !FParse::Param(Cl, TEXT("ftdays"))) return false; }
+	NF->bDay1 = true; NF->DayLevel = L; NF->bDayWrap = bWrap;
+	if (!bWrap) { NF->NextLevel = -1; NF->FromLevel = -1; }
+	if (L == 0 && !bWrap) UE_LOG(LogFT, Display, TEXT("FT DAY1 start map=%s then=L1"), Day1Map);
+	UE_LOG(LogFT, Display, TEXT("FT DAY start day=%d cut=%s map=%s"), L + 1, bWrap ? TEXT("wrap") : TEXT("before"), Day1Map);
+	G->StopTitleMusic(0.8f);
+	UGameplayStatics::SetGlobalTimeDilation(Ctx, 1.f);
+	UGameplayStatics::SetGamePaused(Ctx, false);
+	UGameplayStatics::OpenLevel(Ctx, FName(Day1Map));
+	return true;
+}
+
+bool UFTNightFlow::InDay1(const UObject* Ctx)
+{
+	const UFTNightFlow* NF = Get(Ctx);
+	return NF && NF->bDay1;
+}
+
+bool UFTNightFlow::DayCutNow(const UObject* Ctx, int32& Day, bool& bWrap)
+{
+	const UFTNightFlow* NF = Get(Ctx);
+	if (!NF || !NF->bDay1) return false;
+	Day = NF->DayLevel + 1; bWrap = NF->bDayWrap;
+	return true;
+}
+
+bool UFTNightFlow::Day1Over(const UObject* Ctx)
+{
+	return DayCutOver(Ctx);
+}
+
+bool UFTNightFlow::DayCutOver(const UObject* Ctx)
+{
+	UFTNightFlow* NF = Get(Ctx);
+	UFTGameInstance* G = Ctx && Ctx->GetWorld() ? Ctx->GetWorld()->GetGameInstance<UFTGameInstance>() : nullptr;
+	if (!NF || !G || !NF->bDay1) return false;
+	NF->bDay1 = false;
+	const int32 L = FMath::Clamp(NF->DayLevel, 0, FTData::NumLevels() - 1);
+	const bool bWrap = NF->bDayWrap;
+	NF->DayLevel = -1; NF->bDayWrap = false;
+	UGameplayStatics::SetGlobalTimeDilation(Ctx, 1.f);
+	UGameplayStatics::SetGamePaused(Ctx, false);
+	if (!bWrap)
+	{
+		// BEFORE THE DRIVE: what PRE-PRODUCTION's READY (or the title's start for level 1) did: the map opens and the race starts
+		G->PendingLevel = L; G->bStartRace = true;
+		if (L == 0) UE_LOG(LogFT, Display, TEXT("FT DAY1 over race=L1 map=%s"), *FTData::Level(0).Map.ToString());
+		UE_LOG(LogFT, Display, TEXT("FT DAY over day=%d cut=before race=L%d"), L + 1, L + 1);
+		UGameplayStatics::OpenLevel(Ctx, FTData::Level(L).Map);
+		return true;
+	}
+	// THE WRAP: on to the night, as the paycheck did; with no night (the last level, a missing map) back to the race's flow:
+	// PRE-PRODUCTION on the finished level's map (for the next level, or after the last one "BACK TO THE TITLE")
+	const int32 Next = L + 1 < FTData::NumLevels() ? L + 1 : -2;
+	UE_LOG(LogFT, Display, TEXT("FT DAY over day=%d cut=wrap next=%s"), L + 1, Next >= 0 ? *FString::Printf(TEXT("night %d"), L + 1) : TEXT("title"));
+	if (Next >= 0 && GoToNight(Ctx, L, Next)) return true;
+	if (UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(Ctx)) { CS->C.PendingLevel = Next; CS->C.bPendingFromTitle = false; CS->Save(TEXT("Wrap")); }
+	G->bPendingPreProd = true;
+	UGameplayStatics::OpenLevel(Ctx, FTData::Level(L).Map);
+	return true;
+}

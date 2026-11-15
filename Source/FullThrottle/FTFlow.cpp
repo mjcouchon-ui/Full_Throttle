@@ -359,6 +359,7 @@ void AFTGameMode::EnterPaycheck()
 	Phase = EFTPhase::Paycheck; PhaseT = 0.f;
 	ResultsContinueRect = FBox2D(ForceInit);
 	UE_LOG(LogFT, Display, TEXT("FT SCREEN name=Paycheck lines=%d"), bPayValid ? Pay.Pay.Lines.Num() : 0);
+	if (bBossMusic) SetBossMusic(false);   // 3.8
 	Sfx(TEXT("Sting"), 0.5f);
 }
 
@@ -372,6 +373,9 @@ void AFTGameMode::TickPaycheck(float RDt)
 	auto Next = [this](int32 Kind)
 	{
 		const int32 To = Kind == 2 ? -2 : (Kind == 1 ? Level : Level + 1);
+		// the day's cutscene THE WRAP after a wrapped race, then the night (run 77694; after the last level THE WRAP, then the title)
+		const bool bLastWrap = Kind == 2 && Level >= FTData::NumLevels() - 1 && !bEscaped && !bOutOfFilm && bPayValid;   // = LeavePreProduction's THAT'S A WRAP
+		if ((Kind == 0 || bLastWrap) && UFTNightFlow::GoToDayCut(this, Level, true)) return;
 		if (Kind == 0 && UFTNightFlow::GoToNight(this, Level, To)) return;   // the night between the races (FTNightFlow)
 		EnterPreProduction(To, false);
 	};
@@ -396,6 +400,9 @@ void AFTGameMode::EnterPreProduction(int32 NextLevel, bool bFromTitle)
 	PPNextLevel = NextLevel; bPPFromTitle = bFromTitle;
 	ClearEnts();
 	UGameplayStatics::SetGlobalTimeDilation(this, 1.f); TimeScale = 1.f;
+	// 3.8 (owner: the store plays the level's music): after a level (straight from the paycheck, or back from the night
+	// on the finished level's map, where nothing played) the level's own track; from the title the title song plays on
+	if (!bFromTitle) SetBossMusic(false);
 	if (Music) Music->SetVolumeMultiplier(0.12f);
 	if (UFTGameInstance* GT = GI()) GT->SetTitleMusicVolume(0.12f);   // 3.0: from the title the title song plays on, low
 	BuyHoldT = 0.f; bBuyHoldDone = false;
@@ -437,6 +444,8 @@ void AFTGameMode::LeavePreProduction()
 		return;
 	}
 	UE_LOG(LogFT, Display, TEXT("FT SCREEN name=Slate next=L%d"), PPNextLevel + 1);
+	// the next day's cutscene BEFORE THE DRIVE first (run 77694; not for a reshoot of the same level)
+	if (PPNextLevel != Level && UFTNightFlow::GoToDayCut(this, PPNextLevel, false)) return;
 	if (PPNextLevel == Level) StartRace(false);
 	else GoToLevel(PPNextLevel, true);
 }

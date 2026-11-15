@@ -158,6 +158,13 @@ in when `FTNightFlow.h` is there, `#if __has_include`). New night maps also go i
   DRIVE scene) came along with the brawl content but is not in the flow: the owner's rule was nights only, between the races.
 - **Grab and throw (every night, run 42137):** L / C / pad B lifts the foe in front over Nova's head, L / J / K hurls him the way
   you steer; the thrown body knocks down every foe it hits. Same code as `../beat-em-up-unreal` (its README, "Grab and throw").
+- **Sounds, rumble, weapon reach (run 38222, every night, both projects):** the fights have their own sounds (punches, kicks,
+  swings, wood / metal / glass weapon hits, breaks, pickups, foe grunts and knockdowns, Nova hurt / floored): original, synthesized by
+  `../beat-em-up-unreal/Tools/brawl_sfx_synth.py` into `../beat-em-up-unreal/Docs/audio/sfx/`, imported to `/Game/Brawl/Audio/SFX`
+  by `Content/Python/brawl_audio.py` (`-- sfx`), played by `AFTBrawlGameMode::Sfx`. A pad rumbles on hits landed (light), hits
+  taken and knockdowns (hard): `AFTBrawlGameMode::Rumble` (the races' rumble is `AFTGameMode::Shake`). Weapon reach comes from
+  the art (`../beat-em-up-unreal/Tools/weapon_reach.py`: the far end at the end of the swing + 16): the pool cue / mic stand / rake
+  hit from their tips (166 / 162 / 160, were 128). `-LogCmds="LogFTBrawl Verbose"` logs `FTBRAWL sfx / rumble / swing hit <weapon> dx= reach=`.
 - **Tests:** `-ftnonights` turns the nights off (benches never go to them). `-brawlgrab` makes the autopilot grab and throw,
   `-brawlkeytest` plays the autopilot through key presses (the keyboard path). In a night, `-brawlauto` fights by itself and
   `-brawlnext` presses ENTER after the win / on the last card, `-brawlshots=<dir>` writes a frame every 4 s. Logs:

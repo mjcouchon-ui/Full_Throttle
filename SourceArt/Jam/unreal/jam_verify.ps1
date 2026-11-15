@@ -134,7 +134,11 @@ foreach ($line in [IO.File]::ReadLines($log)) {
   }
 }
 $bad = 0
-foreach ($k in ($all.Keys | Sort-Object)) {
+# Only the levels that were asked for: the title screen builds Bayshore's track behind the menu, and that line used to
+# be reported as "FAIL level 1" whenever level 1 was not in the run.
+$asked = @($lv | ForEach-Object { [int]$_ - 1 } | Sort-Object)
+foreach ($k in $asked) {
+  if (-not $all.ContainsKey($k)) { $bad++; $out.Add(("FAIL  level {0} {1}: never built (no FTTRACK line for it in the log)" -f ($k + 1), $names[$k])); continue }
   $s = $all[$k]
   $crcKnown = $base.ContainsKey($k); $sumKnown = $baseSum.ContainsKey($k) -and $s.sum
   $crcSame = $crcKnown -and ($base[$k] -eq $s.track); $sumSame = $sumKnown -and (Same-Sum $baseSum[$k] $s.sum)
@@ -153,7 +157,7 @@ foreach ($k in ($all.Keys | Sort-Object)) {
 }
 $first = Get-ChildItem $dst -Filter *.png | Select-Object -First 1
 if ($first) { Add-Type -AssemblyName System.Drawing; $im = [System.Drawing.Image]::FromFile($first.FullName); $out.Add(("frame size {0}x{1} (asked for {2}x{3}); {4} frames -> {5}" -f $im.Width, $im.Height, $ResX, $ResY, (Get-ChildItem $dst -Filter *.png).Count, $dst)); $im.Dispose() }
-$out.Add(("levels checked {0} of {1}; not passing {2}" -f $all.Count, $lv.Count, $bad))
+$out.Add(("levels checked {0} of {1}; not passing {2}" -f @($asked | Where-Object { $all.ContainsKey($_) }).Count, $lv.Count, $bad))
 $rep = "K:\Full Throttle\SkyScratch\DevLog\jam\verify_$Tag.txt"
 Set-Content -LiteralPath $rep -Value $out -Encoding utf8
 $out
