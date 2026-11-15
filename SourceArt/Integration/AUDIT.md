@@ -71,6 +71,26 @@ game. Runs of 15 Nov on `main` 223c349 (Development, 1,357 MB, built in 12 to 19
 - Frames over 40 ms were counted but mean little: each 3440x1440 screenshot is itself one, and other Unreal jobs
   shared the PC.
 
+### The final state of this pass (`main` deaca78, 15 Nov, about 07:00)
+
+With the second dressing pass on all eight levels (`WORLD_PASS_2.md`):
+
+| Check | Result |
+|---|---|
+| Per-level check, uncooked, Epic, 3440x1440 (`rc3_epic`) | 8 of 8 pass |
+| The same at Low (`final_low`) | 8 of 8 pass |
+| Packaged Development build, per-level check (`final_cooked`, 1,378 MB) | 8 of 8 pass; nothing loaded mid-race; on seven levels the only frames over 40 ms were the eleven screenshots (City Center: 17) |
+| Packaged Shipping build, each level run for 25 s in the game's benchmark mode (`jam_ship.ps1`, `final_shipping`, 778 MB) | 8 of 8: the game exits by itself, writes its report, four frames a level |
+
+A Shipping build runs only with WispOS's launch ticket (`UFTGameInstance::Init`): without it every launch quit in
+two seconds, which is what the first Shipping run of the night showed. `jam_ship.ps1` stands in for the launcher (it
+writes the ticket into its scratch folder and passes the same value in the environment). So the Shipping game itself
+is checked; the launcher handing over a real ticket is not.
+
+The Shipping runs' own reports (Epic, 3440x1440, a screenshot every six seconds, another Unreal editor on the same
+GPU): median frame 14.8 to 16.0 ms, 99th percentile 18.6 to 30.5 ms, GPU 11.3 to 12.7 ms, game thread 2.2 to 3.5 ms.
+They are what the build did under those conditions, not a benchmark: no run that night had the GPU to itself.
+
 ## Open: confirmed in code, not changed
 
 Progression and saves
@@ -90,10 +110,12 @@ HUD, menus, input
   the results screens and mute are keyboard-only.
 - On the results and pre-production screens the arrow keys flip a WASD player to the ARROWS layout and rewrite
   `settings.json` (`bRaceInput` is cleared only on pause and attract).
-- HUD timers use the real clock, which runs while paused: scene name, intro line and LAST CHANCE! expire unread.
+- FIXED on `main` by 3.4's loop cycle 5: HUD timers ran on through a pause, so the scene name, the intro line and
+  LAST CHANCE! expired unread.
 - The chopper's rotor loop plays through pause and the results screens.
 - Options says Low/Medium use TSR and High enables Lumen; the code selects TAA, and Lumen is Epic only.
-- LIKELY: mute is lost at every map load (the engine resets the transient volume); the title song leaks at attract cuts.
+- FIXED on `main` by 3.4's loop cycle 6: mute was lost at every map load. Still LIKELY: the title song leaks at
+  attract cuts.
 
 Runtime
 - First-use synchronous loads during play (about 50 sounds, effects, foe and boss meshes): a load and a flush on the
@@ -106,7 +128,8 @@ Runtime
 - Replay snapshots stop being pruned once a highlight exists (tens of MB by the end of a level).
 - Frame-rate dependence: the limo's stream is about 12 % sparser at 30 fps; player missiles have no swept test and
   pass through a bike below about 27 fps.
-- The generic range cull covers the boss; once released the level cannot end until a wreck.
+- FIXED on `main` by 3.4's loop cycle 7: the generic range cull covered the boss, and a culled boss left a level
+  that could not end until a wreck.
 - LIKELY, for Matt: on Ice Mountain the harness's autopilot comes to a stop against the track's own wall now and
   then and is moved on (`FTSTALL`): at 2.37 and 2.39 km (just after the first jump) and once at 5.77 km, three times in
   about nine autopilot runs of 15 Nov, on builds with and without the second dressing pass (dressed pieces have no

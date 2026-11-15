@@ -3716,7 +3716,20 @@ void AFTGameMode::Sfx(const TCHAR* Name, float Vol, float Pitch)
 }
 
 void AFTGameMode::Duck(float Depth, float Hold) { DuckDepth = FMath::Min(DuckT > 0.f ? DuckDepth : 1.f, Depth); DuckT = FMath::Max(DuckT, Hold); }
-void AFTGameMode::Shake(float Amount) { ShakeAmt = FMath::Max(ShakeAmt, Amount); }
+void AFTGameMode::Shake(float Amount)
+{
+	ShakeAmt = FMath::Max(ShakeAmt, Amount);
+	// loop cycle 9: a pad rumbles with the camera (hits, explosions, landings); nothing in attract mode, nothing without a pad
+	if (bAttract || Amount < 0.2f || RealClock - LastRumbleT < 0.08f) return;
+	if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+	{
+		const float I = FMath::Clamp(Amount * 0.8f, 0.f, 1.f);
+		PC->PlayDynamicForceFeedback(I, 0.10f + 0.18f * FMath::Min(Amount, 1.f), true, true, true, true);
+		LastRumbleT = RealClock;
+		static int32 Rumbles = 0;
+		if (++Rumbles % 10 == 1) { UE_LOG(LogFT, Display, TEXT("FT RUMBLE n=%d intensity=%.2f"), Rumbles, I); }
+	}
+}
 
 // --------------------------------------------------------------------------------------------- camera
 bool AFTGameMode::ComputeCamera(FMinimalViewInfo& POV, float Dt)

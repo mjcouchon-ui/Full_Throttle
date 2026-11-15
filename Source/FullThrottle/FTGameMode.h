@@ -188,6 +188,7 @@ public:
 	float SpeedMph = 0.f;
 	bool bShowKeys = true;
 	int32 HitchCount = 0;
+	float LastRumbleT = -10.f;
 	int32 OptionsRow = 0, ControlsRow = 0, ControlsCol = 0; bool bControlsWaiting = false;
 	int32 PauseRow = 0;
 	EFTOverlay DrawnOverlay = EFTOverlay::None;
