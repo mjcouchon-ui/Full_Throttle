@@ -944,6 +944,119 @@ def build_volcano():
     log('eruption mesh triangles', unreal.GeometryScript_MeshQueries.get_num_triangle_i_ds(mesh))
 
 
+# ------------------------------------------------------------------------------------------ the land's own surface
+# The land beside the road was one flat colour per band with faint washes (M_Ground). On banked turns, elevated
+# stretches, loops and corkscrews the chase camera sees mostly that land, and nothing tall may stand near the road
+# there: those frames were a bare slab. So the land gets a surface of its own, level by level, drawn in the material
+# over the level's own ground colours (the vertex colours, as before): slabs with joints, wind or tide ripples, or
+# cracked ground, in two or three flat tones like everything else in the game. It costs nothing to place, follows
+# every bank and cutting, and is never in the way of the road.
+# AFTTrack uses /Game/Maps/<Level>/Materials/MI_Land for the land and the bed when it exists (ft.Land 0: the plain
+# ground, for a before and an after).
+LAND = '/Game/Maps/Land'
+LAND_HLSL = r"""
+// VC: the level's ground colour. WP: world position, cm. The washes are M_Ground's own, kept so the far land is unchanged.
+float2 w = WP.xy * 0.0013;
+float ridges = sin(w.x + 1.2 * sin(w.y * 1.4)) * cos(w.y * 0.95 + w.x * 0.33);
+float washes = sin(w.x * 0.42 - w.y * 0.65) * sin(w.x * 0.8 + w.y * 0.38);
+float layers = floor((ridges * 0.58 + washes * 0.42 + 1.0) * 2.0) * 0.25;
+float2 gritCell = floor(WP.xy * 0.036);
+float grit = frac(dot(frac(gritCell * float2(0.1273, 0.3129)), float2(7.13, 8.63)));
+float blur = saturate(length(fwidth(WP.xy)) * 0.023);
+float3 col = VC.rgb * (0.86 + 0.26 * layers + lerp(grit - 0.5, 0.0, blur) * 0.09);
+
+// which surface: Kind, or KindWarm where the ground is a warm colour (more green than blue: sand beside a town's stone)
+float kind = (KindWarm >= 0.0 && VC.g > VC.b) ? KindWarm : Kind;
+float ca = cos(Angle), sa = sin(Angle);
+float2 q = float2(WP.x * ca + WP.y * sa, WP.y * ca - WP.x * sa) / Cell;     // pattern space, in cells
+float px = length(fwidth(q));                                               // cells to a pixel
+float keep = (1.0 - smoothstep(0.10, 0.36, px)) * Amount;                   // gone before it can shimmer
+float tone = 0.0;
+// (the derivatives are taken above: none inside these branches)
+BRANCH
+if (kind < 0.5)
+{
+    // slabs: a grid of them, each one of three shades, a joint between
+    float2 f = abs(frac(q) - 0.5);
+    float joint = smoothstep(0.5 - Joint - px, 0.5 - Joint, max(f.x, f.y));
+    float2 id = floor(q);
+    float h = frac(sin(dot(id, float2(127.1, 311.7))) * 43758.5453);
+    tone = lerp((floor(h * 3.0) - 1.0) * Vary, -Dark, joint);
+}
+else
+{
+BRANCH
+if (kind < 1.5)
+{
+    // ripples: bands that wander (sand under wind or tide, drifted snow, mown stripes)
+    float wob = Warp * sin(q.y * 0.37 + 1.7 * sin(q.x * 0.21 + q.y * 0.13));
+    float s = frac(q.x + wob);
+    float band = smoothstep(Duty - px, Duty, s) * (1.0 - smoothstep(1.0 - px, 1.0, s));
+    tone = lerp(Vary, -Dark, band);
+}
+else
+{
+    // cracked ground: plates, each one of three shades, a crack between
+    float2 ip = floor(q), fp = frac(q);
+    float f1 = 8.0, f2 = 8.0;
+    float2 idc = ip;
+    for (int j = -1; j <= 1; j++)
+    for (int i = -1; i <= 1; i++)
+    {
+        float2 g = float2(i, j);
+        float2 o = frac(sin(float2(dot(ip + g, float2(127.1, 311.7)), dot(ip + g, float2(269.5, 183.3)))) * 43758.5453);
+        float2 r = g + o - fp;
+        float d = dot(r, r);
+        if (d < f1) { f2 = f1; f1 = d; idc = ip + g; }
+        else if (d < f2) { f2 = d; }
+    }
+    float crack = 1.0 - smoothstep(Joint, Joint + px * 1.5 + 0.02, sqrt(f2) - sqrt(f1));
+    float h = frac(sin(dot(idc, float2(12.9898, 78.233))) * 43758.5453);
+    tone = lerp((floor(h * 3.0) - 1.0) * Vary, -Dark, crack);
+}
+}
+return col * (1.0 + keep * tone);
+"""
+# Kind: 0 slabs, 1 ripples, 2 cracked ground. KindWarm: the same choice for ground of a warm colour (more green than
+# blue), or -1 for no difference: one material serves a level whose land is two things. Cell: the size of one slab, ripple or plate, cm. Angle: radians, the
+# pattern's turn in the world. Joint: the joint's or crack's width, in cells. Dark: how much darker the joint, crack or
+# band is. Vary: how far the shades of the slabs or plates stand apart. Warp: how far the ripples wander, in cells.
+# Duty: the share of a ripple that is the light part. Amount: the whole pattern's strength.
+LAND_PARAMS = [('Kind', 0.0), ('KindWarm', -1.0), ('Cell', 600.0), ('Angle', 0.0), ('Joint', 0.035), ('Dark', 0.16), ('Vary', 0.05), ('Warp', 0.5), ('Duty', 0.6),
+               ('Amount', 1.0)]
+# One surface per level (its folder under /Game/Maps). The beach and the town of Bayshore share one material: the
+# land's colour says which is which (KindWarm), so the sand is rippled and the town's ground is laid stone.
+LAND_LEVELS = {
+    'Bayshore':      dict(Kind=0, KindWarm=1, Cell=460.0, Angle=0.5, Joint=0.03, Dark=0.12, Vary=0.05, Warp=0.55, Duty=0.58),
+    'ChemicalWorks': dict(Kind=0, Cell=900.0, Angle=0.26, Joint=0.022, Dark=0.30, Vary=0.07),
+    'Nevada':        dict(Kind=2, Cell=1500.0, Joint=0.035, Dark=0.20, Vary=0.05),
+    'Volcano':       dict(Kind=2, Cell=1100.0, Joint=0.05, Dark=0.34, Vary=0.08),
+    'ThemePark':     dict(Kind=0, Cell=560.0, Angle=0.785, Joint=0.03, Dark=0.15, Vary=0.085),
+    'Glacier':       dict(Kind=1, Cell=780.0, Angle=1.1, Dark=0.055, Vary=0.02, Warp=0.8, Duty=0.66),
+    'Abyss':         dict(Kind=1, Cell=380.0, Angle=0.2, Dark=0.12, Vary=0.04, Warp=0.7, Duty=0.5),
+    'Metro':         dict(Kind=0, Cell=480.0, Angle=0.0, Joint=0.03, Dark=0.26, Vary=0.06),
+}
+
+
+def land_materials(levels=None):
+    """M_Land and one MI_Land per level (AFTTrack loads /Game/Maps/<Level>/Materials/MI_Land by path)."""
+    m = ft_mats.new_material(LAND, 'M_Land')
+    vc = ft_mats.expr(m, unreal.MaterialExpressionVertexColor, x=-1300, y=-500)
+    wp = ft_mats.expr(m, unreal.MaterialExpressionWorldPosition, x=-1300, y=-420)
+    P = _params(m, LAND_PARAMS, [])
+    cu = ft_mats.custom(m, LAND_HLSL, [('VC', vc, ''), ('WP', wp, '')] + [(k, v, '') for k, v in P.items()], x=-500, y=0, desc='Land')
+    MEL.connect_material_property(cu, '', unreal.MaterialProperty.MP_BASE_COLOR)
+    MEL.connect_material_property(ft_mats.sparam(m, 'Rough', 0.9, x=-500, y=260), '', unreal.MaterialProperty.MP_ROUGHNESS)
+    MEL.connect_material_property(ft_mats.sparam(m, 'Metal', 0.0, x=-500, y=340), '', unreal.MaterialProperty.MP_METALLIC)
+    ft_buildings._compile(m)
+    for name, values in LAND_LEVELS.items():
+        if levels and name not in levels:
+            continue
+        ft_mats.mi(m, '/Game/Maps/%s/Materials' % name, 'MI_Land', scalars={k: float(v) for k, v in values.items()})
+        log('land', name, values)
+    return m
+
+
 def build_all():
     bay_sea()
     bay_cloud_material()

@@ -94,6 +94,12 @@ public:
 	void ApplyQuality(int32 Q, bool bSave = true);
 	void ReapplyQuality();
 	bool bAutoMeasured = false;
+	/** Loop cycle 4: AUTO's benchmark result, kept in settings.json for this graphics card (and these thresholds), so
+	 *  only the first launch pays for the hardware benchmark (3.8 s of a 6.6 s launch here, longer on a slow GPU). */
+	FString AutoCacheKey;
+	TArray<int32> AutoCache;
+	float AutoCacheRes = 100.f, AutoCacheCpu = 0.f, AutoCacheGpu = 0.f;
+	static FString AutoKey();
 	/** 2.9: what Unreal's hardware benchmark picked, kept so AUTO after a manual preset in the same session is AUTO again. */
 	Scalability::FQualityLevels AutoLevels;
 	/** 2.9 (the Mac audit): an Apple GPU, or -ftfakeapple (tests the Apple AUTO path on any GPU). */

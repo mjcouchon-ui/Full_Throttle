@@ -23,6 +23,16 @@ on turns"). Proof frames: `SourceArt/JamLivingWorld/clip_proof.jpg`.
 Roadside props follow the land down where it falls away from the road (Bayshore's beach); where it rises they
 keep the roadside height, as they always did. Dressed pieces (below) stand on the land wherever they are put.
 
+**The land's own surface (3.4).** The land and the bed wear `/Game/Maps/<Level>/Materials/MI_Land` when it exists
+(`ft_world.land_materials()` builds `M_Land` in `/Game/Maps/Land` and one instance a level): slabs with joints,
+ripples, or cracked ground, drawn in the material over the level's own ground colours (the vertex colours, with
+`M_Ground`'s washes and grain kept). On banked turns, elevated stretches, loops and corkscrews the camera sees
+mostly land, and nothing tall may stand near the road there; this dresses those views without placing anything.
+Per level in `ft_world.LAND_LEVELS`: `Kind` (0 slabs, 1 ripples, 2 cracked ground), `KindWarm` (the same choice
+for ground of a warm colour: Bayshore's sand ripples while its town ground is laid stone), `Cell` (cm), `Angle`,
+`Joint`, `Dark`, `Vary`, `Warp`, `Duty`, `Amount`. The pattern fades out before it can shimmer (by how many cells
+a pixel covers). `ft.Land 0` builds the levels with the plain ground: the same build gives a before and an after.
+
 The log line `FTTRACK level=N frames=... route=XXXXXXXX solid=XXXXXXXX` is a fingerprint of the route (every
 frame's place and attitude) and of the four solid sections. A scenery change must leave both numbers as they were.
 

@@ -200,6 +200,17 @@ void UFTGameInstance::LoadSettings()
 		}
 	}
 	J->TryGetBoolField(TEXT("reducedMotion"), bReducedMotion);
+	const TSharedPtr<FJsonObject>* Au;
+	if (J->TryGetObjectField(TEXT("auto"), Au))
+	{
+		(*Au)->TryGetStringField(TEXT("key"), AutoCacheKey);
+		(*Au)->TryGetNumberField(TEXT("res"), AutoCacheRes);
+		(*Au)->TryGetNumberField(TEXT("cpu"), AutoCacheCpu);
+		(*Au)->TryGetNumberField(TEXT("gpu"), AutoCacheGpu);
+		const TArray<TSharedPtr<FJsonValue>>* Lv;
+		AutoCache.Reset();
+		if ((*Au)->TryGetArrayField(TEXT("levels"), Lv)) for (const TSharedPtr<FJsonValue>& V : *Lv) AutoCache.Add(FMath::Clamp((int32)V->AsNumber(), 0, 4));
+	}
 	const TSharedPtr<FJsonObject>* Sk;
 	if (J->TryGetObjectField(TEXT("skills"), Sk)) LegacySkills = *Sk;   // 2.3's points and ranks: kept as they are
 }
@@ -233,6 +244,18 @@ void UFTGameInstance::SaveSettings()
 	}
 	J->SetArrayField(TEXT("best"), Best);
 	J->SetBoolField(TEXT("reducedMotion"), bReducedMotion);
+	if (AutoCache.Num() == 11 && !AutoCacheKey.IsEmpty())
+	{
+		TSharedRef<FJsonObject> Au = MakeShared<FJsonObject>();
+		Au->SetStringField(TEXT("key"), AutoCacheKey);
+		TArray<TSharedPtr<FJsonValue>> Lv;
+		for (int32 V : AutoCache) Lv.Add(MakeShared<FJsonValueNumber>(V));
+		Au->SetArrayField(TEXT("levels"), Lv);
+		Au->SetNumberField(TEXT("res"), AutoCacheRes);
+		Au->SetNumberField(TEXT("cpu"), AutoCacheCpu);
+		Au->SetNumberField(TEXT("gpu"), AutoCacheGpu);
+		J->SetObjectField(TEXT("auto"), Au);
+	}
 	if (LegacySkills.IsValid()) J->SetObjectField(TEXT("skills"), LegacySkills);
 	FString Out;
 	FJsonSerializer::Serialize(J, TJsonWriterFactory<>::Create(&Out));
@@ -300,9 +323,30 @@ void UFTGameInstance::ApplyQuality(int32 Q, bool bSave)
 		{
 			// once a session; the result is kept, so AUTO after picking another preset is AUTO again
 			// (until 2.8, ApplyHardwareBenchmarkResults re-applied whatever preset was picked last)
+			if (!bAutoMeasured && AutoCacheKey == AutoKey() && AutoCache.Num() == 11 && !FParse::Param(FCommandLine::Get(), TEXT("ftrebench")))
+			{
+				Scalability::FQualityLevels& A = AutoLevels;
+				A = S->ScalabilityQuality;
+				A.ResolutionQuality = AutoCacheRes;
+				int32* const Groups[11] = { &A.ViewDistanceQuality, &A.AntiAliasingQuality, &A.ShadowQuality, &A.GlobalIlluminationQuality, &A.ReflectionQuality,
+					&A.PostProcessQuality, &A.TextureQuality, &A.EffectsQuality, &A.FoliageQuality, &A.ShadingQuality, &A.LandscapeQuality };
+				for (int32 i = 0; i < 11; ++i) *Groups[i] = AutoCache[i];
+				A.CPUBenchmarkResults = AutoCacheCpu; A.GPUBenchmarkResults = AutoCacheGpu;
+				bAutoMeasured = true;
+				UE_LOG(LogFT, Display, TEXT("FT AUTO cached cpuIndex=%.0f gpuIndex=%.0f overall=%d shadow=%d gi=%d res=%.0f"), AutoCacheCpu, AutoCacheGpu, A.GetMinQualityLevel(), A.ShadowQuality, A.GlobalIlluminationQuality, A.ResolutionQuality);
+			}
 			if (!bAutoMeasured)
 			{
-				S->RunHardwareBenchmark(); AutoLevels = S->ScalabilityQuality; bAutoMeasured = true;
+				// half Unreal's default work (10): the first launch is a judge's first impression
+				S->RunHardwareBenchmark(5); AutoLevels = S->ScalabilityQuality; bAutoMeasured = true;
+				{
+					const Scalability::FQualityLevels& A = AutoLevels;
+					AutoCacheKey = AutoKey();
+					AutoCache = { A.ViewDistanceQuality, A.AntiAliasingQuality, A.ShadowQuality, A.GlobalIlluminationQuality, A.ReflectionQuality,
+						A.PostProcessQuality, A.TextureQuality, A.EffectsQuality, A.FoliageQuality, A.ShadingQuality, A.LandscapeQuality };
+					AutoCacheRes = A.ResolutionQuality; AutoCacheCpu = A.CPUBenchmarkResults; AutoCacheGpu = A.GPUBenchmarkResults;
+					bSave = true;
+				}
 				UE_LOG(LogFT, Display, TEXT("FT AUTO cpuIndex=%.0f gpuIndex=%.0f overall=%d shadow=%d gi=%d res=%.0f"), S->GetLastCPUBenchmarkResult(), S->GetLastGPUBenchmarkResult(),
 					AutoLevels.GetMinQualityLevel(), AutoLevels.ShadowQuality, AutoLevels.GlobalIlluminationQuality, AutoLevels.ResolutionQuality);
 			}
@@ -515,4 +559,10 @@ void UFTGameInstance::WarmGameplayAssets()
 		}), FStreamableManager::AsyncLoadHighPriority, true);
 	if (H.IsValid()) WarmHandles.Add(H);
 	UE_LOG(LogFT, Display, TEXT("FT WARM start assets=%d"), Count);
+}
+
+FString UFTGameInstance::AutoKey()
+{
+	// the card, and the thresholds in DefaultScalability.ini (bump the tag when they change)
+	return GRHIAdapterName + TEXT("|epic230|v1");
 }

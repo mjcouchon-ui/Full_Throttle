@@ -42,6 +42,17 @@ fifteen checks, all passing):
 The title's three messages are in the frames `C1_title_banner.png`, `D1_title_banner.png` and `E1_title_banner.png`
 of that run. Not exercised by a run: item 8, item 9 (the click on RESUME) and item 10.
 
+### The per-level check
+
+`SourceArt/Jam/unreal/jam_verify.ps1` drives every level in the real game on the autopilot (wrecking what it meets),
+takes both pickups, calls the boss, wraps the level and films the highlight reel, then reads the log: the track's
+fingerprint against the baseline, the dressing's placement, errors, and whether the boss arrived, the reel played
+and the pay was banked. Run of 15 Nov 04:10 (uncooked, Epic, 3440x1440, `main` d92117c with the land's surface):
+all eight levels pass; every track fingerprint is unchanged; no error logged; 88 frames in
+`SkyScratch/HandBack/jam/verify/rc1_epic`. Its load and hitch counts are not a measure of the shipped game: the run
+was uncooked (see the note on the preload below), each screenshot at that size is itself a long frame, and other
+Unreal jobs shared the PC.
+
 ## Open: confirmed in code, not changed
 
 Progression and saves
@@ -103,6 +114,27 @@ targeting, collision or hit timing)
   lines in the first minute of every level before a single wreck. FIXED on `main` by 3.4's loop cycle 1
   (`UFTGameInstance::WarmGameplayAssets`: sounds, effects and vehicle meshes preloaded while the title is up).
   `SourceArt/Jam/unreal/jam_late.ps1` counts what is left, level by level.
+  OPEN, for the performance pass: in an uncooked run (`UnrealEditor -game`) that preload finds nothing. The log says
+  `FT WARM no assets found (asset registry empty?)`: the registry is still gathering when the title starts, and
+  `bWarmStarted` is already set, so it is not tried again. The eight-level run of 03:42 on 3.4 therefore still shows
+  17 to 24 synchronous loads a level and frames of 66 to 332 ms at the first spawns. A packaged build reads its
+  registry from the cook and should not be affected (to be confirmed by the packaged run). Next step: do not latch
+  `bWarmStarted` while `IAssetRegistry::IsLoadingAssets()` is true or the list is empty, so the next map start tries again.
+- The dressing's shadow rule, counted (instances in the dressing's components that cast a shadow; the same build
+  with `ft.DressShadows 0` and with the rule, runs `shadow_ruleoff` and `shadow_ruleon` of 15 Nov):
+
+  | Level | Without the rule | With it | Of |
+  |---|---|---|---|
+  | Bayshore | 4,542 | 2,447 | 5,319 |
+  | Chemical Works | 4,925 | 3,712 | 5,372 |
+  | Nevada | 6,914 | 5,990 | 7,295 |
+  | Volcano | 2,353 | 1,238 | 3,812 |
+  | Theme Park | 4,289 | 4,243 | 5,794 |
+  | Ice Mountain | 3,395 | 1,320 | 3,964 |
+  | Under the Sea | 6,195 | 5,272 | 6,899 |
+  | City Center | 3,048 | 1,556 | 4,139 |
+
+  What that is worth in milliseconds was not measured (no idle GPU that night).
 - One instanced component per mesh for the whole 25 km; a mesh whose radius is over 40 m never culls, and the cull
   distance comes from whichever rule made the component first.
 - One synchronous load per scenery mesh at each level start and at each attract cut.

@@ -146,6 +146,8 @@ static TAutoConsoleVariable<int32> CVarFTClear(TEXT("ft.ClearScenery"), 1,
 	TEXT("2.7: keep props, pillars, backdrops and the land off the road (0 = place them as 2.6 did; for before/after checks). Takes effect when a track is rebuilt."));
 static TAutoConsoleVariable<int32> CVarFTDressShadows(TEXT("ft.DressShadows"), 1,
 	TEXT("FULL THROTTLE 3.3: 1 = a dressed piece casts a shadow only within 70 m of the road and over 2.5 m tall; 0 = every piece but the horizon's casts, as before (for comparison; set it before the level is built)"));
+static TAutoConsoleVariable<int32> CVarFTLand(TEXT("ft.Land"), 1,
+	TEXT("3.4: 1 = the land and the bed wear the level's own surface (/Game/Maps/<Level>/Materials/MI_Land: slabs, ripples or cracked ground, ft_world.land_materials); 0 = the plain ground, for before/after checks. Takes effect when a track is rebuilt."));
 static TAutoConsoleVariable<int32> CVarFTDress(TEXT("ft.Dress"), 1,
 	TEXT("3.2: 0 = build tracks without the dressing (districts, sets round landmarks, the horizon), for before/after checks. Takes effect when a track is rebuilt."));
 namespace { constexpr float RoadCell = 3000.f; inline FIntPoint CellOf(float X, float Y) { return FIntPoint(FMath::FloorToInt(X / RoadCell), FMath::FloorToInt(Y / RoadCell)); } }
@@ -709,6 +711,16 @@ void AFTTrack::BuildMeshes()
 	UMaterialInterface* MNeon = NeonMaterial ? NeonMaterial.Get() : LoadAsset<UMaterialInterface>(TEXT("/Game/Core/Materials/MI_RailNeon.MI_RailNeon"));
 	UMaterialInterface* MGlass = GlassMaterial ? GlassMaterial.Get() : LoadAsset<UMaterialInterface>(TEXT("/Game/Core/Materials/MI_PipeGlass.MI_PipeGlass"));
 	UMaterialInterface* MGround = GroundMaterial ? GroundMaterial.Get() : LoadAsset<UMaterialInterface>(TEXT("/Game/Core/Materials/MI_Ground.MI_Ground"));
+	// 3.4: the land's own surface, level by level (ft_world.land_materials): slabs with joints, ripples or cracked
+	// ground, drawn in the material over the level's ground colours. On banked turns, elevated stretches, loops and
+	// corkscrews the camera sees mostly land, and nothing tall may stand near the road there. A level without the
+	// asset keeps the plain ground; so does ft.Land 0.
+	if (!GroundMaterial && CVarFTLand.GetValueOnAnyThread() != 0)
+	{
+		static const TCHAR* LandDirs[8] = { TEXT("Bayshore"), TEXT("ChemicalWorks"), TEXT("Nevada"), TEXT("Volcano"), TEXT("ThemePark"), TEXT("Glacier"), TEXT("Abyss"), TEXT("Metro") };
+		const FString LandPath = FString::Printf(TEXT("/Game/Maps/%s/Materials/MI_Land.MI_Land"), LandDirs[FMath::Clamp(LevelIndex, 0, 7)]);
+		if (UMaterialInterface* MLand = Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, *LandPath, nullptr, LOAD_NoWarn | LOAD_Quiet))) MGround = MLand;
+	}
 	UMaterialInterface* MRib = RibMaterial ? RibMaterial.Get() : LoadAsset<UMaterialInterface>(TEXT("/Game/Core/Materials/MI_PipeRib.MI_PipeRib"));
 	UMaterialInterface* MWater = LoadAsset<UMaterialInterface>(TEXT("/Game/Core/Materials/MI_Water.MI_Water"));
 	// 2.5: tower blocks over the road (lit windows) and lava

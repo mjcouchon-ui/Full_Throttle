@@ -470,6 +470,19 @@ void AFTGameMode::Tick(float Dt)
 		if (PC->Hit(EKeys::F1)) { G->bShowFps = !G->bShowFps; G->SaveSettings(); }
 	}
 
+	// loop cycle 4 (Justin's audit): the chopper rotor and the flyer's prop are 2D loops whose volume only the race
+	// updates, so they droned on at full volume through the pause menu and the results screens
+	{
+		const bool bRaceAudio = Overlay == EFTOverlay::None && (Phase == EFTPhase::Play || Phase == EFTPhase::Wreck || Phase == EFTPhase::Wrap);
+		if (Rotor && Rotor->bIsPaused == bRaceAudio) { Rotor->SetPaused(!bRaceAudio); UE_LOG(LogFT, Display, TEXT("FT AUDIO loops paused=%d phase=%d overlay=%d"), bRaceAudio ? 0 : 1, (int32)Phase, (int32)Overlay); }
+		if (PropAudio && PropAudio->bIsPaused == bRaceAudio) PropAudio->SetPaused(!bRaceAudio);
+	}
+	// loop cycle 5 (Justin's audit): the scene slate, ACTION!, the director's line and the shout are timed on the real
+	// clock, which runs on in the pause menu, so a pause ate them unread. Hold them while a race is paused.
+	if (Overlay != EFTOverlay::None && !bAttract && (Phase == EFTPhase::Play || Phase == EFTPhase::Wreck || Phase == EFTPhase::Card))
+	{
+		for (float* T : { &SceneSlateT, &ActionT, &LineT, &ShoutT }) if (*T > -5.f) *T += RDt;
+	}
 	if (Overlay != EFTOverlay::None) { TickOverlay(RDt); return; }
 
 	// music ducking
