@@ -280,6 +280,8 @@ void AFTGameMode::LeftBehindEnt(FFTEnt& E)
 
 void AFTGameMode::TickBossClock(FFTEnt& B, float Dt, float& Want)
 {
+	// The opening lesson has no failure deadline; the encounter resumes on completion or skip.
+	if (IsTutorialActive()) { BossRate = 0.f; return; }
 	const FFTProgressData& D = FFTProgressData::Get();
 	const FFTBossRow& BR = D.Bosses[FMath::Clamp(Level, 0, D.Bosses.Num() - 1)];
 	const float Vp = FMath::Max(0.f, Car->Speed) / DU;
@@ -392,8 +394,8 @@ void AFTGameMode::TickPaycheck(float RDt)
 	{
 		if (RequireProgressSaved([this, Kind]() { ContinuePaycheck(Kind); })) ContinuePaycheck(Kind);
 	};
-	if (PC->Hit(EKeys::R)) { PayNext = 1; Next(1); return; }
-	if (PC->MenuBack()) { RequestSystemQuit(false); return; }
+	if (PC->Hit(EKeys::R) || PC->Hit(EKeys::Gamepad_FaceButton_Top)) { PayNext = 1; Next(1); return; }
+	if (PC->MenuBack() || PC->Hit(EKeys::B)) { RequestSystemQuit(false); return; }
 	if (PC->MenuOk() || PC->Clicked(ResultsContinueRect)) Next(PayNext);
 }
 
@@ -439,7 +441,11 @@ void AFTGameMode::EnterPreProduction(int32 NextLevel, bool bFromTitle)
 			CS->SetCheckpoint(NextLevel < 0 ? TEXT("complete") : TEXT("preproduction"), NextLevel < 0 ? Level : NextLevel, 0, false, TEXT("PreProduction"));
 		}
 	}
-	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->SetMenuMouse(true);
+	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController()))
+	{
+		PC->SetMenuMouse(true);
+		PC->BlockMenuInputUntilRelease();
+	}
 	if (CS && CS->SPLeft() > 0) Tab = EFTTab::Skills;
 	BuildTiles();
 	if (bFromTitle) { UE_LOG(LogFT, Display, TEXT("FT SCREEN name=PreProduction from=Title")); }
@@ -723,7 +729,7 @@ void AFTGameMode::TickPreProduction(float RDt)
 		if (bL) Find(-1, 0); if (bR) Find(1, 0);
 		if (PC->MenuUp()) Find(0, -1); if (PC->MenuDown()) Find(0, 1);
 		const FVector2D M = PC->MousePos();
-		if (M != PPMouse) { PPMouse = M; for (int32 i = 0; i < TileRects.Num() && i < Tiles.Num(); ++i) if (PC->MouseIn(TileRects[i])) { if (Sel != i) BuyHoldT = 0.f; Sel = i; } }
+		if (!PC->UsesGamepadPrompts() && M != PPMouse) { PPMouse = M; for (int32 i = 0; i < TileRects.Num() && i < Tiles.Num(); ++i) if (PC->MouseIn(TileRects[i])) { if (Sel != i) BuyHoldT = 0.f; Sel = i; } }
 		for (int32 i = 0; i < TileRects.Num() && i < Tiles.Num(); ++i)
 		{
 			if (!PC->Clicked(TileRects[i])) continue;
@@ -757,8 +763,8 @@ void AFTGameMode::TickPreProduction(float RDt)
 	if (Tiles.IsValidIndex(Sel))
 	{
 		const bool bCashTile = Tiles[Sel].bCash && Tiles[Sel].State == EFTTile::Available;
-		const bool bDownKey = PC->IsInputKeyDown(EKeys::Enter) || PC->IsInputKeyDown(EKeys::Gamepad_FaceButton_Bottom);
-		const bool bMouseHeld = PC->IsInputKeyDown(EKeys::LeftMouseButton);
+		const bool bDownKey = !PC->MenuInputBlocked() && (PC->IsInputKeyDown(EKeys::Enter) || PC->IsInputKeyDown(EKeys::Gamepad_FaceButton_Bottom));
+		const bool bMouseHeld = !PC->MenuInputBlocked() && PC->IsInputKeyDown(EKeys::LeftMouseButton);
 		const bool bDownMouse = bMouseHeld && PC->MouseIn(BuyRect);
 		const bool bPress = PC->Hit(EKeys::Enter) || PC->Hit(EKeys::Gamepad_FaceButton_Bottom) || PC->Clicked(BuyRect);
 		if (!bDownKey && !bMouseHeld) bBuyHoldDone = false;

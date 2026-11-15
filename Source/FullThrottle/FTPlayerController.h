@@ -34,15 +34,18 @@ class FULLTHROTTLE_API AFTPlayerController : public APlayerController
 public:
 	AFTPlayerController();
 	virtual void PlayerTick(float Dt) override;
+	virtual void PostProcessInput(const float DeltaTime, const bool bGamePaused) override;
 	virtual void BeginPlay() override;
 	virtual bool InputKey(const FInputKeyEventArgs& Params) override;
-	bool UsesGamepadPrompts() const { return bGamepadPrompts; }
+	bool UsesGamepadPrompts() const;
+	/** A menu's confirm/back must be released before it can become a race action. */
+	void SuppressGameplayUntilRelease();
 
 	FFTInput In;
 	bool bRaceInput = false;      // the race is running (layout switching only then)
 
 	// menus
-	bool Hit(const FKey& K) const { return !bReleaseMenuInput && WasInputKeyJustPressed(K); }
+	bool Hit(const FKey& K) const;
 	void BlockMenuInputUntilRelease();
 	bool MenuInputBlocked() const { return bReleaseMenuInput; }
 	bool MenuLeft() const;
@@ -77,5 +80,11 @@ private:
 	float PadSteer() const;
 	bool bPrevPadMissile = false;
 	bool bPrevDrift = false;
-	bool bGamepadPrompts = false;
+	bool bSuppressGameplay = false;
+	void UpdateMenuStickDirections() const;
+	mutable uint64 MenuStickFrame = ~uint64(0);
+	mutable uint8 MenuStickHeld = 0, MenuStickPressed = 0;
+#if !UE_BUILD_SHIPPING
+	int8 LoggedStickX = 0, LoggedStickY = 0;
+#endif
 };

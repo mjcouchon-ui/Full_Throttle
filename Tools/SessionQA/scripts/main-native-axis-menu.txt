@@ -1,0 +1,31 @@
+# Simulated generic-axis acceptance only; not physical PS4 evidence.
+# Fresh title, default level1. Expected observed title selections: 2,3,4,3.
+wait 2
+ft.ControllerEvents 1
+ft.Axis Gamepad_LeftY -0.9
+wait 0.4
+# Same physical direction via native virtual key must not add another step.
+ft.Press Gamepad_LeftStick_Down
+wait 0.4
+ft.Axis Gamepad_LeftY -0.65
+wait 0.4
+# Releasing then pushing again must produce exactly one new step.
+ft.Axis Gamepad_LeftY 0
+wait 0.4
+ft.Axis Gamepad_LeftY -0.9
+wait 0.4
+ft.Axis Gamepad_LeftY 0
+wait 0.4
+ft.Axis Gamepad_LeftX 0.9
+wait 0.4
+ft.Press Gamepad_LeftStick_Right
+wait 0.4
+ft.Axis Gamepad_LeftX 0
+wait 0.4
+# Digital-only driver behavior remains available after axes return to center.
+ft.Press Gamepad_LeftStick_Left
+wait 0.4
+shot main-native-axis-menu
+ft.Press Escape
+wait 3
+quit

@@ -19,7 +19,7 @@ New-Item -ItemType Directory -Path $outPath,$profilePath -Force | Out-Null
 $scriptBody=Get-Content -Raw -LiteralPath $scriptPath
 $scriptPath=Join-Path $outPath 'run.txt'
 [IO.File]::WriteAllText($scriptPath,"r.SetRes 1280x720w`nwait 1`n"+$scriptBody,[Text.UTF8Encoding]::new($false))
-$log=Join-Path $outPath 'game.log' 
+$log=Join-Path $outPath 'game.log'
 $scriptSwitch=if($Game -eq 'main'){'-ftexec='}else{'-brawlexec='}
 $argsForGame=@(('"'+$project+'"'),'-game','-windowed','-ForceRes','-ResX=1280','-ResY=720','-nosplash','-unattended','-RenderOffScreen','-FixedSeed','-ftslot=pie','-ftnoattract',('-abslog="'+$log+'"'),($scriptSwitch+'"'+$scriptPath+'"'),'-ini:EditorPerProjectUserSettings:[/Script/ModelContextProtocol.ModelContextProtocolSettings]:bAutoStartServer=False')
 if(!$Audio){$argsForGame+='-nosound'}

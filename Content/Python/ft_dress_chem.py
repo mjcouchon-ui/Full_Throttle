@@ -422,6 +422,7 @@ def gantry_crane(m):
     m.box(BLACK, (0, 0, H + 100), (L + 120, S * 0.5, 14))
     m.box(STEELB, (60, -260, H - 40), (240, 220, 90))                  # the trolley
     m.box(GLASS, (60, -372, H - 70), (160, 6, 60))
+    m.box(WARM, (60, -374, H - 104), (120, 8, 22), glow=0.55)          # the trolley's lamp: it travels with it (third pass)
     for s in (-1, 1):
         m.box(BLACK, (60 + s * 60, -260, H - 400), (6, 6, 640))
     m.box(TEAL, (60, -260, H - 760), (330, 230, 200))                  # the load
@@ -567,12 +568,16 @@ PAVE_D = '#56659f'    # the same in shade: aprons, rims, ballast
 POOL = 0.35           # how much a pond's liquor glows (the ponds stand 40 m out and beyond)
 
 
-def flat(fn, foot=60.0, col=MIDLAND):
+def flat(fn, foot=60.0, col=MIDLAND, keep=0.0):
     """Wrap a ground piece's draw function: a footing `foot` cm deep under its whole footprint, in the land's colour.
     The track stands a piece level where it is put, sunk 15 cm; where the land falls gently along the road the
     downhill edge would show daylight under it, and with this it shows a low terrace instead. Shallow on purpose:
     with it a ground piece is still under 2.5 m from its lowest point to its top (the table keeps these pieces off
-    the steep ramps, where no footing would save a level slab)."""
+    the steep ramps, where no footing would save a level slab).
+    keep (third pass): two small cubes far under the piece's opposite corners, this much beyond it. The track's
+    clearance test works on the bounding box and keeps it 15.6 m from every centre line; it knows nothing of light. A
+    ground piece that glows (a pond, the helipad's lamps, the car park's booth) is given LIT_KEEP, so the test keeps
+    it 30 m from every stretch of road, whichever stretch it happens to land beside."""
     def draw(m):
         fn(m)
         lo, hi = [1e9] * 3, [-1e9] * 3
@@ -582,7 +587,16 @@ def flat(fn, foot=60.0, col=MIDLAND):
                 lo[i] = min(lo[i], getattr(b.min, k))
                 hi[i] = max(hi[i], getattr(b.max, k))
         m.box(col, ((lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0, lo[2] - foot / 2.0), (hi[0] - lo[0], hi[1] - lo[1], foot))
+        if keep > 0.0:
+            # two 10 cm cubes at opposite corners, 4 m down: the bounding box the test reads, and nothing to see
+            # (a slab that wide came out of the ground at its downhill end wherever the land falls along the road)
+            for sx, sy in ((-1, -1), (1, 1)):
+                m.box(col, ((lo[0] + hi[0]) / 2.0 + sx * ((hi[0] - lo[0]) / 2.0 + keep - 5.0), (lo[1] + hi[1]) / 2.0 + sy * ((hi[1] - lo[1]) / 2.0 + keep - 5.0),
+                            lo[2] - foot - 400.0), (10.0, 10.0, 10.0))
     return draw
+
+
+LIT_KEEP = 1450.0      # 30 m, less the 15.6 m the clearance test gives every piece
 
 
 def blob(r, rx, ry, n=9, wob=0.2, cx=0.0, cy=0.0):
@@ -930,15 +944,20 @@ def reactor_core(m):
 
 
 # ------------------------------------------------------------------------------------------ what moves (second pass)
-def life():
+def life(build=True):
     """What moves on this kit: ft_life.animate() on the slots that should (steam, beacons, lights that run, liquor,
     the clarifier's rake, the crane's trolley). The export puts the palette's still instances back on a mesh's slots,
     so run this again after any export:   import ft_dress_chem; ft_dress_chem.life()
-    Near the road nothing moves: the nearest of these (the catwalk's light, the canal's water) stand 40 m out."""
+    Near the road nothing is lit and nothing swings: the nearest moving light (the catwalk's) stands 40 m out; at the
+    sight line there is only colour running down a pipe and two flywheels turning.
+    Third pass: it first builds the kit's ft_life.Kit pieces (moving(): steam, vehicles, the flare, the lamp heads;
+    build=False leaves them as they are), and life3() adds that pass's movement."""
     import ft_life
     D = '/Game/Maps/ChemicalWorks/Dress/'
     A = ft_life.animate
     n = 0
+    if build:
+        moving()
 
     def beacon(slot, colour, glow):
         return colour == 'ff3355' and glow > 1.0
@@ -977,8 +996,9 @@ def life():
     n += A(D + 'SM_Clarifier', 'Light', glows(POOL), **dict(ft_life.PULSE, LightRate=0.12, LightMin=0.7))
     n += A(D + 'SM_Clarifier', 'Spin', ['#8f9bb3', '#ff9e3d'], SpinRate=0.15, SpinRand=1.0)
     # loading: the yard crane's trolley and its load travel the bridge (a box in the mesh's own space picks them out)
-    n += A(D + 'SM_GantryCrane', 'Bob', ['#2a3f8f', '#233a63', '#1c1a26', '#19b5c9', '#ffd23f'], far=True, BobDir=(0.0, 1.0, 0.0), BobAmp=450.0,
+    n += A(D + 'SM_GantryCrane', 'Bob', ['#2a3f8f', '#233a63', '#1c1a26', '#19b5c9', '#ffd23f', '#ffe9a8'], far=True, BobDir=(0.0, 1.0, 0.0), BobAmp=450.0,
            BobRate=0.035, BobRand=1.0, MaskMin=(-130.0, -400.0, 620.0), MaskMax=(250.0, -120.0, 1520.0))
+    n += life3(A, D)
     unreal.log('FTDRESS chem life: %d slots animated' % n)
     return n
 
@@ -1132,6 +1152,483 @@ def cut_kerb(m, leak=False):
         B.shape(m, VIOLET, [(-32.0, 16.0), (32.0, 16.0), (12.0, -166.0), (-12.0, -166.0)], 5.0, B.FACE + 10.0)
 
 
+# ------------------------------------------------------------------------------------------ third pass (the overhaul, 15 Nov)
+# "Pipe racks, loading bays, and tanks, with cycling machinery, steam releases, and moving work lights."
+# What this pass adds to the kit, by distance from the road:
+#   17 to 24 m   SM_KerbRun, SM_StoreRow: the works' kerb and what is kept behind it, a slot (45 m) long, so a Site
+#                rule lays them end to end. Under 2 m, pale and unlit: this is the row a camera on the low side of a
+#                banked bend, in a loop or beside the car looks down on.
+#   24 to 30 m   SM_TankRow, SM_RackNear, SM_Compressor: tall and UNLIT, so they may stand at the sight line (the lit
+#                racks, bays and tank clusters of the first pass start 30 m out). The rack's magenta line runs; the
+#                compressor's two flywheels turn.
+#   40 to 110 m  the machines and the steam: SM_BlowStack (a blow-down stack that lets go for five seconds in twelve),
+#                SM_Kiln (a rotary kiln, turning), SM_WorkRoad (a works road with plant tugs driving it, lamps on),
+#                SM_LightMast (a floodlight mast whose head swings), SM_FlareTower and SM_MegaVat (the two set pieces).
+#   330 m on     SM_SkyCardA, B, C: three rows of flat skyline in three receding tones (the bluest and darkest nearest,
+#                the palest and most violet furthest, as the sky does towards its horizon).
+# Pieces that need parts sent along a path (steam puffs, vehicles, a flame) are built with ft_life.Kit, the way the
+# level's own moving props are: MOVING lists them and moving() builds them. life() calls moving() first.
+ROW = 4560.0          # a row piece: one 45.24 m slot, and a hand's breadth to lap the next
+
+
+def kerb_run(m, kind=0, L=ROW):
+    """The works' kerb, a slot long: a pale concrete upstand with yellow and navy blocks on its road face, squat
+    white-capped bollards and a pipe rail on it; then, past the strip the ground pipe runs in, what the yard keeps
+    at its edge. kind 0: drums on pallets, crates, a valve pit, a cable reel, loose barriers. kind 1 (the stores):
+    gas bottles in a rack, pallet stacks, a loaded trolley, reels lying flat, totes in a low bund. Nothing over 2 m."""
+    yk = -250.0
+    m.box(PAVE, (0, yk, 28), (L, 70, 56))
+    n = 8
+    w = L / n
+    for k in range(n):
+        x = -L / 2.0 + w * (k + 0.5)
+        col = HAZ if k % 2 == 0 else NAVY
+        m.box(col, (x, yk - 36, 32), (w * 0.5, 6, 40))
+        m.box(col, (x, yk, 58), (w * 0.5, 70, 6))
+    for k in range(n + 1):                                             # bollards on the kerb, a pipe rail through them
+        x = -L / 2.0 + 70 + (L - 140) * k / n
+        pz(m, PAVE_D, x, yk, 56, 112, 20, steps=6)
+        pz(m, WHITE, x, yk, 112, 130, 25, steps=6)
+    px(m, TEAL, -L / 2.0 + 70, L / 2.0 - 70, yk, 96, 9, steps=6)
+    r = random.Random(kind + 70)
+    if kind == 0:
+        for (ax, ay) in ((-1650, 150), (950, 190)):
+            m.box(RUST, (ax, ay, 8), (190, 170, 16))
+            for i in range(2):
+                for j in range(2):
+                    drum(m, ax - 46 + i * 92, ay - 42 + j * 84, 16, r.choice([HAZ, TEAL, MAG, STEELB]))
+        m.box(STEELB_D, (-520, 160, 60), (170, 130, 120))
+        m.box(TEAL_D, (-520, 160, 155), (120, 100, 70))
+        m.box(HAZ, (-520, 93, 60), (80, 4, 50))
+        m.box(CONC, (1750, 150, 12), (340, 220, 24))                   # the valve pit
+        px(m, TEAL, 1600, 1900, 150, 70, 24, steps=8)
+        for x in (1680, 1820):
+            pz(m, STEELB, x, 150, 24, 150, 12, steps=6)
+            m.cyl(RED, (x, 150, 150), 30, 8, steps=8)
+        py(m, RUST, -2050, 96, 204, 66, 66, steps=10)                  # a cable reel on its rim
+        py(m, STEELB_D, -2050, 110, 190, 66, 38, steps=8)
+        for k in range(3):                                             # loose barriers, one knocked askew
+            yaw = 9 if k == 1 else 0
+            m.box(CONC, (150 + k * 250, 110 + (14 if k == 1 else 0), 40), (230, 60, 80), rot=(0, yaw, 0))
+            m.box(PAVE, (150 + k * 250, 110 + (14 if k == 1 else 0), 86), (230, 30, 12), rot=(0, yaw, 0))
+        drum(m, -1100, 230, 0, MAG, lying=True, yaw=20)
+    else:
+        m.box(NAVY, (-1500, 150, 8), (300, 100, 16))                   # the bottle rack
+        for k in range(6):
+            pz(m, (ORANGE, WHITE, TEAL)[k % 3], -1610 + k * 44, 150, 16, 166, 17, steps=6)
+        m.box(HAZ, (-1500, 150, 120), (300, 110, 10))
+        for (ax, ay, top) in ((-650, 150, WHITE), (-430, 190, TEAL)):
+            m.box(RUST, (ax, ay, 42), (160, 140, 84))
+            m.box(top, (ax, ay, 119), (130, 110, 70))
+        m.box(NAVY, (500, 150, 62), (440, 170, 24))                    # a trolley loaded with pipe
+        for s in (-1, 1):
+            m.box(BLACK, (500 + s * 150, 150, 25), (90, 150, 50))
+        for j in range(3):
+            px(m, (TEAL, WHITE, TEAL)[j], 290, 710, 96 + j * 54, 104, 26, steps=6)
+        pz(m, RUST, 1450, 170, 0, 44, 72, steps=10)                    # reels lying flat
+        pz(m, STEELB_D, 1450, 170, 44, 96, 40, steps=8)
+        pz(m, RUST, 1450, 170, 96, 140, 72, steps=10)
+        m.box(PAVE_D, (2000, 160, 14), (420, 240, 28))                 # totes in a low bund
+        for k in range(3):
+            m.box(WHITE, (1880 + k * 120, 160, 84), (104, 104, 112))
+            m.box(STEELB_D, (1880 + k * 120, 160, 22), (112, 112, 16))
+        m.box(HAZ, (2000, 37, 22), (420, 6, 28))
+        drum(m, -2000, 200, 0, TEAL)
+        drum(m, -1930, 120, 0, HAZ)
+
+
+def tank_row(m, L=4500.0):
+    """A row of day tanks on one plinth, a slot long: four standing tanks of different girth, a bullet lying on its
+    saddles, the header along the front and a riser to each. To 11 m, 7.6 m deep, and unlit: it may stand at the
+    sight line (24 m), where the lit tank clusters may not."""
+    m.box(PAVE_D, (0, 0, 25), (L, 760, 50))
+    m.box(HAZ, (0, -382, 30), (L, 5, 26))
+    for (x, r, h, col, band) in ((-1800, 300, 820, TEAL, HAZ), (-1080, 230, 540, WHITE, MAG), (-380, 310, 960, STEELB, TEAL), (350, 220, 480, WHITE, TEAL)):
+        pz(m, NAVY, x, 30, 50, 82, r + 26, steps=10)
+        pz(m, col, x, 30, 82, 82 + h, r, steps=10)
+        pz(m, band, x, 30, 82 + h * 0.58, 82 + h * 0.58 + 52, r + 6, steps=10)
+        m.sphere(col, (x, 30, 82 + h), r, scale=(1, 1, 0.3), steps=(4, 10))
+        pz(m, MAG, x, -300, 110, 82 + h * 0.3, 20, steps=6)
+        py(m, MAG, x, -300, 30 - r + 10, 82 + h * 0.3, 20, steps=6)
+    tank_x(m, TEAL, 1020, 1960, 30, 330, 200, band=HAZ, n=3, steps=10)
+    for x in (1180, 1800):
+        m.box(CONC, (x, 30, 100), (130, 400, 110))
+    px(m, MAG, -L / 2.0 + 120, L / 2.0 - 120, -300, 110, 22, steps=6)
+    m.box(STEELB_D, (-730, 30, 640), (440, 120, 30))                   # a walkway between two tank tops
+
+
+def rack_near(m, L=ROW, H=520.0, W=340.0):
+    """A low pipe rack for the roadside, a slot long: portal frames every 9 m carrying two decks of lines, the big
+    line's expansion loop over the top. No lamps on it (so it may stand at the sight line); life() runs the colour
+    down its magenta line."""
+    n = 5
+    for k in range(n + 1):
+        x = -L / 2.0 + L * k / n
+        for s in (-1, 1):
+            m.box(STEELB, (x, s * W / 2.0, H / 2.0), (30, 30, H))
+            m.box(PAVE_D, (x, s * W / 2.0, 18), (64, 64, 36))
+        for z in (H * 0.55, H):
+            m.box(STEELB, (x, 0, z), (26, W + 30, 26))
+    for y, r, col, z in ((-110, 46, TEAL, H * 0.55 + 59), (0, 30, MAG, H * 0.55 + 43), (105, 26, WHITE, H * 0.55 + 39),
+                         (-70, 40, HAZ, H + 53), (75, 28, TEAL_D, H + 41)):
+        px(m, col, -L / 2.0, L / 2.0, y, z, r, steps=8)
+    for x in (-L * 0.3, L * 0.1, L * 0.38):                            # flanges on the big line
+        px(m, NAVY, x - 8, x + 8, -110, H * 0.55 + 59, 56, steps=8)
+    for x in (-L * 0.1, L * 0.02):                                     # the loop: up from the lower deck, over, down
+        pz(m, TEAL, x, -110, H * 0.55 + 59, H + 190, 46, steps=8)
+    px(m, TEAL, -L * 0.1, L * 0.02, -110, H + 190, 46, steps=8)
+
+
+def compressor(m):
+    """A compressor shed, open at the sides: a flat roof on six posts, and under it two reciprocating compressors, each
+    with a flywheel as tall as a man and a half facing the road (life() turns them, each at its own speed). Bottles
+    and a header behind. Unlit, 5.7 m: for the sight line and just beyond."""
+    m.box(PAVE_D, (0, 0, 20), (1500, 720, 40))
+    for x in (-700, 0, 700):
+        for y in (-320, 320):
+            m.box(STEELB, (x, y, 290), (30, 30, 500))
+    m.box(NAVY, (0, 0, 555), (1560, 780, 30))
+    m.box(TEAL, (0, -392, 555), (1560, 6, 30))
+    for (x, rim, spoke) in ((-350.0, HAZ, WHITE), (350.0, ORANGE, STEAM)):
+        m.box(STEELB_D, (x + 170, 40, 130), (320, 260, 180))           # the crank case
+        m.box(TEAL_D, (x + 170, 40, 300), (190, 190, 160))             # the cylinder
+        pz(m, TEAL_D, x + 170, 40, 380, 470, 52, steps=8)
+        py(m, rim, x - 60, -150, -112, 200, 152, steps=12)             # the flywheel, facing the road
+        m.box(spoke, (x - 60, -158, 200), (272, 16, 46))
+        m.box(spoke, (x - 60, -158, 200), (46, 16, 272))
+        py(m, spoke, x - 60, -170, -112, 200, 36, steps=8)
+        pz(m, PAVE, x + 300, 220, 40, 430, 60, steps=8)                # a discharge bottle
+        m.sphere(PAVE, (x + 300, 220, 430), 60, steps=(4, 8))
+    px(m, MAG, -640, 640, 300, 250, 26, steps=6)
+    m.box(STEELB_D, (640, -250, 110), (120, 90, 140))                  # the control box
+    m.box(TEAL, (640, -297, 130), (80, 4, 50))
+
+
+def kiln(m, L=4000.0, R=185.0, Z=930.0):
+    """A rotary kiln: a steel drum 40 m long turning on three tall piers (its axis is 9 m up, so that it shows over the
+    roadside rows), lifter bars along it and a riding ring over each pier (that is what shows it turning: life() spins
+    every rust, white, orange and yellow part about the drum's axis), the drive house beside the middle ring, the feed
+    tower with its vent and steam at one end, the firing hood and the burner pipe at the other, a glow at the hood's
+    port. For the middle distance: 59 m long, 32 m with its steam."""
+    m.box(PAVE_D, (0, 0, 20), (L + 1900, 720, 40))
+    px(m, RUST, -L / 2.0, L / 2.0, 0, Z, R, steps=10)
+    for k in range(4):
+        a = math.radians(45 + 90 * k)
+        m.box(WHITE if k % 2 == 0 else ORANGE, (0, math.cos(a) * (R + 6), Z + math.sin(a) * (R + 6)), (L * 0.86, 46, 46))
+    for x in (-L * 0.32, 0.0, L * 0.32):
+        px(m, HAZ, x - 42, x + 42, 0, Z, R + 28, steps=10)
+        m.box(PAVE, (x, 0, 365), (260, 580, 650))                      # the pier
+        m.box(STEELB_D, (x, 0, 700), (320, 640, 24))
+        for s in (-1, 1):
+            px(m, STEEL, x - 60, x + 60, s * 160, Z - 188, 46, steps=8)    # its rollers
+    m.box(TEAL, (300, -300, 380), (320, 220, 680))                     # the drive house
+    m.box(STEELB, (90, -300, 650), (160, 160, 160))
+    xf = -L / 2.0 - 280.0                                              # the feed end
+    m.box(STEELB_D, (xf, 0, 760), (560, 640, 1440))
+    m.box(NAVY, (xf, 0, 1492), (600, 680, 24))
+    m.box(TEAL_D, (xf, 0, 1650), (300, 300, 300))
+    pz(m, STEELB, xf, 150, 1800, 2200, 60, steps=8)
+    for z in (520, 980):
+        m.box(WARM, (xf, -323, z), (240, 6, 110), glow=0.55)
+    tilt_box(m, TEAL_D, (xf - 600, 0, 1800), (xf - 100, 0, 1650), 120, 90)   # the feed conveyor's gallery
+    m.box(STEELB, (xf - 560, 0, 900), (70, 70, 1800))
+    for j, (dx, dz, rr) in enumerate(((0, 200, 160), (130, 520, 220), (350, 880, 250))):
+        m.sphere(STEAM, (xf + dx, 150 + 40 * j, 2200 + dz), rr, scale=(1.15, 1, 0.8), steps=(4, 6))
+    xb = L / 2.0 + 230.0                                               # the firing end
+    m.box(STEELB_D, (xb, 0, 660), (460, 580, 1240))
+    m.box(NAVY, (xb, 0, 1292), (500, 620, 24))
+    m.box(ORANGE, (xb, -293, Z), (150, 6, 150), glow=0.9)
+    px(m, TEAL, xb + 230, xb + 560, 0, Z, 50, steps=8)
+    pz(m, TEAL, xb + 560, 0, 0, Z, 50, steps=8)
+    m.sphere(TEAL, (xb + 560, 0, Z), 50, steps=(4, 8))
+
+
+def mega_vat(m, R=3800.0, H=5200.0):
+    """THE MEGA VAT (the level's second scene of that name had no vat): a concrete drum 76 m across and 52 m tall,
+    ribbed and hooped, the chemical standing in it to the brim and running down the wall in three places into catch
+    basins (life() swells the glow), the stirrer bridge turning across the top with its drive in the middle (the only
+    steel-grey and orange on the piece), steam rolling off the surface, two feed mains climbing the wall and over the
+    rim, a stair tower with lit landings on the road side, a beacon. FTDressL1.inl stands one dead ahead of the jump
+    at 7.5 km, where the road swerves round it."""
+    pz(m, PAVE_D, 0, 0, 0, 300, R + 500, steps=16)
+    pz(m, PAVE, 0, 0, 300, H, R, steps=16)
+    for z in (H * 0.34, H * 0.68):
+        pz(m, STEELB_D, 0, 0, z, z + 220, R + 14, steps=16)
+    pz(m, HAZ, 0, 0, H - 520, H - 400, R + 16, steps=16)
+    pz(m, NAVY, 0, 0, H - 60, H + 60, R + 160, steps=16)               # the rim walk
+    n = 10
+    for k in range(n):
+        a = 2 * math.pi * (k + 0.5) / n
+        m.box(PAVE_D, (math.cos(a) * (R + 40), math.sin(a) * (R + 40), 300 + (H - 700) / 2.0), (150, 420, H - 700), rot=(0, math.degrees(a), 0))
+    pz(m, VIOLET, 0, 0, H + 60, H + 76, R - 140, steps=16, glow=1.0)   # the chemical, to the brim
+    for a_deg in (-72, -108, -36):                                     # where it runs down the wall, road side
+        a = math.radians(a_deg)
+        cx, cy = math.cos(a) * (R + 22), math.sin(a) * (R + 22)
+        m.box(VIOLET, (cx, cy, 300 + (H - 300) / 2.0), (60, 300, H - 300), rot=(0, a_deg, 0), glow=1.0)
+        m.box(PAVE, (math.cos(a) * (R + 260), math.sin(a) * (R + 260), 380), (520, 620, 160), rot=(0, a_deg, 0))
+        m.box(VIOLET, (math.cos(a) * (R + 260), math.sin(a) * (R + 260), 468), (400, 500, 16), rot=(0, a_deg, 0), glow=1.0)
+    # the stirrer: a bridge across the top, the drive on it, two paddle shafts going down
+    m.box(STEEL, (0, 0, H + 330), (2 * R + 300, 320, 180))
+    m.box(ORANGE, (0, 0, H + 560), (700, 700, 300))
+    for s in (-1, 1):
+        m.box(STEEL, (s * R * 0.55, 0, H + 130), (160, 160, 240))
+        m.box(ORANGE, (s * (R + 60), 0, H + 330), (200, 420, 260))
+    for j, (dx, dy, dz, rr) in enumerate(((-1500, 600, 700, 900), (300, -900, 1100, 1150), (1700, 500, 800, 950), (-300, 1300, 1700, 1250),
+                                          (900, 100, 2300, 1100), (2000, -600, 2900, 850))):
+        m.sphere(STEAM, (dx, dy, H + dz), rr, scale=(1.15, 1, 0.75), steps=(4, 7))
+    for (a_deg, col, r) in ((160, TEAL, 150), (20, MAG, 110)):         # the feed mains
+        a = math.radians(a_deg)
+        x, y = math.cos(a) * (R + r + 60), math.sin(a) * (R + r + 60)
+        pz(m, col, x, y, 0, H + 420, r, steps=8)
+        rod(m, col, (x, y, H + 420), (math.cos(a) * (R - 500), math.sin(a) * (R - 500), H + 420), r, steps=8)
+        m.sphere(col, (x, y, H + 420), r, steps=(4, 8))
+    xs, ys = 900.0, -(R + 330.0)                                       # the stair tower, road side
+    m.box(STEELB_D, (xs, ys, (H + 300) / 2.0), (520, 520, H + 300))
+    m.box(NAVY, (xs, ys, H + 312), (580, 580, 24))
+    for k in range(6):
+        m.box(WARM, (xs, ys - 262, 700 + k * 800), (300, 6, 180), glow=0.55)
+    ap = math.radians(-144.0)                                          # the plate with the vat's number on it
+    m.box(CYAN, (math.cos(ap) * (R + 30), math.sin(ap) * (R + 30), H * 0.5), (8, 1500, 110), rot=(0, -144.0, 0), glow=0.6)
+    pz(m, STEELB, xs, ys, H + 324, H + 900, 45, steps=6)
+    m.sphere(RED, (xs, ys, H + 930), 60, steps=(4, 6), glow=1.3)
+
+
+def _skyline(r, L, lo, hi, kinds, step=(900, 2600)):
+    """The shapes of a flat skyline, left to right: [(outline [(x, z)] closed along the base, x from, x to, height)].
+    Boxes, stacks on a block, cooling towers, gas spheres, columns with a bridge. kinds: what this row is made of."""
+    out = []
+    x = -L / 2.0
+    base = lo * 0.35
+    while x < L / 2.0 - 800:
+        kind = r.choice(kinds)
+        w = min(r.uniform(*step), L / 2.0 - x - 400)
+        h = r.uniform(lo, hi)
+        if kind == 'block':
+            pts, top = [(x, h), (x + w, h)], h
+        elif kind == 'stack':                         # a stack on a block
+            hb = r.uniform(lo * 0.5, lo)
+            s0 = x + w * r.uniform(0.2, 0.45)
+            sw = max(w * 0.24, 480)
+            pts, top = [(x, hb), (s0, hb), (s0 + sw * 0.15, h * 1.25), (s0 + sw * 0.85, h * 1.25), (s0 + sw, hb), (x + w, hb)], hb
+        elif kind == 'tower':                         # a waisted cooling tower
+            pts, top = [(x + w * 0.22, h * 0.62), (x + w * 0.2, h), (x + w * 0.8, h), (x + w * 0.78, h * 0.62)], h * 0.6
+        elif kind == 'sphere':                        # a gas sphere on its legs, as an octagon
+            hs = min(h, w * 0.9)
+            pts, top = [(x + w * 0.08, hs * 0.45), (x + w * 0.3, hs * 0.9), (x + w * 0.7, hs * 0.9), (x + w * 0.92, hs * 0.45)], 0.0
+        else:                                         # 'column': two columns of different height with a bridge
+            c = w * 0.3
+            pts, top = [(x, h), (x + c, h), (x + c, h * 0.55), (x + w - c, h * 0.55), (x + w - c, h * 0.82), (x + w, h * 0.82)], h * 0.55
+        out.append(([(x, base)] + pts + [(x + w, base)], x, x + w, top))
+        x += w + min(r.uniform(120, 500), L / 2.0 - x - w - 20)
+    return out, base
+
+
+def sky_card(m, seed=0, L=42000.0, lo=3000.0, hi=7500.0, col='#2b3a94', kinds=('block', 'stack', 'column', 'sphere'), lights=10, deep=7000.0,
+             step=(900, 2600)):
+    """One length of far skyline, FLAT: a silhouette two metres thick (the horizon's rows are cards: three of them, in
+    three tones, one behind another): a base strip carried down below the land's edge and one outline to each shape
+    on it, a few lit floors and a beacon or two so that the works out there are working. No footing block: SM_SkyCard's
+    JOBS entry adds a wide one that keeps the card clear of every stretch of road (see buried, keep)."""
+    r = random.Random(seed * 13 + 5)
+    shapes, base = _skyline(r, L, lo, hi, kinds, step)
+    m.box(col, (0, 0, (base - deep) / 2.0), (L, 200, base + deep))
+    for pts, x0, x1, top in shapes:
+        m.side(col, pts, -100, 100)
+    wide = [q for q in shapes if q[3] > 1600 and q[2] - q[1] > L * 0.03]      # the shapes a lit floor fits on
+    for k in range(lights):
+        if not wide:
+            break
+        pts, x0, x1, top = wide[(k * 7 + seed) % len(wide)]
+        x = r.uniform(x0 + (x1 - x0) * 0.38, x1 - (x1 - x0) * 0.38)
+        z = r.uniform(700, top - 500)
+        if k % 5 == 4:
+            m.box(RED, (x, -106, top - 150), (L * 0.006, 12, L * 0.006), glow=1.3)
+        else:
+            m.box(CYAN if k % 3 else WARM, (x, -106, z), (min(L * 0.022, (x1 - x0) * 0.3), 12, L * 0.0045), glow=0.6)
+
+
+# ---- the pieces built with ft_life.Kit (parts that travel: steam, vehicles, a flame, a swinging lamp head)
+def blow_stack(k):
+    """A blow-down stack: the knock-out drum on its saddles and a 16 m stack with a silencer on its tip, which lets go
+    for five seconds in every twelve: chunky balls of steam leave the tip small, climb 23 m, lean down the wind,
+    swell and thin out. Every stack on the level keeps its own time."""
+    s = k.group()
+    s.box(PAVE_D, (0, 0, 20), (760, 460, 40))
+    tank_x(s, WHITE, -300, 120, 80, 170, 95, band=TEAL, n=2, steps=8)
+    for x in (-230, 50):
+        s.box(CONC, (x, 80, 55), (60, 220, 30))
+    X, Y, H = 250.0, -70.0, 1500.0
+    pz(s, STEELB, X, Y, 40, H, 50, steps=8)
+    for z in (520, 1010):
+        pz(s, HAZ, X, Y, z, z + 46, 57, steps=8)
+    pz(s, NAVY, X, Y, H, H + 150, 78, steps=8)
+    pz(s, STEELB_D, X, Y, H + 150, H + 170, 62, steps=8)
+    rod(s, WHITE, (120, 80, 170), (X, Y, 300), 22, steps=6)
+    s.box(MIDLAND, (0, 0, -200), (760, 460, 400))
+    top = H + 170.0
+    rise, drift, r, size1 = 2300.0, 800.0, 85.0, 3.0
+    p = k.group('Plume', rough=0.95, PlumeBase=(X, Y, top), PlumeRise=rise, PlumeDrift=drift, PlumeSize0=0.4, PlumeSize1=size1,
+                PlumeRate=0.2, PlumeCycle=0.085, PlumeDuty=0.42, PlumeSpread=r * 1.1, PlumeEase=0.75)
+    for i in range(9):
+        p.piece(lambda m: m.sphere(STEAM, (0, 0, 0), r, steps=(4, 7)), a=i / 9.0, b=0.8 + 0.4 * ((i * 7) % 5) / 4.0, c=i * 0.37)
+    reach = drift * 1.15 + r * size1 + 60.0
+    return dict(grow=(reach, reach, rise + r * size1 + 100.0), grow_down=(reach, reach, 0.0))
+
+
+def work_road(k, L=13500.0):
+    """A works road three slots long with the night shift on it: two plant tugs each way, each pulling a loaded
+    trailer, head lamps lit and an amber beacon turning on the cab. The tugs are parts sent along the road and round
+    again (ft_life's Conveyor); every stretch of road keeps its own time."""
+    s = k.group()
+    s.box(PAVE_D, (0, 0, 15), (L, 760, 30))
+    for y in (-365, 365):
+        s.box(PAVE, (0, y, 22), (L, 30, 44))
+    n = 15
+    for i in range(n):
+        s.box(WHITE, (-L / 2.0 + L * (i + 0.5) / n, 0, 32), (L / n * 0.4, 26, 4))
+    s.box(MIDLAND, (0, 0, -40), (L, 760 + 900, 80))                  # wider than the road: the lamps keep 30 m from every centre line
+
+    def tug(m, d):
+        m.box(HAZ, (d * 60, 0, 95), (260, 150, 110))
+        m.box(STEELB, (d * -10, 0, 190), (120, 140, 80))
+        m.box(BLACK, (0, 0, 30), (300, 160, 40))
+        m.box(TEAL, (d * -330, 0, 105), (300, 150, 130))
+        m.box(BLACK, (d * -330, 0, 26), (320, 140, 32))
+        m.box(WARM, (d * 194, 0, 100), (10, 120, 30), glow=1.2)
+
+    for d, y, rate, starts in ((1.0, -180.0, 0.07, (0.05, 0.52)), (-1.0, 180.0, 0.055, (0.24, 0.71))):
+        conv = dict(ConvStart=(-d * L / 2.0, y, 30.0), ConvDir=(d, 0.0, 0.0), ConvLen=L, ConvRate=rate, ConvRand=1.0)
+        g = k.group('Conveyor', **conv)
+        b = k.group(('Conveyor', 'Light'), LightRate=1.1, LightDuty=0.45, LightSoft=0.06, LightMin=0.12, LightRand=1.0, **conv)
+        for a in starts:
+            g.piece(lambda m, d=d: tug(m, d), a=a)
+            b.piece(lambda m, d=d: m.box(ORANGE, (d * -10, 0, 244), (40, 40, 24), glow=1.4), a=a)
+    return dict(grow=(0.0, 0.0, 270.0), grow_down=(0.0, 0.0, 0.0))
+
+
+def light_mast(k, H=1800.0):
+    """A floodlight mast, 20 m: a lamp head with a bank of lamps on each of two faces and a short cone of light below
+    each (painted the way a cel painter paints light: three lengths stepping down to the night), swinging slowly from
+    side to side about the mast. Each mast keeps its own time."""
+    s = k.group()
+    s.box(PAVE_D, (0, 0, 30), (260, 260, 60))
+    pz(s, STEELB, 0, 0, 60, H, 36, steps=8, top_r=24)
+    s.box(STEELB_D, (0, 0, H * 0.5), (96, 96, 34))
+    pz(s, STEELB_D, 0, 0, H, H + 26, 130, steps=8)
+    s.box(MIDLAND, (0, 0, -150), (260, 260, 300))
+    h = k.group('Spin', far=True, rough=0.8, SpinPivot=(0.0, 0.0, H), SpinAxis=(0.0, 0.0, 1.0), SpinSwing=48.0, SpinRate=0.5, SpinRand=1.0)
+    h.box(NAVY, (0, 0, H + 120), (170, 320, 160))
+    for sx in (-1, 1):
+        for i in range(3):
+            h.box(WARM, (sx * 89, -100 + i * 100, H + 120), (8, 76, 100), glow=1.2)
+        x, z, w = sx * 100.0, H + 120.0, 110.0
+        for col, glow, ln in (('#fff1c0', 0.30, 300.0), ('#b9a8e0', 0.14, 330.0), ('#6a5ab0', 0.08, 360.0)):
+            dx, dz = sx * ln * math.cos(math.radians(38)), -ln * math.sin(math.radians(38))
+            tilt_box(h, col, (x, 0, z), (x + dx, 0, z + dz), w * 2.4, w, glow=glow)
+            x, z, w = x + dx, z + dz, w * 1.3
+    return dict(grow=(900.0, 900.0, 0.0), grow_down=(900.0, 900.0, 0.0))
+
+
+def flare_tower(k, H=8200.0):
+    """A flare derrick, 82 m to the tip and a flame 26 m long on it that whips and flickers: four raking legs, five
+    decks with a band of light under each (the light climbs), the flare line up the middle, beacons at the top deck's
+    corners. FTDressL1.inl stands eight pairs of these as an avenue over the finale's long run (12.8 to 13.8 km)."""
+    s = k.group()
+    s.box(PAVE_D, (0, 0, 30), (2200, 2200, 60))
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            tilt_box(s, STEELB, (sx * 900, sy * 900, 0), (sx * 170, sy * 170, H), 200)
+    for i in range(1, 6):
+        z = H * i / 5.0
+        w = 900 - 730 * i / 5.0
+        s.box(STEELB_D, (0, 0, z), (2 * w + 300, 2 * w + 300, 140))
+        for sx in (-1, 1):
+            s.box(HAZ, (sx * (w + 150), 0, z + 130), (30, 2 * w + 300, 120))
+    pz(s, STEEL, 0, 0, 0, H + 500, 150, steps=8)
+    pz(s, NAVY, 0, 0, H + 500, H + 620, 230, steps=8)
+    s.box(MIDLAND, (0, 0, -500), (2200, 2200, 1000))
+    lt = k.group('Light', rough=0.6, LightAxis=(0.0, 0.0, 1.0), LightLen=3280.0, LightRate=0.4, LightDuty=0.5, LightSoft=0.1, LightMin=0.3, LightRand=1.0)
+    for i in range(1, 6):
+        z = H * i / 5.0
+        w = 900 - 730 * i / 5.0
+        lt.box(CYAN, (0, -(w + 154), z - 110), (2 * w + 300, 8, 80), glow=0.5)
+        lt.box(CYAN, (0, (w + 154), z - 110), (2 * w + 300, 8, 80), glow=0.5)
+    bc = k.group('Light', rough=0.6, LightRate=0.7, LightDuty=0.45, LightSoft=0.06, LightMin=0.12, LightRand=1.0)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            bc.sphere(RED, (sx * 270, sy * 270, H + 150), 60, steps=(4, 6), glow=1.3)
+    top = H + 620.0
+    # The flame's LIGHT only swells, slowly and by a fifth (three steps a second at most). These flames are 26 to 34 m
+    # tall and thirty of them stand on the level: a deep flicker nine times a second (the small flare stack's own
+    # setting) over that much of the frame would be hard on the eyes. What moves is the flutter.
+    fl = k.group(('Flutter', 'Light'), far=True, rough=0.9, FlutterPin=(0.0, 0.0, top), FlutterAxis=(0.0, 0.0, 1.0), FlutterDir=(0.8, 0.6, 0.0),
+                 FlutterSpan=1800.0, FlutterLen=2000.0, FlutterRate=6.5, FlutterAmp=330.0, LightHash=0.45, LightCell=100000.0, LightRate=3.0,
+                 LightMin=0.8)
+    for col, r0, h, glow in (('#ff8a2a', 430.0, 2600.0, 2.2), ('#ffd23f', 240.0, 1700.0, 3.0)):
+        n = 5
+        for i in range(n):
+            fl.cyl(col, (0, 0, top + h * i / n), r0 * (1.0 - i / float(n)) + 14, h / n, steps=6, top_r=r0 * (1.0 - (i + 1) / float(n)) + 14, glow=glow)
+    return dict(grow=(700.0, 700.0, 600.0), grow_down=(700.0, 700.0, 0.0))
+
+
+MOVING = [('SM_BlowStack', blow_stack), ('SM_WorkRoad', work_road), ('SM_LightMast', light_mast), ('SM_FlareTower', flare_tower)]
+
+
+def moving(only=None):
+    """Build the kit's ft_life.Kit pieces (MOVING) into the level's Dress folder. They carry their own M_Life
+    instances, so an export of the plain pieces does not touch them; life() calls this first."""
+    import ft_life
+    done = []
+    for name, fn in MOVING:
+        if only and name not in only:
+            continue
+        try:
+            k = ft_life.Kit()
+            ext = fn(k) or {}
+            sm = k.save('/Game/Maps/ChemicalWorks/Dress/' + name, **ext)
+            b = sm.get_bounds()
+            e = b.box_extent
+            unreal.log('FTDRESS chem %s (moving) triangles %d size m %.1f %.1f %.1f base z %.0f' % (
+                name, sm.get_num_triangles(0), e.x / 50.0, e.y / 50.0, e.z / 50.0, b.origin.z - e.z))
+            done.append(name)
+        except Exception as e:  # noqa
+            import traceback
+            unreal.log_error('FTDRESS chem %s (moving) FAILED: %r %s' % (name, e, traceback.format_exc()[-900:]))
+            print('JAM ERR kit piece chem', name, repr(e)[:300], flush=True)
+    print('JAM kit chem moving pieces built', len(done), 'of', len(MOVING), flush=True)
+    return done
+
+
+def life3(A, D):
+    """The third pass's movement (see life)."""
+    import ft_life
+    n = 0
+    # the roadside rack's magenta line runs (colour only: nothing near the road is lit)
+    n += A(D + 'SM_RackNear', 'Light', ['#e84aff-'], FlowMix=1.0, Color2=(1.0, 0.55, 1.0),
+           **ft_life._chase((1.0, 0.0, 0.0), 760.0, rate=0.3, duty=0.5, low=0.6, rand=1.0))
+    # cycling machinery: the compressor's flywheels, the kiln's drum, the vat's stirrer, the gas holders' bells
+    n += A(D + 'SM_Compressor', 'Spin', ['#ffd23f', '#eef6ff'], SpinPivot=(-410.0, 0.0, 200.0), SpinAxis=(0.0, 1.0, 0.0), SpinRate=2.6, SpinRand=1.0)
+    n += A(D + 'SM_Compressor', 'Spin', ['#ff9e3d', '#d8d0f0'], SpinPivot=(290.0, 0.0, 200.0), SpinAxis=(0.0, 1.0, 0.0), SpinRate=2.1, SpinRand=1.0)
+    n += A(D + 'SM_Kiln', 'Spin', ['#a8552f', '#eef6ff', '#ff9e3d-', '#ffd23f'], far=True, SpinPivot=(0.0, 0.0, 930.0), SpinAxis=(1.0, 0.0, 0.0),
+           SpinRate=0.45, SpinRand=1.0)
+    n += A(D + 'SM_Kiln', 'Light', ['#ff9e3d*'], **dict(ft_life.PULSE, LightRate=0.6, LightMin=0.45))
+    n += A(D + 'SM_Kiln', ('Sway', 'Breathe'), ['#d8d0f0'], far=True, SwayBase=2200.0, SwayHeight=1000.0, SwayAmp=110.0, SwayPow=1.2, SwayRate=0.5,
+           SwayLean=0.5, BreatheAmp=18.0, BreatheRate=0.8, BreatheVar=1.5)
+    n += A(D + 'SM_MegaVat', 'Spin', ['#8f9bb3', '#ff9e3d'], far=True, SpinPivot=(0.0, 0.0, 5500.0), SpinAxis=(0.0, 0.0, 1.0), SpinRate=0.14, SpinRand=0.0)
+    n += A(D + 'SM_MegaVat', 'Light', ['#b44dff*'], **dict(ft_life.PULSE, LightRate=0.18, LightMin=0.55))
+    n += A(D + 'SM_MegaVat', 'Light', ['#ffe9a8*'], **ft_life._windows(800.0, rate=0.08, off=0.2, low=0.3))
+    n += A(D + 'SM_MegaVat', 'Light', ['#5ff0ff*'], **ft_life._chase((1.0, 0.0, 0.0), 1500.0, rate=0.35, duty=0.5, low=0.35, rand=0.0))
+    n += A(D + 'SM_MegaVat', 'Light', ['#ff3355*'], **ft_life.BLINK)
+    n += A(D + 'SM_MegaVat', ('Sway', 'Breathe'), ['#d8d0f0'], far=True, SwayBase=5200.0, SwayHeight=3200.0, SwayAmp=330.0, SwayPow=1.2, SwayRate=0.4,
+           SwayLean=0.5, BreatheAmp=60.0, BreatheRate=0.6, BreatheVar=1.5)
+    n += A(D + 'SM_Gasholder', 'Bob', ['#12849a'], far=True, BobDir=(0.0, 0.0, 1.0), BobAmp=130.0, BobRate=0.035, BobRand=1.0)
+    # the horizon's cards: their lit floors come and go, their beacons blink
+    for name in ('SM_SkyCardA', 'SM_SkyCardB', 'SM_SkyCardC'):
+        n += A(D + name, 'Light', ['#5ff0ff*', '#ffe9a8*'], **ft_life._windows(1500.0, rate=0.07, off=0.25, low=0.3))
+        n += A(D + name, 'Light', ['#ff3355*'], **ft_life.BLINK)
+    return n
+
+
 JOBS = [
     ('SM_CutRevet', cut_revet), ('SM_CutRevet2', lambda m: cut_revet(m, True)), ('SM_CutKerb', cut_kerb), ('SM_CutKerb2', lambda m: cut_kerb(m, True)),
     ('SM_FenceRun', buried(fence_run)), ('SM_JerseyRow', buried(jersey_row)), ('SM_DrumPile', buried(drum_pile)),
@@ -1143,10 +1640,11 @@ JOBS = [
     ('SM_Substation', buried(substation)), ('SM_CoolingCells', buried(cooling_cells)), ('SM_CoolingTower', buried(cooling_tower)),
     # second pass. The ground plane: flat pieces on a shallow footing
     ('SM_YardLot', flat(yard_lot)), ('SM_YardLot2', flat(lambda m: yard_lot(m, 1, 2600, 2200, 52))),
-    ('SM_YardLot3', flat(lambda m: yard_lot(m, 2, 3400, 1800, 58))), ('SM_CarPark', flat(car_park)),
-    ('SM_Pond', flat(pond)), ('SM_Pond2', flat(lambda m: pond(m, VIOLET, TEAL, 2200, 1900, 58))), ('SM_Clarifier', flat(clarifier)),
-    ('SM_TankPad', flat(tank_pad)), ('SM_PipeField', flat(pipe_field)), ('SM_AccessRoad', flat(access_road)),
-    ('SM_HeliPad', flat(heli_pad)), ('SM_Lagoon', flat(lagoon)), ('SM_RailFan', flat(rail_fan)), ('SM_Canal', flat(canal)),
+    ('SM_YardLot3', flat(lambda m: yard_lot(m, 2, 3400, 1800, 58))), ('SM_CarPark', flat(car_park, keep=LIT_KEEP)),
+    ('SM_Pond', flat(pond, keep=LIT_KEEP)), ('SM_Pond2', flat(lambda m: pond(m, VIOLET, TEAL, 2200, 1900, 58), keep=LIT_KEEP)),
+    ('SM_Clarifier', flat(clarifier, keep=LIT_KEEP)), ('SM_TankPad', flat(tank_pad, keep=LIT_KEEP)), ('SM_PipeField', flat(pipe_field)),
+    ('SM_AccessRoad', flat(access_road)), ('SM_HeliPad', flat(heli_pad, keep=LIT_KEEP)), ('SM_Lagoon', flat(lagoon, keep=LIT_KEEP)),
+    ('SM_RailFan', flat(rail_fan)), ('SM_Canal', flat(canal)),
     # second pass. What stands in the sky of the banked turns, and the reactor (its footing reaches 15 m past it, so
     # the track's clearance test keeps the whole landmark that far off every stretch of road)
     ('SM_Catwalk', buried(catwalk)), ('SM_ColumnTrio', buried(column_trio)),
@@ -1155,4 +1653,17 @@ JOBS = [
     ('SM_FarCooling', buried(far_cooling, LAND, keep=FAR_KEEP)), ('SM_FarStacks', buried(far_stacks, LAND, keep=FAR_KEEP)),
     ('SM_FarPlant', buried(far_plant, LAND, keep=FAR_KEEP)), ('SM_FarPlant2', buried(lambda m: far_plant(m, 12), LAND, keep=FAR_KEEP)),
     ('SM_FarGasworks', buried(far_gasworks, LAND, keep=FAR_KEEP)),
+    # third pass. The roadside rows, the machines, the set piece, and the horizon's three rows of cards. A card's
+    # footing is a thin slab under its foot, far wider than the card: the track's clearance test keeps the whole
+    # box off every stretch of road, so a card 60 to 170 m tall never stands close beside another part of the route
+    # (this road folds back on itself everywhere): row A 200 m off, row B 450 m, row C 700 m
+    ('SM_KerbRun', flat(kerb_run, 80.0)), ('SM_StoreRow', flat(lambda m: kerb_run(m, 1), 80.0)),
+    ('SM_TankRow', buried(tank_row)), ('SM_RackNear', buried(rack_near)), ('SM_Compressor', buried(compressor)),
+    ('SM_Kiln', buried(kiln, keep=600.0)), ('SM_MegaVat', buried(mega_vat, depth=0.15, keep=300.0)),
+    ('SM_SkyCardA', buried(lambda m: sky_card(m, 0, 42000.0, 3000.0, 6400.0, '#2b3a94', ('block', 'stack', 'column', 'sphere', 'block'), 12, 7000.0,
+                                              (900, 2600)), LAND, depth=0.02, keep=20000.0)),
+    ('SM_SkyCardB', buried(lambda m: sky_card(m, 1, 60000.0, 5500.0, 11000.0, '#4e45a6', ('tower', 'block', 'stack', 'tower', 'column'), 10, 9000.0,
+                                              (1600, 4400)), LAND, depth=0.02, keep=45000.0)),
+    ('SM_SkyCardC', buried(lambda m: sky_card(m, 2, 90000.0, 8000.0, 17000.0, '#7560b8', ('tower', 'block', 'tower', 'sphere'), 8, 11000.0,
+                                              (3200, 8200)), LAND, depth=0.02, keep=70000.0)),
 ]

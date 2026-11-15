@@ -12,6 +12,13 @@
 // fence, sage, junk and the wash's bed. The cut banks stand from 24 m out, the phone line 30 m out (a Site, like the
 // ranch fence: a Site stands exactly on its slot, so the wires and the strands join from piece to piece).
 
+// The table is written as three parts (first, second and third pass), each the body of a lambda called at once, in
+// order. Nothing else differs from one plain list: FTDress::Build holds all eight tables in one function body, and on
+// 15 Nov 2026 that body passed the size at which the compiler stops optimising a function (error C4883 in every
+// worker's compile). As lambdas the parts are functions of their own. If FTTrackDress.cpp is changed to give each
+// level's table its own function, the three wrappers here can simply be taken out.
+auto FirstPass = [&]()
+{
 Set(TEXT("StateLine"), {
 	{ TEXT("SM_Garage"), 0, 0, 0, 0, 1.f },
 	{ TEXT("SM_SignFrame"), -24, -8, 0, 0, 1.f },
@@ -90,9 +97,7 @@ Set(TEXT("PhoneLine"), {
 	{ TEXT("SM_WireLine"), 0, 0, 0, 0, 1.f },
 });
 Set(TEXT("RanchFence"), {
-	{ TEXT("SM_WireFence"), -15, 0, 0, 0, 1.f },
-	{ TEXT("SM_WireFence"), 0, 0, 0, 0, 1.f },
-	{ TEXT("SM_WireFence"), 15, 0, 0, 0, 1.f },
+	{ TEXT("SM_RanchRow"), 0, 0, 0, 0, 1.f },   // third pass: one slot-long piece (the fence, the shoulder, the marker posts); it was three 15 m fences
 });
 
 Set(TEXT("WashBedRun"), {
@@ -300,7 +305,11 @@ Zone(TEXT("Vegas approach"), 22.0f, 25.6f);
 	Scatter(TEXT("SM_Casino"), 180.f, 270.f, 3, 1, 0.8f, 1.2f, 0.15f);
 	Far(TEXT("SM_FarTown"), 380.f, 640.f, 3, 0, 0.95f, 1.15f, 0.15f);
 	Far(TEXT("SM_PeakRange"), 1200.f, 1700.f, 9, 4, 1.f, 1.f, 0.1f);
+};
+FirstPass();
 
+auto SecondPass = [&]()
+{
 // =====================================================================================================================
 // SECOND PASS (15 Nov 2026): the ground plane, the motel courts, the casino approach, more builds of rock.
 // Everything from here on is APPENDED on purpose: a rule's random stream is seeded by its place in this file, so a rule
@@ -352,15 +361,15 @@ Zone(TEXT("Motels: last chance gas"), 6.31f, 7.75f);
 	Scatter(TEXT("SM_MotelCourt"), 60.f, 66.f, 4, 2, 1.f, 1.f, 0.f, -1);
 	Scatter(TEXT("SM_MotelCourt"), 60.f, 66.f, 4, 2, 1.f, 1.f, 0.f, 1);
 Zone(TEXT("Approach: jackpot junction"), 7.75f, 9.05f);
-	Scatter(TEXT("SM_SignTower"), 34.f, 42.f, 4, 1, 0.9f, 0.85f, 0.05f);
+	Scatter(TEXT("SM_SignTower"), 39.f, 45.f, 4, 1, 0.9f, 0.85f, 0.05f);   // third pass: 5 m further out (the sign stands across the road now)
 	Far(TEXT("SM_CasinoGrand"), 120.f, 150.f, 6, 2, 1.f, 0.85f, 0.05f, 0, 0.9f, 8.f);
 Zone(TEXT("Approach: city lights"), 9.05f, 10.69f);
-	Scatter(TEXT("SM_SignTower"), 34.f, 44.f, 2, 1, 0.9f, 1.f, 0.08f);
+	Scatter(TEXT("SM_SignTower"), 39.f, 46.f, 2, 1, 0.9f, 1.f, 0.08f);   // third pass: 5 m further out (the sign stands across the road now)
 	Far(TEXT("SM_CasinoGrand"), 112.f, 150.f, 6, 1, 0.95f, 1.f, 0.06f, 0, 0.9f, 8.f);
 	Far(TEXT("SM_CasinoGrand2"), 112.f, 150.f, 6, 4, 0.95f, 1.f, 0.06f, 0, 0.9f, 8.f);
 	Scatter(TEXT("SM_MotelCourt"), 60.f, 66.f, 10, 6, 1.f, 1.f, 0.f, -1);
 Zone(TEXT("Approach: vegas"), 22.f, 25.6f);
-	Scatter(TEXT("SM_SignTower"), 34.f, 44.f, 2, 0, 0.95f, 1.15f, 0.1f);
+	Scatter(TEXT("SM_SignTower"), 40.f, 47.f, 2, 0, 0.95f, 1.15f, 0.1f);   // third pass: 6 m further out (the sign stands across the road now)
 	Scatter(TEXT("SM_CasinoGrand"), 105.f, 140.f, 6, 1, 0.95f, 1.2f, 0.08f, 0, 8.f);
 	Scatter(TEXT("SM_CasinoGrand2"), 105.f, 140.f, 6, 4, 0.95f, 1.2f, 0.08f, 0, 8.f);
 	Scatter(TEXT("SM_MotelCourt"), 60.f, 66.f, 10, 6, 1.f, 1.f, 0.f, 1);
@@ -470,3 +479,243 @@ Zone(TEXT("Cut banks"), 0.f, 99.f);
 	Bank(TEXT("SM_CutStrata"), 4, 2, 0, 1.f, 5.5f);
 	Bank(TEXT("SM_CutStrata2"), 4, 2, 1, 1.f, 5.5f);
 	Bank(TEXT("SM_CutLedge"), 4, 1, 0, 1.f, 2.4f, 5.5f);
+};
+SecondPass();
+
+auto ThirdPass = [&]()
+{
+// =====================================================================================================================
+// THIRD PASS (15 Nov 2026, the overhaul): dense, distinctive and alive at racing speed. "Close rock cuts, roadside
+// stops, and long vistas, with windblown dust, spinning ventilation fans, and flickering signs." APPENDED, like the
+// second pass. (Changed in place above, and saying so: the set RanchFence is one slot-long piece now, and the three
+// rules for SM_SignTower stand it 5 m further out, because the sign now stands across the road.)
+//
+// What the chase camera sees of this road (the geometry: DevLog\jam\dress_chem_nevada.md, third pass): it is level
+// and straight, so with the car in the middle the road's own barrier hides everything under 2 m nearer than 26 m and
+// the ground itself out to 33 m. What reads at speed is what stands 24 to 45 m out and 3 m tall or more. So the pass
+// alternates CLOSE and OPEN: rock cuts 15 m tall laid end to end 25 m out on both sides (the dry wash, Red Rock Pass,
+// the three straights of Red rock return), then the flats left open to the far tableland with dust blowing across
+// them and, on the salt flats, a freight train running beside the road.
+
+// ---- sets
+Set(TEXT("KerbStopLine"), { { TEXT("SM_KerbStop"), 0, 0, 0, 0, 1.f } });
+Set(TEXT("CutLine"), { { TEXT("SM_RockCut"), 0, 0, 0, 0, 1.f } });
+Set(TEXT("CutLineB"), { { TEXT("SM_RockWall2"), 0, 0, 0, 0, 0.87f } });
+Set(TEXT("CliffLine"), { { TEXT("SM_RockCliff"), 0, 0, 0, 0, 1.f } });
+Set(TEXT("Monument"), {
+	{ TEXT("SM_RockMonument"), 0, 0, 0, 0, 1.f },
+	{ TEXT("SM_RockSpires3"), 62, -34, 0, 0, 1.3f },
+	{ TEXT("SM_RockSpires"), -64, -30, 0, 40, 1.2f },
+});
+Set(TEXT("RailLine"), { { TEXT("SM_FreightTrain"), 0, 0, 0, 0, 1.f } });
+// A FACE THAT IS TO BE READ IS TURNED TO THE DRIVER. A piece stands square to its own road (its front looks across
+// it), so a flat sign 35 m out is seen at 10 to 40 degrees from the driving seat, and a thing that stands dead ahead
+// of a straight is seen edge-on. A set gives its part a turn: on the LEFT of the road (where the piece is turned
+// round) +90 degrees would face straight back down the road, on the RIGHT -90; so each such set comes as a pair.
+// The wheel (always on the left, dead ahead of a straight) is turned 65: it faces the driver who comes at it and still
+// shows as an ellipse when it is passed. Signs are turned 75, the flat fronts 35.
+Set(TEXT("Wheel"), { { TEXT("SM_WheelSign"), 0, 0, 0, 65, 1.f } });
+Set(TEXT("WheelLot"), { { TEXT("SM_ParkingLot"), 0, 0, 0, 0, 1.f } });
+Set(TEXT("NeonL"), { { TEXT("SM_NeonSign"), 0, 0, 0, 75, 1.f } });
+Set(TEXT("NeonR"), { { TEXT("SM_NeonSign"), 0, 0, 0, -75, 1.f } });
+Set(TEXT("FrontAL"), { { TEXT("SM_Facade1"), 0, 0, 0, 35, 1.f } });
+Set(TEXT("FrontAR"), { { TEXT("SM_Facade1"), 0, 0, 0, -35, 1.f } });
+Set(TEXT("FrontBL"), { { TEXT("SM_Facade2"), 0, 0, 0, 35, 1.f } });
+Set(TEXT("FrontBR"), { { TEXT("SM_Facade2"), 0, 0, 0, -35, 1.f } });
+Set(TEXT("TruckStopSet"), { { TEXT("SM_TruckStop"), 0, 0, 0, 0, 1.f } });
+
+// ---- 1. the kerb in front of the roadside businesses (17.5 m): every second slot, the two sides in turn, so the low
+// wall that says EAT comes round every 45 m on one side or the other; the ranch fence takes the slots between
+Zone(TEXT("Kerb: snake eyes country"), 2.43f, 3.83f);
+	Site(TEXT("KerbStopLine"), -1, 19.f, 2, 0, 0.9f);
+	Site(TEXT("KerbStopLine"), 1, 19.f, 2, 1, 0.9f);
+	Site(TEXT("RanchFence"), -1, 18.9f, 2, 1, 0.85f);
+	Site(TEXT("RanchFence"), 1, 18.9f, 2, 0, 0.85f);
+Zone(TEXT("Kerb: last chance gas to the city lights"), 6.31f, 10.69f);
+	Site(TEXT("KerbStopLine"), -1, 19.f, 2, 0, 0.9f);
+	Site(TEXT("KerbStopLine"), 1, 19.f, 2, 1, 0.9f);
+	Site(TEXT("RanchFence"), -1, 18.9f, 2, 1, 0.85f);
+	Site(TEXT("RanchFence"), 1, 18.9f, 2, 0, 0.85f);
+Zone(TEXT("Kerb: vegas approach"), 22.f, 25.6f);
+	Site(TEXT("KerbStopLine"), -1, 19.f, 2, 0, 0.9f);
+	Site(TEXT("KerbStopLine"), 1, 19.f, 2, 1, 0.9f);
+	Site(TEXT("RanchFence"), -1, 18.9f, 2, 1, 0.85f);
+	Site(TEXT("RanchFence"), 1, 18.9f, 2, 0, 0.85f);
+
+// ---- 2. close rock cuts (see the head of this pass). One zone to each unbroken run of slots; the slots where the wash's
+// bed crosses under the road are left open, so the wash comes out through the wall
+Zone(TEXT("Cut: dry wash west 1"), 1.154f, 1.335f);
+	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
+	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
+Zone(TEXT("Cut: dry wash 1"), 1.606f, 1.742f);
+	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
+	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
+Zone(TEXT("Cut: dry wash 2"), 1.787f, 2.059f);
+	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
+	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
+Zone(TEXT("Cut: the corkscrew in the pass"), 5.452f, 5.633f);
+	Far(TEXT("SM_RockCut"), 30.f, 30.f, 1, 0, 1.f, 1.f, 0.f, 0, 0.86f, 0.f);
+Zone(TEXT("Cut: red rock pass 1"), 5.407f, 5.452f);
+	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
+	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
+Zone(TEXT("Cut: red rock pass, after the corkscrew 1"), 5.633f, 5.723f);
+	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
+	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
+Zone(TEXT("Cut: red rock pass east 1"), 5.995f, 6.311f);
+	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
+	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
+Zone(TEXT("Cut: red rock return, first straight 1"), 18.572f, 18.708f);
+	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
+	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
+Zone(TEXT("Cut: red rock return, first straight 2"), 18.753f, 19.342f);
+	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
+	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
+Zone(TEXT("Cut: red rock return, second straight 1"), 19.930f, 19.975f);
+	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
+	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
+Zone(TEXT("Cut: red rock return, second straight 2"), 20.020f, 20.608f);
+	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
+	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
+Zone(TEXT("Cut: red rock return, second straight 3"), 20.654f, 20.699f);
+	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
+	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
+Zone(TEXT("Cut: red rock return, third straight 1"), 21.332f, 21.875f);
+	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
+	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
+Zone(TEXT("Cut: red rock return, third straight 2"), 21.920f, 22.011f);
+	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
+	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
+
+// ---- 3. the two wall bends of Red Rock Pass, and the monuments. The outside of each bend gets the 76 m cliff, a slot
+// long and 1.27 times the size (the outside of a 129 m bend is a longer way round: at its own size the pieces left 11 m
+// between them), 25 m out; the inside gets the cut. A monument stands dead ahead of each straight that ends in a bend:
+// the flats' straight points 88 m left of slot 117, the corkscrew's 92 m right of slot 130; in the finale each straight
+// points 108 m left of the road beyond its S-bend (slots 440 and 471)
+Zone(TEXT("Cliff: wall bend right"), 5.135f, 5.452f);
+	Site(TEXT("CliffLine"), -1, 35.5f, 1, 0, 1.f, 1.27f);
+	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.9f);
+Zone(TEXT("Cliff: wall bend left"), 5.678f, 6.040f);
+	Site(TEXT("CliffLine"), 1, 35.5f, 1, 0, 1.f, 1.27f);
+	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.9f);
+Zone(TEXT("Monument: the gate of the pass"), 5.271f, 5.316f);
+	Site(TEXT("Monument"), -1, 88.f, 1, 0, 1.f);
+Zone(TEXT("Monument: the second gate"), 5.859f, 5.904f);
+	Site(TEXT("Monument"), 1, 92.f, 1, 0, 1.f);
+Zone(TEXT("Monument: red rock return"), 19.884f, 19.930f);
+	Site(TEXT("Monument"), -1, 108.f, 1, 0, 1.f);
+Zone(TEXT("Monument: red rock return, second"), 21.287f, 21.332f);
+	Site(TEXT("Monument"), -1, 108.f, 1, 0, 1.f, 0.9f);
+
+// ---- 4. the Syndicate's ventilation heads: a fan as tall as a truck turning slowly in a bunker's face, unlit, at the
+// sight line. Thick through their range, a few by Last Chance Gas (the hide is in the rocks behind it)
+Zone(TEXT("Vents: syndicate range"), 14.5f, 18.5f);
+	Scatter(TEXT("SM_VentShaft"), 27.f, 29.f, 3, 0, 0.85f, 1.f, 0.f, -1);
+	Scatter(TEXT("SM_VentShaft"), 27.f, 29.f, 3, 1, 0.85f, 1.f, 0.f, 1);
+Zone(TEXT("Vents: last chance gas"), 6.31f, 7.75f);
+	Scatter(TEXT("SM_VentShaft"), 27.f, 29.f, 7, 3, 1.f);
+
+// ---- 5. signs that flicker, and stops up at the road. A sign stands in front of every motel court of Last Chance Gas
+// (the courts are 60 m out and one storey more than they were: the sign is what carries from the road), turned to the
+// driver (the sets NeonL and NeonR); the stops take the free slot between the first pass's road stops and the courts,
+// the two sides in turn (their pole sign and the courts' signs stand across the road in the mesh itself, two-faced)
+Zone(TEXT("Signs: state line"), 0.3f, 1.17f);
+	Site(TEXT("NeonR"), 1, 35.f, 9, 4, 1.f);
+Zone(TEXT("Signs: snake eyes country"), 2.43f, 3.83f);
+	Site(TEXT("NeonL"), -1, 35.f, 4, 1, 1.f);
+	Site(TEXT("NeonR"), 1, 35.f, 4, 3, 1.f);
+Zone(TEXT("Signs: last chance gas"), 6.31f, 7.75f);
+	Site(TEXT("NeonL"), -1, 35.f, 4, 2, 1.f);
+	Site(TEXT("NeonR"), 1, 35.f, 4, 0, 1.f);
+Zone(TEXT("Stops: state line"), 0.3f, 1.17f);
+	Site(TEXT("TruckStopSet"), 0, 40.f, 8, 3, 1.f);
+Zone(TEXT("Stops: snake eyes country"), 2.43f, 3.83f);
+	Site(TEXT("TruckStopSet"), 0, 40.f, 8, 3, 1.f);
+Zone(TEXT("Stops: last chance gas to the city lights"), 6.31f, 10.69f);
+	Site(TEXT("TruckStopSet"), 0, 40.f, 8, 3, 1.f);
+Zone(TEXT("Stops: vegas approach"), 22.f, 25.6f);
+	Site(TEXT("TruckStopSet"), 0, 40.f, 8, 3, 1.f);
+
+// ---- 6. two more houses for the casino approach, as flat fronts in the middle distance, each turned 35 degrees to
+// the driver (a front that stood square to the road 180 m out was seen at 25 to 40 degrees: half its width)
+Zone(TEXT("Fronts: jackpot junction"), 7.75f, 9.05f);
+	Site(TEXT("FrontAL"), -1, 176.f, 6, 5, 0.9f);
+	Site(TEXT("FrontAR"), 1, 190.f, 6, 2, 0.9f);
+	Site(TEXT("FrontBL"), -1, 192.f, 6, 2, 0.9f);
+	Site(TEXT("FrontBR"), 1, 174.f, 6, 5, 0.9f);
+Zone(TEXT("Fronts: city lights"), 9.05f, 10.69f);
+	Site(TEXT("FrontAL"), -1, 170.f, 4, 0, 0.9f);
+	Site(TEXT("FrontAR"), 1, 188.f, 4, 2, 0.9f);
+	Site(TEXT("FrontBL"), -1, 190.f, 4, 2, 0.9f);
+	Site(TEXT("FrontBR"), 1, 172.f, 4, 0, 0.9f);
+Zone(TEXT("Fronts: vegas approach"), 22.f, 25.6f);
+	Site(TEXT("FrontAL"), -1, 168.f, 4, 1, 0.9f, 1.15f);
+	Site(TEXT("FrontAR"), 1, 186.f, 4, 3, 0.9f, 1.15f);
+	Site(TEXT("FrontBL"), -1, 188.f, 4, 3, 0.9f, 1.15f);
+	Site(TEXT("FrontBR"), 1, 170.f, 4, 1, 0.9f, 1.15f);
+
+// ---- 7. the wheel of fortune: dead ahead of the jump at 7.2 km (its line runs 100 to 118 m left of the S-bend and the
+// loop beyond it: slot 179), and of the last two straights of the finale (108 m left of slots 531 and 562). 72 to
+// 84 m across and up to 134 m to its top: it is seen from the jump, 900 m off, grows for ten seconds, and is passed
+// 100 m to the left. Turned to the driver (the set)
+Zone(TEXT("Wheel: jackpot junction"), 8.076f, 8.121f);
+	Site(TEXT("Wheel"), -1, 106.f, 1, 0, 1.f, 1.8f);
+	Site(TEXT("WheelLot"), -1, 62.f, 1, 0, 1.f);
+Zone(TEXT("Wheel: vegas approach"), 24.002f, 24.047f);
+	Site(TEXT("Wheel"), -1, 110.f, 1, 0, 1.f, 1.9f);
+	Site(TEXT("WheelLot"), -1, 64.f, 1, 0, 1.f);
+Zone(TEXT("Wheel: the last"), 25.404f, 25.449f);
+	Site(TEXT("Wheel"), -1, 112.f, 1, 0, 1.f, 2.1f);
+	Site(TEXT("WheelLot"), -1, 64.f, 1, 0, 1.f);
+
+// ---- 8. the long vistas: dust and a train. Dust blows off patches of rippled sand 44 m out and beyond (the wind is the
+// level's own, along the highway and a little to its right: no plume comes nearer than 29 m). Out of the loop at
+// 10.15 km the road is dead straight to 11.36 km, and from 10.69 km it is on the open salt flats: a railway runs
+// beside it there, 80 m to the LEFT, one 905 m length laid on slot 246 (10.68 to 11.58 km: its last 200 m go straight
+// on where the highway swings right and leaves the line) with two trains on it. A monument stands dead ahead of that
+// straight (134 m left of slot 263), where the swing begins
+Zone(TEXT("Dust: state line"), 0.1f, 1.17f);
+	Scatter(TEXT("SM_DustBlow"), 44.f, 70.f, 4, 1, 0.8f, 1.f, 0.15f);
+Zone(TEXT("Dust: joshua flats"), 3.83f, 5.14f);
+	Scatter(TEXT("SM_DustBlow"), 44.f, 70.f, 4, 3, 0.8f, 1.f, 0.15f);
+Zone(TEXT("Dust: salt flats"), 10.69f, 14.5f);
+	Scatter(TEXT("SM_DustBlow"), 44.f, 70.f, 3, 0, 0.8f, 1.f, 0.15f);
+Zone(TEXT("Dust: syndicate range"), 14.5f, 18.5f);
+	Scatter(TEXT("SM_DustBlow"), 46.f, 70.f, 5, 2, 0.8f, 1.f, 0.15f);
+Zone(TEXT("Dust: vegas approach"), 22.f, 25.6f);
+	Scatter(TEXT("SM_DustBlow"), 50.f, 70.f, 8, 6, 0.8f, 1.f, 0.15f);
+Zone(TEXT("Railway"), 11.107f, 11.152f);
+	Site(TEXT("RailLine"), -1, 80.f, 1, 0, 1.f);
+Zone(TEXT("Monument: salt flats"), 11.877f, 11.92f);
+	Site(TEXT("Monument"), -1, 134.f, 1, 0, 1.f);
+
+// ---- 9. the far tableland: a flat card 900 m long in the haze's colour, 1.9 km out, behind the mesas and the far range
+Zone(TEXT("Far tableland"), 0.f, 99.f);
+	Far(TEXT("SM_MesaCard"), 1880.f, 1980.f, 18, 0, 1.f, 1.f, 0.08f, 0, 40.f, 4.f);
+};
+ThirdPass();

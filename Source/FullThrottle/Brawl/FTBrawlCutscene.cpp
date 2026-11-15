@@ -93,22 +93,22 @@ namespace
 		{ TEXT("NIGHT 2 · THE VELVET ROOM"), TEXT("A DISCO ON SUNSET · NO SNEAKERS"), TEXT("vinnie"), TEXT("Vinnie"), 272.f, TEXT("Disco"), 228.f, nullptr, 0.f,
 			{ { TEXT("vo"), TEXT("The Velvet Room on Sunset. Just one dance.") }, { TEXT("guy"), TEXT("That’s my girl you’re dancing with.") },
 			  { TEXT("nova"), TEXT("Then she’s got great taste in partners. Better than in boyfriends.") }, { TEXT("vinnie"), TEXT("Nobody out-dances Vinnie Velour in Vinnie Velour’s room.") } },
-			{ { TEXT("vo"), TEXT("Vinnie Velour went through his own light-up floor.") }, { TEXT("vinnie"), TEXT("My floor… my beautiful floor…") }, { TEXT("nova"), TEXT("I’m a lover. Mostly.") } },
+			{ { TEXT("vo"), TEXT("Vinnie Velour went through his own light-up floor.") }, { TEXT("vinnie"), TEXT("My floor… my beautiful floor…") }, { TEXT("nova"), TEXT("Guess I tore up the dance floor.") } },
 			TEXT("THE VELVET ROOM · 2:20 AM"), TEXT("NEXT: DAY 3 · NEVADA  →  NIGHT 3 · THE LUCKY 7") },
 		{ TEXT("NIGHT 3 · THE LUCKY 7"), TEXT("A CASINO ON FREMONT STREET · THE HOUSE ALWAYS WINS"), TEXT("pitboss"), TEXT("Pitboss"), 284.f, TEXT("Dealer"), 226.f, nullptr, 0.f,
 			{ { TEXT("vo"), TEXT("The Lucky 7 on Fremont Street. One hand of cards. To celebrate.") }, { TEXT("pitboss"), TEXT("Sir. You can’t count cards on your fingers.") },
-			  { TEXT("nova"), TEXT("Watch me count to five, then.") }, { TEXT("pitboss"), TEXT("Close the doors. And somebody bring me my piece.") } },
-			{ { TEXT("vo"), TEXT("The Pit Boss folded.") }, { TEXT("nova"), TEXT("The house always wins? Not tonight.") }, { TEXT("vo"), TEXT("Hollywood After Dark had it by breakfast.") } },
+			  { TEXT("nova"), TEXT("Then let’s count punches. One…") }, { TEXT("pitboss"), TEXT("Lock the doors. And somebody bring me my revolver.") } },
+			{ { TEXT("vo"), TEXT("The Pit Boss folded.") }, { TEXT("nova"), TEXT("The house always wins? Not tonight.") }, { TEXT("vo"), TEXT("The TV gossip show Hollywood After Dark had it by breakfast.") } },
 			TEXT("THE LUCKY 7 · 3:05 AM"), TEXT("NEXT: DAY 4 · MOUNT KALDERA  →  NIGHT 4 · THE TIKI TORCH") },
 		{ TEXT("NIGHT 4 · THE TIKI TORCH"), TEXT("A LUAU LOUNGE BELOW MOUNT KALDERA · FIRE SHOW AT TEN"), TEXT("frankie"), TEXT("Frankie"), 286.f, TEXT("Tourist"), 216.f, nullptr, 0.f,
-			{ { TEXT("vo"), TEXT("The Tiki Torch, at the foot of the mountain. The crew luau.") }, { TEXT("frankie"), TEXT("And now, for the volcano boys: the great Flambé Frankie… breathes FIRE!") },
+			{ { TEXT("vo"), TEXT("The Tiki Torch, at the foot of the mountain. The crew luau.") }, { TEXT("frankie"), TEXT("And now, for the movie crew: the great Flambé Frankie… breathes FIRE!") },
 			  { TEXT("nova"), TEXT("Pal, I just drove through a volcano. You’re a cigarette lighter.") }, { TEXT("frankie"), TEXT("A LIGHTER?!") } },
-			{ { TEXT("vo"), TEXT("Flambé Frankie put himself out in the punch bowl.") }, { TEXT("nova"), TEXT("Somebody get the man a mint.") } },
+			{ { TEXT("vo"), TEXT("Flambé Frankie put himself out in the punch bowl.") }, { TEXT("nova"), TEXT("Show’s over, folks. The fire’s out.") } },
 			TEXT("THE TIKI TORCH · 1:40 AM"), TEXT("NEXT: DAY 5 · COASTER COVE  →  NIGHT 5 · STRIKE CITY") },
 		{ TEXT("NIGHT 5 · STRIKE CITY"), TEXT("A BOWLING ALLEY OFF THE BOARDWALK · LEAGUE NIGHT"), TEXT("kingpin"), TEXT("Kingpin"), 274.f, TEXT("Pinsetter"), 226.f, nullptr, 0.f,
 			{ { TEXT("vo"), TEXT("Strike City. League night. Kip said the whole crew would be there. Nobody from the crew is there.") },
 			  { TEXT("kingpin"), TEXT("You’re the stunt guy? Your pal Kip called. Says you said I bowl like a grandma.") }, { TEXT("nova"), TEXT("Never met you. But that shirt is a gutter ball.") } },
-			{ { TEXT("vo"), TEXT("The Kingpin got picked up as a spare.") }, { TEXT("nova"), TEXT("Wait. Kip told him WHAT?") } },
+			{ { TEXT("vo"), TEXT("The Kingpin got picked up as a spare.") }, { TEXT("nova"), TEXT("Kip again. First the pier, now this.") } },
 			TEXT("STRIKE CITY · 1:15 AM"), TEXT("NEXT: DAY 6 · FROSTBITE PEAK  →  NIGHT 6 · THE FROSTBITE LODGE") },
 		{ TEXT("NIGHT 6 · THE FROSTBITE LODGE"), TEXT("AN APRÈS-SKI BAR ON FROSTBITE PEAK · HOT COCOA $1"), TEXT("sven"), TEXT("Sven"), 300.f, TEXT("Linemate"), 240.f, nullptr, 0.f,
 			{ { TEXT("vo"), TEXT("The Frostbite Lodge. Hot cocoa. A fireplace. Nobody knows him up here.") },
@@ -143,7 +143,7 @@ namespace
 			{ { TEXT("rosa"), TEXT("mad"), TEXT("Is that a black eye?") },
 			  { TEXT("nova"), TEXT("taunt"), TEXT("Makeup. Method.") },
 			  { TEXT("gail"), TEXT("mad"), TEXT("It was on Channel 9, Nova. “STUNTMAN WRECKS PIER BAR.” The insurance people called. Twice.") },
-			  { TEXT("rosa"), TEXT("idle"), TEXT("The tubes, the helix, the reactor. Don’t touch the walls.") } },
+			  { TEXT("rosa"), TEXT("idle"), TEXT("Today: the tubes, the helix, the reactor. Don’t touch the walls.") } },
 			{ { TEXT("voss"), TEXT("frame"), TEXT("Kane. That was… fine. Fine work.") },
 			  { TEXT("nova"), TEXT("taunt"), TEXT("Fine? I drove on a ceiling. I’m going dancing.") },
 			  { TEXT("gail"), TEXT("talk"), TEXT("Dancing is fine. Dancing is not a fight. Promise me.") },
@@ -245,6 +245,7 @@ void AFTBrawlGameMode::CamTo(const FVector& Loc, float Pitch, float Fov, float R
 // ---------------------------------------------------------------- the three cutscenes
 void AFTBrawlGameMode::StartCut(int32 Id)
 {
+	SuppressActionInput();
 	for (auto& Kv : CutCast) if (Kv.Value.A) Kv.Value.A->Destroy();
 	CutCast.Reset(); Beats.Reset();
 	CutId = Id; SaveCheckpoint(TEXT("StoryCheckpoint")); CutBeat = -1; CutT = 0; CutLine.Reset(); CutWho.Reset(); bCutWait = false; CutTitleT = -1;
@@ -277,7 +278,7 @@ void AFTBrawlGameMode::StartCut(int32 Id)
 		B(TEXT(""), TEXT(""), 2.6f, [this]() {
 			CutTitle = TEXT("NIGHT 1 · THE RUSTY ANCHOR"); CutSub = TEXT("A DIVE BAR ON THE PIER · LAST CALL 2 AM"); CutTitleT = 0;
 			Walk(TEXT("nova"), FVector(-60, -200, 0), 170); CamTo(FVector(260, 1150, 470), -15, 48, 0.8f); });
-		B(TEXT("vo"), TEXT("The Rusty Anchor, a dive bar at the end of the pier. One drink, he said."), 2.2f, [this]() {
+		B(TEXT("vo"), TEXT("The Rusty Anchor, a dive bar at the end of the pier. One drink, Nova said."), 2.2f, [this]() {
 			Walk(TEXT("nova"), FVector(30, -262, 0), 150); });
 		B(TEXT(""), TEXT(""), 1.3f, [this]() { PoseAs(TEXT("nova"), TEXT("drink"), 1); CamTo(FVector(140, 760, 330), -9, 42, 1.4f); });
 		B(TEXT("guy"), TEXT("Hey. Stunt boy. You spilled my beer."), 0.f, [this]() { PoseAs(TEXT("guy"), TEXT("wind"), -1); PoseAs(TEXT("nova"), TEXT("idle"), 1); });
@@ -304,8 +305,8 @@ void AFTBrawlGameMode::StartCut(int32 Id)
 		CamTo(FVector(Mx, 900, 330), -10, 44, 1.0f);
 		B(TEXT("vo"), TEXT("Big Earl went down on his own pool table."), 2.4f, [this]() { CutTitle = TEXT("LAST CALL"); CutSub = TEXT("THE RUSTY ANCHOR · 2:10 AM"); CutTitleT = 0; });
 		B(TEXT("earl"), TEXT("Kid’s got a drop kick. Drinks are on the house. Forever."), 0.f, [this, E]() { PoseAs(TEXT("earl"), TEXT("getup")); CamTo(FVector(E.X, 760, 280), -8, 42, 1.0f); });
-		B(TEXT("nova"), TEXT("Put it on my tab."), 0.f, [this, N]() { PoseAs(TEXT("nova"), TEXT("taunt")); CamTo(FVector(N.X, 760, 300), -9, 42, 1.0f); });
-		B(TEXT("earl"), TEXT("Back door, kid. Cops come at three. And whatever you see out there, you didn't."), 0.f, [this, E, Mx]() { PoseAs(TEXT("earl"), TEXT("down")); CamTo(FVector(Mx, 900, 330), -10, 44, 1.0f); });
+		B(TEXT("nova"), TEXT("Put the pool table on my tab."), 0.f, [this, N]() { PoseAs(TEXT("nova"), TEXT("taunt")); CamTo(FVector(N.X, 760, 300), -9, 42, 1.0f); });
+		B(TEXT("earl"), TEXT("Somebody called the cops, kid. Go out the back door, onto the pier."), 0.f, [this, E, Mx]() { PoseAs(TEXT("earl"), TEXT("down")); CamTo(FVector(Mx, 900, 330), -10, 44, 1.0f); });
 		B(TEXT(""), TEXT(""), 2.0f, [this, N]() { PoseAs(TEXT("nova"), TEXT("idle"), 1); Walk(TEXT("nova"), N + FVector(900, -120, 0), 200); CutFadeGoal = 1; });
 		B(TEXT(""), TEXT(""), 0.3f, [this]() { StartCut(3); });
 	}
@@ -315,7 +316,7 @@ void AFTBrawlGameMode::StartCut(int32 Id)
 		const float X = PierX;
 		CutFade = 1; CutFadeGoal = 0;
 		AddCast(TEXT("nova"), TEXT("Nova"), Nova, Sc, FVector(X - 20, -318, 0), 1).bHidden = true;
-		AddCast(TEXT("photo"), TEXT("Sleaze"), 218.f, 2.0f / 2.05f, FVector(X + 560, -90, 0), -1).Pose = TEXT("idle");
+		AddCast(TEXT("photo"), TEXT("Photo"), 218.f, 2.0f / 2.05f, FVector(X + 560, -90, 0), -1).Pose = TEXT("idle");
 		AddCast(TEXT("guy"), TEXT("Punk"), 228.f, 2.0f / 2.05f, FVector(X + 1000, -215, 0), 1);
 		AddCast(TEXT("kip"), TEXT("Kip"), 212.f, 1.f, FVector(X + 1290, -235, 0), -1).Pose = TEXT("smirk");
 		AddCast(TEXT("heavy"), TEXT("Bouncer"), 268.f, 2.3f / 2.05f, FVector(X + 1560, -150, 0), -1);
@@ -323,15 +324,15 @@ void AFTBrawlGameMode::StartCut(int32 Id)
 		CamTo(FVector(X + 330, 1350, 520), -16, 50, 1.f, true);
 		B(TEXT(""), TEXT(""), 2.4f, [this, X]() { CutTitle = TEXT("2:40 AM"); CutSub = TEXT("OUT BACK OF THE RUSTY ANCHOR"); CutTitleT = 0;
 			FFTCutActor& N = CutCast[TEXT("nova")]; N.bHidden = false; Walk(TEXT("nova"), FVector(X + 120, -200, 0), 120); });
-		B(TEXT("vo"), TEXT("Out back, the pier was dark. Somebody’s limousine wasn’t."), 1.6f, [this, X]() { CamTo(FVector(X + 1130, 1300, 500), -15, 48, 0.7f); });
-		B(TEXT("guy"), TEXT("He hit back harder than you said, Kip. That’s extra."), 0.f, [this, X]() { PoseAs(TEXT("guy"), TEXT("idle"), 1); CamTo(FVector(X + 1150, 820, 330), -9, 42, 1.0f); });
-		B(TEXT("kip"), TEXT("Extra. Sure. STUNTMAN WRECKS PIER BAR, Channel 9 by six. Let’s see Voss keep him after that."), 0.f, [this]() { PoseAs(TEXT("kip"), TEXT("ask"), -1); });
-		B(TEXT(""), TEXT(""), 0.7f, [this, X]() { PoseAs(TEXT("photo"), TEXT("throw"), -1); CamTo(FVector(X + 380, 900, 360), -10, 44, 2.0f); });
-		B(TEXT("photo"), TEXT("Got him coming out the back, Kip. Blood and all."), 0.f, [this]() { CutFlash = 1.f; PoseAs(TEXT("nova"), TEXT("hurt"), 1); });
-		B(TEXT("kip"), TEXT("Perfect. Kane bleeds, and the other double gets the part."), 0.f, [this, X]() { PoseAs(TEXT("kip"), TEXT("me"), -1); PoseAs(TEXT("nova"), TEXT("idle"), 1); PoseAs(TEXT("photo"), TEXT("idle"), -1);
+		B(TEXT("vo"), TEXT("Out back, on the dark pier, a long black limousine was waiting."), 1.6f, [this, X]() { CamTo(FVector(X + 1130, 1300, 500), -15, 48, 0.7f); });
+		B(TEXT("guy"), TEXT("You paid me to start a fight, Kip. Not to lose one. That’s extra."), 0.f, [this, X]() { PoseAs(TEXT("guy"), TEXT("idle"), 1); CamTo(FVector(X + 1150, 820, 330), -9, 42, 1.0f); });
+		B(TEXT("kip"), TEXT("Fine. STUNTMAN WRECKS PIER BAR, on Channel 9 by six. Voss will have to fire him."), 0.f, [this]() { PoseAs(TEXT("kip"), TEXT("ask"), -1); });
+		B(TEXT(""), TEXT(""), 0.7f, [this, X]() { PoseAs(TEXT("photo"), TEXT("camup"), -1); CamTo(FVector(X + 380, 900, 360), -10, 44, 2.0f); });
+		B(TEXT("photo"), TEXT("Got the picture, Kip! Kane coming out the back, blood and all."), 0.f, [this]() { PoseAs(TEXT("photo"), TEXT("shoot"), -1); PoseAs(TEXT("nova"), TEXT("hurt"), 1); });
+		B(TEXT("kip"), TEXT("Perfect. Kane gets fired, and the other double gets the part. Me."), 0.f, [this, X]() { PoseAs(TEXT("kip"), TEXT("me"), -1); PoseAs(TEXT("nova"), TEXT("idle"), 1); PoseAs(TEXT("photo"), TEXT("smirk"), -1);
 			CamTo(FVector(X + 1150, 820, 330), -9, 42, 1.2f); });
 		B(TEXT("guy"), TEXT("And my extra?"), 0.f, [this, X]() { Walk(TEXT("guy"), FVector(X + 1110, -225, 0), 90); });
-		B(TEXT("kip"), TEXT("Your extra is you were never here."), 0.f, [this]() { PoseAs(TEXT("kip"), TEXT("smirk"), -1); PoseAs(TEXT("heavy"), TEXT("wind"), -1); });
+		B(TEXT("kip"), TEXT("Here’s your extra."), 0.f, [this]() { PoseAs(TEXT("kip"), TEXT("smirk"), -1); PoseAs(TEXT("heavy"), TEXT("wind"), -1); });
 		B(TEXT(""), TEXT(""), 0.35f, [this, X]() { Walk(TEXT("heavy"), FVector(X + 1230, -215, 0), 520); });
 		B(TEXT(""), TEXT(""), 1.9f, [this, X]() {
 			PoseAs(TEXT("heavy"), TEXT("punch"), -1); Shake = 1.f;
@@ -339,14 +340,14 @@ void AFTBrawlGameMode::StartCut(int32 Id)
 			Bleed((X + 1110) / CPX, CFB - 225 / CPX, 130, -1, 22, 1.2f);
 			CamTo(FVector(X + 1000, 1250, 470), -15, 48, 1.4f); });
 		B(TEXT("nova"), TEXT("…Kip?"), 0.f, [this, X]() { PoseAs(TEXT("heavy"), TEXT("idle"), -1); Walk(TEXT("heavy"), FVector(X + 1560, -150, 0), 160); Walk(TEXT("nova"), FVector(X + 330, -200, 0), 90); CamTo(FVector(X + 300, 820, 320), -9, 42, 1.2f); });
-		B(TEXT("kip"), TEXT("Tide’s out. He’ll keep. See you on set, Kane."), 0.f, [this, X]() { PoseAs(TEXT("kip"), TEXT("wave"), -1); CamTo(FVector(X + 1300, 860, 340), -9, 42, 1.2f); });
+		B(TEXT("kip"), TEXT("You didn’t see a thing, Kane. See you on set."), 0.f, [this, X]() { PoseAs(TEXT("kip"), TEXT("wave"), -1); CamTo(FVector(X + 1300, 860, 340), -9, 42, 1.2f); });
 		// Kip and his heavy get in the limousine
 		B(TEXT(""), TEXT(""), 1.4f, [this, X]() { Walk(TEXT("kip"), FVector(X + 1700, -300, 0), 300); Walk(TEXT("heavy"), FVector(X + 1760, -290, 0), 300); });
 		B(TEXT(""), TEXT(""), 3.2f, [this, X]() {
 			CutCast[TEXT("kip")].bHidden = true; CutCast[TEXT("heavy")].bHidden = true; LimoV = 30.f;
 			Walk(TEXT("photo"), FVector(X + 2600, -60, 0), 260);
 			CamTo(FVector(X + 1100, 1350, 500), -16, 50, 0.8f); });
-		B(TEXT("vo"), TEXT("Nobody ever found the guy. Channel 9 had the picture by six."), 2.0f, [this, X]() { Walk(TEXT("nova"), FVector(X + 1080, -265, 0), 110); CamTo(FVector(X + 900, 1200, 480), -15, 48, 0.6f); });
+		B(TEXT("vo"), TEXT("Nobody ever saw that guy again. Channel 9 ran the picture at six."), 2.0f, [this, X]() { Walk(TEXT("nova"), FVector(X + 1080, -265, 0), 110); CamTo(FVector(X + 900, 1200, 480), -15, 48, 0.6f); });
 		B(TEXT(""), TEXT(""), 1.6f, [this]() { CutFadeGoal = 0.85f; });
 		{
 			FFTCutBeat End; End.bWait = true;
@@ -526,6 +527,7 @@ void AFTBrawlGameMode::NextBeat()
 
 void AFTBrawlGameMode::EndCut()
 {
+	SuppressActionInput();
 	const int32 Was = CutId;
 	CutId = 0; CutBeat = -1; CutLine.Reset(); CutWho.Reset(); CutTitleT = -1; CutFade = 0; CutFadeGoal = 0; CutFlash = 0; CutBars = 0; CutBarsGoal = 0;
 	CutCard.Reset(); CutCardSub.Reset(); CutCardKeys.Reset(); bCutWait = false;
@@ -554,7 +556,7 @@ void AFTBrawlGameMode::StepCut(float Dt, const FIn& In)
 {
 	APlayerController* PC = GetWorld()->GetFirstPlayerController();
 	const bool bNext = In.Enter || In.Fire || In.Jump || In.Kick;
-	const bool bSkip = PC && (PC->IsInputKeyDown(EKeys::Tab) || PC->IsInputKeyDown(EKeys::Gamepad_Special_Left));   // Back/View on a pad
+	const bool bSkip = !bBlockCombatInput && PC && (PC->IsInputKeyDown(EKeys::Tab) || PC->IsInputKeyDown(EKeys::Gamepad_Special_Left));   // Back/View on a pad
 	const bool bNextPress = bNext && !bCutPrev, bSkipPress = bSkip && !bCutSkipPrev, bEnterPress = In.Enter && !bCutEnterPrev;
 	bCutPrev = bNext; bCutSkipPrev = bSkip; bCutEnterPrev = In.Enter;
 	CutT += Dt; CutLineT += Dt;
@@ -570,6 +572,9 @@ void AFTBrawlGameMode::StepCut(float Dt, const FIn& In)
 	{
 		FFTCutActor& C = Kv.Value;
 		C.T += Dt;
+		// the photographer's burst (pose "shoot", frames in AFTBrawlFighter::PoseSprite): the flash fires on each of his three shots
+		if (Kv.Key == TEXT("photo") && C.Pose == TEXT("shoot"))
+			for (const float Ts : { 0.f, 0.8f, 1.6f }) if (C.T - Dt <= Ts && Ts < C.T) CutFlash = 1.f;
 		if (C.bFly)
 		{
 			C.Vel.Z -= 2100.f * Dt; C.Pos += C.Vel * Dt; C.Lean = FMath::Min(80.f, C.T * 160.f);
@@ -620,7 +625,7 @@ void AFTBrawlGameMode::StepCut(float Dt, const FIn& In)
 		if (CutId == 10 || CutId == 11)   // a day: on to the drive / the night (DayCutDone), R watches it again
 		{
 			if ((bEnterPress && CutT > 0.6f) || bAutoNext) DayCutDone();
-			else if (PC && PC->IsInputKeyDown(EKeys::R)) StartCut(CutId);
+			else if (!bBlockCombatInput && PC && CutT > .6f && (PC->WasInputKeyJustPressed(EKeys::R) || PC->WasInputKeyJustPressed(EKeys::Gamepad_FaceButton_Top))) StartCut(CutId);
 			return;
 		}
 		if ((bEnterPress && CutT > 0.6f) || bAutoNext)
@@ -628,7 +633,7 @@ void AFTBrawlGameMode::StepCut(float Dt, const FIn& In)
 			UE_LOG(LogFTCut, Log, TEXT("FT BRAWL screen=endcard cut=%d result=on"), CutId);
 			GoOn();   // the next night (the next race in the main game's career)
 		}
-		else if (PC && PC->IsInputKeyDown(EKeys::R)) { EndCut(); Restart(); }
+		else if (!bBlockCombatInput && PC && CutT > .6f && (PC->WasInputKeyJustPressed(EKeys::R) || PC->WasInputKeyJustPressed(EKeys::Gamepad_FaceButton_Top))) { EndCut(); Restart(); }
 		return;
 	}
 	if (bNextPress && !Bt.Line.IsEmpty() && CutLineT < Typed) { CutLineT = Typed; return; }   // first press: the whole line at once

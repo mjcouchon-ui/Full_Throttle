@@ -1,4 +1,4 @@
-// 3.2 dressing table, level 4: Theme Park (Coaster Cove). The words (Set, Zone, Scatter, Site, Far, SiteAfloat) are explained at the
+// 3.2 dressing table, level 4: Theme Park (Coaster Cove). The words (Set, Zone, Scatter, Site, Far, SiteAfloat, Bank) are explained at the
 // top of FTTrackDress.cpp; the meshes are made by Content/Python/ft_dress_park.py. Distances across are metres from the road's
 // centre line; districts are in kilometres along the road.
 //
@@ -51,6 +51,36 @@
 //     on its OUTSIDE (a horizon piece at a third of its size, 44-62 m out): the camera, rolled with the road, looks up
 //     that side;
 //   - a river crosses under each jump (five lakes in a row across the valley) instead of the one lake under the flight.
+//
+// THIRD PASS (15 Nov 2026, the overhaul: dense, distinctive and alive at racing speed). What it changed here:
+//   - THE VERGE reads now (the same sets, the pieces redrawn in the kit: a striped hoarding under pennants that
+//     flutter, guests in the queue rails and on the benches) and the stall rows, gates and courts have a crowd (SM_Crowd);
+//   - THE BANKS are faced by the track itself: a Bank rule ("Cut banks" below; SM_CutLawn on cuttings of 5.5 m and
+//     more, SM_CutLawnLow on the rest) instead of the second pass's two tilted beds, which were loud and stood only
+//     where a bend held its full bank. The beds and their one-slot "Bend" districts are gone; the giants outside the
+//     bends stay;
+//   - WHAT TRAVELS (ft_life.Kit props of the kit): the SKY RIDE, a line of 45 m spans whose gondolas go from span to
+//     span (every span is in step), along the Front Gate, the Midway and the Last Ride on the left, and at three times
+//     the size over the lagoon's straight valleys (afloat: its foot on the valley floor, its cable 30 m over the
+//     rails); WOODEN COASTERS as stage flats 120 m long with a train going over the hill: a near row everywhere but the
+//     lagoon (its own coasters stand end on there) and a far, taller row the whole level long; SWAN BOATS on every
+//     lake of the lagoon;
+//   - MECHANICAL FIGURES: STARRY waves and nods everywhere he stands, a tin robot waves at every rocket pad;
+//   - SIGNATURE MOMENTS, each one slot: THE GALLEON in the kraken's arms, dead ahead of the big jump's landing and
+//     passed outside the first hairpin of the cove (2.44 km); LOG FALLS, a mountain with a log flume down its face,
+//     dead ahead from the top of the lift hill and passed on the left at 3.69 km; THE LAST RIDE'S GATE, two pairs of marquee
+//     towers either side of its sign (9.27 to 9.37 km). A pair of marquee towers also stands where every land begins;
+//   - THE MIDDLE DISTANCE: the park's main street as stage flats (SM_FacadeRow) behind the stalls of the Front Gate,
+//     the Midway, the Funhouse and the Last Ride; lakes either side of every hollow of the lagoon; parterres and lakes
+//     on the lawns round both jumps' landings, hot-air balloons beside both flights and far out over the whole park;
+//   - THE HORIZON: two rows of flat skyline cards (SM_Sky1 at 0.9 to 1.05 km, SM_Sky2 at 1.5 to 1.75 km) behind the
+//     lit rides, and the far wheel turns.
+// A rule put into or taken out of the middle of this table moves the dice of every rule after it (a rule's random
+// stream is seeded by its place in the list), and the second pass's districts are to stay piece for piece where they
+// were. So this pass's own districts are at the END; in the list above them it changed set contents only, and the one
+// rule it retired (the Midway's backstage sheds) stays in its place at chance 0. The second pass's bank beds were the
+// list's last districts: they are gone, and the giants that stood among them keep their slots (the few metres of
+// jitter each has are rolled anew).
 
 // ---------------------------------------------------------------- the verge (low, unlit: nearer than 24 m)
 Set(TEXT("FenceRun"), { { TEXT("SM_ParkFence"), -11.3f, 0, 0, 0, 1 }, { TEXT("SM_ParkFence"), 11.3f, 0, 0, 0, 1 } });
@@ -66,6 +96,7 @@ Set(TEXT("StallRow"), {                                   // anchor 31 m: a row 
 	{ TEXT("SM_GameStall3"),  7.6f,  0,    0,  0, 1 },
 	{ TEXT("SM_CandyCart"),  14.2f, -2,    0, 20, 1 },
 	{ TEXT("SM_FloorPave"),   0,    -1,    0,  0, 1 },   // the terrace the row stands on
+	{ TEXT("SM_Crowd"),       -3, -4.3f, 0.3f, 0, 1 },   // third pass: the crowd before it
 });
 Set(TEXT("StallRow2"), {
 	{ TEXT("SM_FoodStand"),  -16,    0.3f, 0,  0, 1 },
@@ -74,6 +105,7 @@ Set(TEXT("StallRow2"), {
 	{ TEXT("SM_GameStall"),   3.4f,  0,    0,  0, 1 },
 	{ TEXT("SM_GameStall2"), 11,     0,    0,  0, 1 },
 	{ TEXT("SM_FloorPave"),   0,    -1,    0,  0, 1 },
+	{ TEXT("SM_Crowd"),       4, -4.3f, 0.3f, 0, 1 },   // third pass: the crowd before it
 });
 Set(TEXT("Gateway"), {                                    // anchor 46 m: a ticket gate, its forecourt between it and the road
 	{ TEXT("SM_TicketGate"),   0,   0,     0,  0, 1 },
@@ -84,6 +116,7 @@ Set(TEXT("Gateway"), {                                    // anchor 46 m: a tick
 	{ TEXT("SM_GameStall"),  -22,  -1,     0,  0, 1 },
 	{ TEXT("SM_GameStall3"),  22,  -1,     0,  0, 1 },
 	{ TEXT("SM_FloorPlaza"),   0, -13.5f,  0,  0, 1 },   // the forecourt: a round plaza, 19 to 45 m out
+	{ TEXT("SM_Crowd"),       -4, -8, 0.4f, 0, 1 },   // third pass: the crowd before it
 });
 Set(TEXT("WheelPlaza"), {                                 // anchor 170 m: the big wheel over its own little fair
 	{ TEXT("SM_BigWheel"),     0,   0, 0, 0, 1 },
@@ -119,6 +152,7 @@ Set(TEXT("RocketPad"), {                                  // anchor 44 m: the ro
 	{ TEXT("SM_PlanetPosts"),  15,  -5, 0, 180, 1 },
 	{ TEXT("SM_CandyCart"),    11, -11, 0, -20, 1 },
 	{ TEXT("SM_FloorPlaza"),    0,   0, 0,   0, 0.9f },   // the pad
+	{ TEXT("SM_Robot"),       -14, -12.5f, 0, 12, 1 },   // third pass: the tin robot waves the cars past
 });
 Set(TEXT("SaucerPark"), {                                 // anchor 38 m
 	{ TEXT("SM_Saucer"),        0,  0, 0, 0, 1 },
@@ -147,35 +181,37 @@ Set(TEXT("HillRibR"), { { TEXT("SM_CoasterHill"), 0, 0, 0, -90, 1 } });      // 
 Set(TEXT("HillRibL"), { { TEXT("SM_CoasterHill"), 0, 0, 0, 90, 1 } });
 // the lagoon's lakes: placed afloat, so "up" is metres above the level's floor (see THE LAGOON'S WATER above); "along"
 // moves each lake from its slot to the middle of its hollow (the number in a set's name is the track's section)
-Set(TEXT("Hollow23"), { { TEXT("SM_Lake"), -2.742f, 0, 3.65f, 0, 1 } });
-Set(TEXT("Hollow24"), { { TEXT("SM_Lake2"), -17.823f, 0, 3.65f, 0, 1 } });
-Set(TEXT("Hollow25"), { { TEXT("SM_Lake"), -18.28f, 0, 6.95f, 0, 1 } });     // a short hollow next to a loop or corkscrew: stood at 0.6 size
-Set(TEXT("Hollow27"), { { TEXT("SM_Lake2"), 11.425f, 0, 6.95f, 0, 1 } });     // a short hollow next to a loop or corkscrew: stood at 0.6 size
-Set(TEXT("Hollow28"), { { TEXT("SM_Lake"), 13.71f, 0, 3.65f, 0, 1 } });
-Set(TEXT("Hollow29"), { { TEXT("SM_Lake2"), 34.275f, 0, 6.95f, 0, 1 } });     // a short hollow next to a loop or corkscrew: stood at 0.6 size
-Set(TEXT("Hollow31"), { { TEXT("SM_Lake"), -18.28f, 0, 6.95f, 0, 1 } });     // a short hollow next to a loop or corkscrew: stood at 0.6 size
-Set(TEXT("Hollow33"), { { TEXT("SM_Lake2"), 11.425f, 0, 6.95f, 0, 1 } });     // a short hollow next to a loop or corkscrew: stood at 0.6 size
-Set(TEXT("Hollow34"), { { TEXT("SM_Lake"), -17.823f, 0, 3.65f, 0, 1 } });
-Set(TEXT("Hollow35"), { { TEXT("SM_Lake2"), 4.57f, 0, 6.95f, 0, 1 } });     // a short hollow next to a loop or corkscrew: stood at 0.6 size
-Set(TEXT("Hollow37"), { { TEXT("SM_Lake"), -15.081f, 0, 3.65f, 0, 1 } });
+Set(TEXT("Hollow23"), { { TEXT("SM_Lake"), -2.742f, 0, 3.65f, 0, 1 }, { TEXT("SM_SwanBoats"), -2.742f, 0, 4.95f, 0, 1 }, { TEXT("SM_Lake2"), -2.742f, -87, 3.65f, 0, 1 }, { TEXT("SM_SwanBoats"), -2.742f, -87, 4.95f, 0, 1 }, { TEXT("SM_Lake2"), -2.742f, 87, 3.65f, 0, 1 }, { TEXT("SM_SwanBoats"), -2.742f, 87, 4.95f, 0, 1 } });
+Set(TEXT("Hollow24"), { { TEXT("SM_Lake2"), -17.823f, 0, 3.65f, 0, 1 }, { TEXT("SM_SwanBoats"), -17.823f, 0, 4.95f, 0, 1 }, { TEXT("SM_Lake"), -17.823f, -87, 3.65f, 0, 1 }, { TEXT("SM_SwanBoats"), -17.823f, -87, 4.95f, 0, 1 }, { TEXT("SM_Lake"), -17.823f, 87, 3.65f, 0, 1 }, { TEXT("SM_SwanBoats"), -17.823f, 87, 4.95f, 0, 1 } });
+Set(TEXT("Hollow25"), { { TEXT("SM_Lake"), -18.28f, 0, 6.95f, 0, 1 }, { TEXT("SM_SwanBoats"), -18.28f, 0, 9.117f, 0, 1 }, { TEXT("SM_Lake2"), -18.28f, -145, 6.95f, 0, 1 }, { TEXT("SM_SwanBoats"), -18.28f, -145, 9.117f, 0, 1 }, { TEXT("SM_Lake2"), -18.28f, 145, 6.95f, 0, 1 }, { TEXT("SM_SwanBoats"), -18.28f, 145, 9.117f, 0, 1 } });     // a short hollow next to a loop or corkscrew: stood at 0.6 size
+Set(TEXT("Hollow27"), { { TEXT("SM_Lake2"), 11.425f, 0, 6.95f, 0, 1 }, { TEXT("SM_SwanBoats"), 11.425f, 0, 9.117f, 0, 1 }, { TEXT("SM_Lake"), 11.425f, -145, 6.95f, 0, 1 }, { TEXT("SM_SwanBoats"), 11.425f, -145, 9.117f, 0, 1 }, { TEXT("SM_Lake"), 11.425f, 145, 6.95f, 0, 1 }, { TEXT("SM_SwanBoats"), 11.425f, 145, 9.117f, 0, 1 } });     // a short hollow next to a loop or corkscrew: stood at 0.6 size
+Set(TEXT("Hollow28"), { { TEXT("SM_Lake"), 13.71f, 0, 3.65f, 0, 1 }, { TEXT("SM_SwanBoats"), 13.71f, 0, 4.95f, 0, 1 }, { TEXT("SM_Lake2"), 13.71f, -87, 3.65f, 0, 1 }, { TEXT("SM_SwanBoats"), 13.71f, -87, 4.95f, 0, 1 }, { TEXT("SM_Lake2"), 13.71f, 87, 3.65f, 0, 1 }, { TEXT("SM_SwanBoats"), 13.71f, 87, 4.95f, 0, 1 } });
+Set(TEXT("Hollow29"), { { TEXT("SM_Lake2"), 34.275f, 0, 6.95f, 0, 1 }, { TEXT("SM_SwanBoats"), 34.275f, 0, 9.117f, 0, 1 }, { TEXT("SM_Lake"), 34.275f, -145, 6.95f, 0, 1 }, { TEXT("SM_SwanBoats"), 34.275f, -145, 9.117f, 0, 1 }, { TEXT("SM_Lake"), 34.275f, 145, 6.95f, 0, 1 }, { TEXT("SM_SwanBoats"), 34.275f, 145, 9.117f, 0, 1 } });     // a short hollow next to a loop or corkscrew: stood at 0.6 size
+Set(TEXT("Hollow31"), { { TEXT("SM_Lake"), -18.28f, 0, 6.95f, 0, 1 }, { TEXT("SM_SwanBoats"), -18.28f, 0, 9.117f, 0, 1 }, { TEXT("SM_Lake2"), -18.28f, -145, 6.95f, 0, 1 }, { TEXT("SM_SwanBoats"), -18.28f, -145, 9.117f, 0, 1 }, { TEXT("SM_Lake2"), -18.28f, 145, 6.95f, 0, 1 }, { TEXT("SM_SwanBoats"), -18.28f, 145, 9.117f, 0, 1 } });     // a short hollow next to a loop or corkscrew: stood at 0.6 size
+Set(TEXT("Hollow33"), { { TEXT("SM_Lake2"), 11.425f, 0, 6.95f, 0, 1 }, { TEXT("SM_SwanBoats"), 11.425f, 0, 9.117f, 0, 1 }, { TEXT("SM_Lake"), 11.425f, -145, 6.95f, 0, 1 }, { TEXT("SM_SwanBoats"), 11.425f, -145, 9.117f, 0, 1 }, { TEXT("SM_Lake"), 11.425f, 145, 6.95f, 0, 1 }, { TEXT("SM_SwanBoats"), 11.425f, 145, 9.117f, 0, 1 } });     // a short hollow next to a loop or corkscrew: stood at 0.6 size
+Set(TEXT("Hollow34"), { { TEXT("SM_Lake"), -17.823f, 0, 3.65f, 0, 1 }, { TEXT("SM_SwanBoats"), -17.823f, 0, 4.95f, 0, 1 }, { TEXT("SM_Lake2"), -17.823f, -87, 3.65f, 0, 1 }, { TEXT("SM_SwanBoats"), -17.823f, -87, 4.95f, 0, 1 }, { TEXT("SM_Lake2"), -17.823f, 87, 3.65f, 0, 1 }, { TEXT("SM_SwanBoats"), -17.823f, 87, 4.95f, 0, 1 } });
+Set(TEXT("Hollow35"), { { TEXT("SM_Lake2"), 4.57f, 0, 6.95f, 0, 1 }, { TEXT("SM_SwanBoats"), 4.57f, 0, 9.117f, 0, 1 }, { TEXT("SM_Lake"), 4.57f, -145, 6.95f, 0, 1 }, { TEXT("SM_SwanBoats"), 4.57f, -145, 9.117f, 0, 1 }, { TEXT("SM_Lake"), 4.57f, 145, 6.95f, 0, 1 }, { TEXT("SM_SwanBoats"), 4.57f, 145, 9.117f, 0, 1 } });     // a short hollow next to a loop or corkscrew: stood at 0.6 size
+Set(TEXT("Hollow37"), { { TEXT("SM_Lake"), -15.081f, 0, 3.65f, 0, 1 }, { TEXT("SM_SwanBoats"), -15.081f, 0, 4.95f, 0, 1 }, { TEXT("SM_Lake2"), -15.081f, -87, 3.65f, 0, 1 }, { TEXT("SM_SwanBoats"), -15.081f, -87, 4.95f, 0, 1 }, { TEXT("SM_Lake2"), -15.081f, 87, 3.65f, 0, 1 }, { TEXT("SM_SwanBoats"), -15.081f, 87, 4.95f, 0, 1 } });
 // a lake on a shore of a corkscrew's valley (anchor 87 m: 51 to 123 m out) and beside a coaster loop's pit (anchor 108 m;
 // "along" brings it to the middle of the pit, and its sign goes with the side, because the loop's frame points backwards there)
-Set(TEXT("ShoreLakeA"), { { TEXT("SM_Lake"),  0, 0, 3.65f, 0, 1 } });
-Set(TEXT("ShoreLakeB"), { { TEXT("SM_Lake2"), 0, 0, 3.65f, 0, 1 } });
-Set(TEXT("PitLakeR"), { { TEXT("SM_Lake"),  -7.9f, 0, 3.65f, 0, 1 } });
-Set(TEXT("PitLakeL"), { { TEXT("SM_Lake2"),  7.9f, 0, 3.65f, 0, 1 } });
+Set(TEXT("ShoreLakeA"), { { TEXT("SM_Lake"), 0, 0, 3.65f, 0, 1 }, { TEXT("SM_SwanBoats"), 0, 0, 4.95f, 0, 1 } });
+Set(TEXT("ShoreLakeB"), { { TEXT("SM_Lake2"), 0, 0, 3.65f, 0, 1 }, { TEXT("SM_SwanBoats"), 0, 0, 4.95f, 0, 1 } });
+Set(TEXT("PitLakeR"), { { TEXT("SM_Lake"), -7.9f, 0, 3.65f, 0, 1 }, { TEXT("SM_SwanBoats"), -7.9f, 0, 4.95f, 0, 1 } });
+Set(TEXT("PitLakeL"), { { TEXT("SM_Lake2"), 7.9f, 0, 3.65f, 0, 1 }, { TEXT("SM_SwanBoats"), 7.9f, 0, 4.95f, 0, 1 } });
 Set(TEXT("HelixRibR"), { { TEXT("SM_CoasterHill"), 20, 0, 3.2f, -90, 1 } });
 Set(TEXT("HelixRibL"), { { TEXT("SM_CoasterHill"), 20, 0, 3.2f,  90, 1 } });
 // a river across each jump's valley: five lakes in a row, 72 m apart, the middle one under the flight
 Set(TEXT("JumpRiver1"), { { TEXT("SM_Lake"), 6.822f, 0, 10.555f, 0, 1 }, { TEXT("SM_Lake2"), 6.822f, -72, 10.555f, 0, 1 }, { TEXT("SM_Lake"), 6.822f, 72, 10.555f, 0, 1 }, { TEXT("SM_Lake2"), 6.822f, -144, 10.555f, 0, 1 }, { TEXT("SM_Lake"), 6.822f, 144, 10.555f, 0, 1 } });
 Set(TEXT("JumpRiver2"), { { TEXT("SM_Lake2"), -7.142f, 0, 18.184f, 0, 1 }, { TEXT("SM_Lake"), -7.142f, -72, 18.184f, 0, 1 }, { TEXT("SM_Lake2"), -7.142f, 72, 18.184f, 0, 1 }, { TEXT("SM_Lake"), -7.142f, -144, 18.184f, 0, 1 }, { TEXT("SM_Lake2"), -7.142f, 144, 18.184f, 0, 1 } });
-// the bank beds (see THE BANKS above): anchor and size go with the bank's angle; "up" is from the land beside the road
-Set(TEXT("Bank10A"), { { TEXT("SM_BankStar"),  0, 0, -5.82f, 0, 1 } });     // anchor 12.1 m
-Set(TEXT("Bank10B"), { { TEXT("SM_BankBands"), 0, 0, -5.82f, 0, 1 } });
-Set(TEXT("Bank09A"), { { TEXT("SM_BankStar"),  0, 0, -5.814f, 0, 1 } });    // anchor 12.72 m, size 0.9
-Set(TEXT("Bank09B"), { { TEXT("SM_BankBands"), 0, 0, -5.814f, 0, 1 } });
-Set(TEXT("Bank08A"), { { TEXT("SM_BankStar"),  0, 0, -6.135f, 0, 1 } });    // anchor 13.17 m, size 0.78
-Set(TEXT("Bank08B"), { { TEXT("SM_BankBands"), 0, 0, -6.135f, 0, 1 } });
+// THIRD PASS: a span of the sky ride (anchor 35 m: its cables 32.7 and 37.3 m out, its gondolas 15 m up, over the stalls
+// and clear of the rides; a span is one slot long and every span is in step, so a row of them is one line); the same at
+// three times the size over the lagoon, afloat (its z = 0 is 3.65 m over the level's floor: the valley's floor, like the
+// lakes); a marquee tower each side where a land begins; the two landmarks, each on its own slot
+Set(TEXT("SkyRun"),    { { TEXT("SM_SkyRide"), 0, 0, 0, 0, 1 } });
+Set(TEXT("SkyLagoon"), { { TEXT("SM_SkyRide"), 0, 0, 1.2167f, 0, 1 } });
+Set(TEXT("MarqueeGate"), { { TEXT("SM_MarqueeTower"), 0, 0, 0, 0, 1 } });
+Set(TEXT("GalleonSpot"), { { TEXT("SM_Galleon"), 0, 0, 0, 25, 1 } });       // turned to face the landing straight she is first seen from
+Set(TEXT("FlumeSpot"),   { { TEXT("SM_Flume"), 22.62f, 0, 0, 45, 1 } });     // half a slot back (midway between two of the lagoon's coasters), turned to face the lift hill it is first seen from
 
 // ---- 0 to 1.15 km: THE FRONT GATE. A ticket gate and its forecourt every 540 m on each side (270 m apart, turn about),
 // stall rows between them, ponds and carts in the gaps; bandstands, fountains and chair swings behind; the big wheel on
@@ -525,7 +561,7 @@ Zone(TEXT("Floor: the gate's end"), 0.72f, 1.14f);
 Zone(TEXT("Floor: behind the midway"), 1.15f, 1.86f);
 	ParkLawns();
 	Far(TEXT("SM_FloorYard"), 60, 66, 2, 0, 0.9f, 1.f, 0.f, 0, 1.05f, 4.f);
-	Far(TEXT("SM_Maintenance"), 78, 84, 4, 2, 0.9f, 1.f, 0.f, 0, 1.3f, 8.f);
+	Far(TEXT("SM_Maintenance"), 78, 84, 4, 2, 0.f, 1.f, 0.f, 0, 1.3f, 8.f);       // third pass: chance 0, the main street's flats stand there now. Left in the list: taken out, every rule after it would roll other dice
 	Far(TEXT("SM_FloorPlaza"), 84, 96, 6, 4, 1.f, 1.2f, 0.1f, 0, 1.26f, 0.f);
 Zone(TEXT("Floor: pirate cove"), 2.23f, 3.0f);
 	ParkLawns();
@@ -566,74 +602,131 @@ Zone(TEXT("Floor: the last ride, after the hill"), 11.94f, 99.f);
 	ParkFinale();
 
 // ================================================================ SECOND PASS: THE BANKED BENDS
-// One district a slot: the bank bed on the bend's INSIDE where the bank is at its full angle for the bed's whole length
-// (24 m), and one giant on the OUTSIDE of each bend. From the track's section list; the track is locked.
-Zone(TEXT("Bend 1.04"), 1.0376f, 1.0436f); Site(TEXT("Bank08A"), 1, 13.17f, 1, 0, 1.f, 0.78f);
-Zone(TEXT("Bend 1.09"), 1.0828f, 1.0888f); Site(TEXT("Bank08B"), 1, 13.17f, 1, 0, 1.f, 0.78f);
-Zone(TEXT("Bend 1.13"), 1.1281f, 1.1341f); Site(TEXT("Bank08A"), 1, 13.17f, 1, 0, 1.f, 0.78f);
+// One giant on the OUTSIDE of each steep bend (one district a slot, from the track's section list; the track is locked).
+// The second pass's bank beds on the bends' insides are gone: the third pass's "Cut banks" rule faces every cutting.
 Zone(TEXT("Bend 1.09, outside"), 1.0828f, 1.0888f); Far(TEXT("SM_FarBigTops"), 55, 57, 1, 0, 1.f, 0.42f, 0.f, -1, 1.06f, 6.f);
-Zone(TEXT("Bend 1.63"), 1.6257f, 1.6317f); Site(TEXT("Bank09B"), 1, 12.72f, 1, 0, 1.f, 0.9f);
 Zone(TEXT("Bend 1.63, outside"), 1.6257f, 1.6317f); Far(TEXT("SM_FarWheel"), 62, 64, 1, 0, 1.f, 0.5f, 0.f, -1, 1.12f, 6.f);
-Zone(TEXT("Bend 1.76"), 1.7615f, 1.7675f); Site(TEXT("Bank09A"), -1, 12.72f, 1, 0, 1.f, 0.9f);
 Zone(TEXT("Bend 1.76, outside"), 1.7615f, 1.7675f); Far(TEXT("SM_FarWheel"), 62, 64, 1, 0, 1.f, 0.5f, 0.f, 1, 1.12f, 6.f);
-Zone(TEXT("Bend 2.40"), 2.3949f, 2.4009f); Site(TEXT("Bank10B"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 2.44"), 2.4401f, 2.4461f); Site(TEXT("Bank10A"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 2.44, outside"), 2.4401f, 2.4461f); Far(TEXT("SM_FarFort"), 50, 52, 1, 0, 1.f, 0.3f, 0.f, -1, 1.03f, 6.f);
-Zone(TEXT("Bend 2.53"), 2.5306f, 2.5366f); Site(TEXT("Bank10B"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 2.58"), 2.5759f, 2.5819f); Site(TEXT("Bank10A"), -1, 12.1f, 1, 0, 1.f, 1);
 Zone(TEXT("Bend 2.58, outside"), 2.5759f, 2.5819f); Far(TEXT("SM_FarFort"), 50, 52, 1, 0, 1.f, 0.3f, 0.f, 1, 1.03f, 6.f);
-Zone(TEXT("Bend 7.01"), 7.0097f, 7.0157f); Site(TEXT("Bank10B"), 1, 12.1f, 1, 0, 1.f, 1);
 Zone(TEXT("Bend 7.01, outside"), 7.0097f, 7.0157f); Far(TEXT("SM_FarRocket"), 46, 48, 1, 0, 1.f, 0.32f, 0.f, -1, 1, 6.f);
-Zone(TEXT("Bend 7.15"), 7.1454f, 7.1514f); Site(TEXT("Bank10A"), -1, 12.1f, 1, 0, 1.f, 1);
 Zone(TEXT("Bend 7.15, outside"), 7.1454f, 7.1514f); Far(TEXT("SM_FarRocket"), 46, 48, 1, 0, 1.f, 0.32f, 0.f, 1, 1, 6.f);
-Zone(TEXT("Bend 7.24"), 7.2359f, 7.2419f); Site(TEXT("Bank10B"), 1, 12.1f, 1, 0, 1.f, 1);
 Zone(TEXT("Bend 7.24, outside"), 7.2359f, 7.2419f); Far(TEXT("SM_FarRocket"), 46, 48, 1, 0, 1.f, 0.32f, 0.f, -1, 1, 6.f);
-Zone(TEXT("Bend 7.60"), 7.5978f, 7.6038f); Site(TEXT("Bank09A"), -1, 12.72f, 1, 0, 1.f, 0.9f);
 Zone(TEXT("Bend 7.60, outside"), 7.5978f, 7.6038f); Far(TEXT("SM_FarRocket"), 46, 48, 1, 0, 1.f, 0.32f, 0.f, 1, 1, 6.f);
-Zone(TEXT("Bend 7.74"), 7.7336f, 7.7396f); Site(TEXT("Bank09B"), 1, 12.72f, 1, 0, 1.f, 0.9f);
 Zone(TEXT("Bend 7.74, outside"), 7.7336f, 7.7396f); Far(TEXT("SM_FarRocket"), 46, 48, 1, 0, 1.f, 0.32f, 0.f, -1, 1, 6.f);
-Zone(TEXT("Bend 8.28"), 8.2765f, 8.2825f); Site(TEXT("Bank10A"), -1, 12.1f, 1, 0, 1.f, 1);
 Zone(TEXT("Bend 8.28, outside"), 8.2765f, 8.2825f); Far(TEXT("SM_FarBigTops"), 55, 57, 1, 0, 1.f, 0.42f, 0.f, 1, 1.06f, 6.f);
-Zone(TEXT("Bend 8.42"), 8.4122f, 8.4182f); Site(TEXT("Bank10B"), 1, 12.1f, 1, 0, 1.f, 1);
 Zone(TEXT("Bend 8.42, outside"), 8.4122f, 8.4182f); Far(TEXT("SM_FarBigTops"), 55, 57, 1, 0, 1.f, 0.42f, 0.f, -1, 1.06f, 6.f);
-Zone(TEXT("Bend 9.09"), 9.0908f, 9.0968f); Site(TEXT("Bank08A"), -1, 13.17f, 1, 0, 1.f, 0.78f);
 Zone(TEXT("Bend 9.09, outside"), 9.0908f, 9.0968f); Far(TEXT("SM_FarChute"), 46, 48, 1, 0, 1.f, 0.3f, 0.f, 1, 1, 6.f);
-Zone(TEXT("Bend 9.23"), 9.2266f, 9.2326f); Site(TEXT("Bank08B"), 1, 13.17f, 1, 0, 1.f, 0.78f);
 Zone(TEXT("Bend 9.23, outside"), 9.2266f, 9.2326f); Far(TEXT("SM_FarChute"), 46, 48, 1, 0, 1.f, 0.3f, 0.f, -1, 1, 6.f);
-Zone(TEXT("Bend 15.02"), 15.0177f, 15.0237f); Site(TEXT("Bank09A"), 1, 12.72f, 1, 0, 1.f, 0.9f);
-Zone(TEXT("Bend 15.07"), 15.0629f, 15.0689f); Site(TEXT("Bank09B"), 1, 12.72f, 1, 0, 1.f, 0.9f);
 Zone(TEXT("Bend 15.07, outside"), 15.0629f, 15.0689f); Far(TEXT("SM_FarWheel"), 62, 64, 1, 0, 1.f, 0.5f, 0.f, -1, 1.12f, 6.f);
-Zone(TEXT("Bend 15.16"), 15.1534f, 15.1594f); Site(TEXT("Bank09A"), -1, 12.72f, 1, 0, 1.f, 0.9f);
-Zone(TEXT("Bend 15.20"), 15.1986f, 15.2046f); Site(TEXT("Bank09B"), -1, 12.72f, 1, 0, 1.f, 0.9f);
 Zone(TEXT("Bend 15.20, outside"), 15.1986f, 15.2046f); Far(TEXT("SM_FarRocket"), 46, 48, 1, 0, 1.f, 0.32f, 0.f, 1, 1, 6.f);
-Zone(TEXT("Bend 16.29"), 16.2845f, 16.2905f); Site(TEXT("Bank09A"), 1, 12.72f, 1, 0, 1.f, 0.9f);
-Zone(TEXT("Bend 16.33"), 16.3297f, 16.3357f); Site(TEXT("Bank09B"), 1, 12.72f, 1, 0, 1.f, 0.9f);
 Zone(TEXT("Bend 16.33, outside"), 16.3297f, 16.3357f); Far(TEXT("SM_FarFort"), 50, 52, 1, 0, 1.f, 0.3f, 0.f, -1, 1.03f, 6.f);
-Zone(TEXT("Bend 16.42"), 16.4202f, 16.4262f); Site(TEXT("Bank09A"), -1, 12.72f, 1, 0, 1.f, 0.9f);
-Zone(TEXT("Bend 16.47"), 16.4655f, 16.4715f); Site(TEXT("Bank09B"), -1, 12.72f, 1, 0, 1.f, 0.9f);
 Zone(TEXT("Bend 16.47, outside"), 16.4655f, 16.4715f); Far(TEXT("SM_FarBigTops"), 55, 57, 1, 0, 1.f, 0.42f, 0.f, 1, 1.06f, 6.f);
-Zone(TEXT("Bend 17.55"), 17.5513f, 17.5573f); Site(TEXT("Bank09A"), 1, 12.72f, 1, 0, 1.f, 0.9f);
 Zone(TEXT("Bend 17.55, outside"), 17.5513f, 17.5573f); Far(TEXT("SM_FarChute"), 46, 48, 1, 0, 1.f, 0.3f, 0.f, -1, 1, 6.f);
-Zone(TEXT("Bend 17.69"), 17.6870f, 17.6930f); Site(TEXT("Bank09B"), -1, 12.72f, 1, 0, 1.f, 0.9f);
 Zone(TEXT("Bend 17.69, outside"), 17.6870f, 17.6930f); Far(TEXT("SM_FarWheel"), 62, 64, 1, 0, 1.f, 0.5f, 0.f, 1, 1.12f, 6.f);
-Zone(TEXT("Bend 18.82"), 18.8181f, 18.8241f); Site(TEXT("Bank09A"), 1, 12.72f, 1, 0, 1.f, 0.9f);
 Zone(TEXT("Bend 18.82, outside"), 18.8181f, 18.8241f); Far(TEXT("SM_FarRocket"), 46, 48, 1, 0, 1.f, 0.32f, 0.f, -1, 1, 6.f);
-Zone(TEXT("Bend 18.96"), 18.9538f, 18.9598f); Site(TEXT("Bank09B"), -1, 12.72f, 1, 0, 1.f, 0.9f);
 Zone(TEXT("Bend 18.96, outside"), 18.9538f, 18.9598f); Far(TEXT("SM_FarFort"), 50, 52, 1, 0, 1.f, 0.3f, 0.f, 1, 1.03f, 6.f);
-Zone(TEXT("Bend 20.09"), 20.0849f, 20.0909f); Site(TEXT("Bank09A"), 1, 12.72f, 1, 0, 1.f, 0.9f);
 Zone(TEXT("Bend 20.09, outside"), 20.0849f, 20.0909f); Far(TEXT("SM_FarBigTops"), 55, 57, 1, 0, 1.f, 0.42f, 0.f, -1, 1.06f, 6.f);
-Zone(TEXT("Bend 20.22"), 20.2206f, 20.2266f); Site(TEXT("Bank09B"), -1, 12.72f, 1, 0, 1.f, 0.9f);
 Zone(TEXT("Bend 20.22, outside"), 20.2206f, 20.2266f); Far(TEXT("SM_FarChute"), 46, 48, 1, 0, 1.f, 0.3f, 0.f, 1, 1, 6.f);
-Zone(TEXT("Bend 21.35"), 21.3517f, 21.3577f); Site(TEXT("Bank09A"), 1, 12.72f, 1, 0, 1.f, 0.9f);
 Zone(TEXT("Bend 21.35, outside"), 21.3517f, 21.3577f); Far(TEXT("SM_FarWheel"), 62, 64, 1, 0, 1.f, 0.5f, 0.f, -1, 1.12f, 6.f);
-Zone(TEXT("Bend 21.49"), 21.4874f, 21.4934f); Site(TEXT("Bank09B"), -1, 12.72f, 1, 0, 1.f, 0.9f);
 Zone(TEXT("Bend 21.49, outside"), 21.4874f, 21.4934f); Far(TEXT("SM_FarRocket"), 46, 48, 1, 0, 1.f, 0.32f, 0.f, 1, 1, 6.f);
-Zone(TEXT("Bend 22.62"), 22.6185f, 22.6245f); Site(TEXT("Bank09A"), 1, 12.72f, 1, 0, 1.f, 0.9f);
 Zone(TEXT("Bend 22.62, outside"), 22.6185f, 22.6245f); Far(TEXT("SM_FarFort"), 50, 52, 1, 0, 1.f, 0.3f, 0.f, -1, 1.03f, 6.f);
-Zone(TEXT("Bend 22.76"), 22.7542f, 22.7602f); Site(TEXT("Bank09B"), -1, 12.72f, 1, 0, 1.f, 0.9f);
 Zone(TEXT("Bend 22.76, outside"), 22.7542f, 22.7602f); Far(TEXT("SM_FarBigTops"), 55, 57, 1, 0, 1.f, 0.42f, 0.f, 1, 1.06f, 6.f);
-Zone(TEXT("Bend 23.84"), 23.8401f, 23.8461f); Site(TEXT("Bank09A"), 1, 12.72f, 1, 0, 1.f, 0.9f);
-Zone(TEXT("Bend 23.89"), 23.8853f, 23.8913f); Site(TEXT("Bank09B"), 1, 12.72f, 1, 0, 1.f, 0.9f);
 Zone(TEXT("Bend 23.89, outside"), 23.8853f, 23.8913f); Far(TEXT("SM_FarChute"), 46, 48, 1, 0, 1.f, 0.3f, 0.f, -1, 1, 6.f);
-Zone(TEXT("Bend 24.02"), 24.0210f, 24.0270f); Site(TEXT("Bank09A"), -1, 12.72f, 1, 0, 1.f, 0.9f);
 Zone(TEXT("Bend 24.02, outside"), 24.0210f, 24.0270f); Far(TEXT("SM_FarWheel"), 62, 64, 1, 0, 1.f, 0.5f, 0.f, 1, 1.12f, 6.f);
+
+// ================================================================ THIRD PASS (the overhaul)
+// ---- the cut banks, faced by the track: a planted hedge bank on every cutting a banked bend shows (FTDress.h, Bank).
+// The tall panel where 5.5 m and more of cutting shows (bends banked 32 degrees and up), the low one on the rest.
+Zone(TEXT("Cut banks"), 0.f, 99.f);
+	Bank(TEXT("SM_CutLawn"), 4, 1, 0, 1.f, 5.5f);
+	Bank(TEXT("SM_CutLawnLow"), 4, 1, 0, 1.f, 2.4f, 5.5f);
+
+// ---- the sky ride, on the left: a span a slot (they join into one line where the road runs straight; on a bend each
+// span stands on its own two pylons). Near pieces: the track leaves them out of the corkscrew and the loops.
+Zone(TEXT("Sky ride: the front gate"), 0.07f, 0.96f);
+	Site(TEXT("SkyRun"), -1, 35, 1, 0, 1.f);
+Zone(TEXT("Sky ride: the midway"), 1.16f, 1.56f);
+	Site(TEXT("SkyRun"), -1, 35, 1, 0, 1.f);
+Zone(TEXT("Sky ride: the last ride"), 9.32f, 14.f);
+	Site(TEXT("SkyRun"), -1, 35, 1, 0, 1.f);
+// over the lagoon it runs the straight valleys at three times the size (a span is three slots), 86 m out, afloat
+Zone(TEXT("Sky ride: over the lagoon, 3.26 km"), 3.2394f, 3.4113f);
+	SiteAfloat(TEXT("SkyLagoon"), 1, 86, 3, 0, 1.f, 3.f);
+Zone(TEXT("Sky ride: over the lagoon, 3.89 km"), 3.8728f, 4.1805f);
+	SiteAfloat(TEXT("SkyLagoon"), -1, 86, 3, 1, 1.f, 3.f);
+Zone(TEXT("Sky ride: over the lagoon, 4.43 km"), 4.4157f, 5.1306f);
+	SiteAfloat(TEXT("SkyLagoon"), 1, 86, 3, 1, 1.f, 3.f);
+Zone(TEXT("Sky ride: over the lagoon, 5.38 km"), 5.3658f, 5.6735f);
+	SiteAfloat(TEXT("SkyLagoon"), -1, 86, 3, 1, 1.f, 3.f);
+Zone(TEXT("Sky ride: over the lagoon, 6.15 km"), 6.1350f, 6.7141f);
+	SiteAfloat(TEXT("SkyLagoon"), 1, 86, 3, 2, 1.f, 3.f);
+
+// ---- wooden coasters as stage flats, 120 m long with a train going over the hill: a near row (not in the lagoon: the
+// coasters that stand end on there reach 118 m out) and a far, taller one the whole level long
+Zone(TEXT("Wooden coasters: to the lift hill"), 0.f, 3.2f);
+	Far(TEXT("SM_WoodCoaster"), 108, 124, 8, 4, 1.f, 1.f, 0.f, -1, 2.013f, 8.f);
+	Far(TEXT("SM_WoodCoaster"), 108, 124, 8, 0, 1.f, 1.f, 0.f, 1, 2.013f, 8.f);
+Zone(TEXT("Wooden coasters: from rocket land on"), 6.72f, 99.f);
+	Far(TEXT("SM_WoodCoaster"), 108, 124, 8, 4, 1.f, 1.f, 0.f, -1, 2.013f, 8.f);
+	Far(TEXT("SM_WoodCoaster"), 108, 124, 8, 0, 1.f, 1.f, 0.f, 1, 2.013f, 8.f);
+Zone(TEXT("Wooden coasters, far"), 0.f, 99.f);
+	Far(TEXT("SM_WoodCoaster"), 205, 235, 12, 6, 1.f, 1.35f, 0.f, -1, 3.14f, 8.f);
+	Far(TEXT("SM_WoodCoaster"), 205, 235, 12, 0, 1.f, 1.35f, 0.f, 1, 3.14f, 8.f);
+
+// ---- the park's main street as stage flats, behind the stalls and before the rides
+Zone(TEXT("Main street: the front gate"), 0.f, 1.14f);
+	Far(TEXT("SM_FacadeRow"), 72, 78, 3, 1, 1.f, 1.f, 0.f, 0, 1.506f, 4.f);
+Zone(TEXT("Main street: behind the midway"), 1.15f, 1.86f);
+	Far(TEXT("SM_FacadeRow"), 80, 86, 2, 0, 1.f, 1.15f, 0.f, 0, 1.574f, 4.f);
+Zone(TEXT("Main street: the funhouse"), 8.12f, 8.45f);
+	Far(TEXT("SM_FacadeRow"), 80, 86, 2, 1, 1.f, 1.f, 0.f, 0, 1.574f, 4.f);
+Zone(TEXT("Main street: the last ride"), 9.3f, 99.f);
+	Far(TEXT("SM_FacadeRow"), 72, 80, 4, 2, 1.f, 1.f, 0.f, -1, 1.506f, 4.f);
+	Far(TEXT("SM_FacadeRow"), 72, 80, 4, 0, 1.f, 1.f, 0.f, 1, 1.506f, 4.f);
+
+// ---- a pair of marquee towers where a land begins (their star turns, their bulbs climb), one slot each
+Zone(TEXT("Marquee: the gate"), 0.1327f, 0.1387f); Site(TEXT("MarqueeGate"), -1, 27.4f, 1, 0, 1.f); Site(TEXT("MarqueeGate"), 1, 27.4f, 1, 0, 1.f);
+Zone(TEXT("Marquee: the midway"), 1.2186f, 1.2246f); Site(TEXT("MarqueeGate"), -1, 27.4f, 1, 0, 1.f); Site(TEXT("MarqueeGate"), 1, 27.4f, 1, 0, 1.f);
+Zone(TEXT("Marquee: pirate cove"), 2.2139f, 2.2199f); Site(TEXT("MarqueeGate"), -1, 27.4f, 1, 0, 1.f); Site(TEXT("MarqueeGate"), 1, 27.4f, 1, 0, 1.f);
+Zone(TEXT("Marquee: the lagoon"), 2.9830f, 2.9890f); Site(TEXT("MarqueeGate"), -1, 27.4f, 1, 0, 1.f); Site(TEXT("MarqueeGate"), 1, 27.4f, 1, 0, 1.f);
+Zone(TEXT("Marquee: rocket land"), 6.8287f, 6.8347f); Site(TEXT("MarqueeGate"), -1, 27.4f, 1, 0, 1.f); Site(TEXT("MarqueeGate"), 1, 27.4f, 1, 0, 1.f);
+Zone(TEXT("Marquee: the funhouse"), 8.1407f, 8.1467f); Site(TEXT("MarqueeGate"), -1, 27.4f, 1, 0, 1.f); Site(TEXT("MarqueeGate"), 1, 27.4f, 1, 0, 1.f);
+Zone(TEXT("Marquee: the last ride"), 9.2718f, 9.2778f); Site(TEXT("MarqueeGate"), -1, 27.4f, 1, 0, 1.f); Site(TEXT("MarqueeGate"), 1, 27.4f, 1, 0, 1.f);
+Zone(TEXT("Marquee: the last ride, on"), 9.3623f, 9.3683f); Site(TEXT("MarqueeGate"), -1, 27.4f, 1, 0, 1.f); Site(TEXT("MarqueeGate"), 1, 27.4f, 1, 0, 1.f);
+
+// ---- THE GALLEON (signature): aground on her rock in the kraken's arms, on the outside of the cove's first hairpin:
+// dead ahead from the big jump's take-off (450 m off) and all the way down the landing straight, passed at 2.44 km
+Zone(TEXT("The galleon"), 2.4401f, 2.4461f);
+	Site(TEXT("GalleonSpot"), -1, 80, 1, 0, 1.f);
+// ---- LOG FALLS (signature): the lagoon's landmark, a mountain 52 m tall with a log flume down its face, on the left
+// between two of the coasters that stand end on there. Dead ahead from the top of the lift hill, 590 m off; the rails
+// turn right in front of it and pass it at 3.69 km
+Zone(TEXT("Log Falls"), 3.7069f, 3.7129f);
+	Site(TEXT("FlumeSpot"), -1, 100, 1, 0, 1.f);
+// and both landmarks come round again in the finale, far apart
+Zone(TEXT("Landmarks of the last ride"), 9.6f, 99.f);
+	Far(TEXT("SM_Galleon"), 100, 112, 43, 9, 1.f, 1.f, 0.f, -1, 1.745f, 20.f);
+	Far(TEXT("SM_Flume"), 124, 136, 47, 20, 1.f, 1.f, 0.f, 1, 1.949f, 25.f);
+
+// ---- hot-air balloons: beside both jumps' flights (the vista from the air), and far out over the whole park
+Zone(TEXT("Balloons: the big jump"), 1.96f, 2.26f);
+	Far(TEXT("SM_Balloon"), 60, 150, 1, 0, 0.9f, 1.5f, 0.25f, 0, -38.f, 180.f);
+Zone(TEXT("Balloons: the funhouse jump"), 8.62f, 8.95f);
+	Far(TEXT("SM_Balloon"), 60, 150, 1, 0, 0.9f, 1.5f, 0.25f, 0, -44.f, 180.f);
+Zone(TEXT("Balloons, far out"), 0.f, 99.f);
+	Far(TEXT("SM_Balloon"), 190, 290, 12, 5, 0.9f, 2.2f, 0.3f, 0, -55.f, 180.f);
+
+// ---- the vistas from both jumps: parterres (the lawn panel at twice its size) and lakes on the lawns round the landings
+Zone(TEXT("Vista: the cove from the air"), 2.17f, 2.52f);
+	Far(TEXT("SM_FloorLawn"), 104, 120, 2, 0, 1.f, 2.f, 0.f, 0, 1.579f, 4.f);
+	Far(TEXT("SM_Lake"), 165, 185, 3, 1, 1.f, 1.f, 0.f, 0, 3.284f, 6.f);
+Zone(TEXT("Vista: the back lot from the air"), 8.86f, 9.1f);
+	Far(TEXT("SM_FloorLawn"), 104, 120, 2, 0, 1.f, 2.f, 0.f, 0, 1.579f, 4.f);
+	Far(TEXT("SM_Lake2"), 165, 185, 3, 0, 1.f, 1.f, 0.f, 0, 3.284f, 6.f);
+
+// ---- the horizon's cards: two rows of flat skyline behind the lit rides, each row its own outline and tone
+Zone(TEXT("Horizon cards"), 0.f, 99.f);
+	Far(TEXT("SM_Sky1"), 900, 1050, 9, 0, 1.f, 1.25f, 0.1f, -1, 30.f, 6.f);
+	Far(TEXT("SM_Sky1"), 900, 1050, 9, 4, 1.f, 1.25f, 0.1f, 1, 30.f, 6.f);
+	Far(TEXT("SM_Sky2"), 1500, 1750, 12, 3, 1.f, 1.6f, 0.1f, -1, 35.f, 6.f);
+	Far(TEXT("SM_Sky2"), 1500, 1750, 12, 9, 1.f, 1.6f, 0.1f, 1, 35.f, 6.f);

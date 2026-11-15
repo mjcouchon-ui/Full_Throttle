@@ -1,0 +1,13 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "1.0",
+  "FriendlyName": "Full Throttle Native Gamepad",
+  "Description": "Native configured DualShock 4 input with safe disconnect cleanup; Xbox input remains on XInput.",
+  "Category": "Input Devices",
+  "EnabledByDefault": false,
+  "CanContainContent": false,
+  "SupportedTargetPlatforms": ["Win64"],
+  "Modules": [{"Name": "FTNativeGamepad", "Type": "RuntimeNoCommandlet", "LoadingPhase": "Default", "PlatformAllowList": ["Win64"]}],
+  "Plugins": [{"Name": "GameInput", "Enabled": true}]
+}

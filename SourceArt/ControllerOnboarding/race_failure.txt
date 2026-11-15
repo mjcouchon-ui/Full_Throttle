@@ -1,0 +1,66 @@
+# Existing isolated TestSave from race/persistence. Do not alter tutorial flags.
+# Stock three reels allow three retakes; the fourth crash is OUT OF FILM.
+# FTCrash only sets the actual player's armour to zero, entering the normal Wreck flow.
+FTQuality 0
+ft.AssertControl tutorialCompleted 1
+ft.AssertControl tutorialSkipped 1
+FTStartLevel 1
+waitfor FT CLOCK level=|45
+ft.AssertControl phase 2
+ft.AssertControl tutorial 0
+ft.InputDevice xbox
+
+FTCrash
+waitfor FT PLAYER wrecked retakes=1 reels=3|10
+ft.AssertControl phase 3
+waitfor reason=retake|15
+ft.AssertControl phase 1
+wait 1.3
+ft.InputHold Gamepad_FaceButton_Bottom
+waitfor FT CLOCK level=|15
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.AssertControl phase 2
+ft.AssertControl tutorial 0
+ft.AssertControl tutorialCompleted 1
+ft.AssertControl tutorialSkipped 1
+
+FTCrash
+waitfor FT PLAYER wrecked retakes=2 reels=3|10
+ft.AssertControl phase 3
+waitfor reason=retake|15
+ft.AssertControl phase 1
+wait 1.3
+ft.InputHold Gamepad_FaceButton_Bottom
+waitfor FT CLOCK level=|15
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.AssertControl phase 2
+ft.AssertControl tutorial 0
+
+FTCrash
+waitfor FT PLAYER wrecked retakes=3 reels=3|10
+ft.AssertControl phase 3
+waitfor reason=retake|15
+ft.AssertControl phase 1
+wait 1.3
+ft.InputHold Gamepad_FaceButton_Bottom
+waitfor FT CLOCK level=|15
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.AssertControl phase 2
+ft.AssertControl tutorial 0
+
+FTCrash
+waitfor FT OUTCOME out_of_film|10
+ft.AssertControl phase 3
+waitfor FT SCREEN name=Dailies|15
+ft.AssertControl phase 6
+shot failure_results_gamepad
+wait 3
+ft.InputHold Gamepad_FaceButton_Bottom
+waitfor FT SCREEN name=Paycheck|10
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.AssertControl phase 7
+ft.AssertControl tutorialCompleted 1
+ft.AssertControl tutorialSkipped 1
+ft.ControlState
+shot failure_paycheck_gamepad
+quit

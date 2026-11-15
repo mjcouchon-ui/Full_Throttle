@@ -206,6 +206,7 @@ namespace
 		TEXT("wave"), TEXT("me"), TEXT("nervous"), TEXT("ask"), TEXT("smirk"),   // Kip Lorenzo (day 1, run 73444)
 		TEXT("mad"), TEXT("talk"), TEXT("gasp"), TEXT("cheer"),             // Rosa, Gail and Dee Dee, career day scenes
 		TEXT("draw"), TEXT("aim"), TEXT("fire"),                           // the Pit Boss's revolver (run 52616)
+		TEXT("camup"), TEXT("snap"), TEXT("crank"), TEXT("kneel"),         // the Channel 9 photographer, night 1's pier (run 85980)
 		// nights 4-7 (run 32365): Flambe Frankie's fire breath, the Kingpin's bowling, Big Sven's bear hug, the Commodore's
 		// anchor; sad = the boss beaten, in the LAST CALL cutscene
 		TEXT("swig"), TEXT("breathe"), TEXT("hold"), TEXT("bowl"), TEXT("gloves"), TEXT("lunge"), TEXT("hug"), TEXT("windup"), TEXT("sweep"), TEXT("sad"),
@@ -426,6 +427,16 @@ void AFTBrawlFighter::PoseSprite(FName St, float T, float Walk, int32 Combo, flo
 	else if (S == TEXT("whirl")) Tx = int32(T / 0.09f) % 2 ? Frame({ TEXT("spinb"), TEXT("kick") }) : Frame({ TEXT("spin"), TEXT("kick") });
 	else if (S == TEXT("draw")) Tx = T < 0.3f ? Frame({ TEXT("draw"), TEXT("wind") }) : Frame({ TEXT("aim"), TEXT("wind") });   // the Pit Boss draws, then holds the aim
 	else if (S == TEXT("fire")) Tx = (T < 0.6f && FMath::Fmod(T, 0.22f) < 0.08f) ? Frame({ TEXT("fire"), TEXT("punch") }) : Frame({ TEXT("aim"), TEXT("punch") });   // a flash on each shot
+	else if (S == TEXT("shoot"))   // the photographer's burst (run 85980): three shots, flash at T = 0, 0.8, 1.6 (cut 3 fires CutFlash then)
+	{
+		const float P = FMath::Fmod(T, 0.8f);
+		const int32 Shot = int32(T / 0.8f);
+		if (T >= 2.4f) Tx = Frame({ TEXT("smirk"), TEXT("idle") });                                   // got it
+		else if (Shot == 1) Tx = Frame({ P < 0.5f ? TEXT("kneel") : TEXT("camup"), TEXT("camup") });  // drops to a knee for the low angle
+		else if (P < 0.12f) Tx = Frame({ TEXT("snap"), TEXT("camup") });                             // the flash gun fires
+		else if (P < 0.5f) Tx = Frame({ TEXT("crank"), TEXT("idle") });                               // winds the film on
+		else Tx = Frame({ TEXT("camup"), TEXT("idle") });                                             // back up to the eye
+	}
 	else if (S == TEXT("swig")) Tx = Frame({ TEXT("swig"), TEXT("wind") });                         // nights 4-7 (run 32365): the bosses' own moves
 	else if (S == TEXT("breathe")) Tx = Frame({ TEXT("breathe"), TEXT("punch") });
 	else if (S == TEXT("hold")) Tx = Frame({ TEXT("hold"), TEXT("wind") });

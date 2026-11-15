@@ -1,17 +1,34 @@
 #include "FTPlayerController.h"
 #include "FTGameInstance.h"
 #include "FTGameMode.h"
+#include "FTInput.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
 #include "InputKeyEventArgs.h"
 #include "HAL/IConsoleManager.h"
 #include "Containers/Ticker.h"
+#include "EngineGlobals.h"
 
 // test hooks that go through the player's real input path (WasInputKeyJustPressed sees them like a key):
 //   ft.Press <Key>          press and release a key, mouse or pad button (Enter, SpaceBar, Gamepad_Special_Right, ...)
 //   ft.Click <x> <y> [Right] move the cursor to viewport pixel x,y and click there
 namespace
 {
+#if !UE_BUILD_SHIPPING
+	TAutoConsoleVariable<int32> GFTControllerEvents(TEXT("ft.ControllerEvents"), 0,
+		TEXT("Log controller button/stick transitions; simulated input is explicitly labelled."));
+	FAutoConsoleCommandWithWorldAndArgs GFTAxis(TEXT("ft.Axis"), TEXT("QA only: simulated Gamepad_LeftX/Y axis value, -1 to 1; not physical controller evidence"),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+		{
+			APlayerController* PC = World ? World->GetFirstPlayerController() : nullptr;
+			if (!PC || Args.Num() < 2) return;
+			const FKey Key(*Args[0]);
+			if (Key != EKeys::Gamepad_LeftX && Key != EKeys::Gamepad_LeftY) return;
+			const float Value = FMath::Clamp(FCString::Atof(*Args[1]), -1.f, 1.f);
+			PC->InputKey(FInputKeyEventArgs::CreateSimulated(Key, IE_Axis, Value, 1));
+			UE_LOG(LogTemp, Display, TEXT("FTINPUT axis key=%s value=%.3f simulated=1"), *Key.ToString(), Value);
+		}));
+#endif
 	void FTTap(UWorld* World, const FKey& K)
 	{
 		APlayerController* PC = World ? World->GetFirstPlayerController() : nullptr;
@@ -69,6 +86,9 @@ void AFTPlayerController::BeginPlay()
 	// cursor's UI mode away again (mouse captured, clicks on READY / BUY / tabs not read) while bMenuMouse said it was on,
 	// so every later SetMenuMouse(true) returned early. Apply whatever mode was asked for instead.
 	ApplyMouseMode(TEXT("beginplay"));
+	// A native controller can report a held Cross/A again after map travel.
+	// Require release before the arriving screen accepts a fresh confirmation.
+	BlockMenuInputUntilRelease();
 }
 
 void AFTPlayerController::ApplyMouseMode(const TCHAR* Why)
@@ -110,9 +130,78 @@ FVector2D AFTPlayerController::MousePos() const
 
 bool AFTPlayerController::InputKey(const FInputKeyEventArgs& Params)
 {
-	if (Params.Event == IE_Pressed || (Params.Key.IsGamepadKey() && Params.Event == IE_Axis && FMath::Abs(Params.AmountDepressed) > .5f))
-		bGamepadPrompts = Params.Key.IsGamepadKey();
+	if (UFTInputSubsystem* Input = UFTInputSubsystem::Get(this)) Input->ObserveInput(Params);
+#if !UE_BUILD_SHIPPING
+	if (GFTControllerEvents.GetValueOnGameThread() && Params.Key.IsGamepadKey())
+	{
+		bool bLog = Params.Event == IE_Pressed || Params.Event == IE_Released;
+		if (Params.Event == IE_Axis && (Params.Key == EKeys::Gamepad_LeftX || Params.Key == EKeys::Gamepad_LeftY))
+		{
+			int8& Previous = Params.Key == EKeys::Gamepad_LeftX ? LoggedStickX : LoggedStickY;
+			const int8 Direction = Params.AmountDepressed > .5f ? 1 : Params.AmountDepressed < -.5f ? -1 : 0;
+			bLog = Direction != Previous; Previous = Direction;
+		}
+		if (bLog) UE_LOG(LogTemp, Display, TEXT("FT PAD event key=%s event=%d value=%.3f simulated=%d"),
+			*Params.Key.ToString(), int32(Params.Event), Params.AmountDepressed, Params.IsSimulatedInput() ? 1 : 0);
+	}
+#endif
 	return Super::InputKey(Params);
+}
+
+bool AFTPlayerController::UsesGamepadPrompts() const
+{
+	const UFTInputSubsystem* Input = UFTInputSubsystem::Get(this);
+	return Input && Input->UsesGamepad();
+}
+
+void AFTPlayerController::SuppressGameplayUntilRelease()
+{
+	bSuppressGameplay = true;
+	In = FFTInput();
+}
+
+void AFTPlayerController::PostProcessInput(const float DeltaTime, const bool bGamePaused)
+{
+	Super::PostProcessInput(DeltaTime, bGamePaused);
+	// Some native GameInput devices expose axes without the virtual stick buttons.
+	// Sample every input tick, including racing and pause, so a held stick does not
+	// create a fresh menu press when a screen opens.
+	UpdateMenuStickDirections();
+}
+
+void AFTPlayerController::UpdateMenuStickDirections() const
+{
+	if (MenuStickFrame == GFrameCounter) return;
+	MenuStickFrame = GFrameCounter;
+	MenuStickPressed = 0;
+	const float X = GetInputAnalogKeyState(EKeys::Gamepad_LeftX);
+	const float Y = GetInputAnalogKeyState(EKeys::Gamepad_LeftY);
+	const float Amounts[] = { -X, X, Y, -Y };
+	const FKey Keys[] = { EKeys::Gamepad_LeftStick_Left, EKeys::Gamepad_LeftStick_Right,
+		EKeys::Gamepad_LeftStick_Up, EKeys::Gamepad_LeftStick_Down };
+	uint8 Held = 0;
+	for (int32 I = 0; I < UE_ARRAY_COUNT(Keys); ++I)
+	{
+		const uint8 Bit = uint8(1 << I);
+		const bool bWasHeld = (MenuStickHeld & Bit) != 0;
+		const bool bDigital = IsInputKeyDown(Keys[I]) || WasInputKeyJustPressed(Keys[I]);
+		const bool bHeld = bDigital || Amounts[I] >= (bWasHeld ? .35f : .55f);
+		if (bHeld) Held |= Bit;
+		// Merge the physical episode, not two event streams: when a driver emits
+		// both digital and axis input, crossing the other threshold cannot step twice.
+		if (bHeld && !bWasHeld) MenuStickPressed |= Bit;
+	}
+	MenuStickHeld = Held;
+}
+
+bool AFTPlayerController::Hit(const FKey& K) const
+{
+	if (bReleaseMenuInput) return false;
+	const int32 Direction = K == EKeys::Gamepad_LeftStick_Left ? 0 : K == EKeys::Gamepad_LeftStick_Right ? 1 :
+		K == EKeys::Gamepad_LeftStick_Up ? 2 : K == EKeys::Gamepad_LeftStick_Down ? 3 : INDEX_NONE;
+	if (Direction == INDEX_NONE) return WasInputKeyJustPressed(K);
+	UpdateMenuStickDirections();
+	return (MenuStickPressed & uint8(1 << Direction)) != 0;
 }
 
 bool AFTPlayerController::Down(const FKey& K) const
@@ -134,6 +223,7 @@ bool AFTPlayerController::BindDown(int32 A, int32 L) const
 
 bool AFTPlayerController::BindHit(int32 A, int32 L) const
 {
+	if (bReleaseMenuInput) return false;
 	const UFTGameInstance* GI = GetGameInstance<UFTGameInstance>();
 	if (!GI) return false;
 	const FKey& K = GI->Binds[A][L];
@@ -158,7 +248,7 @@ void AFTPlayerController::BlockMenuInputUntilRelease()
 {
 	bReleaseMenuInput = true;
 	MenuInputReleasedAfter = FPlatformTime::Seconds() + 0.12;
-	In = FFTInput();
+	SuppressGameplayUntilRelease();
 	bSwallowFire = true;
 	bPrevPadMissile = bPrevDrift = false;
 }
@@ -173,7 +263,7 @@ void AFTPlayerController::PlayerTick(float Dt)
 	{
 		bool bHeld = false;
 		for (const FKey& K : { EKeys::Escape, EKeys::Enter, EKeys::SpaceBar, EKeys::P,
-			EKeys::LeftMouseButton, EKeys::RightMouseButton, EKeys::Gamepad_Special_Right,
+			EKeys::LeftMouseButton, EKeys::RightMouseButton, EKeys::Gamepad_Special_Right, EKeys::Gamepad_Special_Left,
 			EKeys::Gamepad_FaceButton_Bottom, EKeys::Gamepad_FaceButton_Right,
 			EKeys::Gamepad_FaceButton_Left, EKeys::Gamepad_FaceButton_Top })
 			bHeld |= IsInputKeyDown(K);
@@ -215,19 +305,33 @@ void AFTPlayerController::PlayerTick(float Dt)
 
 	const float StickY = GetInputAnalogKeyState(EKeys::Gamepad_LeftY);
 	In.bUp = Act(EFTAction::Up) || StickY > 0.55f || IsInputKeyDown(EKeys::Gamepad_DPad_Up);
-	In.bDown = Act(EFTAction::Down) || StickY < -0.55f || IsInputKeyDown(EKeys::Gamepad_DPad_Down);
-	In.bDrift = Act(EFTAction::Drift) || IsInputKeyDown(EKeys::Gamepad_FaceButton_Bottom) || IsInputKeyDown(EKeys::Gamepad_RightShoulder);
+	In.bDown = Act(EFTAction::Down) || StickY < -0.55f || IsInputKeyDown(EKeys::Gamepad_DPad_Down) || GetInputAnalogKeyState(UFTInputSubsystem::RacePadKey(EFTAction::Down)) > .4f;
+	In.bDrift = Act(EFTAction::Drift) || IsInputKeyDown(UFTInputSubsystem::RacePadKey(EFTAction::Drift)) || IsInputKeyDown(EKeys::Gamepad_RightShoulder);
 	In.bDriftPressed = In.bDrift && !bPrevDrift;
 	bPrevDrift = In.bDrift;
-	In.bTurbo = Act(EFTAction::Turbo) || IsInputKeyDown(EKeys::Gamepad_LeftShoulder) || GetInputAnalogKeyState(EKeys::Gamepad_RightTriggerAxis) > 0.4f;
-	In.bFire = Act(EFTAction::Fire) || IsInputKeyDown(EKeys::LeftMouseButton) || IsInputKeyDown(EKeys::Gamepad_FaceButton_Left);
+	In.bTurbo = Act(EFTAction::Turbo) || IsInputKeyDown(EKeys::Gamepad_LeftShoulder) || GetInputAnalogKeyState(UFTInputSubsystem::RacePadKey(EFTAction::Turbo)) > 0.4f;
+	In.bFire = Act(EFTAction::Fire) || IsInputKeyDown(EKeys::LeftMouseButton) || IsInputKeyDown(UFTInputSubsystem::RacePadKey(EFTAction::Fire));
 	// RESUME acts on the button going down, and that button, still held, was FIRE on the next frame (it spent a
 	// round, and AP/HE rounds are bought): nothing fires until it has been let go
 	if (bSwallowFire) { if (In.bFire) In.bFire = false; else bSwallowFire = false; }
-	const bool bPadM = IsInputKeyDown(EKeys::Gamepad_FaceButton_Right);
+	const bool bPadM = IsInputKeyDown(UFTInputSubsystem::RacePadKey(EFTAction::Missile));
 	In.bMissile = BindHit((int32)EFTAction::Missile, L) || WasInputKeyJustPressed(EKeys::RightMouseButton) || (bPadM && !bPrevPadMissile);
 	bPrevPadMissile = bPadM;
-	In.bAmmo = bRaceInput && (BindHit((int32)EFTAction::Ammo, L) || WasInputKeyJustPressed(EKeys::Gamepad_FaceButton_Top) || WasInputKeyJustPressed(EKeys::MiddleMouseButton));
+	In.bAmmo = bRaceInput && (BindHit((int32)EFTAction::Ammo, L) || WasInputKeyJustPressed(UFTInputSubsystem::RacePadKey(EFTAction::Ammo)) || WasInputKeyJustPressed(EKeys::MiddleMouseButton));
+	if (bSuppressGameplay)
+	{
+		// Check held buttons, not one-frame events. Resetting a pressed event alone would
+		// allow the same held confirm button to drift or fire on the following frame.
+		const bool bHeldAction = Act(EFTAction::Drift) || Act(EFTAction::Turbo) || Act(EFTAction::Fire) || Act(EFTAction::Missile) || Act(EFTAction::Ammo)
+			|| IsInputKeyDown(EKeys::LeftMouseButton) || IsInputKeyDown(EKeys::RightMouseButton) || IsInputKeyDown(EKeys::MiddleMouseButton)
+			|| IsInputKeyDown(EKeys::Gamepad_FaceButton_Bottom) || IsInputKeyDown(EKeys::Gamepad_FaceButton_Right) || IsInputKeyDown(EKeys::Gamepad_FaceButton_Left) || IsInputKeyDown(EKeys::Gamepad_FaceButton_Top)
+			|| IsInputKeyDown(EKeys::Gamepad_LeftShoulder) || IsInputKeyDown(EKeys::Gamepad_RightShoulder)
+			|| GetInputAnalogKeyState(EKeys::Gamepad_RightTriggerAxis) > .2f || GetInputAnalogKeyState(EKeys::Gamepad_LeftTriggerAxis) > .2f;
+		if (!bHeldAction) bSuppressGameplay = false;
+		In = FFTInput();
+		bPrevPadMissile = bPadM;
+		bPrevDrift = false;
+	}
 }
 
 bool AFTPlayerController::MenuLeft() const
@@ -247,6 +351,7 @@ bool AFTPlayerController::MenuBack() const { return Hit(EKeys::Escape) || Hit(EK
 
 bool AFTPlayerController::PollCapture(FKey& Out)
 {
+	if (bReleaseMenuInput) return false;
 	TArray<FKey> Keys;
 	EKeys::GetAllKeys(Keys);
 	for (const FKey& K : Keys)

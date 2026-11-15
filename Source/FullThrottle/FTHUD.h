@@ -78,5 +78,7 @@ private:
 	void DrawSystemDialog(AFTGameMode* G);
 	void DrawSaveStatus(AFTGameMode* G);
 	void DrawControls(AFTGameMode* G);
+	void DrawControlGuide(AFTGameMode* G);
+	void DrawTutorial(AFTGameMode* G);
 	void DrawOptions(AFTGameMode* G);
 };

@@ -1,0 +1,259 @@
+# Isolated TestSave; Rusty Anchor with -brawlnocut. Do not combine with brawlpadtest/autopilot.
+# FT EXEC waits 0.15 s after every command: sample actions immediately after InputHold.
+# FTBRAWLCONTROLS action/position and FTBRAWL pickup/throw logs are observed evidence;
+# AssertControl covers real pause, menu/device and checkpoint state.
+FTQuality 0
+ft.InputFocus 1
+wait 0.2
+ft.AssertControl hasContinue 1
+ft.ControllerStyle 0
+ft.InputHold Escape
+ft.InputRelease Escape
+ft.AssertControl brawlPage 1
+ft.AssertControl worldpaused 1
+ft.AssertControl brawlSelection 0
+# A raw action hold must survive the ordinary menu flush when entering Controls.
+ft.InputHold R
+ft.AssertControl brawlheldaction 1
+# The two sim/HP/position samples must remain identical while paused.
+ftb.ControlState
+wait 1
+ftb.ControlState
+ft.InputHold Down
+ft.InputRelease Down
+ft.AssertControl brawlSelection 1
+ft.InputHold Enter
+ft.InputRelease Enter
+ft.AssertControl brawlPage 2
+ft.AssertControl brawlSelection 0
+ft.AssertControl brawlheldaction 1
+# Lose real Slate viewport focus, omit key-up as when released in another window,
+# and return. Focus reconciliation must clear the stale raw hold without resuming.
+ft.InputFocus 0
+ft.AssertControl brawlheldaction 0
+ft.InputFocus 1
+wait 0.2
+ft.AssertControl brawlPage 2
+ft.AssertControl worldpaused 1
+shot fighting_controls_keyboard
+ft.InputDevice playstation
+ft.InputHold Gamepad_LeftShoulder
+ft.InputRelease Gamepad_LeftShoulder
+ft.AssertControl gamepad 1
+ft.AssertControl family 2
+shot fighting_controls_playstation
+ft.InputHold Gamepad_DPad_Right
+ft.InputRelease Gamepad_DPad_Right
+ft.AssertControl style 1
+shot fighting_controls_xbox
+ft.ControllerStyle 0
+ft.InputDevice generic
+ft.InputHold Gamepad_LeftShoulder
+ft.InputRelease Gamepad_LeftShoulder
+ft.AssertControl family 0
+shot fighting_controls_generic
+ft.InputHold Gamepad_FaceButton_Right
+ft.InputRelease Gamepad_FaceButton_Right
+ft.AssertControl brawlPage 1
+ft.AssertControl worldpaused 1
+ft.AssertControl brawlSelection 1
+ft.InputHold Gamepad_DPad_Up
+ft.InputRelease Gamepad_DPad_Up
+ft.AssertControl brawlSelection 0
+# Holding Confirm after Resume must leave action=idle and z=0 until release.
+ft.InputHold Gamepad_FaceButton_Bottom
+wait 0.5
+ftb.ControlState
+ft.AssertControl brawlPage 0
+ft.AssertControl worldpaused 0
+ft.InputRelease Gamepad_FaceButton_Bottom
+
+# Fresh pad inputs: expect punch, kick, jump, then idle after landing.
+ft.InputHold Gamepad_FaceButton_Left
+ftb.AssertAction punch
+ftb.ControlState
+ft.InputRelease Gamepad_FaceButton_Left
+wait 0.2
+ft.InputHold Gamepad_FaceButton_Right
+ftb.ControlState
+ft.InputRelease Gamepad_FaceButton_Right
+wait 0.3
+ft.InputHold Gamepad_FaceButton_Bottom
+ftb.ControlState
+ft.InputRelease Gamepad_FaceButton_Bottom
+wait 0.6
+ftb.ControlState
+# No enemies have spawned here: Top must not punch, kick, jump, or open a menu.
+# Successful targeted grab/hurl is separate -brawlpadtest -brawlgrab coverage.
+ft.InputHold Gamepad_FaceButton_Top
+ftb.ControlState
+ft.InputRelease Gamepad_FaceButton_Top
+ft.AssertControl brawlPage 0
+ft.AssertControl worldpaused 0
+shot fighting_tips_gamepad
+
+# Disconnect during actual analog movement. Movement must freeze and stay paused on reconnect.
+ft.InputHold Gamepad_LeftX 0.5
+wait 0.3
+ftb.ControlState
+ft.InputDisconnect
+ft.AssertControl brawlPage 1
+ft.AssertControl worldpaused 1
+ft.AssertControl disconnected 1
+ftb.ControlState
+wait 0.5
+ftb.ControlState
+shot fighting_controller_disconnected
+ft.InputReconnect
+ft.AssertControl brawlPage 1
+ft.AssertControl worldpaused 1
+ft.AssertControl disconnected 0
+ft.InputHold Escape
+ft.InputRelease Escape
+ft.AssertControl brawlPage 0
+ft.AssertControl worldpaused 0
+ft.AssertControl gamepad 0
+# Select WASD explicitly, then separate keyboard actions so their buffers do not overlap.
+ft.InputHold D
+ft.InputRelease D
+ft.InputHold J
+ftb.ControlState
+ft.InputRelease J
+wait 0.2
+ft.InputHold K
+ftb.ControlState
+ft.InputRelease K
+wait 0.3
+ft.InputHold SpaceBar
+ftb.ControlState
+ft.InputRelease SpaceBar
+wait 0.6
+ft.InputHold L
+ftb.ControlState
+ft.InputRelease L
+
+# Restart defaults to Cancel; activating that row must preserve the current fight.
+ft.InputHold Escape
+ft.InputRelease Escape
+ft.InputHold Down
+ft.InputRelease Down
+ft.InputHold Down
+ft.InputRelease Down
+ft.AssertControl brawlSelection 2
+ft.InputHold Enter
+ft.InputRelease Enter
+ft.AssertControl brawlPage 3
+ft.AssertControl brawlSelection 0
+ftb.ControlState
+shot fighting_restart_confirmation
+ft.InputHold Enter
+ft.InputRelease Enter
+ft.AssertControl brawlPage 1
+ft.AssertControl worldpaused 1
+ft.AssertControl brawlSelection 2
+ftb.ControlState
+# Reopen, select Confirm, and hold pad Confirm across the reset: no jump may leak.
+ft.InputHold Gamepad_FaceButton_Bottom
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.AssertControl brawlPage 3
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.AssertControl brawlSelection 1
+ft.InputHold Gamepad_FaceButton_Bottom
+wait 0.5
+ftb.ControlState
+ft.AssertControl brawlPage 0
+ft.AssertControl worldpaused 0
+ft.InputRelease Gamepad_FaceButton_Bottom
+
+# Restart begins near (200,470). Walk to the opening stool (560,410), before wave 1.
+# Timed positioning is checked in the logs/capture; asset absence is not a gameplay pass.
+ft.InputHold Gamepad_DPad_Right
+wait 0.9
+ft.InputRelease Gamepad_DPad_Right
+ft.InputHold Gamepad_DPad_Up
+wait 0.12
+ft.InputRelease Gamepad_DPad_Up
+ftb.ControlState
+shot fighting_item_prompt
+# Left picks up, Left swings, Right throws. Look for pickup, wpn, toss and FTBRAWL events.
+ft.InputHold Gamepad_FaceButton_Left
+ftb.ControlState
+ft.InputRelease Gamepad_FaceButton_Left
+wait 0.2
+ft.InputHold Gamepad_FaceButton_Left
+ftb.ControlState
+ft.InputRelease Gamepad_FaceButton_Left
+wait 0.3
+ft.InputHold Gamepad_FaceButton_Right
+ftb.ControlState
+ft.InputRelease Gamepad_FaceButton_Right
+wait 0.4
+
+# Replay tips from Controls and verify saved first-play state is reset.
+ft.InputHold Gamepad_Special_Right
+ft.InputRelease Gamepad_Special_Right
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.InputHold Gamepad_FaceButton_Bottom
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.AssertControl brawlPage 2
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.AssertControl brawlSelection 1
+ft.InputHold Gamepad_FaceButton_Bottom
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.AssertControl brawlPage 0
+ft.AssertControl worldpaused 0
+ft.AssertControl brawlHelp 1
+ft.AssertControl brawlHelpSeen 0
+shot fighting_tips_replayed
+
+# Title confirmation Back restores row4; explicit save/quit retains the checkpoint.
+ft.InputHold Gamepad_Special_Right
+ft.InputRelease Gamepad_Special_Right
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.AssertControl brawlSelection 4
+ft.InputHold Gamepad_FaceButton_Bottom
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.AssertControl brawlsystem 5
+ft.AssertControl brawlSelection 0
+ft.InputHold Gamepad_FaceButton_Right
+ft.InputRelease Gamepad_FaceButton_Right
+ft.AssertControl brawlPage 1
+ft.AssertControl worldpaused 1
+ft.AssertControl brawlSelection 4
+ft.InputHold Gamepad_FaceButton_Bottom
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.AssertControl brawlSelection 1
+ft.InputHold Gamepad_FaceButton_Bottom
+waitfor FT BRAWL SYSTEM exit=title discard=0|30
+ft.InputRelease Gamepad_FaceButton_Bottom
+wait 3
+ft.AssertControl title 1
+ft.AssertControl hasContinue 1
+ft.AssertControl worldpaused 0
+ft.AssertControl overlay 0
+ft.ControlState
+shot fighting_returned_to_title
+# Continue is the real title action, not a harness map jump.
+ft.AssertControl titleactionfocus 0
+ft.InputHold Gamepad_FaceButton_Bottom
+waitfor FT BRAWL CONTINUE night=1|40
+ft.InputRelease Gamepad_FaceButton_Bottom
+wait 2
+ft.AssertControl brawlsystem 0
+ft.AssertControl worldpaused 0
+ft.AssertControl hasContinue 1
+ft.ControlState
+shot fighting_continued_checkpoint
+quit

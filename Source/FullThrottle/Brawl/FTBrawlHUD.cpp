@@ -4,18 +4,23 @@
 #include "Engine/Engine.h"
 #include "Engine/Font.h"
 #include "CanvasItem.h"
-#if __has_include("FTGameInstance.h")   // the main game: M mutes in the nights too (loop cycle 6), pad prompts (loop cycle 8)
-#define FT_BRAWL_MUTE_HINT "   /   M  MUTE"
-#define FT_BRAWL_ENTER "ENTER / A"
-#define FT_BRAWL_SKIP "TAB / BACK"
-#else
-#define FT_BRAWL_MUTE_HINT ""
-#define FT_BRAWL_ENTER "ENTER / A"
-#define FT_BRAWL_SKIP "TAB / BACK"
-#endif
+#include "FTInput.h"
+#include "FTInputGlyphs.h"
+#include "FTGameInstance.h"
 
 namespace
 {
+	FString BrawlKey(const UObject* Context, EFTBrawlAction Action)
+	{
+		if (const UFTInputSubsystem* Input = UFTInputSubsystem::Get(Context)) return Input->BrawlPrompt(Action);
+		return TEXT("?");
+	}
+	FString SceneKey(const UObject* Context, bool bRetry)
+	{
+		if (const UFTInputSubsystem* Input = UFTInputSubsystem::Get(Context))
+			return Input->KeyLabel(Input->UsesGamepad() ? (bRetry ? EKeys::Gamepad_FaceButton_Top : EKeys::Gamepad_Special_Left) : (bRetry ? EKeys::R : EKeys::Tab));
+		return bRetry ? TEXT("R") : TEXT("Tab");
+	}
 	FLinearColor Al(FLinearColor C, float A) { C.A *= A; return C; }
 	// the races' palette, value for value (full-throttle-unreal FTHUDStyle.h; the standalone brawl project has no copy of it)
 	const FLinearColor Ink(0.009f, 0.017f, 0.039f, 0.94f);
@@ -221,12 +226,12 @@ void AFTBrawlHUD::DrawItemCues(const AFTBrawlGameMode& Game)
 
 		// Anchor the one action label to the item that the pickup command will actually select.
 		const bool bManual = Manual == Index;
-		const FString Key = bManual ? (Game.bPadLast ? TEXT("X") : TEXT("J")) : TEXT("");
+		const FString Key = bManual ? BrawlKey(&Game, EFTBrawlAction::Punch) : FString();
 		const TCHAR* Verb = bDrink ? TEXT("DRINK") : bManual ? (Game.Held >= 0 ? TEXT("SWAP FOR") : TEXT("PICK UP")) : TEXT("WALK OVER");
 		const FString Name = AFTBrawlGameMode::ItemName(Item.Kind);
 		const FVector Top = Canvas->Project(Data.Top);
 		if (Top.Z <= 0) return;
-		const float KeyWidth = bManual ? 32.f : 0.f;
+		const float KeyWidth = bManual ? FMath::Clamp(TextW(Key, 17.f, true) + 16.f, 32.f, 112.f) : 0.f;
 		constexpr float Margin = 12.f;
 		const float CardHeight = bWeapon ? 59.f : 43.f;
 		const float CardWidth = FMath::Min(Width - 2.f * Margin,
@@ -252,15 +257,15 @@ void AFTBrawlHUD::DrawItemCues(const AFTBrawlGameMode& Game)
 		const float TextX = CardX + 11.f + KeyWidth;
 		if (bManual)
 		{
-			Rect(CardX + 9.f, CardY + 10.f, 24.f, 23.f, Accent);
-			Txt(Key, CardX + 21.f, CardY + 12.f, Deep, 17.f, 1);
+			Rect(CardX + 9.f, CardY + 10.f, KeyWidth - 8.f, 23.f, Accent);
+			Txt(Key, CardX + 5.f + KeyWidth * .5f, CardY + 12.f, Deep, 17.f, 1, true, KeyWidth - 12.f);
 		}
 		Txt(Verb, TextX, CardY + 5.f, Accent, 12.f, 0, true, CardWidth - KeyWidth - 22.f);
 		Txt(Name, TextX, CardY + 20.f, White, 16.f, 0, false, CardWidth - KeyWidth - 22.f);
 		if (bWeapon)
 		{
 			const FLinearColor Wear = Data.bLastUse ? Red : Grey;
-			Txt(Data.bLastUse ? TEXT("LAST HIT") : TEXT("DURABILITY"), TextX, CardY + 39.f, Wear, 10.f, 0, true);
+			Txt(Data.bLastUse ? TEXT("LAST HIT") : TEXT("DURABILITY"), CardX + 11.f, CardY + 39.f, Wear, 10.f, 0, true, CardWidth - 64.f);
 			Meter(CardX + CardWidth - 42.f, CardY + 42.f, 30.f, 4.f, Data.Durability, Wear, 3);
 		}
 	};
@@ -393,15 +398,18 @@ void AFTBrawlHUD::DrawHUD()
 		DamageMeter(X + 14, Y + 35, Pw - 28, 9, HealthFraction, BossChip, Red, 8);
 	}
 	const float HintPulse = bReducedMotion ? 1.f : 0.82f + 0.18f * FMath::Sin(G->StT * 5.f);
-	if (P.St == TEXT("held")) Callout(G->bPadLast ? TEXT("MASH X / Y TO BREAK FREE") : TEXT("MASH J / K TO BREAK FREE"), Mid, 150, Red, Strong, HintPulse);
+	if (P.St == TEXT("held")) Callout(TEXT("MASH ") + BrawlKey(G, EFTBrawlAction::Punch) + TEXT(" / ") + BrawlKey(G, EFTBrawlAction::Kick) + TEXT(" TO BREAK FREE"), Mid, 150, Red, Strong, HintPulse);
 	if (G->Go > 0) Callout(TEXT("GO →"), R - 70 + (bReducedMotion ? 0.f : 5.f * FMath::Sin(G->StT * 4.f)), H / 2 - 40, Yellow, Heading, HintPulse);
-	if (P.St == TEXT("lift") || P.St == TEXT("carry")) Callout(G->bPadLast ? TEXT("B / X / Y: THROW HIM (STICK TO AIM)") : TEXT("L / J / K: THROW HIM (STEER TO AIM)"), Mid, 150, Yellow, Strong, HintPulse);
+	if (P.St == TEXT("lift") || P.St == TEXT("carry")) Callout(BrawlKey(G, EFTBrawlAction::GrabThrow) + TEXT(": THROW HIM (MOVE TO AIM)"), Mid, 150, Yellow, Strong, HintPulse);
 	if (G->Foes.Num() && Bi != INDEX_NONE && G->Foes[Bi].St == TEXT("dizzy")) Callout(TEXT("DIZZY! HIT HIM!"), Mid, 196, Yellow, Strong, bBlink ? 1.f : 0.55f);
 	// the key strip: the races' (ink bar, grey Rajdhani, " / " between)
 	{
-		const FString Keys = G->bPadLast
-			? TEXT("STICK  MOVE   /   X  PUNCH, PICK UP, SWING   /   Y  KICK, THROW WEAPON   /   B  GRAB & THROW   /   A  JUMP   /   X AT THE BAR  A DRINK")
-			: TEXT("WASD  MOVE   /   J  PUNCH, PICK UP, SWING   /   K  KICK, THROW WEAPON   /   L  GRAB & THROW   /   SPACE  JUMP   /   J AT THE BAR  A DRINK" FT_BRAWL_MUTE_HINT "   /   ESC / START  PAUSE");
+		const FString Keys = BrawlKey(G, EFTBrawlAction::Move) + TEXT("  MOVE   /   ")
+			+ BrawlKey(G, EFTBrawlAction::Punch) + TEXT("  PUNCH / USE   /   ")
+			+ BrawlKey(G, EFTBrawlAction::Kick) + TEXT("  KICK   /   ")
+			+ BrawlKey(G, EFTBrawlAction::GrabThrow) + TEXT("  GRAB / THROW   /   ")
+			+ BrawlKey(G, EFTBrawlAction::Jump) + TEXT("  JUMP   /   ")
+			+ BrawlKey(G, EFTBrawlAction::Pause) + TEXT("  PAUSE / CONTROLS");
 		const float Kw = FMath::Min(R - L, TextW(Keys, Label, false) + 28.f);
 		Rect(Mid - Kw / 2, H - 32, Kw, 22, Ink);
 		Txt(Keys, Mid, H - 31, Grey, Label, 1, false, Kw - 24);
@@ -431,12 +439,13 @@ void AFTBrawlHUD::DrawHUD()
 	};
 	if (G->bWon && G->IsVelvet() && G->WinT > 1.2f) LastCall(TEXT("VINNIE"), TEXT("\"MY FLOOR... MY BEAUTIFUL FLOOR...\""), Pink);
 	if (G->bWon && G->IsLucky() && G->WinT > 1.2f) LastCall(TEXT("THE PIT BOSS FOLDED"), TEXT("NOVA: \"THE HOUSE ALWAYS WINS? NOT TONIGHT.\""), Yellow);   // the story's last call
-	if (P.Hp <= 0 && G->KoT > 1) Card(TEXT("KNOCKED OUT"), TEXT("NOVA HIT THE FLOOR. THIS WAVE AGAIN."), TEXT(FT_BRAWL_ENTER "   GET BACK UP"), Red, FMath::Clamp((G->KoT - 1.f) * 4.f, 0.f, 1.f));
+	if (P.Hp <= 0 && G->KoT > 1) Card(TEXT("KNOCKED OUT"), TEXT("NOVA HIT THE FLOOR. THIS WAVE AGAIN."), BrawlKey(G, EFTBrawlAction::Confirm) + TEXT("   GET BACK UP"), Red, FMath::Clamp((G->KoT - 1.f) * 4.f, 0.f, 1.f));
 	if (G->bWon)
 	{
-		const FString Keys = G->WinT > 2.6f ? (G->NextLabel().IsEmpty() ? FString(TEXT(FT_BRAWL_ENTER "   AGAIN")) : FString(TEXT(FT_BRAWL_ENTER "   ON TO ")) + G->NextLabel()) : FString();
+		const FString Keys = G->WinT > 2.6f ? BrawlKey(G, EFTBrawlAction::Confirm) + (G->NextLabel().IsEmpty() ? FString(TEXT("   AGAIN")) : FString(TEXT("   ON TO ")) + G->NextLabel()) : FString();
 		Card(TEXT("K.O.!"), FString::Printf(TEXT("%s IS DOWN  /  %d KNOCKED OUT  /  BEST COMBO %d"), *G->BossName, G->Kos, G->Best), Keys, Yellow, FMath::Clamp(G->WinT * 4.f, 0.f, 1.f));
 	}
+	if (G->bShowCombatHelp && P.Hp > 0 && !G->bWon && G->BannerT < 0 && G->BossIntro <= 0 && P.St != TEXT("held") && P.St != TEXT("lift") && P.St != TEXT("carry")) DrawCombatHelp(G);
 }
 
 TArray<FString> AFTBrawlHUD::Wrap(const FString& Str, float MaxW, float Height, bool bDisplay)
@@ -474,7 +483,9 @@ void AFTBrawlHUD::DrawCut(AFTBrawlGameMode* G)
 		Txt(G->CutCard, X + 22, Y + 46, Pink, Readout, 0, true, Cw - 44);
 		Rect(X + 22, Y + 112, Cw - 44, 1, Rule);
 		Txt(G->CutCardSub, X + 22, Y + 126, White, Strong, 0, false, Cw - 44);
-		if (int32(G->StT * 2) % 2 == 0) Txt(G->CutCardKeys, X + 22, Y + 170, Yellow, Label, 0, true, Cw - 44);
+		FString Keys = G->CutCardKeys.Replace(TEXT("ENTER/A"), *BrawlKey(G, EFTBrawlAction::Confirm));
+		Keys.ReplaceInline(TEXT("R:"), *(SceneKey(G, true) + TEXT(":")));
+		if (int32(G->StT * 2) % 2 == 0) Txt(Keys, X + 22, Y + 170, Yellow, Label, 0, true, Cw - 44);
 		return;
 	}
 	if (G->CutTitleT >= 0)
@@ -506,7 +517,63 @@ void AFTBrawlHUD::DrawCut(AFTBrawlGameMode* G)
 			Left -= Ln.Len() + 1; Y += Lh;
 		}
 	}
-	if (Bar > 20) Txt(TEXT(FT_BRAWL_ENTER "   NEXT   /   " FT_BRAWL_SKIP "   SKIP"), R, H - Bar + (Bar - Label) / 2, Grey, Label, 2);
+	if (Bar > 20) Txt(BrawlKey(G, EFTBrawlAction::Confirm) + TEXT("   NEXT   /   ") + SceneKey(G, false) + TEXT("   SKIP   /   ") + BrawlKey(G, EFTBrawlAction::Pause) + TEXT("   PAUSE"), R, H - Bar + (Bar - Label) / 2, Grey, Label, 2);
+}
+
+void AFTBrawlHUD::DrawCombatHelp(AFTBrawlGameMode* G)
+{
+	const float W = Canvas->ClipX / S, Pw = FMath::Min(620.f, W - 64.f), X = (W - Pw) * .5f;
+	// The health plate grows for held items and buffs; keep its timers clear.
+	const int32 StatusRows = int32(G->Held >= 0) + int32(G->PowerT > 0) + int32(G->ToughT > 0) + int32(G->BuzzT > 0);
+	const float Y = FMath::Max(155.f, 25.f + 108.f + 21.f * StatusRows + 12.f);
+	Plate(X, Y, Pw, 100.f, Cyan);
+	Txt(TEXT("ON FOOT / SAME HANDS, NEW MOVES"), X + 16, Y + 10, Cyan, Label);
+	Txt(BrawlKey(G, EFTBrawlAction::Punch) + TEXT("  PUNCH / USE    ") + BrawlKey(G, EFTBrawlAction::Kick) + TEXT("  KICK / THROW WEAPON"), X + 16, Y + 34, White, Body, 0, false, Pw - 32);
+	Txt(BrawlKey(G, EFTBrawlAction::Jump) + TEXT("  JUMP    ") + BrawlKey(G, EFTBrawlAction::GrabThrow) + TEXT("  LIFT / THROW FOE"), X + 16, Y + 56, White, Body, 0, false, Pw - 32);
+	Txt(BrawlKey(G, EFTBrawlAction::Pause) + TEXT("  PAUSE FOR CONTROLS / REPLAY TIPS"), X + 16, Y + 80, Grey, Label, 0, false, Pw - 32);
+}
+
+void AFTBrawlHUD::DrawControls(AFTBrawlGameMode* G)
+{
+	const float W = Canvas->ClipX / S;
+	Rect(0, 0, W, 720.f, FLinearColor(0.002f, .004f, .01f, .78f));
+	const UFTInputSubsystem* Input = UFTInputSubsystem::Get(G);
+	const TArray<FString> Items = G->SystemRows();
+	{
+		const float Pw = 836.f, X = (W - Pw) * .5f;
+		Plate(X, 54, Pw, 610, Cyan);
+		Txt(TEXT("CONTROLS / ON FOOT"), X + 24, 74, Cyan, Heading);
+		Txt(G->bDisconnectedPause?TEXT("CONTROLLER DISCONNECTED / USE KEYBOARD OR RECONNECT"):(Input && Input->UsesGamepad()?Input->DeviceLabel():TEXT("KEYBOARD + MOUSE")), X + 24, 118, G->bDisconnectedPause?Amber:Grey, Body, 0, false, Pw - 48);
+		struct FRow { EFTBrawlAction Action; const TCHAR* Label; };
+		const FRow Rows[] = {
+			{ EFTBrawlAction::Move, TEXT("MOVE / CHANGE LANE") },
+			{ EFTBrawlAction::Punch, TEXT("PUNCH / PICK UP / DRINK / SWING") },
+			{ EFTBrawlAction::Kick, TEXT("KICK / THROW HELD WEAPON") },
+			{ EFTBrawlAction::Jump, TEXT("JUMP") },
+			{ EFTBrawlAction::GrabThrow, TEXT("LIFT / THROW AN ENEMY") },
+			{ EFTBrawlAction::Pause, TEXT("PAUSE / RESUME") }
+		};
+		for (int32 I = 0; I < UE_ARRAY_COUNT(Rows); ++I)
+		{
+			const float Y = 164.f + I * 37.f;
+			Rect(X + 24, Y + 30, Pw - 48, 1, Rule);
+			Txt(Rows[I].Label, X + 28, Y, White, Body, 0, false, 456.f);
+			FTInputGlyphs::DrawFace(Canvas, Input, UFTInputSubsystem::BrawlPadKey(Rows[I].Action), FVector2D((X + Pw - 267.f) * S, (Y + 10.f) * S), 20.f * S, Face(true));
+			Txt(BrawlKey(G, Rows[I].Action), X + Pw - 28, Y, Yellow, Body, 2, false, Input && Input->UsesGamepad() ? 220.f : 275.f);
+		}
+		Txt(TEXT("ON THE ROAD"), X + 28, 408, Cyan, Label);
+		Txt(TEXT("Primary: fire / punch. Secondary: missile / kick. Bottom button: drift / jump."), X + 28, 431, Grey, Body, 0, false, Pw - 56);
+		Txt(TEXT("The top button cycles ammo while driving and grabs enemies on foot."), X + 28, 454, Grey, Body, 0, false, Pw - 56);
+	}
+	for (int32 I = 0; I < Items.Num(); ++I)
+	{
+		const FBox2D R = G->SystemItemRect(I, W);
+		const bool Selected = G->SystemSelection == I;
+		if (Selected) { Rect(R.Min.X, R.Min.Y, R.GetSize().X, R.GetSize().Y, Track); Rect(R.Min.X, R.Min.Y, 4.f, R.GetSize().Y, Yellow); }
+		Txt(Items[I], R.Min.X + 16.f, R.Min.Y + 8.f, Selected ? Yellow : White, Body, 0, true, R.GetSize().X - 32.f);
+	}
+	const float Y = 678.f;
+	Txt(BrawlKey(G, EFTBrawlAction::Confirm) + TEXT("  SELECT    /    ") + BrawlKey(G, EFTBrawlAction::Back) + TEXT("  BACK"), W * .5f, Y, Grey, Label, 1, false, W - 64.f);
 }
 
 
@@ -520,25 +587,29 @@ void AFTBrawlHUD::DrawSaveIndicator(AFTBrawlGameMode* G)
 
 void AFTBrawlHUD::DrawSystemMenu(AFTBrawlGameMode* G)
 {
+	if (G->SystemScreen == 7) { DrawControls(G); return; }
 	const float W=Canvas->ClipX/S, Mid=W*.5f;
 	Rect(0,0,W,720,FLinearColor(.003f,.007f,.018f,.88f));
-	Plate(Mid-330.f,108.f,660.f,510.f,Cyan);
+	Plate(Mid-330.f,108.f,660.f,552.f,G->bDisconnectedPause?Amber:Cyan);
 	Txt(G->SystemHeading(),Mid,135.f,White,27.f,1,true,600.f);
 	Rect(Mid-296.f,179.f,592.f,2.f,Cyan);
 	TArray<FString> Lines;
-	TArray<FString> Paragraphs; G->SystemDetail().ParseIntoArrayLines(Paragraphs,false);
+	FString Detail=G->SystemDetail();
+	if (G->bDisconnectedPause && G->SystemScreen!=2) Detail=TEXT("Controller disconnected / use keyboard or reconnect.\n")+Detail;
+	TArray<FString> Paragraphs; Detail.ParseIntoArrayLines(Paragraphs,false);
 	for(const FString& Paragraph:Paragraphs) Lines.Append(Wrap(Paragraph,588.f,17.f,false));
 	for(int32 i=0;i<FMath::Min(6,Lines.Num());++i) Txt(Lines[i],Mid,197.f+i*18.f,Grey,17.f,1,false,588.f);
 	const TArray<FString> Rows=G->SystemRows();
 	for(int32 i=0;i<Rows.Num();++i)
 	{
 		const bool Selected=i==G->SystemSelection,Enabled=G->SystemRowEnabled(i);
-		const float Y=320.f+i*48.f;
-		Rect(Mid-290.f,Y,580.f,42.f,Selected?FLinearColor(.04f,.18f,.25f,1.f):Deep);
-		if(Selected) { Rect(Mid-290.f,Y,4.f,42.f,Enabled?Cyan:Grey); Rect(Mid-290.f,Y+40.f,580.f,2.f,Enabled?Cyan:Rule); }
-		Txt(Rows[i],Mid,Y+10.f,Enabled?(Selected?White:Grey):Rule,20.f,1,true,548.f);
+		const FBox2D R=G->SystemItemRect(i,W);
+		Rect(R.Min.X,R.Min.Y,R.GetSize().X,R.GetSize().Y,Selected?FLinearColor(.04f,.18f,.25f,1.f):Deep);
+		if(Selected) { Rect(R.Min.X,R.Min.Y,4.f,R.GetSize().Y,Enabled?Cyan:Grey); Rect(R.Min.X,R.Max.Y-2.f,R.GetSize().X,2.f,Enabled?Cyan:Rule); }
+		Txt(Rows[i],Mid,R.Min.Y+8.f,Enabled?(Selected?White:Grey):Rule,20.f,1,true,548.f);
 	}
-	Txt(TEXT("UP/DOWN or LEFT STICK / SELECT     ENTER/A / CONFIRM"),Mid,548.f,Grey,13.f,1,false,600.f);
-	Txt(G->SystemScreen==1?TEXT("MOUSE / SELECT AND CLICK"):TEXT("ESC/START or B / BACK     MOUSE / SELECT AND CLICK"),Mid,570.f,Grey,13.f,1,false,600.f);
+	const UFTInputSubsystem* Input=UFTInputSubsystem::Get(G);
+	Txt(FString(Input && Input->UsesGamepad()?TEXT("LEFT STICK / D-PAD  NAVIGATE    "):TEXT("UP / DOWN  NAVIGATE    "))+BrawlKey(G,EFTBrawlAction::Confirm)+TEXT("  SELECT"),Mid,602.f,Grey,13.f,1,false,600.f);
+	Txt(G->SystemScreen==1?FString(TEXT("MOUSE / SELECT AND CLICK")):BrawlKey(G,EFTBrawlAction::Pause)+TEXT(" / ")+BrawlKey(G,EFTBrawlAction::Back)+TEXT("  BACK    MOUSE / SELECT AND CLICK"),Mid,624.f,Grey,13.f,1,false,600.f);
 	DrawSaveIndicator(G);
 }

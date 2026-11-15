@@ -1,0 +1,126 @@
+# Supplemental real-input checks. Run after race/persistence in the same isolated TestSave.
+# FTWrapNow arranges a result screen; tutorial progress is never forced or fabricated.
+# Wait for actual destination screens after async saves, rather than assuming confirmation travels immediately.
+FTQuality 0
+FTStartLevel 1
+waitfor FT CLOCK level=|45
+ft.InputHold F2
+ft.InputRelease F2
+FTInvuln 1
+ft.AssertControl phase 2
+ft.InputDevice xbox
+
+# Brake through the actual trigger mapping, then release to ordinary auto-acceleration.
+ft.InputHold Gamepad_LeftTriggerAxis 0.9
+waitfor state=8|10
+ft.ControlState
+ft.InputRelease Gamepad_LeftTriggerAxis
+waitfor state=0|10
+
+# Exercise the actual ammo-cycle action even when no paid magazine has been unlocked.
+ft.InputHold Gamepad_FaceButton_Top
+waitfor FT AMMO load=|5
+ft.InputRelease Gamepad_FaceButton_Top
+ft.ControlState
+
+# Open Options using only gamepad navigation; toggle FPS twice without changing quality.
+ft.InputHold Gamepad_Special_Right
+ft.InputRelease Gamepad_Special_Right
+ft.AssertControl overlay 1
+ft.AssertControl worldPaused 1
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.AssertControl pauseRow 1
+ft.InputHold Gamepad_FaceButton_Bottom
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.AssertControl overlay 3
+ft.AssertControl worldPaused 1
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.InputHold Gamepad_DPad_Right
+waitfor FT OPTIONS row=1|5
+ft.InputRelease Gamepad_DPad_Right
+ft.InputHold Gamepad_DPad_Right
+waitfor FT OPTIONS row=1|5
+ft.InputRelease Gamepad_DPad_Right
+# Audio is appended as row4; verify real pad input changes the shared saved setting.
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.AssertControl muted 0
+ft.InputHold Gamepad_FaceButton_Bottom
+waitfor FT OPTIONS row=4|5
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.AssertControl overlay 3
+ft.AssertControl muted 1
+shot options_audio_gamepad
+ft.InputHold Gamepad_DPad_Right
+waitfor FT OPTIONS row=4|5
+ft.InputRelease Gamepad_DPad_Right
+ft.AssertControl muted 0
+shot options_gamepad
+ft.InputHold Gamepad_FaceButton_Right
+ft.InputRelease Gamepad_FaceButton_Right
+ft.AssertControl overlay 1
+ft.AssertControl worldPaused 1
+ft.InputHold Gamepad_Special_Right
+ft.InputRelease Gamepad_Special_Right
+ft.AssertControl overlay 0
+ft.AssertControl worldPaused 0
+
+# A short gameplay window supplies recorded frames before arranging the boss defeat.
+wait 2
+FTWrapNow
+waitfor FT SCREEN name=Reel|45
+ft.AssertControl phase 5
+ft.InputHold Gamepad_FaceButton_Bottom
+waitfor FT SCREEN name=Dailies|20
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.AssertControl phase 6
+shot results_gamepad
+wait 3.2
+ft.InputHold Gamepad_FaceButton_Bottom
+waitfor FT SCREEN name=Paycheck|30
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.AssertControl phase 7
+ft.AssertControl overlay 0
+ft.AssertControl saveError 0
+shot paycheck_gamepad
+wait 0.8
+# North is Reshoot on result screens; East now saves and returns to title.
+ft.InputHold Gamepad_FaceButton_Top
+waitfor FT SCREEN name=PreProduction|30
+wait 0.5
+# The held result-screen press must not also activate PreProduction's Ready.
+ft.AssertControl phase 8
+ft.AssertControl overlay 0
+ft.InputRelease Gamepad_FaceButton_Top
+wait 0.3
+ft.AssertControl phase 8
+shot preproduction_gamepad
+# Start pauses this menu. A new North press is required for Ready after resuming.
+ft.InputHold Gamepad_Special_Right
+ft.InputRelease Gamepad_Special_Right
+ft.AssertControl overlay 1
+ft.AssertControl phase 8
+ft.AssertControl worldPaused 1
+wait 0.5
+ft.AssertControl phase 8
+ft.InputHold Gamepad_Special_Right
+ft.InputRelease Gamepad_Special_Right
+ft.AssertControl overlay 0
+ft.AssertControl worldPaused 0
+ft.InputHold Gamepad_FaceButton_Top
+waitfor FT CLOCK level=|60
+ft.InputRelease Gamepad_FaceButton_Top
+ft.AssertControl phase 2
+ft.AssertControl worldPaused 0
+ft.AssertControl tutorial 0
+ft.AssertControl saveError 0
+# The next process verifies that a non-default prompt override survives relaunch.
+ft.ControllerStyle 3
+ft.AssertControl style 3
+quit

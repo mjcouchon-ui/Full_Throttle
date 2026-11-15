@@ -1,0 +1,51 @@
+FTQuality 0
+# Allow the arriving controller's neutral gate to settle before fresh menu input.
+wait 0.5
+# Simulated native-style analog navigation: the zero-based selection must advance once
+# per physical direction episode even if a driver also emits a virtual stick button.
+ft.InputHold One
+ft.InputRelease One
+ft.AssertControl titleselection 0
+ft.InputHold Gamepad_LeftY -0.9
+wait 0.4
+ft.AssertControl titleselection 1
+ft.InputHold Gamepad_LeftStick_Down
+ft.AssertControl titleselection 1
+ft.InputRelease Gamepad_LeftStick_Down
+ft.InputRelease Gamepad_LeftY
+ft.InputHold Gamepad_LeftY -0.9
+ft.AssertControl titleselection 2
+ft.InputRelease Gamepad_LeftY
+ft.InputHold Gamepad_LeftX 0.9
+ft.AssertControl titleselection 3
+ft.InputHold Gamepad_LeftStick_Right
+ft.AssertControl titleselection 3
+ft.InputRelease Gamepad_LeftStick_Right
+ft.InputRelease Gamepad_LeftX
+ft.InputHold Gamepad_LeftStick_Left
+ft.AssertControl titleselection 2
+ft.InputRelease Gamepad_LeftStick_Left
+# Restore the original keyboard/title state before the existing Controls captures.
+ft.InputHold One
+ft.InputRelease One
+ft.AssertControl titleselection 0
+ft.InputHold C
+ft.InputRelease C
+ft.AssertControl overlay 2
+ft.AssertControl controlsPage 0
+wait 2
+shot controls_keyboard
+ft.InputDevice playstation
+ft.InputHold Gamepad_FaceButton_Left
+ft.InputRelease Gamepad_FaceButton_Left
+ft.AssertControl gamepad 1
+ft.AssertControl family 2
+shot controls_playstation
+ft.InputDevice nintendo
+ft.AssertControl family 3
+shot controls_nintendo
+ft.ControllerStyle 1
+ft.AssertControl style 1
+shot controls_xbox_override
+ft.ControllerStyle 0
+quit

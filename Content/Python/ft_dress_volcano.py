@@ -568,23 +568,6 @@ def rim_wall(m, seed=9, length=26000, h=15000, notch=False):
         _cascade(m, r, r.uniform(-3000, 3000), 1150, h * 0.8, h * 0.36, 520, glow=1.2)
 
 
-def cinder_cone(m, seed=10, R=9000, H=10500):
-    """A cinder cone with fire in its throat, three runnels down the side that faces the road, ash standing over it."""
-    r = random.Random(seed)
-    m.cyl(BASALT, (0, 0, -2500), R * 1.25, 2500 + H * 0.62, steps=10, top_r=R * 0.45)
-    m.cyl(BASALT_L, (0, 0, H * 0.62), R * 0.45, H * 0.38, steps=10, top_r=R * 0.2)
-    m.cyl(LAVA, (0, 0, H - 30), R * 0.21, 60, steps=10, glow=2.0)
-    m.cyl(YEL, (0, 0, H), R * 0.12, 60, steps=10, glow=2.6)
-    for k in range(3):
-        a = math.radians(-125 + k * 35 + r.uniform(-8, 8))
-        top = (R * 0.2 * math.cos(a), R * 0.2 * math.sin(a), H * 0.98)
-        mid = (R * 0.46 * math.cos(a), R * 0.46 * math.sin(a), H * 0.62)
-        bot = (R * 1.0 * math.cos(a + 0.12), R * 1.0 * math.sin(a + 0.12), H * 0.08)
-        tilt_box(m, LAVA, top, mid, 110, 60, glow=1.4)
-        tilt_box(m, LAVA, mid, bot, 140, 60, glow=1.4)
-    for k in range(4):
-        m.sphere(ASH if k % 2 else '#43384a', (k * 500, k * 300, H + 1600 + k * 1500), 1900 + k * 600, steps=(5, 8))
-
 
 def far_lava_falls(m, seed=11, length=24000, h=14000):
     """A far wall of cliff with three lava falls down its face into burning pools."""
@@ -745,53 +728,319 @@ def lava_stones(m, seed=34):
         m.cyl(cols[k % 3], (r.uniform(-1900, 1900), r.uniform(-1300, 1300), -900), r.uniform(150, 300), 900 + r.uniform(60, 420), steps=6)
 
 
-def vent_stacks(m):
-    """Three vent stacks of the geothermal field, banded and capped, footed 12 m down (they stand along the banked
-    bends, over the cutting): tall enough to show against the sky from down in the bend. Nothing lit on them."""
-    for k in range(3):
-        x = (k - 1) * 1300.0
-        H = 1500.0 + (k % 2) * 300
-        m.cyl(PALE, (x, 0, -1200), 95, H + 1200, steps=7, top_r=70)       # ash-grey, dark bands (pale concrete with rust bands read as white candles)
-        for j in range(3):
-            m.cyl(CHAR, (x, 0, H * (0.42 + 0.2 * j)), 100 - j * 8, 110, steps=7)
-        m.cyl(CHAR, (x, 0, H), 80, 70, steps=7, top_r=110)
+# ------------------------------------------------------------------------------------------ third pass (15 Nov 2026, the overhaul)
+# "Basalt walls and lava channels with flowing emissive surfaces, drifting embers, heat shimmer, and vent activity."
+# Dense, close and alive: a causeway of basalt stubs right behind the barrier (the near layer, unlit) and walls of
+# basalt columns right behind the lava channels; and things that MOVE, built with ft_life.Kit (parts sent along a line, up a column or out from a
+# burst by M_Life, at no cost to the game's code): crust and bright flow that really travel down both lava channels,
+# embers rising off them, fumaroles and vent stacks that let off steam on their own clocks, fissures that throw fire,
+# a bucket wheel turning in the mine, ash standing over the cinder cones and leaning down the wind.
+# A moving prop is not in JOBS (ft_dress.run does not make it): props() below builds every one of them, and animate()
+# calls props() first, so "ft_dress.run(['volcano']); ft_dress_volcano.animate()" still rebuilds the whole kit.
+# Near the road everything of this pass is unlit; what glows and moves stands 38 m out and more (the channels) or
+# past 100 m (the fissures). Nothing here stands on the right between 2.4 and 3.9 km: the table sees to that.
+STEAM, SMOKE = '#857c8c', '#43384a'     # steam a step under the pale ash: in the game a pale piece near the road is the palest thing on screen
 
 
-def lava_rafts(m, seed=35, left=False):
-    """What makes a lava channel read as flowing: rafts of dark crust riding on it, and bright chevrons of flow between
-    them that light runs along (animate). The table lays it on a channel's middle; the lava stands 40 cm over z = 0.
-    The chevrons point down the road (+x). left: the twin for the left-hand channel (SM_LavaRaftsL): the table turns a
-    left-hand piece round, so it is drawn turned round here and both channels flow the same way."""
-    if left:
-        m.base = ft_art._xf((0, 0, 0), (0, 180, 0))
+def basalt_kerb(m, seed=41, gaps=(), low=1.0):
+    """Twenty-one metres of old lava right behind the barrier: two staggered rows of hexagonal column stubs, the front
+    row waist high, the back row up to 2.2 m, ash drifted behind, a drum or two fallen out. Unlit, dark greys.
+    How tall: the barrier (1.6 m) hides whatever stands lower than about 1.7 m this close to it from a car in the
+    middle of the road, and the track pushes anything that tops 2 m over the road out to 24 m; and a kerb that was
+    tall all along would hide the lava channel behind it. So: ragged, most heads just over the barrier's line, gaps."""
     r = random.Random(seed)
-    for k in range(6):
-        cx, cy = -1900 + k * 760 + r.uniform(-120, 120), r.uniform(-330, 330)
-        m.plan(CHAR if k % 2 else BASALT, _ccw(_oval(r.uniform(200, 330), r.uniform(130, 210), 6, cx, cy, r.uniform(0, 1))), 20, 66)
-    for k in range(5):
-        x, y = -1600 + k * 800 + r.uniform(-100, 100), r.uniform(-300, 300)
+    cols = [BASALT_L, ASH, '#352a3a', BASALT_L]     # dark rock (pale columns came out as the palest thing on screen in the game); only the ash is pale
+    n = 11
+    for j in range(2):
+        for k in range(n):
+            x = -1040 + (k + 0.5 * j) * 190 + r.uniform(-22, 22)
+            rad = r.uniform(78, 100)
+            h = (r.uniform(60, 130) if j == 0 else r.uniform(125, 225)) * low
+            if (j, k) in gaps:
+                continue
+            m.cyl(cols[(k * 3 + j) % 4], (x, -80 + j * 150 + r.uniform(-12, 12), -50), rad, h + 50, steps=6)
+    for (x, y, rx) in ((-520, 190, 420), (610, 200, 360)):
+        m.sphere(PALE, (x, y, -10), 100, scale=(rx / 100.0, 1.2, 0.5), steps=(3, 6))
+    for (x, yaw) in ((-300, 25), (720, -40)):
+        m.cyl(BASALT_L, (x, 235, 52), 54, 150, rot=(90, yaw, 0), steps=6)
+
+
+def basalt_wall(m, seed=43):
+    """A wall of columnar basalt right BEHIND a lava channel (56 m from the road and more): three ranks of thick
+    hexagonal columns stepping up from 2 m at the lava's edge to 7 m at the back, rising out of the ground at one end
+    and sinking back at the other, pale ash on some heads (the heads are what reads: the rock is dark against a dark
+    sky, and the channel's glow lies along its foot). Round 1 stood a lower one 29 m out, between the road and the
+    channel: from the chase camera it hid the lava. Nothing taller than the kerb belongs in front of a channel."""
+    r = random.Random(seed)
+    cols = [BASALT, BASALT_L, '#352a3a']
+    n = 10
+    for j in range(3):
+        for k in range(n):
+            x = -950 + (k + 0.5 * (j % 2)) * 200 + r.uniform(-25, 25)
+            env = 0.45 + 0.55 * math.sin(math.pi * (k + 0.5) / n)
+            h = (r.uniform(170, 260), r.uniform(330, 470), r.uniform(520, 740))[j] * env
+            rad = r.uniform(88, 108)
+            y = -150 + j * 170 + r.uniform(-15, 15)
+            m.cyl(cols[(k + j) % 3], (x, y, -150), rad, h + 150, steps=6)
+            if (j == 2 and k % 2 == 0) or (j == 1 and k % 3 == 1):
+                m.cyl(PALE, (x, y, h - r.uniform(34, 60)), rad * 1.03, 70, steps=6)     # a collar, not a lid: the heads stand over the eye
+    for k in range(3):
+        m.cyl(BASALT_L, (r.uniform(-900, 900), -270 + r.uniform(-15, 15), 40), 60, r.uniform(110, 160), rot=(90, r.uniform(60, 120), 0), steps=6)
+
+
+# ---- what moves (ft_life.Kit). Every builder takes the asset's path.
+def lava_flow(path, left=False):
+    """A lava channel that flows, one 45 m slot of it (the table lays one a slot on the channel's middle; the lava
+    stands 40 cm over z = 0): rafts of dark crust and bright chevrons of flow that TRAVEL down the channel and come
+    round again, each in its own lane, the bright flow a little faster than the crust; shelves of crust frozen to the
+    banks, which stay; and embers that rise off the lava, cool and go out. Every slot is in step with the next, so a
+    raft that leaves one enters the next. left: the twin for the left-hand channel (the table turns a left-hand piece
+    round, so there the flow runs towards -x and both channels flow the way the road goes)."""
+    import ft_life
+    sx = -1.0 if left else 1.0
+    k = ft_life.Kit()
+    r = random.Random(35)
+    s = k.group(rough=0.9)
+    for i, (x, y, rx, ry, a0) in enumerate(((-1500, 560, 520, 150, 0.3), (300, 600, 420, 120, 0.8), (1700, 540, 380, 140, 0.1),
+                                            (-700, -590, 460, 130, 0.5), (1100, -570, 560, 150, 0.9))):
+        s.plan(CHAR if i % 2 else BASALT, _ccw(_oval(rx, ry, 6, sx * x, y, a0)), 20, 62)
+    conv = dict(ConvStart=(-sx * 2250.0, 0.0, 0.0), ConvDir=(sx, 0.0, 0.0), ConvLen=4500.0, ConvRand=0.0)
+    g = k.group('Conveyor', rough=0.9, ConvRate=0.11, **conv)                  # the crust: 5 m a second
+    for i in range(6):
+        y = (-330.0, 250.0, -80.0, 360.0, -260.0, 120.0)[i]
+        rx, ry, a0 = r.uniform(190, 330), r.uniform(120, 200), r.uniform(0, 1)
+        col = CHAR if i % 2 else BASALT
+        g.piece(lambda m, y=y, rx=rx, ry=ry, a0=a0, col=col: m.plan(col, _ccw(_oval(rx, ry, 6, 0.0, y, a0)), 20, 66),
+                a=(i + r.uniform(-0.2, 0.2)) / 6.0)
+    f = k.group('Conveyor', rough=0.9, ConvRate=0.17, **conv)                  # the bright flow: 7.6 m a second
+    for i in range(5):
+        y = (150.0, -200.0, 330.0, -40.0, -380.0)[i]
+
+        def chevron(m, y=y):
+            for sd in (-1, 1):
+                tilt_box(m, LAVA_Y, (-160.0 * sx, y + sd * 230.0, 48.0), (160.0 * sx, y, 48.0), 60, 8, glow=1.8)
+        f.piece(chevron, a=(i + 0.5 + r.uniform(-0.15, 0.15)) / 5.0)
+    for j, x in enumerate((-1500.0, 0.0, 1500.0)):                             # embers: small, slow, 38 m and more from the road
+        e = k.group('Plume', rough=0.9, PlumeBase=(x, 0.0, 70.0), PlumeRise=820.0, PlumeDrift=520.0, PlumeSize0=1.4, PlumeSize1=0.5,
+                    PlumeRate=0.13 + 0.025 * j, PlumeSpread=420.0, PlumeEase=0.9)
+        for i in range(5):     # round 2: five to a place, 30 cm, rising 8 m (three of 20 cm rising 5 m could hardly be seen from the road)
+            e.piece(lambda m: m.box(ORANGE, (0, 0, 0), (30, 30, 30), rot=(35, 20, 0), glow=1.6), a=i / 5.0 + 0.11 * j, b=0.75 + 0.15 * i,
+                    c=i * 0.53 + j * 0.29)
+    k.save(path, grow=(60.0, 0.0, 0.0), grow_down=(60.0, 0.0, 0.0))
+
+
+def fumarole(path):
+    """Vent activity by the road: a low mound of ash crusted with sulphur round its mouth, letting off steam for six
+    seconds in every twelve (each one on its own clock), the steam rising 7 m and leaning down the wind. Grey steam,
+    unlit, small and slow: it stands 31 m out and reads as steam, nothing else."""
+    import ft_life
+    k = ft_life.Kit()
+    s = k.group(rough=0.9)
+    s.sphere(ASH_L, (0, 0, -30), 190, scale=(1.25, 1.0, 0.5), steps=(4, 8))
+    s.sphere(STAIN_O, (20, -10, 26), 100, scale=(1.25, 1.0, 0.42), steps=(3, 7))
+    s.sphere(SULPH, (36, -30, 44), 60, scale=(1.1, 0.9, 0.4), steps=(3, 6))
+    s.cyl(CHAR, (20, -10, 40), 44, 40, steps=6)
+    for (x, y, sz) in ((-170, 60, 70), (150, 110, 55), (60, -170, 60)):
+        s.box(BASALT_L, (x, y, 14), (sz * 1.6, sz, sz * 0.8), rot=(8, 30, 0))
+    p = k.group('Plume', rough=0.95, PlumeBase=(20.0, -10.0, 80.0), PlumeRise=620.0, PlumeDrift=260.0, PlumeSize0=0.45, PlumeSize1=2.5,
+                PlumeRate=0.24, PlumeCycle=0.085, PlumeDuty=0.55, PlumeSpread=45.0, PlumeEase=0.8)
+    for i in range(9):     # round 2: nine small round puffs (six big six-sided ones stood over the mound like boulders)
+        p.piece(lambda m: m.sphere(STEAM, (0, 0, 0), 30, steps=(4, 8)), a=i / 9.0, b=0.8 + 0.4 * ((i * 7) % 5) / 4.0, c=i * 0.37)
+    k.save(path, grow=(160.0, 160.0, 760.0), grow_down=(160.0, 160.0, 0.0))
+
+
+def vent_stacks_live(path):
+    """Three vent stacks of the geothermal field, banded and capped, footed 12 m down (they stand along the banked
+    bends, over the cutting): tall enough to show against the sky from down in the bend. Nothing lit on them.
+    Third pass: they vent. Steam leaves each cap in bursts, each stack on its own period, so the three are never in
+    step for long."""
+    import ft_life
+    k = ft_life.Kit()
+    s = k.group(rough=0.8)
+    tops = []
+    for i in range(3):
+        x = (i - 1) * 1300.0
+        H = 1500.0 + (i % 2) * 300
+        s.cyl(ASH_L, (x, 0, -1200), 95, H + 1200, steps=7, top_r=70)      # third pass: a step darker (in the game the pale ash-grey still read as white candles)
+        for j in range(3):
+            s.cyl(CHAR, (x, 0, H * (0.42 + 0.2 * j)), 100 - j * 8, 110, steps=7)
+        s.cyl(CHAR, (x, 0, H), 80, 70, steps=7, top_r=110)
+        tops.append((x, H + 90.0))
+    for i, (x, z) in enumerate(tops):
+        p = k.group('Plume', rough=0.95, PlumeBase=(x, 0.0, z), PlumeRise=820.0, PlumeDrift=520.0, PlumeSize0=0.5, PlumeSize1=2.3, PlumeRate=0.2,
+                    PlumeCycle=(0.07, 0.1, 0.055)[i], PlumeDuty=0.6, PlumeSpread=50.0, PlumeEase=0.8)
+        for n in range(4):
+            p.piece(lambda m: m.sphere(STEAM, (0, 0, 0), 62, steps=(4, 8)), a=n / 4.0, b=0.8 + 0.4 * ((n * 3) % 4) / 3.0, c=n * 0.41 + i * 0.2)
+    k.save(path, grow=(140.0, 140.0, 1050.0), grow_down=(140.0, 140.0, 0.0))
+
+
+def fissure_fire(path):
+    """A fissure erupting on the slope (the middle distance: 110 m out and more): a rampart of spatter either side of
+    five vents, the crack glowing between the mounds, a tongue of lava run out towards the road; a flame over each
+    vent that whips and flickers (in lengths, so it has somewhere to bend); two fountains that throw clots of lava
+    up 13 m and let them fall, turn about; and smoke climbing off it and leaning down the wind. It is seen from far
+    off (the smoke, then the fountains) and passed in a few seconds."""
+    import ft_life
+    k = ft_life.Kit()
+    r = random.Random(47)
+    s = k.group(rough=0.9)
+    xs = (-1500.0, -750.0, 0.0, 750.0, 1500.0)
+    for i, x in enumerate(xs):
         for sd in (-1, 1):
-            tilt_box(m, LAVA_Y, (x, y + sd * 240, 48), (x + 320, y, 48), 60, 8, glow=1.8)
+            s.sphere(BASALT if (i + sd) % 2 else CHAR, (x + sd * 330, 60.0 * sd, -40), 300, scale=(1.0, 0.9, r.uniform(0.7, 1.15)), steps=(3, 6))
+    s.box(LAVA, (0, -30, 40), (3300, 70, 80), glow=1.4)
+    s.plan(LAVA, _ccw([(-420, -150), (420, -150), (640, -560), (230, -980), (-330, -880), (-600, -470)]), -30, 34, glow=1.3)
+    s.plan(LAVA_Y, _ccw([(-200, -200), (200, -200), (280, -540), (60, -760), (-220, -580)]), 30, 42, glow=1.9)
+    s.box(BASALT, (0, 200, -170), (4000, 800, 300))
+    fl = k.group(('Flutter', 'Light'), far=True, rough=0.9, FlutterPin=(0.0, 0.0, 120.0), FlutterAxis=(0.0, 0.0, 1.0), FlutterDir=(0.9, 0.4, 0.0),
+                 FlutterSpan=500.0, FlutterLen=620.0, FlutterRate=6.5, FlutterAmp=60.0, FlutterPhase=(0.00021, 0.0, 0.0),
+                 LightHash=0.4, LightCell=900.0, LightRate=8.0, LightMin=0.6)
+    for i, x in enumerate(xs):
+        h = (1150.0, 760.0, 1400.0, 900.0, 1050.0)[i]
+        n = 3
+        for (col, r0, hh, glow, dy) in ((LAVA, 150.0, h, 2.0, 0.0), (LAVA_Y, 76.0, h * 0.62, 2.8, -90.0)):
+            for j in range(n):
+                fl.cyl(col, (x, dy, 110 + hh * j / n), r0 * (1.0 - j / float(n)) + 8, hh / n, steps=5,
+                       top_r=r0 * (1.0 - (j + 1) / float(n)) + 8, glow=glow)
+    for b in range(2):
+        g = k.group('Burst', far=True, rough=0.9, BurstBase=((-380.0, 400.0)[b], 0.0, 350.0), BurstRadius=2000.0, BurstFall=1750.0, BurstRate=0.42,
+                    BurstLife=0.85, BurstPhase=0.5 * b)
+        for i in range(9):
+            g.piece(lambda m: m.box(LAVA_Y, (0, 0, 0), (62, 62, 62), rot=(35, 40, 0), glow=2.6), a=r.random(), b=r.uniform(0.5, 0.96), c=r.random())
+    p = k.group('Plume', far=True, rough=0.95, PlumeBase=(0.0, 100.0, 700.0), PlumeRise=1900.0, PlumeDrift=1200.0, PlumeSize0=0.6, PlumeSize1=2.6,
+                PlumeRate=0.1, PlumeSpread=260.0, PlumeEase=0.7)
+    for i in range(6):
+        p.piece(lambda m: m.sphere(SMOKE, (0, 0, 0), 150, steps=(4, 8)), a=i / 6.0, b=0.8 + 0.4 * ((i * 5) % 4) / 3.0, c=i * 0.61)     # round 2: round (a 3 x 6 sphere is a twelve-sided diamond: in the game the smoke was a row of crystals)
+    k.save(path, grow=(150.0, 150.0, 1500.0), grow_down=(150.0, 150.0, 0.0))
+
+
+def bucket_wheel(path):
+    """The mine's bucket-wheel excavator, the big machine of the middle distance: crawlers, the machine house in the
+    company's orange, a cab hung out beside the boom, the mast and its stays, a counterweight behind; and at the end of
+    the boom the wheel, 13 m across, twelve buckets on its rim, TURNING into a face of pale spoil. A red lamp blinks
+    on the mast."""
+    import ft_life
+    k = ft_life.Kit()
+    s = k.group(rough=0.7, metal=0.3)
+    hub = (-2200.0, -40.0, 1250.0)
+    for sd in (-1, 1):
+        s.box(CHAR, (0, sd * 420, 120), (1500, 260, 240))
+    s.box(RUST_D, (0, 0, 300), (1100, 760, 160))
+    s.box(LIVERY, (120, 0, 640), (900, 620, 520))
+    s.box(CHAR, (120, 0, 920), (960, 680, 40))
+    s.box(HUT, (-430, -260, 760), (260, 240, 240))
+    s.box(PANE, (-565, -260, 790), (8, 200, 120))
+    s.box(LIT, (-430, -384, 790), (200, 6, 110), glow=1.4)
+    tilt_box(s, RUST, (-300, 0, 760), (hub[0] + 120, 0, hub[2]), 220, 260)
+    tilt_box(s, RUST_D, (500, 0, 800), (1700, 0, 1050), 260, 220)
+    s.box(CONC_D, (1640, 0, 980), (520, 520, 420))
+    for sd in (-1, 1):
+        tilt_box(s, RUST, (120, sd * 240, 900), (-100, sd * 60, 2400), 70, 70)
+    s.box(RUST_D, (-100, 0, 2420), (160, 260, 120))
+    tilt_box(s, CHAR, (-100, 0, 2400), (hub[0] + 300, 0, hub[2] + 160), 46, 46)
+    tilt_box(s, CHAR, (-100, 0, 2400), (1600, 0, 1150), 46, 46)
+    tilt_box(s, CONC, (700, 300, 620), (1750, 560, 120), 200, 90)
+    s.sphere(PALE, (hub[0] - 250, 160, 100), 880, scale=(0.55, 0.8, 0.4), steps=(4, 8))
+    s.box(CHAR, (0, 0, -150), (1300, 900, 300))
+    R = 640.0
+    w = k.group('Spin', far=True, rough=0.7, metal=0.3, SpinPivot=hub, SpinAxis=(0.0, 1.0, 0.0), SpinRate=0.55, SpinRand=1.0)
+    w.cyl(CHAR, (hub[0], hub[1] - 80, hub[2]), 110, 160, rot=(0, 0, 90), steps=8)
+    for i in range(12):
+        a = math.radians(i * 30.0)
+        am = math.radians(i * 30.0 + 15.0)
+        rc = R * math.cos(math.radians(15.0))
+        w.box(RUST_D, (hub[0] + rc * math.cos(am), hub[1], hub[2] + rc * math.sin(am)), (2.0 * R * math.sin(math.radians(15.0)) + 20, 90, 60),
+              rot=(i * 30.0 + 105.0, 0, 0))
+        w.box(TRUCK, (hub[0] + (R + 50) * math.cos(a), hub[1], hub[2] + (R + 50) * math.sin(a)), (150, 170, 130), rot=(i * 30.0, 0, 0))
+        if i % 2 == 0:
+            tilt_box(w, RUST, hub, (hub[0] + R * math.cos(a), hub[1], hub[2] + R * math.sin(a)), 50, 50)
+    b = k.group('Light', rough=0.5, LightRate=0.7, LightDuty=0.45, LightSoft=0.06, LightMin=0.12, LightRand=1.0)
+    b.sphere(RED, (-100, 0, 2520), 26, steps=(4, 6), glow=1.6)
+    k.save(path)
+
+
+def cinder_cone_live(path, seed=10, R=9000, H=10500):
+    """A cinder cone on the horizon with fire in its throat and three runnels down the side that faces the road (light
+    runs down them). Third pass: the ash over it is no longer four balls standing still: it climbs out of the throat,
+    swells, leans down the wind and thins away, slowly (half a minute from throat to nothing). The horizon's own
+    movement: slow and large."""
+    import ft_life
+    k = ft_life.Kit()
+    r = random.Random(seed)
+    s = k.group(rough=0.9)
+    s.cyl(BASALT, (0, 0, -2500), R * 1.25, 2500 + H * 0.62, steps=10, top_r=R * 0.45)
+    s.cyl(BASALT_L, (0, 0, H * 0.62), R * 0.45, H * 0.38, steps=10, top_r=R * 0.2)
+    s.cyl(LAVA, (0, 0, H - 30), R * 0.21, 60, steps=10, glow=2.0)
+    s.cyl(YEL, (0, 0, H), R * 0.12, 60, steps=10, glow=2.6)
+    f = k.group('Light', rough=0.9, LightAxis=(0.0, 0.0, -1.0), LightLen=H * 0.45, LightRate=0.25, LightDuty=0.6, LightSoft=0.3, LightMin=0.5)
+    for i in range(3):
+        a = math.radians(-125 + i * 35 + r.uniform(-8, 8))
+        top = (R * 0.2 * math.cos(a), R * 0.2 * math.sin(a), H * 0.98)
+        mid = (R * 0.46 * math.cos(a), R * 0.46 * math.sin(a), H * 0.62)
+        bot = (R * 1.0 * math.cos(a + 0.12), R * 1.0 * math.sin(a + 0.12), H * 0.08)
+        tilt_box(f, LAVA, top, mid, 110, 60, glow=1.4)
+        tilt_box(f, LAVA, mid, bot, 140, 60, glow=1.4)
+    p = k.group('Plume', far=True, rough=0.95, PlumeBase=(0.0, 0.0, H + R * 0.05), PlumeRise=H * 0.95, PlumeDrift=R * 1.5, PlumeSize0=0.55,
+                PlumeSize1=2.3, PlumeRate=0.035, PlumeSpread=R * 0.07, PlumeEase=0.75)
+    for i in range(7):
+        p.piece(lambda m, c=(ASH if i % 2 else SMOKE): m.sphere(c, (0, 0, 0), R * 0.17, steps=(5, 8)), a=i / 7.0,
+                b=0.8 + 0.4 * ((i * 5) % 4) / 3.0, c=i * 0.61)
+    k.save(path, grow=(R * 1.2, R * 1.2, H * 1.1), grow_down=(R * 0.6, R * 0.6, 0.0))
+
+
+LIFE = [
+    ('SM_LavaRafts', lava_flow), ('SM_LavaRaftsL', lambda p: lava_flow(p, left=True)), ('SM_VentStacks', vent_stacks_live),
+    ('SM_Fumarole', fumarole), ('SM_FissureFire', fissure_fire), ('SM_BucketWheel', bucket_wheel),
+    ('SM_PeakCinder', cinder_cone_live), ('SM_PeakCone2AD', lambda p: cinder_cone_live(p, seed=30, R=6500, H=7600)),
+]
+
+
+def _fresh(path):
+    """A piece that used to be a still mesh (slots M0, M1 ...) and is now built by ft_life.Kit (slots L0, L1 ...) is
+    deleted first, so the moving one is made new, with the UV channels its parts are told apart by."""
+    import unreal
+    AL = getattr(unreal, 'EditorAssetLibrary', None)
+    if AL is None or not AL.does_asset_exist(path):
+        return
+    sm = AL.load_asset(path)
+    mats = list(sm.get_editor_property('static_materials')) if sm else []
+    if mats and not str(mats[0].material_slot_name).startswith('L'):
+        AL.delete_asset(path)
+
+
+def props(only=None):
+    """Build the kit's moving props (all of them, or the names in `only`). Returns how many were built; one that fails
+    is reported and the rest are still built."""
+    n = 0
+    for name, fn in LIFE:
+        if only and name not in only:
+            continue
+        try:
+            _fresh(DIR + name)
+            fn(DIR + name)
+            n += 1
+        except Exception as e:  # noqa
+            import traceback
+            print('JAM ERR moving prop volcano', name, repr(e)[:300], traceback.format_exc()[-900:], flush=True)
+    print('JAM kit volcano moving props built', n, 'of', len(LIFE), flush=True)
+    return n
 
 
 def animate():
-    """What moves (ft_life.animate puts M_Life on the named material slots and saves the mesh in place). Run it after
-    every export of one of these pieces: the export puts the plain palette back.
+    """What moves. First props() builds the moving props (the channels' flow, the fumaroles, the vent stacks, the
+    fissures, the bucket wheel, the cinder cones: see LIFE). Then ft_life.animate puts M_Life on the named material
+    slots of the still pieces and saves each mesh in place; run it after every export of one of these pieces (the
+    export puts the plain palette back):
       the falls      light runs DOWN every lava fall and seam on the far walls, the rim and the fall cliffs
-      the channels   light runs ALONG the chevrons of SM_LavaRafts and its rafts of crust drift a couple of metres
-                     back and forth, slowly, so the channel reads as flowing
       the mine       the conveyor's lamps run up its gallery; the slag in the tubs swells and dims
       beacons        the red lamps on masts, towers, rigs, pads, pylons and the mine blink, each on its own clock"""
     import ft_life
+    n = props()
     fall = dict(LightAxis=(0.0, 0.0, -1.0), LightRate=0.3, LightDuty=0.6, LightSoft=0.3, LightMin=0.5)
-    n = ft_life.animate(DIR + 'SM_RidgeFalls', 'Light', [LAVA + '*', LAVA_Y + '*'], LightLen=3200.0, **fall)
+    n += ft_life.animate(DIR + 'SM_RidgeFalls', 'Light', [LAVA + '*', LAVA_Y + '*'], LightLen=3200.0, **fall)
     n += ft_life.animate(DIR + 'SM_RidgeRim2', 'Light', [LAVA + '*', LAVA_Y + '*'], LightLen=3200.0, **fall)
     n += ft_life.animate(DIR + 'SM_RidgeCaldera', 'Light', [LAVA + '*'], LightLen=2400.0, **fall)
     n += ft_life.animate(DIR + 'SM_CragFallA', 'Light', [LAVA + '*', LAVA_Y + '*'], LightLen=700.0, **fall)
-    for name, ax in (('SM_LavaRafts', 1.0), ('SM_LavaRaftsL', -1.0)):
-        n += ft_life.animate(DIR + name, 'Light', [LAVA_Y + '*'], LightAxis=(ax, 0.0, 0.0), LightLen=800.0, LightRate=0.55, LightDuty=0.5,
-                             LightSoft=0.3, LightMin=0.3)
-        n += ft_life.animate(DIR + name, 'Bob', [CHAR, BASALT], BobDir=(ax, 0.0, 0.0), BobAmp=220.0, BobRate=0.06, BobRand=1.0)
     n += ft_life.animate(DIR + 'SM_Conveyor', 'Light', [LIT + '*'], LightAxis=(1.0, 0.0, 0.0), LightLen=1600.0, LightRate=0.6, LightDuty=0.5,
                          LightSoft=0.15, LightMin=0.25)
     n += ft_life.animate(DIR + 'SM_OreTrain', 'Light', [LAVA + '*'], **ft_life.PULSE)
@@ -846,8 +1095,10 @@ def cut_ash(m, seed=0):
 JOBS = [
     ('SM_CutBasalt', cut_basalt), ('SM_CutBasalt2', lambda m: cut_basalt(m, seed=3)), ('SM_CutAsh', cut_ash),
     ('SM_AshRipples', ash_ripples), ('SM_AshTip', ash_tip), ('SM_Conveyor', conveyor), ('SM_Crusher', crusher), ('SM_RailSpur', rail_spur),
-    ('SM_OreTrain', ore_train), ('SM_PumpHouse', pump_house), ('SM_LavaStones', lava_stones), ('SM_VentStacks', vent_stacks),
-    ('SM_LavaRafts', lava_rafts), ('SM_LavaRaftsL', lambda m: lava_rafts(m, left=True)),
+    ('SM_OreTrain', ore_train), ('SM_PumpHouse', pump_house), ('SM_LavaStones', lava_stones),
+    ('SM_BasaltKerb', basalt_kerb),
+    ('SM_BasaltKerb2', lambda m: basalt_kerb(m, seed=45, gaps=((0, 2), (0, 3), (1, 3), (0, 7), (1, 7), (1, 8), (0, 9)), low=0.8)),
+    ('SM_BasaltWall', basalt_wall),
     ('SM_AshBank', ash_bank), ('SM_AshBank2', lambda m: ash_bank(m, seed=21)), ('SM_GuardFence', guard_fence), ('SM_PipeRun', pipe_run),
     ('SM_RockRubble', rubble), ('SM_CableReels', cable_reels), ('SM_PoleMarker', marker_post),
     ('SM_TowerSurvey', survey_tower), ('SM_HutSurvey', survey_hut), ('SM_HutSurvey2', survey_hut_round), ('SM_PoleMast', instrument_mast),
@@ -860,6 +1111,12 @@ JOBS = [
     ('SM_CragFallA', lava_fall), ('SM_RockStack', rock_stack), ('SM_RockStack2Z', lambda m: rock_stack(m, seed=27, tall=1.5)),
     ('SM_CragTerrace', terrace),
     ('SM_RidgeCaldera', rim_wall), ('SM_RidgeRim2', lambda m: rim_wall(m, seed=29, length=22000, h=18000, notch=True)),
-    ('SM_PeakCinder', cinder_cone), ('SM_PeakCone2AD', lambda m: cinder_cone(m, seed=30, R=6500, H=7600)),
     ('SM_RidgeFalls', far_lava_falls), ('SM_RidgePylons', pylon_ridge),
 ]
+
+
+def after_export(only=None):
+    """Called by ft_dress.run after this kit's JOBS are exported: everything that moves is rebuilt and put back
+    (animate() builds the moving props, then puts M_Life on the still pieces an export left with the plain palette).
+    `only` is not used: the whole kit's motion is cheap to redo and nothing is left half done."""
+    return animate()

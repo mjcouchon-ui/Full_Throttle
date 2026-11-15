@@ -18,9 +18,18 @@ POOL = '#49e2d5'
 GLOW = 0.8
 
 
+WALK_RIDGE = 356.0                             # the boardwalk's canopy: its ridge, the two colours of its canvas
+WALK_CANVAS = ['#ff7a8a', '#fffaf2']
+WALK_MASTS = (-1900.0, 1900.0)                 # its banner masts, and each banner's own colour
+WALK_BANNERS = ['#ff4fb8', '#b9a4ff']
+
+
 # ------------------------------------------------------------------------------------------ the bay side, near
 def boardwalk(m):
-    """44 m of plank walk on posts, railed on the sea side (+Y is away from the road)."""
+    """44 m of plank walk on posts, railed on the sea side (+Y is away from the road).
+    Zone pass: from the road the walk was a line behind the barrier. It now carries what makes a boardwalk at a glance:
+    a striped canvas canopy over its middle, on posts (life() lets the road side of it flap from the ridge), and a
+    banner mast towards each end (each banner a colour of its own: life() pins it to its own mast)."""
     L, W = 4400, 420
     m.box(WOOD, (0, 0, 40), (L, W, 16))
     for k in range(11):
@@ -37,6 +46,20 @@ def boardwalk(m):
         m.box(TEAL, (x, 134, 112), (220, 10, 60))
         m.cyl(WHITE, (x + 300, W / 2 - 30, 48), 6, 250, steps=6)
         m.sphere(YEL, (x + 300, W / 2 - 30, 318), 26, steps=(5, 8), glow=0.6)
+    for sx in (-1, 1):                                          # the canopy's posts (not white: the canvas's white flaps)
+        for y in (-170, 170):
+            m.box(TEAL, (sx * 690, y, 196), (14, 14, 300))
+    m.box(TEAL, (0, 0, WALK_RIDGE), (1420, 16, 16))
+    for k in range(6):
+        x = -583.3 + k * 233.33
+        c = WALK_CANVAS[k % 2]
+        m.box(c, (x, -105, WALK_RIDGE - 22), (233.33, 215, 10), rot=(0, 0, -11.5))
+        m.box(c, (x, 105, WALK_RIDGE - 22), (233.33, 215, 10), rot=(0, 0, 11.5))
+    for x, c in zip(WALK_MASTS, WALK_BANNERS):
+        m.cyl(WOOD_D, (x, -150, 40), 8, 520, steps=6)
+        m.sphere(YEL, (x, -150, 574), 16, steps=(3, 5))
+        for j in range(2):
+            m.box(c, (x + 8 + 26 + j * 52, -150, 440), (52, 6, 170))
 
 
 def beach_path(m):
@@ -122,6 +145,7 @@ def breakwater(m, seed=4):
 def kiosk(m, col=PINK, trim=MINT, what='cone'):
     """A drinks or ice-cream kiosk: a striped awning over the hatch, and its ware, huge, on the roof."""
     m.box(col, (0, 0, 135), (320, 280, 270))
+    m.box(col, (0, 0, -150), (300, 260, 300))                   # zone pass: a footing (it stands on slopes by the road now)
     m.box(NAVY, (0, -141, 160), (230, 6, 120))
     m.box(WHITE, (0, -165, 96), (270, 50, 10))
     for k in range(6):
@@ -201,6 +225,7 @@ def shops(m, seed=1):
         x = -1350 + k * 900
         h = 620 + r.choice((0, 80, 140))
         m.box(cols[k], (x, 150, h / 2.0), (880, 900, h))
+        m.box(cols[k], (x, 150, -175.0), (860, 880, 350))          # zone pass: a footing (a row stands at the sight line now, on slopes too)
         m.box(NAVY, (x, -304, 150), (700, 8, 240))
         m.box(YEL if k % 2 else SKY, (x, -308, 150), (640, 4, 190), glow=0.45)          # the shop window, lit
         m.box(NAVY, (x - 250, -310, 120), (110, 6, 220))                                # its door
@@ -1151,11 +1176,423 @@ def bank_waves(m):
             m.base = None
 
 
+# ------------------------------------------------------------------------------------------ the fourth round (the zone pass, 15 Nov 2026)
+# The owner's words for this zone: "Coastal storefronts and boardwalk structures close to the road, with snapping
+# awnings, moving surf, and turning amusement rides beyond."
+# What the real game's frames showed first: the chase camera rides 3.5 m over the road and the barrier is 1.6 m high,
+# so on a straight it hides the land out to 32 m from the centre line. Everything low beside the road is behind it,
+# and the first thing seen is whatever stands tall at the sight line (24 m). So this round builds:
+#   24 m, town side    shopfronts as false fronts 3 m deep and 6 to 10 m high, 40 m to a piece, on a footing that goes
+#                      3.5 m down (the land rises and falls with the road and a piece stands level: a row is a terrace)
+#   the boardwalk      the walk itself now carries a canvas canopy and banner masts; an arcade pavilion stands on it
+#   under 2 m          market stalls at the kerb; windbreaks, deckchairs and parasols behind the barrier on the beach
+#   the cut banks      a sea wall in mosaic, laid by Bank rules on every banked bend, lead-in to lead-out
+#   what moves         awnings, canopies, banners and windbreaks flap (life()); the big wheel and the swing ride
+#                      turn, a chair lift travels along the beach, surf rolls in at the water's edge and the boats
+#                      ride the swell (life_props(): ft_life.Kit props, and life())
+FOOT = 350.0                                   # how far a footing goes down
+FRONT_Y = -150.0                               # the wall a row's awnings hang on
+AWN_DEPTH, AWN_DROP, AWN_TOP = 180.0, 55.0, 372.0
+EXTRA_GLYPHS = {'F': [(0, 0, 0, 6), (0, 6, 4, 6), (0, 3, 3, 3)], 'W': [(0, 6, 1, 0), (1, 0, 2, 4), (2, 4, 3, 0), (3, 0, 4, 6)]}
+CONE = '#e8b26a'
+
+
+def _side(m, col, pts, y0, y1, **kw):
+    """m.side with the profile wound counter-clockwise, whichever way it was written."""
+    a = 0.0
+    for (x0, z0), (x1, z1) in zip(pts, pts[1:] + pts[:1]):
+        a += x0 * z1 - x1 * z0
+    m.side(col, list(pts) if a >= 0 else list(reversed(pts)), y0, y1, **kw)
+
+
+def _sign(m, word, xc, y, z0, h, col, glow=GLOW):
+    """Block capitals facing the road (-Y), h high, centred on x = xc with their feet at z0, proud of the plane y.
+    ft_city's strokes, and two letters it has not (given to its table in memory only)."""
+    for k, v in EXTRA_GLYPHS.items():
+        ft_city.GLYPHS.setdefault(k, v)
+    unit = h / 6.0
+    width = len(word) * 5.6 * unit - 1.6 * unit
+    wall = ft_city.Wall(m, None, (xc + width / 2.0, y, 0), (-1, 0, 0), (0, -1, 0), width)
+    ft_city.text(wall, word, width / 2.0, z0, h, col, 0, 10, glow=glow)
+
+
+def _awning(m, x0, x1, y_wall, z_top, cols, depth=AWN_DEPTH, drop=AWN_DROP, n=None):
+    """A canvas awning from x0 to x1, hung on the wall at y_wall and falling towards the road (-Y), in widths of
+    alternate colours: life() pins it at the wall and lets its front edge flap, each width a little out of step."""
+    n = n or max(2, int(round((x1 - x0) / 210.0)))
+    w = (x1 - x0) / float(n)
+    roll = -math.degrees(math.atan2(drop, depth))
+    for k in range(n):
+        m.box(cols[k % len(cols)], (x0 + (k + 0.5) * w, y_wall - depth / 2.0, z_top - drop / 2.0), (w, math.hypot(depth, drop), 12), rot=(0, 0, roll))
+
+
+def _shopfront(m, x0, x1, h, col, trim, top, awn, word=None, neon=HOTPINK, upper=False):
+    """One shop of a row, x0 to x1 along the road and h high: the body, a false front cut to a shape, a lit window,
+    a door, an awning, and its name on a board."""
+    w, xc = float(x1 - x0), (x0 + x1) / 2.0
+    m.box(col, (xc, 0, h / 2.0), (w, 300, h))
+    z0 = h - 70.0
+    if top == 'step':
+        pts = [(x0, z0), (x1, z0), (x1, h + 70), (x1 - w * 0.22, h + 70), (x1 - w * 0.22, h + 190), (x0 + w * 0.22, h + 190),
+               (x0 + w * 0.22, h + 70), (x0, h + 70)]
+    elif top == 'arch':
+        pts = [(x0, z0), (x1, z0), (x1, h + 60)] + [(xc + math.cos(a) * w * 0.42, h + 60 + math.sin(a) * 170.0) for a in
+                                                   [math.pi * k / 5.0 for k in range(6)]] + [(x0, h + 60)]
+    elif top == 'gable':
+        pts = [(x0, z0), (x1, z0), (x1, h + 50), (xc, h + 230), (x0, h + 50)]
+    else:
+        pts = [(x0, z0), (x1, z0), (x1, h + 110), (x0, h + 110)]
+    _side(m, trim, pts, FRONT_Y - 16, FRONT_Y + 28)
+    m.box(NAVY, (xc - w * 0.13, FRONT_Y - 3, 165), (w * 0.52, 8, 210))                 # the window, lit from inside; the door
+    m.box(YEL, (xc - w * 0.13, FRONT_Y - 7, 165), (w * 0.52 - 50, 4, 160), glow=0.45)
+    m.box(NAVY, (x1 - w * 0.17, FRONT_Y - 3, 118), (w * 0.17, 8, 236))
+    _awning(m, x0 + 25, x1 - 25, FRONT_Y, AWN_TOP, awn)
+    if upper:
+        for sx in (-0.26, 0.26):
+            m.box(NAVY, (xc + sx * w, FRONT_Y - 3, 600), (w * 0.24, 8, 150))
+            m.box(YEL, (xc + sx * w, FRONT_Y - 7, 600), (w * 0.24 - 40, 4, 110), glow=0.45)
+    if word:
+        zs = h + 10.0
+        hgt = min(118.0, (w * 0.8) / (len(word) * 5.6 - 1.6) * 6.0)
+        m.box(NAVY, (xc, FRONT_Y - 22, zs), (w * 0.86, 12, hgt + 50))
+        _sign(m, word, xc, FRONT_Y - 28, zs - hgt / 2.0, hgt, neon)
+
+
+def _cone(m, x, y, z, s=1.0):
+    """An ice-cream cone the size of a car, for a roof."""
+    m.cyl(CONE, (x, y, z), 12 * s, 250 * s, steps=8, top_r=100 * s)
+    m.sphere(PINK, (x, y, z + 320 * s), 118 * s, steps=(4, 7))
+    m.sphere(CREAM, (x + 30 * s, y - 20 * s, z + 450 * s), 90 * s, steps=(4, 7))
+    m.sphere(CORAL, (x + 45 * s, y - 30 * s, z + 545 * s), 30 * s, steps=(3, 5))
+
+
+def _disc(m, col, x, y, z, r, t=30.0, steps=10, glow=0.0):
+    """A round plate standing up, facing the road (a sign, a sun, a doughnut)."""
+    m.cyl(col, (x, y + t / 2.0, z), r, t, steps=steps, rot=(90, 90, 0), glow=glow)
+
+
+def front1(m):
+    """40 m of the strip's shopfronts, the first row: an ice-cream parlour under a cone, a surf shop with its boards
+    on the roof, a diner behind a sun, a video arcade. False fronts 3 m deep; the footing goes 3.5 m down."""
+    m.box(SAND, (0, 0, -FOOT / 2.0), (4000, 300, FOOT))
+    m.box(WHITE, (0, FRONT_Y + 6, 8), (4000, 30, 16))
+    _shopfront(m, -2000, -1120, 600, PINK, WHITE, 'step', [CORAL, WHITE], word='ICES', neon=HOTPINK)
+    m.box(WHITE, (-1560, 30, 690), (70, 70, 200))                                       # the cone's stand, behind the parapet
+    _cone(m, -1560, 30, 790)
+    _shopfront(m, -1120, -40, 860, MINT, WHITE, 'arch', [TEAL, WHITE], word='SURF', neon=YEL, upper=True)
+    for k, c in enumerate((CORAL, TEAL, SKY)):                                          # three boards stood on the roof
+        m.box(c, (-800 + k * 150, 20, 1040), (64, 16, 360))
+    _shopfront(m, -40, 920, 580, CREAM, CORAL, 'flat', [CORAL, WHITE])
+    _disc(m, YEL, 440, FRONT_Y - 30, 700, 170, glow=0.25)                               # the diner's sun, and its rays
+    for k in range(4):
+        m.box(CORAL, (440, FRONT_Y - 20, 700), (470, 14, 44), rot=(k * 45.0, 0, 0))
+    _shopfront(m, 920, 2000, 820, LAV, WHITE, 'gable', [TEAL, WHITE], word='VIDEO', neon=HOTPINK, upper=True)
+
+
+def front2(m):
+    """40 m of shopfronts, the second row: doughnuts, tacos, a sweet shop, kites."""
+    m.box(SAND, (0, 0, -FOOT / 2.0), (4000, 300, FOOT))
+    m.box(WHITE, (0, FRONT_Y + 6, 8), (4000, 30, 16))
+    _shopfront(m, -2000, -1000, 800, PEACH, WHITE, 'flat', [CORAL, WHITE], upper=True)
+    _disc(m, PINK, -1500, FRONT_Y - 40, 1080, 190, t=70.0)                              # a doughnut over the door
+    _disc(m, PEACH, -1500, FRONT_Y - 46, 1080, 70, t=80.0)
+    _shopfront(m, -1000, -80, 580, SKY, WHITE, 'step', [CORAL, WHITE], word='TACOS', neon=HOTPINK)
+    _shopfront(m, -80, 1000, 880, CORAL, CREAM, 'arch', [TEAL, WHITE], word='CANDY', neon=YEL, upper=True)
+    for k, c in enumerate((HOTPINK, MINT)):                                             # two lollipops on the roof
+        m.box(WHITE, (260 + k * 400, 30, 1010), (16, 16, 260))
+        _disc(m, c, 260 + k * 400, 30, 1230, 110, t=30.0)
+    _shopfront(m, 1000, 2000, 620, MINT, WHITE, 'gable', [TEAL, WHITE], word='KITES', neon=HOTPINK)
+    _side(m, HOTPINK, [(1500, 900), (1640, 1100), (1500, 1300), (1360, 1100)], 10, 26)   # a kite flown from the roof
+    m.box(WHITE, (1500, 20, 760), (12, 12, 280))
+
+
+def kerb_stalls(m):
+    """18 m of the kerb as a market: five stalls under striped canopies, crates of fruit on their counters. Nothing
+    over 2.4 m, so it may stand right behind the barrier: what shows over the barrier is the row of roofs."""
+    cols = [CORAL, TEAL, YEL, HOTPINK, MINT]
+    for k in range(5):
+        x = -720 + k * 360
+        m.box(WOOD, (x, 20, 20), (270, 100, 200))                                       # the counter, 80 cm into the ground
+        for j in range(3):
+            m.box([RED, YEL, LEAF][(j + k) % 3], (x - 84 + j * 84, 8, 134), (66, 74, 30))
+        for sx in (-140, 140):
+            m.box(WOOD_D, (x + sx, 76, 105), (10, 10, 230))
+        m.box(cols[k], (x - 80, 0, 222), (160, 230, 10), rot=(0, 0, -7))               # the canopy: two widths, pinned at the back
+        m.box(WHITE, (x + 80, 0, 222), (160, 230, 10), rot=(0, 0, -7))
+    for sx in (-1, 1):                                                                  # a tub of flowers at each end
+        m.box(CREAM, (sx * 840, 0, 20), (90, 90, 100))
+        m.sphere(LEAF, (sx * 840, 0, 96), 58, scale=(1, 1, 0.8), steps=(4, 6))
+
+
+EDGE_COLS = [CORAL, WHITE, TEAL, WHITE]
+EDGE_Z0 = 90.0          # the windbreaks' canvas starts this high (life() pins it there): its top shows over the barrier
+
+
+def beach_edge(m, seed=5):
+    """30 m of the beach right behind the barrier: canvas windbreaks on poles, deckchairs in their lee, four parasols,
+    a run of sand fence. Nothing over 2.7 m (the sand is lower than the road). life() lets the windbreaks flap."""
+    r = random.Random(seed)
+    for run, x0 in enumerate((-1400, -300, 800)):
+        for k in range(4):
+            x = x0 + k * 170
+            yaw = 14.0 if k % 2 else -14.0
+            m.box(EDGE_COLS[(k + run) % 4], (x + 85, 60, EDGE_Z0 + 80), (176, 6, 160), rot=(0, yaw, 0))
+            m.box(WOOD_D, (x, 60, 92), (8, 8, 344))
+        m.box(WOOD_D, (x0 + 680, 60, 92), (8, 8, 344))
+        for k in range(2):                                                              # two deckchairs in its lee
+            x = x0 + 150 + k * 300
+            c = [YEL, HOTPINK, MINT][(run + k) % 3]
+            m.box(WOOD_D, (x, -80, 40), (60, 110, 8), rot=(0, 0, 0))
+            m.box(c, (x, -50, 76), (56, 100, 6), rot=(0, 0, 38))
+    for k, (x, y) in enumerate(((-1050, -150), (-520, 150), (460, -140), (1330, 130))):
+        m.cyl(WHITE, (x, y, -40), 5, 280, steps=6)
+        m.cyl([HOTPINK, TEAL, YEL, CORAL][k], (x, y, 216), 150, 46, steps=8, top_r=8)
+    for k in range(5):                                                                  # sand fence: slats in lengths, a little askew
+        m.box(WOOD, (300 + k * 96, 150, 50), (88, 5, 104), rot=(0, r.uniform(-8, 8), r.uniform(-5, 5)))
+    for k in range(8):
+        x, y = r.uniform(-1450, 1450), r.uniform(-180, 180)
+        m.box(LEAF if k % 2 else LEAF_D, (x, y, 50), (10, 6, 104), rot=(r.uniform(-20, 20), r.uniform(0, 180), r.uniform(-20, 20)))
+
+
+ARC_Y = -190.0          # the arcade's front wall
+ARC_TOP = 48.0          # its deck: the boardwalk's own height
+
+
+def arcade(m):
+    """An amusement arcade on the boardwalk, 26 x 10 m on piles: a long hall behind a colonnade and two awnings, a drum
+    and a dome in the middle, its name in lights on the roof, a pennant on the dome (life() flies it)."""
+    top = ARC_TOP
+    m.box(WOOD, (0, -40, top - 8), (2600, 1040, 16))
+    for k in range(6):
+        for y in (-500, 380):
+            m.box(WOOD_D, (-1200 + k * 480, y, top - 16 - 150), (30, 30, 300))
+    m.box(CREAM, (0, 120, top + 190), (2300, 620, 380))                                # the hall
+    m.box(TEAL, (0, 120, top + 392), (2380, 700, 24))
+    for k in range(8):                                                                  # the colonnade (its posts stop under the awnings' band: life() masks by height)
+        m.box(WHITE, (-1120 + k * 320, ARC_Y - 190, top + 125), (24, 24, 250))
+    for sx in (-1, 1):
+        _awning(m, sx * 740 - 410, sx * 740 + 410, ARC_Y, top + 340, [CORAL, WHITE], n=4)
+        for k in range(2):
+            m.box(NAVY, (sx * (520 + k * 440), ARC_Y - 3, top + 150), (300, 8, 190))
+            m.box(YEL, (sx * (520 + k * 440), ARC_Y - 7, top + 150), (260, 4, 150), glow=0.45)
+    m.cyl(PINK, (0, 60, top), 330, 520, steps=10)                                       # the drum, its door, the dome
+    m.box(NAVY, (0, -272, top + 130), (220, 10, 260))
+    m.cyl(WHITE, (0, 60, top + 520), 350, 30, steps=10)
+    m.sphere(TEAL, (0, 60, top + 545), 330, scale=(1, 1, 0.72), steps=(4, 10))
+    m.cyl(WHITE, (0, 60, top + 760), 8, 300, steps=5)
+    for j in range(3):                                                                  # the pennant, in three lengths
+        m.box(HOTPINK, (8 + 40 + j * 80, 60, top + 1010), (80, 6, 70 - j * 16))
+    m.box(NAVY, (-740, ARC_Y + 30, top + 404 + 110), (800, 16, 190))                     # its name on a board over one wing,
+    _sign(m, 'ARCADE', -740, ARC_Y + 22, top + 404 + 55, 108, YEL)
+    _disc(m, YEL, 740, ARC_Y + 30, top + 404 + 150, 130, glow=0.35)                       # a star over the other
+    for k in range(4):
+        m.box(HOTPINK, (740, ARC_Y + 6, top + 404 + 150), (400, 12, 40), rot=(k * 45.0, 0, 0), glow=GLOW)
+
+
+HAZE_TOWN = '#cdbdf0'
+
+
+def sky_card(m, seed=7):
+    """The far skyline as a flat card, 560 m of it and up to 220 m high, in the haze's own lilac: one outline of towers
+    cut from a sheet 4 m thick. For the horizon behind downtown's solid towers (a Far piece: it stands from z = 0 up),
+    so the skyline has a pale row behind its coloured ones. Unlit; it never comes nearer than 1.5 km."""
+    r = random.Random(seed)
+    pts = [(-28000.0, 0.0)]
+    x = -28000.0
+    while x < 27000.0:
+        w = min(r.uniform(1500, 3400), 28000.0 - x)
+        h = r.choice((5200, 7000, 8800, 11000, 13500, 17000, 21000)) * r.uniform(0.85, 1.1)
+        if r.random() < 0.3 and w > 2200:                                              # a stepped top
+            pts += [(x, h * 0.8), (x + w * 0.3, h * 0.8), (x + w * 0.3, h), (x + w * 0.7, h), (x + w * 0.7, h * 0.8), (x + w, h * 0.8)]
+        else:
+            pts += [(x, h), (x + w, h)]
+        x += w
+    pts.append((28000.0, 0.0))
+    _side(m, HAZE_TOWN, pts, -200, 200)
+
+
+# ---- the cut banks (ft_dress_bank.py has the rules: drawn flat, x along the road, y up the slope, z out of the bank)
+import ft_dress_bank as B   # noqa: E402
+
+
+def _wave(m, col, y_mid, amp, thick, z, phase=0.0, periods=2, n=16):
+    """A wave running the length of a panel: whole periods, so it meets itself on the next panel."""
+    mid = [(-B.L / 2.0 + B.L * i / n, y_mid + amp * math.sin(2 * math.pi * periods * i / float(n) + phase)) for i in range(n + 1)]
+    B.shape(m, col, [(x, y + thick / 2.0) for x, y in mid] + [(x, y - thick / 2.0) for x, y in reversed(mid)], z)
+
+
+def cut_sea(m):
+    """The sea wall inside a steeply banked bend (11 x 9 m as drawn): cream render, two mosaic waves that run from
+    panel to panel, a row of suns, a planted strip under the white kerb at the top. Unlit and still."""
+    B.body(m, CREAM, B.TALL)
+    B.band(m, TEAL, -450.0, -385.0, 16.0)
+    _wave(m, TEAL, -205.0, 62.0, 124.0, 8.0)
+    _wave(m, CORAL, 25.0, 62.0, 124.0, 8.0, phase=math.pi)
+    for k in range(3):
+        x = -366.0 + k * 366.0
+        B.shape(m, YEL, [(x + math.cos(a) * 64.0, 236.0 + math.sin(a) * 64.0) for a in [math.pi * i / 4.0 for i in range(8)]], 10.0)
+    B.band(m, LEAF_D, 340.0, 404.0, 26.0, wob=(8.0, 0.0), seed=3)
+    B.band(m, WHITE, 404.0, 450.0, 16.0)
+
+
+def cut_prom(m):
+    """The low sea wall of a gently banked bend (11 x 4 m as drawn): one wave between a teal foot and a white kerb."""
+    B.body(m, CREAM, B.LOW)
+    B.band(m, TEAL, -200.0, -158.0, 16.0)
+    _wave(m, CORAL, -10.0, 34.0, 86.0, 8.0, phase=math.pi)
+    B.band(m, WHITE, 150.0, 200.0, 16.0)
+
+
+# ---- what moves by itself: new props built with ft_life.Kit (parts made about the origin and sent round by the material)
+BAY_LOOK = dict(GlowGain=14.0, MetalScale=0.25, RoughMin=0.4, Wear=0.0)   # the plain palette's finish (M_Paint) on M_Life
+FOAM, FOAM2, WAVE_FACE = '#fffaf2', '#d9fbf4', '#8fe9dc'
+
+
+def big_wheel(k):
+    """The big wheel, 45 m: sixteen gondolas on a pink rim, lit spokes, an A-frame each side. It stands across the
+    road's direction (as the level's own wheel does), so the oncoming car sees it face on, and it turns."""
+    R, HUB = 2000.0, 2360.0
+    s = k.group(**BAY_LOOK)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            tilt_box(s, WHITE, (sx * 250, sy * 1000, 0), (sx * 200, 0, HUB), 70, 70)
+            s.box(GREY, (sx * 250, sy * 1000, -140), (130, 130, 300))
+        s.box(WHITE, (sx * 225, 0, 760), (56, 1360, 50))
+    s.box(TEAL, (0, 0, HUB), (560, 240, 240))
+    s.box(CREAM, (0, 0, -105), (760, 2500, 290))                                         # the deck, and the ticket house
+    for sx in (-1, 1):                                                                   # piles under the deck: on the pier it stands
+        for y in (-1100, 0, 1100):                                                       # 9 m over the sand (on a beach they are in it)
+            s.box(GREY, (sx * 330, y, -600), (60, 60, 720))
+    s.box(CORAL, (0, -980, 170), (520, 420, 260))
+    s.box(WHITE, (0, -980, 312), (580, 480, 24))
+    spin = dict(SpinPivot=(0.0, 0.0, HUB), SpinAxis=(1.0, 0.0, 0.0), SpinRate=0.24, SpinRand=1.0)
+    w = k.group('Spin', **dict(BAY_LOOK, **spin))
+    N = 16
+    pts = [(math.cos(2 * math.pi * i / N) * R, math.sin(2 * math.pi * i / N) * R) for i in range(N)]
+    for i in range(N):
+        (y0, z0), (y1, z1) = pts[i], pts[(i + 1) % N]
+        tilt_box(w, HOTPINK, (0, y0, HUB + z0), (0, y1, HUB + z1), 96, 64)
+    cols = [YEL, TEAL, CORAL, MINT, LAV]
+    for i in range(N):
+        y, z = pts[i]
+        w.box(cols[i % 5], (0, y, HUB + z), (240, 210, 220))
+        w.box(WHITE, (0, y, HUB + z + 122), (270, 240, 24))
+    g = k.group(('Spin', 'Light'), **dict(BAY_LOOK, LightAxis=(0.0, 0.0, 1.0), LightLen=1400.0, LightRate=0.5, LightDuty=0.5, LightSoft=0.1,
+                                          LightMin=0.35, LightRand=1.0, **spin))
+    for i in range(N // 2):
+        (y0, z0), (y1, z1) = pts[i], pts[i + N // 2]
+        tilt_box(g, YEL, (0, y0 * 0.97, HUB + z0 * 0.97), (0, y1 * 0.97, HUB + z1 * 0.97), 50, 50, glow=0.6)
+    return dict(grow=(0, 90, 90), grow_down=(0, 90, 0))
+
+
+def swing_ride(k):
+    """A chair swing, 17 m: the crown turns and flings its twelve chairs out on their arms."""
+    s = k.group(**BAY_LOOK)
+    s.cyl(CREAM, (0, 0, -260), 540, 330, steps=12)
+    s.cyl(HOTPINK, (0, 0, 70), 560, 26, steps=12)
+    s.cyl(TEAL, (0, 0, 70), 96, 1260, steps=8)
+    spin = dict(SpinPivot=(0.0, 0.0, 0.0), SpinAxis=(0.0, 0.0, 1.0), SpinRate=1.0, SpinRand=1.0)
+    c = k.group('Spin', **dict(BAY_LOOK, **spin))
+    c.cyl(CORAL, (0, 0, 1340), 540, 210, steps=12, top_r=130)
+    c.cyl(WHITE, (0, 0, 1296), 580, 46, steps=12)
+    c.cyl(WHITE, (0, 0, 1550), 130, 60, steps=8)
+    c.sphere(YEL, (0, 0, 1660), 70, steps=(4, 6))
+    for i in range(12):
+        a = 2 * math.pi * i / 12.0
+        ca, sa = math.cos(a), math.sin(a)
+        tilt_box(c, WHITE, (ca * 520, sa * 520, 1300), (ca * 960, sa * 960, 800), 24, 24)
+        c.box([HOTPINK, YEL, TEAL][i % 3], (ca * 980, sa * 980, 760), (120, 120, 96), rot=(0, math.degrees(a), 0))
+    g = k.group(('Spin', 'Light'), **dict(BAY_LOOK, LightHash=0.3, LightCell=150.0, LightRate=2.0, LightMin=0.35, LightRand=1.0, **spin))
+    for i in range(12):
+        a = 2 * math.pi * (i + 0.5) / 12.0
+        g.box(YEL, (math.cos(a) * 585, math.sin(a) * 585, 1320), (60, 60, 60), rot=(0, math.degrees(a), 0), glow=0.8)
+    return dict(grow=(40, 40, 0), grow_down=(40, 40, 0))
+
+
+def sky_ride(k):
+    """44 m of a chair lift along the beach, 9 m up: two masts, the cable out and back, six chairs under canopies that
+    travel it, three each way. One to a slot makes a line."""
+    L, H = 4400.0, 900.0
+    s = k.group(**BAY_LOOK)
+    for sx in (-1, 1):
+        x = sx * (L / 2.0 - 160)
+        s.box(WHITE, (x, 0, H / 2.0 - 150), (46, 46, H + 300))
+        s.box(TEAL, (x, 0, H + 10), (64, 600, 44))
+        s.box(CORAL, (x, 0, H + 60), (120, 120, 60))
+    for sy in (-1, 1):
+        s.box(GREY_D, (0, sy * 250, H - 26), (L, 16, 16))
+    cols = [HOTPINK, YEL, TEAL, CORAL, MINT, SKY]
+    for n, (sy, d) in enumerate(((-1, 1.0), (1, -1.0))):
+        g = k.group('Conveyor', **dict(BAY_LOOK, ConvStart=(-d * L / 2.0, sy * 250.0, H - 26.0), ConvDir=(d, 0.0, 0.0), ConvLen=L, ConvRate=0.055,
+                                       ConvRand=1.0))
+        for i in range(3):
+            def chair(m, c=cols[n * 3 + i]):
+                m.box(GREY_D, (0, 0, -95), (12, 12, 190))
+                m.box(c, (0, 0, -235), (150, 116, 90))
+                m.box(WHITE, (0, 0, -150), (176, 140, 14))
+            g.piece(chair, a=i / 3.0)
+    return dict(grow=(0, 0, 0), grow_down=(0, 0, 0))
+
+
+def surf(k):
+    """135 m of the water's edge, afloat: z = 0 is the sea and the beach is towards -Y. A sheet of foam slides up the
+    sand and back, each length of it a little out of step; five breakers come in from 230 m out and die on the shore."""
+    L = 13500.0
+    wsh = k.group('Bob', rough=0.9, **dict(BAY_LOOK, BobDir=(0.0, 1.0, 0.0), BobAmp=420.0, BobRate=0.11, BobRand=1.0, BobPhase=(0.00006, 0.0, 0.0)))
+    n = 9
+    for i in range(n):
+        x = -L / 2.0 + L * (i + 0.5) / n
+        wsh.box(FOAM, (x, -250.0, 5.0), (L / n, 1300.0, 10.0))
+        wsh.box(FOAM2, (x, 520.0, 3.0), (L / n, 640.0, 6.0))
+    r = k.group('Conveyor', rough=0.9, **dict(BAY_LOOK, ConvStart=(0.0, 23000.0, 0.0), ConvDir=(0.0, -1.0, 0.0), ConvLen=22500.0, ConvRate=0.026,
+                                              ConvRand=1.0))
+    for i in range(5):
+        def breaker(m, off=(i % 3 - 1) * 700.0):
+            # a crest of foam in three lengths, the lighter water of its face behind it
+            for xa, xb, dy, hgt in ((-5600.0, -1700.0, 0.0, 130.0), (-1500.0, 2100.0, 150.0, 170.0), (2400.0, 5900.0, -90.0, 120.0)):
+                m.box(FOAM, ((xa + xb) / 2.0 + off, dy, hgt / 2.0), (xb - xa, 250.0, hgt))
+            m.box(WAVE_FACE, (off, 360.0, 30.0), (11000.0, 440.0, 60.0))
+        r.piece(breaker, a=i / 5.0)
+    return dict(grow=(0, 23500, 200), grow_down=(0, 600, 0))
+
+
+LIFE_JOBS = [('SM_BigWheel', big_wheel), ('SM_SwingRide', swing_ride), ('SM_SkyRide', sky_ride), ('SM_Surf', surf)]
+
+
+def life_props(only=None):
+    """Build the props that move by themselves (ft_life.Kit: saved with their M_Life instances on them; they do not go
+    through ft_dress.export). only: names to build. Returns the names built."""
+    import unreal
+    import ft_life
+    done = []
+    for name, fn in LIFE_JOBS:
+        if only and name not in only:
+            continue
+        try:
+            k = ft_life.Kit()
+            ext = fn(k) or {}
+            sm = k.save('/Game/Maps/Bayshore/Dress/' + name, grow=ext.get('grow', (0.0, 0.0, 0.0)), grow_down=ext.get('grow_down', (0.0, 0.0, 0.0)))
+            # no shadow from these: the track keeps a moving prop's shadow where it was first drawn (a cached page), and a
+            # shadow standing still under a school that turns or a chair that travels is worse than none
+            sub = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
+            for i in range(len(sm.get_editor_property('static_materials'))):
+                sub.enable_section_cast_shadow(sm, False, 0, i)
+            unreal.EditorAssetLibrary.save_loaded_asset(sm)
+            done.append(name)
+        except Exception as e:  # noqa
+            import traceback
+            unreal.log_error('FTDRESS bayshore/%s FAILED: %r %s' % (name, e, traceback.format_exc()[-900:]))
+            print('JAM ERR life prop bayshore', name, repr(e)[:300], flush=True)
+    print('JAM life props bayshore built', len(done), ' '.join(done), flush=True)
+    return done
+
+
 def life():
-    """What moves (art pass 2). ft_life.animate() puts M_Life on a piece's slots and saves it in place; an export puts
-    the plain palette back, so run this again after every export of a piece named here:
-        import ft_dress, ft_dress_bay; ft_dress.run(['bayshore']); ft_dress_bay.life()
-    Nothing near the road moves much: flags and banners ripple, signs and beacons blink, pool water glints."""
+    """What moves (art pass 2, and the zone pass). ft_life.animate() puts M_Life on a piece's slots and saves it in
+    place; an export puts the plain palette back, so run this again after every export of a piece named here:
+        import ft_dress, ft_dress_bay; ft_dress.run(['bayshore']); ft_dress_bay.life_props(); ft_dress_bay.life()
+    Near the road only cloth moves, and nothing lit: awnings, canopies, banners, windbreaks. The lit and the big
+    things are in the middle distance (signs, pool water, the carousel) and beyond (boats, beacons, downtown)."""
     import ft_life
     A = ft_life.animate
     D = '/Game/Maps/Bayshore/Dress/'
@@ -1184,6 +1621,35 @@ def life():
     A(D + 'SM_Downtown', 'Light', [HOTPINK + '*'], **ft_life.PULSE)
     A(D + 'SM_Downtown', 'Light', [YEL + '*', SKY + '*'], **ft_life._windows(900.0, rate=0.1, off=0.2, low=0.3))
 
+    # ---- the zone pass. Cloth by the road: an awning is pinned along its wall and its front edge flaps, each width
+    # of canvas a little out of step with the next (the phase runs along the row). The mask is the band the awnings
+    # hang in, so walls and frames of the same colours stand still.
+    def awnings(name, cols, y_wall, depth, z0, z1, amp=16.0, rate=8.0):
+        A(D + name, 'Flutter', [c + '-' for c in cols], FlutterPin=(0.0, y_wall, 0.0), FlutterAxis=(0.0, -1.0, 0.0), FlutterDir=(0.0, 0.0, 1.0),
+          FlutterSpan=depth, FlutterLen=900.0, FlutterRate=rate, FlutterAmp=amp, FlutterPhase=(0.0019, 0.0, 0.0),
+          MaskMin=(-1.0e6, y_wall - depth - 40.0, z0), MaskMax=(1.0e6, y_wall - 1.0, z1))
+    for name in ('SM_Front1', 'SM_Front2'):
+        awnings(name, (CORAL, TEAL, WHITE), FRONT_Y, AWN_DEPTH, AWN_TOP - AWN_DROP - 30.0, AWN_TOP + 20.0)
+    for name in ('SM_Shops', 'SM_Shops2'):                                               # the first pass's rows: their awnings hang at y = -300
+        awnings(name, (TEAL, CORAL, WHITE, HOTPINK), -300.0, 150.0, 268.0, 336.0, amp=10.0)
+    awnings('SM_Arcade', (CORAL, WHITE), ARC_Y, AWN_DEPTH, ARC_TOP + 340.0 - AWN_DROP - 30.0, ARC_TOP + 360.0)
+    awnings('SM_KerbStalls', (CORAL, TEAL, YEL, HOTPINK, MINT, WHITE), 115.0, 230.0, 200.0, 250.0, amp=5.0, rate=6.0)
+    A(D + 'SM_Boardwalk', 'Flutter', [c + '-' for c in WALK_CANVAS], FlutterPin=(0.0, 0.0, 0.0), FlutterAxis=(0.0, -1.0, 0.0), FlutterDir=(0.0, 0.0, 1.0),
+      FlutterSpan=212.0, FlutterLen=900.0, FlutterRate=7.0, FlutterAmp=12.0, FlutterPhase=(0.0021, 0.0, 0.0),
+      MaskMin=(-800.0, -230.0, WALK_RIDGE - 80.0), MaskMax=(800.0, -1.0, WALK_RIDGE + 12.0))
+    for x, col in zip(WALK_MASTS, WALK_BANNERS):                                         # each banner from its own mast
+        A(D + 'SM_Boardwalk', 'Flutter', [col + '-'], FlutterPin=(x + 8.0, -150.0, 440.0), FlutterAxis=(1.0, 0.0, 0.0), FlutterDir=(0.0, 1.0, 0.0),
+          FlutterSpan=104.0, FlutterLen=210.0, FlutterRate=7.0, FlutterAmp=11.0, MaskMin=(x + 6.0, -200.0, 350.0), MaskMax=(x + 130.0, -100.0, 530.0))
+    A(D + 'SM_Arcade', 'Flutter', [HOTPINK + '-'], FlutterPin=(8.0, 60.0, ARC_TOP + 1010.0), FlutterAxis=(1.0, 0.0, 0.0), FlutterDir=(0.0, 1.0, 0.0),
+      FlutterSpan=240.0, FlutterLen=260.0, FlutterRate=8.0, FlutterAmp=16.0, MaskMin=(6.0, 0.0, ARC_TOP + 960.0), MaskMax=(300.0, 120.0, ARC_TOP + 1060.0))
+    A(D + 'SM_BeachEdge', 'Flutter', [CORAL + '-', TEAL + '-', WHITE + '-'], FlutterPin=(0.0, 0.0, EDGE_Z0), FlutterAxis=(0.0, 0.0, 1.0),
+      FlutterDir=(0.0, 1.0, 0.0), FlutterSpan=160.0, FlutterLen=320.0, FlutterRate=6.0, FlutterAmp=8.0, FlutterPhase=(0.004, 0.0, 0.0),
+      MaskMin=(-1.0e6, -40.0, EDGE_Z0 - 2.0), MaskMax=(1.0e6, 160.0, EDGE_Z0 + 162.0))
+    # the horizon: the boats ride the swell (a slow heave and a roll about the keel, each on its own beat)
+    swell = dict(BobAmp=16.0, BobRate=0.17, BobRand=1.0, SpinPivot=(0.0, 0.0, 0.0), SpinAxis=(1.0, 0.0, 0.0), SpinSwing=3.5, SpinRate=1.05, SpinRand=1.0)
+    for name in ('SM_Sailboat', 'SM_Sailboat2', 'SM_MotorYacht', 'SM_Speedboat'):
+        A(D + name, ('Bob', 'Spin'), None, **swell)
+
 
 JOBS = [
     ('SM_Boardwalk', boardwalk), ('SM_BeachPath', beach_path), ('SM_Cabanas', cabanas), ('SM_Sunbeds', sunbeds),
@@ -1196,9 +1662,9 @@ JOBS = [
     ('SM_BlockOcean', lambda m: rooftop_sign(m, 'OCEAN', HOTPINK)), ('SM_BlockVista', lambda m: rooftop_sign(m, 'VISTA', YEL)),
     ('SM_Sailboat', sailboat), ('SM_Sailboat2', lambda m: sailboat(m, CREAM, WHITE, TEAL)), ('SM_MotorYacht', motor_yacht),
     ('SM_MarinaDock', marina_dock), ('SM_Island', island),
-    ('SM_ParkedCars', parked_cars), ('SM_ParkedCars2', lambda m: parked_cars(m, seed=9)), ('SM_TikiBar', tiki_bar),
+    ('SM_ParkedCars', parked_cars), ('SM_TikiBar', tiki_bar),
     ('SM_CafeTerrace', cafe_terrace), ('SM_MarketStalls', market_stalls), ('SM_Towels', towels),
-    ('SM_Towels2', lambda m: towels(m, seed=8)), ('SM_DuneGrass', dune_grass), ('SM_BackStreet', back_street),
+    ('SM_DuneGrass', dune_grass), ('SM_BackStreet', back_street),
     ('SM_CrossStreet', cross_street), ('SM_Pier', pier), ('SM_Coaster', coaster), ('SM_Carousel', carousel),
     ('SM_CruiseShip', cruise_ship), ('SM_Speedboat', speedboat),
     # more of the strip's hotels: ft_city's own, with real glass, lit rooms and neon (names are our own)
@@ -1210,5 +1676,9 @@ JOBS = [
     ('SM_Promenade', promenade), ('SM_ResortPool', resort_pool), ('SM_Courts', courts), ('SM_SunPlaza', sun_plaza),
     ('SM_LidoBlock', lido), ('SM_BeachClub', beach_club), ('SM_BoatRow', boat_row), ('SM_Groyne', groyne),
     ('SM_BoardShops', board_shops), ('SM_Boatyard', boatyard), ('SM_Downtown', downtown), ('SM_ParkBlock', park_block),
-    ('SM_BankWaves', bank_waves),
+    # the zone pass (see "the fourth round"). Retired with it: SM_BankWaves (the hand-tilted bank beds: Bank rules and
+    # SM_CutSea / SM_CutProm cover every banked bend now), SM_ParkedCars2 (its kerb slots are the market's) and SM_Towels2
+    # (SM_Towels with another seed: its rules take SM_Towels).
+    ('SM_Front1', front1), ('SM_Front2', front2), ('SM_KerbStalls', kerb_stalls), ('SM_BeachEdge', beach_edge), ('SM_Arcade', arcade),
+    ('SM_CutSea', cut_sea), ('SM_CutProm', cut_prom), ('SM_SkyCard', sky_card),
 ]

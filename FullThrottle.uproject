@@ -67,6 +67,13 @@
     {
       "Name": "BayshoreSky",
       "Enabled": true
+    },
+    {
+      "Name": "FTNativeGamepad",
+      "Enabled": true,
+      "PlatformAllowList": [
+        "Win64"
+      ]
     }
   ],
   "Modules": [

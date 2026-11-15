@@ -110,6 +110,13 @@ public:
 	FString Banner, BannerSub;
 	bool bWon = false, bBossOut = false;
 	bool bPadLast = false;   // loop cycle 8: the last input came from a pad (the controls line names pad buttons)
+	// Compatibility mirrors for diagnostics; SystemScreen/SystemSelection own all menu behavior.
+	int32 PausePage = 0, PauseSelection = 0; // 0 closed, 1 pause, 2 controls, 3 confirmation
+	bool bDisconnectedPause = false;
+	float HelpT = 0.f;
+	bool bShowCombatHelp = false;
+	FBox2D SystemItemRect(int32 Index, float ScreenWidth) const; // HUD coordinates, 720 units high
+	void SuppressActionInput();
 	int32 BossIdx() const;
 	FVector World(float X, float Y, float Z) const;
 	// the venue: night 1 The Rusty Anchor (boss Big Earl), night 2 The Velvet Room (boss Vinnie Velour; run 16961),
@@ -173,6 +180,9 @@ public:
 	void RequestSystemQuit(bool bDesktop = true);
 	void PollSystemSave();
 	void SystemNavigate(int32 Delta);
+	void SystemAdjust(int32 Delta);
+	void OpenDisconnectedSystemMenu();
+	void SyncPauseCompatibility();
 	void SystemActivate();
 	void SystemBack();
 	TArray<FString> SystemRows() const;
@@ -181,10 +191,17 @@ public:
 	FString SystemDetail() const;
 	FString CheckpointLabel() const;
 	FString SaveStatus(bool& bError) const;
+#if !UE_BUILD_SHIPPING
+	void PrepareGrabFixture(bool bEnable);
+#endif
 
 private:
+	void ReplayCombatHelp();
+	void TickCombatHelp(float Dt);
+	void FinishCombatHelp();
+	bool bBlockCombatInput = false, bHelpInitialized = false;
 	bool bSessionReady = false;
-	int32 MenuHome = 2, RequestedExit = 0;
+	int32 MenuHome = 2, MenuHomeSelection = 0, RequestedExit = 0;
 	bool bSystemSaveWait = false, bSystemExitNeedsConfirm = false, bSystemDiscardAfterWait = false;
 	double InputResumeAt = 0;
 	TArray<TWeakObjectPtr<class UAudioComponent>> SystemPausedAudio;

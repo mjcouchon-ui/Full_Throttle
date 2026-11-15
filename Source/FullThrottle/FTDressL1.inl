@@ -10,6 +10,13 @@
 // perimeter fence (27.5 m), the drum piles, the signs and the valve stations stand from 24 m out. The fence, the
 // ground pipe and the rack corridor are Sites, not Scatters: a Site stands exactly on its slot, so slot-long pieces join.
 
+// The table is written as three parts (first, second and third pass), each the body of a lambda called at once, in
+// order. Nothing else differs from one plain list: FTDress::Build holds all eight tables in one function body, and on
+// 15 Nov 2026 that body passed the size at which the compiler stops optimising a function (error C4883 in every
+// worker's compile). As lambdas the parts are functions of their own. If FTTrackDress.cpp is changed to give each
+// level's table its own function, the three wrappers here can simply be taken out.
+auto FirstPass = [&]()
+{
 // ---- sets: pieces composed round a landmark (along m, out m, up m, yaw, scale)
 Set(TEXT("GateHouse"), {
 	{ TEXT("SM_PumpHouse"), 0, 0, 0, 0, 1.f },
@@ -113,7 +120,7 @@ Zone(TEXT("Factory gate"), 0.0f, 1.23f);
 	Site(TEXT("FenceLine"), -1, 27.5f, 1, 0, 0.85f);
 	Site(TEXT("FenceLine"), 1, 27.5f, 1, 0, 0.85f);
 	Scatter(TEXT("SM_HazSign"), 26.f, 30.f, 3, 2, 0.8f);
-	Scatter(TEXT("SM_JerseyRow"), 17.4f, 17.8f, 2, 1, 0.6f);
+	Scatter(TEXT("SM_JerseyRow"), 17.4f, 17.8f, 2, 1, 0.f);   // third pass: the kerb runs here now
 	Scatter(TEXT("SM_TankerTrailer"), 30.f, 44.f, 5, 3, 0.8f, 1.f, 0.f, 0, 12.f);
 	Scatter(TEXT("SM_DrumPile"), 29.5f, 40.f, 2, 0, 0.5f, 1.f, 0.15f, 0, 180.f);
 	Scatter(TEXT("SM_Warehouse"), 150.f, 230.f, 4, 2, 0.8f, 1.f, 0.1f);
@@ -164,7 +171,7 @@ Zone(TEXT("Reactor block"), 3.98f, 5.35f);
 	Site(TEXT("FenceLine"), -1, 27.5f, 1, 0, 0.8f);
 	Site(TEXT("FenceLine"), 1, 27.5f, 1, 0, 0.8f);
 	Scatter(TEXT("SM_HazSign"), 26.f, 29.f, 2, 1, 0.8f);
-	Scatter(TEXT("SM_JerseyRow"), 17.4f, 17.8f, 3, 0, 0.7f);
+	Scatter(TEXT("SM_JerseyRow"), 17.4f, 17.8f, 3, 0, 0.f);   // third pass: the kerb runs here now
 	Scatter(TEXT("SM_Substation"), 40.f, 60.f, 6, 4, 0.9f);
 	Scatter(TEXT("SM_ReactorHall"), 210.f, 270.f, 5, 3, 0.8f, 1.2f, 0.1f);
 	Scatter(TEXT("SM_Platform"), 44.f, 70.f, 3, 1, 0.7f);
@@ -194,10 +201,10 @@ Zone(TEXT("Pipe alley"), 5.35f, 6.72f);
 	Far(TEXT("SM_FarPlant2"), 760.f, 1100.f, 6, 2, 0.9f, 1.1f, 0.1f);
 
 // ---- the loading yards (MEGA VAT): road and rail loading, cranes over stacks, sheds
-Zone(TEXT("Loading yards"), 6.72f, 8.09f);
+Zone(TEXT("Loading yards"), 6.72f, 7.94f);   // third pass: to slot 175; the mega vat has 176 to 178
 	Site(TEXT("LoadingYard"), 0, 80.f, 4, 0, 1.f);
 	Site(TEXT("RailYard"), 0, 72.f, 4, 2, 0.95f);
-	Scatter(TEXT("SM_JerseyRow"), 17.4f, 17.8f, 1, 0, 0.7f);
+	Scatter(TEXT("SM_JerseyRow"), 17.4f, 17.8f, 1, 0, 0.f);   // third pass: the kerb runs here now
 	Scatter(TEXT("SM_DrumPile"), 29.5f, 40.f, 1, 0, 0.6f, 1.f, 0.15f, 0, 180.f);
 	Scatter(TEXT("SM_TankerTrailer"), 28.f, 42.f, 3, 1, 0.7f, 1.f, 0.f, 0, 14.f);
 	Scatter(TEXT("SM_HazSign"), 26.f, 29.f, 4, 2, 0.8f);
@@ -217,7 +224,7 @@ Zone(TEXT("Waste run"), 8.09f, 9.46f);
 	Scatter(TEXT("SM_DrumPile2"), 29.5f, 46.f, 1, 0, 0.7f, 1.1f, 0.2f, 0, 180.f);
 	Site(TEXT("FenceLine"), -1, 27.5f, 1, 0, 0.7f);
 	Site(TEXT("FenceLine"), 1, 27.5f, 1, 0, 0.7f);
-	Scatter(TEXT("SM_JerseyRow"), 17.4f, 17.8f, 2, 1, 0.5f);
+	Scatter(TEXT("SM_JerseyRow"), 17.4f, 17.8f, 2, 1, 0.f);   // third pass: the kerb runs here now
 	Scatter(TEXT("SM_HazSign"), 26.f, 29.f, 2, 0, 0.9f);
 	Scatter(TEXT("SM_DrumPile"), 46.f, 90.f, 1, 0, 0.7f, 1.4f, 0.2f, 0, 180.f);
 	Scatter(TEXT("/Game/Maps/ChemicalWorks/Props/SM_Vat"), 60.f, 125.f, 2, 0, 0.7f, 1.f, 0.2f, 0, 180.f);
@@ -231,7 +238,7 @@ Zone(TEXT("Export terminal"), 9.46f, 13.4f);
 	Site(TEXT("LoadingYard"), 0, 82.f, 5, 0, 1.f);
 	Site(TEXT("RailYard"), 0, 74.f, 5, 2, 0.95f);
 	Scatter(TEXT("SM_TankerTrailer"), 28.f, 44.f, 2, 1, 0.7f, 1.f, 0.f, 0, 14.f);
-	Scatter(TEXT("SM_JerseyRow"), 17.4f, 17.8f, 1, 0, 0.6f);
+	Scatter(TEXT("SM_JerseyRow"), 17.4f, 17.8f, 1, 0, 0.f);   // third pass: the kerb runs here now
 	Site(TEXT("PipeLine"), -1, 19.1f, 2, 0, 0.7f);
 	Site(TEXT("PipeLine"), 1, 19.1f, 2, 0, 0.7f);
 	Scatter(TEXT("SM_DrumPile"), 29.5f, 40.f, 2, 1, 0.5f, 1.f, 0.15f, 0, 180.f);
@@ -286,7 +293,11 @@ Zone(TEXT("Reactor two"), 21.4f, 25.6f);
 	Scatter(TEXT("SM_CoolingTower"), 230.f, 285.f, 4, 0, 0.8f, 1.f, 0.15f);
 	Far(TEXT("SM_FarStacks"), 380.f, 640.f, 3, 0, 0.9f, 1.f, 0.15f);
 	Far(TEXT("SM_FarCooling"), 820.f, 1200.f, 6, 3, 0.9f, 1.1f, 0.1f);
+};
+FirstPass();
 
+auto SecondPass = [&]()
+{
 // =====================================================================================================================
 // SECOND PASS (15 Nov 2026): the ground plane, what stands in the sky of the banked turns, and the reactor.
 // Everything from here on is APPENDED on purpose: a rule's random stream is seeded by its place in this file, so a rule
@@ -338,7 +349,7 @@ Zone(TEXT("Reactor core"), 5.19f, 5.22f);
 Zone(TEXT("Sky: pipe alley"), 5.35f, 6.72f);
 	Scatter(TEXT("SM_Catwalk"), 60.f, 70.f, 3, 1, 0.7f);
 	Far(TEXT("SM_ColumnTrio"), 140.f, 200.f, 5, 2, 0.8f, 1.f, 0.1f, 0, 2.f, 180.f);
-Zone(TEXT("Wall turn"), 7.88f, 8.11f);
+Zone(TEXT("Wall turn"), 7.88f, 7.94f);   // third pass: slot 175 only; the mega vat has 176 to 178
 	Scatter(TEXT("SM_ColumnTrio"), 62.f, 100.f, 1, 0, 0.9f, 1.f, 0.08f, -1);
 	Scatter(TEXT("SM_Gasholder"), 115.f, 155.f, 2, 0, 1.f, 1.2f, 0.1f, -1);
 Zone(TEXT("Sky: waste run"), 8.09f, 9.46f);
@@ -525,3 +536,210 @@ Zone(TEXT("Cut banks"), 0.f, 99.f);
 	Bank(TEXT("SM_CutKerb"), 4, 3, 0, 1.f, 2.4f, 5.5f);
 	Bank(TEXT("SM_CutKerb"), 4, 3, 1, 1.f, 2.4f, 5.5f);
 	Bank(TEXT("SM_CutKerb2"), 4, 3, 2, 1.f, 2.4f, 5.5f);
+};
+SecondPass();
+
+auto ThirdPass = [&]()
+{
+// =====================================================================================================================
+// THIRD PASS (15 Nov 2026, the overhaul): dense, distinctive and alive at racing speed. "Pipe racks, loading bays, and
+// tanks, with cycling machinery, steam releases, and moving work lights." APPENDED, like the second pass (three zones
+// above were changed in place and say so: the first pass's loose barriers have a chance of nothing, and "Loading
+// yards" and "Wall turn" stop at slot 175).
+//
+// What the chase camera sees of this road (the geometry, worked out once: DevLog\jam\dress_chem_nevada.md, third pass):
+//   - on level road with the car in the middle, the road's own barrier hides everything under 2 m nearer than 26 m,
+//     and the ground itself out to 33 m. The 17 to 24 m row is seen when the car is on that side of the road, from the
+//     low side of a banked bend (this road is banked nearly everywhere: the rolled camera looks DOWN on the land
+//     beyond the cutting's rim), from loops and jumps, and by the highlight reel's roadside cameras;
+//   - on the HIGH side of a banked bend the camera looks up over the raised barrier: at 26 degrees it sees nothing
+//     under 11 m tall at 24 m out, 16 m at 40 m; so the high side wants TALL things at the sight line;
+//   - a piece a slot long is a chord: on the outside of a bend of 190 m radius two of them leave 4 to 7 m between
+//     them, on the inside they lap.
+// So: 1. THE KERB (17.3 m): SM_KerbRun and SM_StoreRow in turn, every slot, both sides: pale, low, unlit.
+//     2. THE SIGHT LINE (24 to 38 m): tank rows, the roadside rack and compressor sheds, all unlit (so they may stand
+//        24 m out), district by district; and the lit loading bays brought up to 31 m. Behind the perimeter fence
+//        (27.5 m) where a district has one.
+//     3. STEAM AND MACHINES (37 to 50 m): blow-down stacks that let go on their own clocks, floodlight masts whose
+//        heads swing, rotary kilns turning, works roads with tugs driving them.
+//     4. THE FLARE AVENUE (12.8 to 13.8 km): eight pairs of 82 m flare derricks over the finale's long run.
+//     5. THE MEGA VAT (8.0 km): dead ahead of the jump at 7.5 km, where the road swerves round it.
+//     6. THE DOUBLED CIRCUIT'S GROUND: unlit yards tried at every distance on both laps; the clearance test keeps the
+//        ones that stand clear of the other lap.
+//     7. THE HORIZON'S CARDS: three rows of flat skyline in three receding tones.
+//     8. A CROWN OF FLARES round the outside of each 57 degree wall turn (2.6 to 3.0 km, 3.6 to 3.9 km).
+
+// ---- sets
+Set(TEXT("KerbLine"), { { TEXT("SM_KerbRun"), 0, 0, 0, 0, 1.f } });
+Set(TEXT("StoreLine"), { { TEXT("SM_StoreRow"), 0, 0, 0, 0, 1.f } });
+Set(TEXT("TankLine"), { { TEXT("SM_TankRow"), 0, 0, 0, 0, 1.f } });
+Set(TEXT("RackNearLine"), { { TEXT("SM_RackNear"), 0, 0, 0, 0, 1.f } });
+Set(TEXT("BayNear"), {
+	{ TEXT("SM_LoadingBay"), 0, 0, 0, 0, 1.f },
+	{ TEXT("SM_DrumPile2"), -15, -2, 0, 20, 1.f },
+});
+Set(TEXT("FlareGate"), { { TEXT("SM_FlareTower"), 0, 0, 0, 0, 1.f } });
+Set(TEXT("MegaVat"), {
+	{ TEXT("SM_MegaVat"), 0, 0, 0, 0, 1.f },
+	{ TEXT("SM_BlowStack"), -62, 12, 0, 0, 1.5f },
+	{ TEXT("SM_BlowStack"), 64, 16, 0, 0, 1.3f },
+	{ TEXT("SM_LightMast"), -54, -30, 0, 0, 1.f },
+	{ TEXT("SM_LightMast"), 54, -30, 0, 0, 1.f },
+});
+
+// ---- 1. the kerb: every slot, both sides, the two designs in turn (opposite turns on the two sides). Its road face
+// stands 17.3 m from the centre line; the ground pipe of the first pass runs in the strip it leaves (18.2 to 20 m)
+Zone(TEXT("Kerb"), 0.03f, 99.f);
+	Site(TEXT("KerbLine"), -1, 20.15f, 2, 0, 1.f);
+	Site(TEXT("StoreLine"), -1, 20.15f, 2, 1, 1.f);
+	Site(TEXT("KerbLine"), 1, 20.15f, 2, 1, 1.f);
+	Site(TEXT("StoreLine"), 1, 20.15f, 2, 0, 1.f);
+
+// ---- 2. the sight line: tall and unlit, district by district. Where a district has the perimeter fence (27.5 m) the
+// rows stand behind it (31.5 and 34 m); elsewhere at 26.5 m (the rack) and 28.5 m (the tanks). The lit loading bays'
+// canopy edge stands 31.5 m out
+Zone(TEXT("Near: gate"), 0.03f, 1.23f);
+	Site(TEXT("RackNearLine"), -1, 31.5f, 3, 0, 0.9f);
+	Site(TEXT("RackNearLine"), 1, 31.5f, 3, 1, 0.9f);
+	Site(TEXT("TankLine"), -1, 34.f, 3, 2, 0.8f);
+	Site(TEXT("TankLine"), 1, 34.f, 3, 0, 0.8f);
+Zone(TEXT("Near: tank farm"), 1.23f, 2.6f);
+	Site(TEXT("TankLine"), -1, 28.5f, 1, 0, 0.85f);
+	Site(TEXT("TankLine"), 1, 28.5f, 1, 0, 0.85f);
+Zone(TEXT("Near: process units"), 2.6f, 3.98f);
+	Site(TEXT("RackNearLine"), -1, 26.5f, 1, 0, 0.9f);
+	Site(TEXT("RackNearLine"), 1, 26.5f, 1, 0, 0.9f);
+	Scatter(TEXT("SM_Compressor"), 33.f, 36.f, 3, 1, 0.8f);
+Zone(TEXT("Near: reactor block"), 3.98f, 5.35f);
+	Site(TEXT("RackNearLine"), -1, 31.5f, 2, 0, 0.9f);
+	Site(TEXT("RackNearLine"), 1, 31.5f, 2, 1, 0.9f);
+	Site(TEXT("TankLine"), -1, 34.f, 4, 1, 0.8f);
+	Site(TEXT("TankLine"), 1, 34.f, 4, 0, 0.8f);
+Zone(TEXT("Near: pipe alley"), 5.35f, 6.72f);
+	Site(TEXT("RackNearLine"), -1, 26.5f, 1, 0, 0.92f);
+	Site(TEXT("RackNearLine"), 1, 26.5f, 1, 0, 0.92f);
+	Scatter(TEXT("SM_Compressor"), 33.f, 36.f, 4, 2, 0.8f);
+Zone(TEXT("Near: loading yards"), 6.72f, 7.94f);
+	Site(TEXT("BayNear"), -1, 36.5f, 3, 0, 0.9f);
+	Site(TEXT("BayNear"), 1, 36.5f, 3, 1, 0.9f);
+	Site(TEXT("TankLine"), -1, 28.5f, 3, 1, 0.85f);
+	Site(TEXT("TankLine"), 1, 28.5f, 3, 2, 0.85f);
+Zone(TEXT("Near: waste run"), 8.09f, 9.46f);
+	Site(TEXT("TankLine"), -1, 34.f, 2, 0, 0.85f);
+	Site(TEXT("TankLine"), 1, 34.f, 2, 1, 0.85f);
+Zone(TEXT("Near: export terminal"), 9.46f, 12.72f);
+	Site(TEXT("RackNearLine"), -1, 26.5f, 2, 0, 0.9f);
+	Site(TEXT("TankLine"), -1, 28.5f, 4, 1, 0.9f);
+	Site(TEXT("BayNear"), -1, 36.5f, 4, 3, 0.9f);
+	Site(TEXT("RackNearLine"), 1, 26.5f, 2, 1, 0.9f);
+	Site(TEXT("TankLine"), 1, 28.5f, 4, 0, 0.9f);
+	Site(TEXT("BayNear"), 1, 36.5f, 4, 2, 0.9f);
+Zone(TEXT("Near: flare avenue"), 12.72f, 13.85f);
+	Site(TEXT("RackNearLine"), -1, 26.5f, 1, 0, 0.9f);
+	Site(TEXT("RackNearLine"), 1, 26.5f, 1, 0, 0.9f);
+Zone(TEXT("Near: cooling field"), 13.85f, 17.4f);
+	Site(TEXT("RackNearLine"), -1, 26.5f, 2, 0, 0.9f);
+	Site(TEXT("RackNearLine"), 1, 26.5f, 2, 1, 0.9f);
+	Site(TEXT("TankLine"), -1, 28.5f, 4, 1, 0.85f);
+	Site(TEXT("TankLine"), 1, 28.5f, 4, 2, 0.85f);
+	Scatter(TEXT("SM_Compressor"), 33.f, 36.f, 5, 3, 0.8f);
+Zone(TEXT("Near: tank farm B"), 17.4f, 21.4f);
+	Site(TEXT("TankLine"), -1, 34.f, 1, 0, 0.8f);
+	Site(TEXT("TankLine"), 1, 34.f, 1, 0, 0.8f);
+Zone(TEXT("Near: reactor two"), 21.4f, 25.6f);
+	Site(TEXT("RackNearLine"), -1, 31.5f, 2, 0, 0.9f);
+	Site(TEXT("RackNearLine"), 1, 31.5f, 2, 1, 0.9f);
+	Site(TEXT("TankLine"), -1, 34.f, 4, 1, 0.8f);
+	Site(TEXT("TankLine"), 1, 34.f, 4, 0, 0.8f);
+
+// ---- 3. steam and machines. A blow-down stack's steam drifts 9 m: it stands 41 m out, its plume never nearer than
+// 27 m. The masts' lamp heads are 20 m up and 37 m out. Kilns and works roads take the 46 to 50 m band, which the
+// first pass's sets (52 m and beyond) leave mostly free. None in the flare avenue (12.72 to 13.85 km)
+Zone(TEXT("Steam"), 0.03f, 12.72f);
+	Scatter(TEXT("SM_BlowStack"), 41.f, 43.f, 5, 2, 0.85f, 1.f, 0.12f);
+	Scatter(TEXT("SM_LightMast"), 37.f, 40.f, 5, 4, 0.7f, 1.f, 0.1f, 0, 180.f);
+Zone(TEXT("Steam: finale"), 13.85f, 99.f);
+	Scatter(TEXT("SM_BlowStack"), 41.f, 43.f, 6, 4, 0.85f, 1.f, 0.12f);
+	Scatter(TEXT("SM_LightMast"), 37.f, 40.f, 6, 1, 0.7f, 1.f, 0.1f, 0, 180.f);
+Zone(TEXT("Machines: tank farm"), 1.23f, 2.6f);
+	Scatter(TEXT("SM_WorkRoad"), 49.f, 50.f, 9, 3, 1.f, 1.f, 0.f, 0, 2.f);
+Zone(TEXT("Machines: process units"), 2.6f, 3.98f);
+	Scatter(TEXT("SM_Kiln"), 46.f, 48.f, 4, 2, 0.9f, 1.f, 0.f, 0, 5.f);
+Zone(TEXT("Machines: loading yards"), 6.72f, 7.94f);
+	Scatter(TEXT("SM_Kiln"), 46.f, 48.f, 6, 4, 0.9f, 1.f, 0.f, 0, 5.f);
+Zone(TEXT("Machines: export terminal"), 9.46f, 12.72f);
+	Scatter(TEXT("SM_WorkRoad"), 49.f, 50.f, 8, 5, 1.f, 1.f, 0.f, 0, 2.f);
+	Scatter(TEXT("SM_Kiln"), 58.f, 62.f, 9, 1, 0.9f, 1.f, 0.f, 0, 5.f);
+Zone(TEXT("Machines: cooling field"), 13.85f, 17.4f);
+	Scatter(TEXT("SM_Kiln"), 46.f, 48.f, 6, 2, 0.9f, 1.f, 0.f, 0, 5.f);
+Zone(TEXT("Machines: tank farm B"), 17.4f, 21.4f);
+	Scatter(TEXT("SM_WorkRoad"), 49.f, 50.f, 8, 2, 1.f, 1.f, 0.f, 0, 2.f);
+Zone(TEXT("Machines: reactor two"), 21.4f, 25.6f);
+	Scatter(TEXT("SM_Kiln"), 46.f, 48.f, 8, 5, 0.9f, 1.f, 0.f, 0, 5.f);
+
+// ---- 4. THE FLARE AVENUE: the finale's long run from the bend at 12.76 km to the bend at 13.85 km (a rise, then
+// 800 m of gentle S). Eight pairs of derricks, 46 m out, every third slot (283 to 304): from the bend they are a
+// file of flames a kilometre long; then they pass, one pair after another, 82 m overhead
+Zone(TEXT("Flare avenue"), 12.78f, 13.8f);
+	Site(TEXT("FlareGate"), -1, 46.f, 3, 2, 1.f);
+	Site(TEXT("FlareGate"), 1, 46.f, 3, 2, 1.f);
+
+// ---- 5. THE MEGA VAT. The jump at 7.53 km takes off heading 51 degrees; the road lands, runs straight to 7.87 km and
+// then turns right through 95 degrees, banked 54 (the wall turn). The take-off's line passes 60 m to the LEFT of slot
+// 177: the vat stands there (92 m out and laid 1.35 times the mesh's size: 103 m across, 70 m to its rim, its near
+// wall 41 m from the centre line), dead ahead through the jump and the straight, and passed on the outside of the
+// wall turn, where the rolled camera looks up at its rim, its stirrer and its steam. The three
+// slots it takes (176 to 178) are dressed here: the yards on the inside, plant behind it, the horizon
+Zone(TEXT("Mega vat: round it"), 7.95f, 8.09f);
+	Site(TEXT("RailYard"), 1, 74.f, 2, 0, 1.f);
+	Scatter(TEXT("SM_Warehouse"), 160.f, 230.f, 1, 0, 0.8f, 1.1f, 0.1f, 1);
+	Scatter(TEXT("SM_Gasholder"), 185.f, 225.f, 2, 0, 1.f, 1.2f, 0.1f, -1);
+	Scatter(TEXT("SM_CoolingTower"), 200.f, 260.f, 2, 1, 1.f, 1.f, 0.1f, -1);
+	Far(TEXT("SM_FarPlant"), 400.f, 650.f, 2, 0, 0.9f, 1.f, 0.15f);
+Zone(TEXT("Mega vat"), 8.f, 8.02f);
+	Site(TEXT("MegaVat"), -1, 92.f, 1, 0, 1.f, 1.35f);
+Zone(TEXT("Wall turn: the last trio"), 8.09f, 8.11f);
+	Scatter(TEXT("SM_ColumnTrio"), 62.f, 100.f, 1, 0, 1.f, 1.f, 0.08f, -1);
+
+// ---- 6. the doubled circuit's ground. From 14.02 km the finale laps a circuit that 22.18 to 25.58 km runs round
+// again, 2 to 50 m beside the first lap and across it. The second pass left it one row 74 m out. These rules try
+// unlit yards at every distance, from both laps; a piece that would touch the other lap is left out by the track's
+// own clearance test, so what stands is what fits between and round the two roads. (Nothing lit: the test knows
+// nothing of light.) Each yard has its own slab height, so two that overlap never share a top
+Zone(TEXT("Yards: doubled circuit"), 14.02f, 17.4f);
+	Far(TEXT("SM_YardLot3"), 36.f, 37.f, 3, 0, 0.9f, 1.f, 0.03f, 0, 0.98f, 5.f);
+	Far(TEXT("SM_RailFan"), 31.f, 32.f, 3, 1, 0.9f, 1.f, 0.03f, 0, 0.95f, 3.f);
+	Far(TEXT("SM_YardLot"), 52.f, 57.f, 3, 2, 0.9f, 1.f, 0.03f, 0, 1.1f, 6.f);
+	Far(TEXT("SM_PipeField"), 57.f, 60.f, 3, 0, 0.8f, 1.f, 0.03f, 0, 1.15f, 4.f);
+	Far(TEXT("SM_YardLot2"), 52.f, 57.f, 3, 1, 0.8f, 1.f, 0.03f, 0, 1.1f, 6.f);
+Zone(TEXT("Yards: doubled circuit, second lap"), 22.18f, 25.58f);
+	Far(TEXT("SM_YardLot2"), 37.5f, 38.f, 4, 1, 0.8f, 1.f, 0.03f, 0, 0.98f, 5.f);
+	Far(TEXT("SM_Canal"), 32.5f, 33.f, 4, 3, 0.8f, 1.f, 0.03f, 0, 0.95f, 3.f);
+	Far(TEXT("SM_YardLot3"), 51.f, 56.f, 4, 0, 0.8f, 1.f, 0.03f, 0, 1.1f, 6.f);
+	Far(TEXT("SM_YardLot"), 52.f, 57.f, 4, 2, 0.8f, 1.f, 0.03f, 0, 1.1f, 6.f);
+
+// ---- 7. the horizon's cards: three rows of flat skyline, each its own outline and tone (the nearest the bluest and
+// darkest, the furthest the palest and most violet, as this sky goes towards its horizon). A card's footing is a
+// slab far wider than the card (ft_dress_chem.py, JOBS): the clearance test then keeps row A 120 m, row B 350 m and
+// row C 700 m from EVERY stretch of this road, which folds back on itself everywhere, so a card is only ever a
+// far thing. Most of the tries are left out for that reason, by design
+Zone(TEXT("Skyline cards"), 0.f, 99.f);
+	Far(TEXT("SM_SkyCardA"), 335.f, 400.f, 9, 0, 1.f, 1.f, 0.1f, 0, 25.f, 6.f);
+	Far(TEXT("SM_SkyCardB"), 660.f, 800.f, 13, 5, 1.f, 1.f, 0.1f, 0, 25.f, 6.f);
+	Far(TEXT("SM_SkyCardC"), 1150.f, 1350.f, 20, 11, 1.f, 1.f, 0.08f, 0, 25.f, 5.f);
+
+// ---- 8. the crown of flares on the two wall turns of the process units: 2.62 to 2.99 km, a right-hander that climbs
+// 39 m, and 3.59 to 3.94 km, a left-hander that comes down again, both banked 57 degrees. On the OUTSIDE of such a
+// turn the rolled camera looks up over the raised barrier and sees nothing that stands under 60 m (it was black sky
+// with a few far things adrift in it). Seven derricks on each, a third larger than the avenue's (107 m and a 34 m
+// flame), 50 m out, one to a slot (59 to 65, 80 to 86): their top decks, their beacons and their flames stand in that
+// sky, and from the straight before each turn they are a crown round it
+Zone(TEXT("Flares: first wall turn"), 2.647f, 2.963f);
+	Site(TEXT("FlareGate"), -1, 50.f, 1, 0, 1.f, 1.3f);
+Zone(TEXT("Flares: second wall turn"), 3.597f, 3.914f);
+	Site(TEXT("FlareGate"), 1, 50.f, 1, 0, 1.f, 1.3f);
+// and one beyond the mega vat on the third wall turn (slot 179: still banked 50 degrees, the vat already behind)
+Zone(TEXT("Flares: third wall turn"), 8.076f, 8.121f);
+	Site(TEXT("FlareGate"), -1, 54.f, 1, 0, 1.f, 1.3f);
+};
+ThirdPass();

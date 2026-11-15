@@ -42,6 +42,8 @@ private:
 	void DrawSystemMenu(class AFTBrawlGameMode* G);
 	void DrawSaveIndicator(class AFTBrawlGameMode* G);
 	void DrawCut(class AFTBrawlGameMode* G);   // night 1's cutscenes: letterbox, dialogue box, title cards, flash, the end card
+	void DrawControls(class AFTBrawlGameMode* G);
+	void DrawCombatHelp(class AFTBrawlGameMode* G);
 	void DrawItemCues(const class AFTBrawlGameMode& Game);
 	TArray<FString> Wrap(const FString& Str, float MaxW, float Height, bool bDisplay);
 };

@@ -240,6 +240,7 @@ void UFTNightFlow::ClearSession(const UObject* Ctx)
 	if (UFTGameInstance* G = Ctx && Ctx->GetWorld() ? Ctx->GetWorld()->GetGameInstance<UFTGameInstance>() : nullptr)
 	{
 		G->PendingLevel = -1; G->PendingScene = 0; G->bStartRace = G->bPendingPreProd = false;
+		G->bReplayTutorialRequested = false;
 		G->GoLanding = 0; G->bAttractCut = false; G->AttractD0 = -1.f;
 		G->KeepTitleSel = 0; G->KeepTitleActionFocus = INDEX_NONE; G->KeepTitleT = 0.f;
 	}

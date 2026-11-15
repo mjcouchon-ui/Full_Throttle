@@ -9,6 +9,9 @@ see FTDress.h), never by hand in a map. Run in the editor:
     import ft_dress; ft_dress.run()            # every level's kit
     import ft_dress; ft_dress.run(['chem'])    # one level's
 
+run() exports a kit's JOBS and then calls the kit's after_export(only), if it has one: that is where a kit rebuilds
+its moving props (ft_life.Kit pieces are not in JOBS) and puts its motion back on the still pieces.
+
 How a piece is drawn (so the tables can place any of them the same way):
   - with ft_art.Model, like every prop of the game: m.box / m.cyl / m.sphere / m.side / m.plan, a palette colour per
     primitive (hex), glow for anything lit. Chunky, readable, exaggerated shapes: it is seen for a second at 120 mph.
@@ -97,4 +100,14 @@ def run(levels=None, only=None):
             continue
         importlib.reload(mod)
         export(key, mod.JOBS, only)
+        # what moves: an export leaves a still piece with the plain palette, and a kit's moving props are not in JOBS.
+        # A kit that has anything moving says how to redo it in after_export(only).
+        fin = getattr(mod, 'after_export', None)
+        if fin is not None:
+            try:
+                fin(only)
+            except Exception as e:  # noqa
+                import traceback
+                unreal.log_error('FTDRESS %s after_export FAILED: %r %s' % (key, e, traceback.format_exc()[-900:]))
+                print('JAM ERR kit after_export', key, repr(e)[:300], flush=True)
     log('done')

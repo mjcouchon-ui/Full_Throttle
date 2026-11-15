@@ -23,12 +23,28 @@ Every name on a sign here is invented (CAFE, DELI, NOVA, ATLAS, TRUST ...); noth
 THE SIGHT LINE. Nothing lit or over 2 m tall stands nearer the road than 24 m (the track itself moves such a piece out
 where a bend brings it nearer), so everything made for the sidewalk here is under 2 m and unlit: it has to read by
 its colour under the street's own lamps (yellow cabs, gold-and-black barriers).
+
+THIRD PASS (15 Nov 2026, the overhaul): tight canyons, lit storefronts, signs that move, traffic on its own paths.
+  - THE CANYON: the gaps between the level's towers are closed by narrow buildings 34 m tall (SM_Infill1, SM_Infill2:
+    stage flats with windows that go on and off and something turning on the roof);
+  - SIGNS: every podium carries a line of neon along its cornice (steady: glow G_LINE), the blade signs stand at the
+    podiums' own line now (they stood inside the towers) and their letters light one after the other, signs on the
+    roofs chase and swell (SM_RoofSign1, SM_RoofSign2), a picture house has a searchlight on its roof (SM_Klieg);
+  - PEOPLE on the sidewalk (_ped: on the bench, at the bus stop, at the cafe's tables), unlit and under 2 m;
+  - TRAFFIC ON ITS OWN PATHS (ft_life.Kit props, built by life_props()): the elevated train runs its line
+    (SM_ElTrain), cars drive away down the side streets (SM_CrossTraffic), lights cross the far bridge (SM_FarBridge
+    is a Kit prop now), an airship goes over (SM_Blimp); a tower crane slews over the building sites (SM_Crane);
+  - the cut banks are faced by a Bank rule (SM_CutTiles, SM_CutSyn, SM_CutCity) instead of the two tilted faces;
+  - the horizon has two rows of flat skyline cards (SM_SkyCard1, SM_SkyCard2) behind the lit towers.
+Nothing that blinks, chases or turns is put in Syndicate Territory at the height the Chairman's shots fly: the table
+keeps the animated signs to the six districts before it, and the podiums' neon lines and the bank's ticker are steady.
 """
 import math
 import random
 import unreal
 import ft_art
 import ft_city
+import ft_dress_bank as B
 import ft_visual_art
 from ft_desert import rod, tilt_box
 
@@ -38,18 +54,90 @@ CYAN, WARM, WARM_L, AMBER, MAG, ORANGE, RED = '#2ee6ff', '#ffe28a', '#fff1c0', '
 CREAM, WHITE, TEAL, GREEN_D, PINE, BLUE, WOOD, WOOD_D = '#fff1d6', '#fff6ea', '#2fc6c0', '#24403a', '#2f6b52', '#3a5fa8', '#9a6a44', '#6a4c36'
 GLASS, GLASS_D, TYRE, SILVER, GOLD, BLACK, GREY_D, SAND_D = '#233a63', '#1c1f4a', '#26232e', '#c9c4d6', '#ffc93c', '#1c1a26', '#3f3d50', '#b89a6a'
 G1, G2, G3, G4 = 0.35, 0.9, 1.4, 2.0          # glow: soft, a lit window, a sign, a bulb
+G_LINE = 1.2                                  # a line of neon along a podium's cornice (its own glow: animate() can tell it from a sign)
 DIR = '/Game/Maps/Metro/Dress/'
+COATS = (TAN, BLUE, MAG, AMBER, CREAM)        # people on the sidewalk: five coats, two skins, one pair of trousers
+SKINS = ('#f2c8a0', '#b87a50')
+
+
+def mv(col):
+    """The mover's shade of a colour: one step off in blue, so the part gets a material slot of its own and animate()
+    can set it turning without the rest of the mesh (as ft_dress_park.py does)."""
+    b = int(col[5:7], 16)
+    return col[:5] + '%02x' % (b - 1 if b == 255 else b + 1)
+
+
+def life_props():
+    """The kit's props whose parts travel (ft_life.Kit: a Conveyor part is told apart by its UVs, which an exported
+    piece does not have). Built here and saved in the Dress folder with M_Life already on them; the table places them
+    like any other piece. Returns their names."""
+    import ft_life
+    done = []
+    for name, fn in KITS:
+        try:        # one prop that fails must not stop the others, nor the lights animate() sets after them
+            k = ft_life.Kit()
+            kw = fn(k) or {}
+            k.save(DIR + name, **kw)
+            done.append(name)
+        except Exception as e:  # noqa
+            import traceback
+            unreal.log_error('FTDRESS metro: kit prop %s FAILED: %r %s' % (name, e, traceback.format_exc()[-900:]))
+            print('JAM ERR kit prop', 'metro', name, repr(e)[:300], flush=True)
+    return done
 
 
 def animate():
-    """What moves here (ft_life.py, the living-world pass; run it again after any export of these two meshes: the export
-    puts the plain palette back). The picture house's bulbs run in a chase along its canopy, and the radio mast's beacons
-    wink slowly, far off and high up. Nothing else: the Syndicate's red lights and the bank's ticker stand at the height
-    the Chairman's shots fly in the finale, and stay steady so that his fire is what flickers there."""
+    """What moves here (ft_life.py, the living-world pass). Builds the travelling props first (life_props), then puts
+    M_Life on the slots that should move. Run it again after any export: the export puts the plain palette back.
+    In Syndicate Territory nothing near the road is animated (the Chairman's fire is what flickers there): the pieces
+    animated here are placed, by the table, in the six districts before it, or far off, or high over the roofs."""
     import ft_life
-    n = ft_life.animate(DIR + 'SM_Marquee', 'Light', slots=lambda slot, col, glow: glow >= 1.9, LightAxis=(1, 0, 0), LightLen=260.0,
-                        LightRate=0.8, LightDuty=0.6, LightMin=0.25)
-    n += ft_life.animate(DIR + 'SM_FarRadio', 'Light', slots=lambda slot, col, glow: glow >= 1.9, LightRate=0.35, LightDuty=0.5, LightMin=0.15)
+    life_props()
+    A = ft_life.animate
+    glows = lambda v: (lambda slot, col, glow: abs(glow - v) < 0.011)
+    bulbs = lambda slot, col, glow: glow >= 1.9
+    n = A(DIR + 'SM_Marquee', 'Light', slots=bulbs, LightAxis=(1, 0, 0), LightLen=260.0, LightRate=0.8, LightDuty=0.6, LightMin=0.25)
+    n += A(DIR + 'SM_FarRadio', 'Light', slots=bulbs, LightRate=0.35, LightDuty=0.5, LightMin=0.15)
+    # the blade signs: the letters light from the top down, one after the other; the tubes down the edges stay steady
+    for name in ('SM_BladeHotel', 'SM_BladeClub', 'SM_BladeDiner', 'SM_BladeShow', 'SM_BladePark', 'SM_BladeBank', 'SM_BladeJazz'):
+        n += A(DIR + name, 'Light', slots=glows(G3), LightAxis=(0, 0, -1), LightLen=1500.0, LightRate=0.35, LightDuty=0.72, LightSoft=0.08, LightMin=0.3,
+               LightRand=1.0)
+    # the signs on the roofs: the bulbs chase, the word swells and fades
+    for name in ('SM_RoofSign1', 'SM_RoofSign2', 'SM_RoofSign3', 'SM_RoofSign4'):
+        n += A(DIR + name, 'Light', slots=bulbs, LightAxis=(1, 0, 0), LightLen=210.0, LightRate=1.0, LightDuty=0.5, LightMin=0.25)
+        n += A(DIR + name, 'Light', slots=glows(G3), **dict(ft_life.PULSE, LightRate=0.4, LightMin=0.55))
+    # what turns: mover shades only (MOVERS). The crane's beacon turns with the jib and blinks.
+    movers = set(mv(c).lstrip('#').lower() for c in (NAVY, MAG, CYAN, SILVER, GREY_D, WHITE, WARM_L, ORANGE, CONC_D, AMBER, RED) + BEAM)
+    for name, p in MOVERS.items():
+        kw = dict((k, v) for k, v in p.items() if k not in ('what', 'far'))
+        red = mv(RED).lstrip('#')
+        n += A(DIR + name, 'Spin', slots=lambda slot, col, glow: col in movers and not (name == 'SM_Crane' and col == red), far=bool(p.get('far')),
+               SpinRand=1.0, **kw)
+        if name == 'SM_Crane':
+            n += A(DIR + name, ('Spin', 'Light'), slots=lambda slot, col, glow: col == red, far=True, SpinRand=1.0, LightRate=0.7, LightDuty=0.45,
+                   LightSoft=0.06, LightMin=0.12, **kw)
+    # windows that go on and off, a few at a time, on the infill buildings and the blocks behind; beacons that wink
+    for name in ('SM_Infill1', 'SM_Infill2'):
+        n += A(DIR + name, 'Light', slots=lambda slot, col, glow: abs(glow - G2) < 0.011 and col not in movers, LightOffset=(0.0, 0.0, 30.0),
+               **ft_life._windows(330.0, rate=0.12, off=0.2, low=0.15))
+    n += A(DIR + 'SM_Infill2', 'Light', slots=glows(G3), LightAxis=(0, 0, 1), LightLen=1100.0, LightRate=0.5, LightDuty=0.6, LightSoft=0.1, LightMin=0.3,
+           LightRand=1.0)
+    n += A(DIR + 'SM_Infill2', 'Light', slots=bulbs, **ft_life.BLINK)
+    for name, cell in (('SM_MidBlock', 320.0), ('SM_GlassBlock', 320.0), ('SM_FarTowersA', 1100.0)):
+        n += A(DIR + name, 'Light', slots=glows(G2), far=name.startswith('SM_Far'), **ft_life._windows(cell, rate=0.08, off=0.2, low=0.2))
+    for name in ('SM_FarTowersA', 'SM_FarTowersB', 'SM_FarSyndicate', 'SM_GlassBlock'):     # the red beacons only (not the Syndicate's red slits)
+        n += A(DIR + name, 'Light', slots=lambda slot, col, glow: col == RED.lstrip('#') and glow >= 1.9, far=name.startswith('SM_Far'),
+               **dict(ft_life.BLINK, LightRate=0.4))
+    # a moving part leaves the box it was built in: the beam rocks 26 m along the street, the jib sweeps 46 m all round
+    for name, pos, neg in (('SM_Klieg', (2700.0, 0.0, 0.0), (2700.0, 0.0, 0.0)), ('SM_Crane', (0.0, 4700.0, 0.0), (2900.0, 4700.0, 0.0))):
+        try:
+            sm = unreal.EditorAssetLibrary.load_asset(DIR + name)
+            if sm:
+                sm.set_editor_property('positive_bounds_extension', unreal.Vector(*pos))
+                sm.set_editor_property('negative_bounds_extension', unreal.Vector(*neg))
+                unreal.EditorAssetLibrary.save_loaded_asset(sm)
+        except Exception as e:  # noqa
+            unreal.log_warning('FTDRESS metro: %s keeps its built bounds (%r)' % (name, e))
     return n
 
 
@@ -104,6 +192,7 @@ _GLYPHS.update({
     'W': [(0, 6, 1, 0), (1, 0, 2, 4), (2, 4, 3, 0), (3, 0, 4, 6)],
     'X': [(0, 0, 4, 6), (0, 6, 4, 0)],
     'Z': [(0, 6, 4, 6), (4, 6, 0, 0), (0, 0, 4, 0)],
+    'J': [(4, 6, 4, 1), (4, 1, 3, 0), (3, 0, 1, 0), (1, 0, 0, 1)],
 })
 
 
@@ -164,6 +253,20 @@ def _car(m, x, y, col, kind='sedan', stripe=None):
         m.box(CREAM, (x - 20, y, 168), (60, 30, 20))
 
 
+def _ped(m, x, y, r, z=0.0, s=1.0, sit=False, hat=None):
+    """One of the city's people, chunky and unlit, 1.7 m: trousers, a coat, a round head. sit: seated (no legs drawn, the
+    rest a leg lower); hat: a hat of that colour. Everything on the sidewalk stays under 2 m."""
+    coat, skin = r.choice(COATS), r.choice(SKINS)
+    if sit:
+        z -= 30.0 * s
+    else:
+        m.box(NAVY, (x, y, z + 38 * s), (34 * s, 26 * s, 76 * s))
+    m.box(coat, (x, y, z + 104 * s), (46 * s, 30 * s, 60 * s))
+    m.sphere(skin, (x, y, z + 152 * s), 19 * s, steps=(3, 5))
+    if hat:
+        m.cyl(hat, (x, y, z + 164 * s), 23 * s, 12 * s, steps=6)
+
+
 def _rows(m, x0, x1, y, z0, floors, pitch, col, alt=None, h=130, seed=0, p=0.82):
     """Lit window bands up a wall that faces the road."""
     r = random.Random(seed)
@@ -182,7 +285,7 @@ def _ends(m, x, y0, y1, z0, floors, pitch, col, h=130, seed=0, p=0.7):
 
 # ------------------------------------------------------------------------------------------ the street wall
 def shops(m, names=('CAFE', 'TOYS', 'DELI'), walls=(BRICK, TAN, BRICK_D), awns=((RED, CREAM), (TEAL, CREAM), (AMBER, NAVY)),
-          signs=(AMBER, CYAN, MAG), tall=(1,), seed=1):
+          signs=(AMBER, CYAN, MAG), tall=(1,), seed=1, line=MAG):
     """A row of three shops, 32 m long: lit windows under striped awnings, a name over each, a flat over one of them,
     the roof's clutter."""
     r = random.Random(seed)
@@ -194,6 +297,7 @@ def shops(m, names=('CAFE', 'TOYS', 'DELI'), walls=(BRICK, TAN, BRICK_D), awns=(
         H = 860.0 if k in tall else 520.0
         m.box(walls[k % len(walls)], (xc, 0, H / 2.0), (w - 6, D, H))
         m.box(STONE_L, (xc, 0, H + 14), (w + 8, D + 24, 28))
+        m.box(line, (xc, -D / 2.0 - 18, H + 36), (w - 30, 10, 16), glow=G_LINE)        # third pass: a line of neon along the cornice
         m.box(WARM if k % 2 == 0 else WARM_L, (xc - 80, -D / 2.0 - 2, 170), (w - 330, 4, 230), glow=G2)
         m.box(NAVY, (x0 + w - 120, -D / 2.0 - 2, 132), (120, 4, 256))
         m.box(CYAN if k % 2 else WARM_L, (x0 + w - 120, -D / 2.0 - 5, 200), (76, 3, 80), glow=G1)
@@ -224,6 +328,7 @@ def diner_row(m):
     m.box(MAG, (-950, -D / 2.0 - 3, 96), (1300, 6, 60))
     m.box(WARM_L, (-950, -D / 2.0 - 2, 250), (1100, 4, 190), glow=G2)
     m.box(TEAL, (-950, 0, 432), (1340, D + 40, 24))
+    m.box(MAG, (-950, -D / 2.0 - 26, 452), (1300, 10, 16), glow=G_LINE)
     m.box(NAVY, (-950, -200, 520), (760, 16, 150))
     _letters(m, 'DINER', -208, 470, 100, MAG, x=-950.0)
     for s in (-1, 1):
@@ -231,6 +336,7 @@ def diner_row(m):
     # the arcade: tall, a blade sign, coloured lights round the door
     m.box(PLUM, (200, 0, 430), (900, D, 860))
     m.box(STONE_L, (200, 0, 874), (920, D + 24, 28))
+    m.box(MAG, (200, -D / 2.0 - 18, 896), (880, 10, 16), glow=G_LINE)
     m.box(NAVY, (200, -D / 2.0 - 2, 170), (500, 4, 300))
     m.box(CYAN, (200, -D / 2.0 - 5, 190), (360, 3, 220), glow=G1)
     _bulbs(m, (-80, -D / 2.0 - 10, 30), (-80, -D / 2.0 - 10, 340), 5)
@@ -244,6 +350,7 @@ def diner_row(m):
     # the pawn shop
     m.box(BRICK_D, (1150, 0, 280), (900, D, 560))
     m.box(STONE_L, (1150, 0, 574), (920, D + 24, 28))
+    m.box(MAG, (1150, -D / 2.0 - 18, 596), (880, 10, 16), glow=G_LINE)
     m.box(WARM, (1090, -D / 2.0 - 2, 170), (560, 4, 220), glow=G2)
     m.box(NAVY, (1490, -D / 2.0 - 2, 132), (120, 4, 256))
     _stripes(m, 760, 1540, -D / 2.0 - 46, 318, 120, 8, [GREEN_D, CREAM], 6, roll=_awn(18))
@@ -289,6 +396,7 @@ def bank_front(m):
     L, D, H = 3200.0, 700.0, 1000.0
     m.box(STONE, (0, 0, H / 2.0), (L, D, H))
     m.box(STONE_L, (0, 0, H + 18), (L + 16, D + 30, 36))
+    m.box(WARM_L, (0, -D / 2.0 - 22, H + 44), (L - 40, 10, 16), glow=G_LINE)
     m.box(STONE_L, (0, -D / 2.0 - 60, 30), (2300, 120, 60))
     for k in range(6):
         x = -1000 + k * 400
@@ -317,6 +425,12 @@ def pent_entry(m):
     m.box(SLATE_L, (0, 0, H / 2.0), (L, D, H))
     m.box(GOLD, (0, -D / 2.0 - 3, 30), (L, 6, 14))
     m.box(GOLD, (0, 0, H + 10), (L + 12, D + 24, 20))
+    m.box(CYAN, (0, -D / 2.0 - 18, H + 30), (L - 40, 10, 16), glow=G_LINE)      # third pass: the roof terrace's edge in light,
+    for k in range(4):                                                         # parasols and clipped trees on it
+        x = -1250 + k * 830
+        m.cyl(WOOD_D, (x, -120, H + 20), 6, 190, steps=5)
+        m.cyl(MAG if k % 2 else CREAM, (x, -120, H + 190), 150, 44, steps=8, top_r=10)
+        m.cyl(PINE, (x + 330, -150, H + 20), 70, 250, steps=6, top_r=8)
     m.box(NAVY, (0, -D / 2.0 - 2, 190), (420, 4, 370))
     m.box(CYAN, (0, -D / 2.0 - 5, 180), (300, 3, 300), glow=G1)
     m.box(NAVY, (0, -D / 2.0 - 60, 392), (620, 130, 20))
@@ -358,6 +472,7 @@ def garage(m, seed=4):
                     m.box(r.choice(cols), (-1300 + j * 620 + r.uniform(-60, 60), 120, z + 62), (380, 170, 90))
             m.box(WARM_L, (0, D / 2.0 - 70, z + 262), (L - 200, 8, 10), glow=G1)
     m.box(CONC_D, (0, D / 2.0 - 8, 620), (L, 16, 1240))
+    m.box(ORANGE, (0, -D / 2.0 - 2, 1262), (L - 40, 10, 16), glow=G_LINE)
     tilt_box(m, CONC_D, (-1500, -D / 2.0 - 130, 30), (-200, -D / 2.0 - 130, 330), 240, 22)
     tilt_box(m, CONC_D, (1500, -D / 2.0 - 130, 330), (200, -D / 2.0 - 130, 630), 240, 22)
     m.box(CONC_D, (0, -D / 2.0 - 130, 330), (420, 240, 22))
@@ -409,6 +524,7 @@ def service_yard(m):
     L, D = 3200.0, 700.0
     m.box(CONC_D, (0, 170, 320), (L, 360, 640))
     m.box(STONE_L, (0, 170, 652), (L + 10, 380, 24))
+    m.box(AMBER, (0, -16, 676), (L - 40, 10, 16), glow=G_LINE)
     m.box(CONC, (-300, -80, 55), (2200, 160, 110))
     for k in range(3):
         x = -1000 + k * 700
@@ -509,6 +625,10 @@ def sidewalk(m):
         m.box(GREY_D, (x, 30, 88), (5, 65, 5))
     for k, c in enumerate((RED, AMBER, TEAL)):
         m.box(c, (-760 - k * 62, 30, 56), (54, 50, 112))
+    r = random.Random(41)                                       # third pass: one on the bench, two walking
+    _ped(m, -330, 16, r, z=51, sit=True, hat=GREY_D)
+    _ped(m, 130, -20, r)
+    _ped(m, 205, 44, r, s=0.96)
 
 
 def bus_stop(m):
@@ -526,6 +646,9 @@ def bus_stop(m):
     m.cyl(GREY_D, (430, 0, 0), 6, 150, steps=5)
     rod(m, BLUE, (430, -6, 158), (430, 6, 158), 36, steps=10)
     m.box(CREAM, (430, 0, 90), (50, 6, 60))
+    r = random.Random(43)                                       # third pass: three waiting under the shelter
+    for k, (x, y) in enumerate(((-150, 70), (-60, 96), (70, 60))):
+        _ped(m, x, y, r, s=0.95 + 0.04 * k, hat=(GREY_D if k == 1 else None))
 
 
 def syn_barriers(m):
@@ -656,8 +779,8 @@ def glass_block(m, seed=3):
 
 
 def el_rail(m):
-    """Sixty metres of the elevated railway: the viaduct on its bents, a three-car train on it with its lights on, a
-    station's canopy and stair at one end."""
+    """Sixty metres of the elevated railway: the viaduct on its bents, lamps along its parapet, a station's canopy and
+    stair at one end. Its train is a prop of its own (SM_ElTrain, a Kit prop: it runs the line)."""
     L = 6000.0
     m.box(GREY_D, (0, 0, 900), (L, 520, 70))
     for s in (-1, 1):
@@ -667,14 +790,8 @@ def el_rail(m):
         for s in (-1, 1):
             m.cyl(GREY_D, (x, s * 200, 0), 34, 870, steps=6)
         m.box(GREY_D, (x, 0, 850), (90, 520, 60))
-    for k in range(3):
-        x = -1900 + k * 1560
-        m.box(SILVER, (x, 0, 1110), (1500, 300, 300))
-        m.box(MAG, (x, -152, 1010), (1500, 4, 40))
-        m.box(WARM_L, (x, -152, 1150), (1320, 4, 100), glow=G2)
-        m.box(GREY_D, (x, 0, 1272), (900, 200, 24))
-        for e in (-1, 1):
-            m.box(TYRE, (x + e * 520, 0, 950), (260, 240, 40))
+    for k in range(8):                                          # third pass: the train is SM_ElTrain now (it runs); here, the rails' lamps
+        m.box(WARM, (-2620 + k * 750, -262, 1030), (60, 22, 30), glow=G2)
     m.box(PLUM, (2300, -330, 1420), (1300, 260, 20))
     for e in (-1, 1):
         m.box(GREY_D, (2300 + e * 600, -420, 1180), (12, 12, 480))
@@ -957,6 +1074,9 @@ def kerb_cafe(m):
         m.sphere((MAG, AMBER, WHITE)[k % 3] if k % 2 else PINE, (-760 + k * 190, -80, 62), 44, scale=(1.6, 0.8, 0.7), steps=(3, 6))
     m.box(NAVY, (900, 20, 62), (12, 76, 124))
     m.box(CREAM, (893, 20, 70), (4, 56, 84))
+    r = random.Random(45)                                       # third pass: someone at every table
+    for k in range(4):
+        _ped(m, -600 + k * 400 + (84 if k % 2 else -84), 40, r, z=48, sit=True)
 
 
 def kerb_works(m):
@@ -984,65 +1104,12 @@ def kerb_works(m):
     rod(m, WOOD_D, (-60, 110, 62), (-60, 118, 62), 76, steps=8)
 
 
-# The banks of the banked bends (see ft_dress_park.py's note on them: the same cut, the same way of standing a piece
-# on it; these are bent to the city's tighter bends, a 70 m radius). Unlit; nothing on them points left or right.
-BANK_DEG = 58.6
-BANK_R = 7000.0
-
-
-def _bank_len(m, k, kerb, face, draw):
-    """Draw one 8 m length (k = -1, 0, 1) in the bank's own frame: x along the road, y up the slope, z out of it."""
-    xc = k * 800.0
-    m.base = ft_art._xf((xc, xc * xc / (2.0 * BANK_R), 0.0), (0.0, math.degrees(xc / BANK_R), _awn(BANK_DEG)))
-    try:
-        m.box(kerb, (0, 0, -22), (812, 1060, 80))
-        m.box(face, (0, 0, 15), (812, 950, 10))
-        draw(k)
-    finally:
-        m.base = None
-
-
-def bank_tiles(m):
-    """A tiled embankment: dark tiles carrying the decade's shapes in the street's colours. A banded sun in the middle
-    length; a disc, a triangle, a zigzag and a block of squares either side."""
-    def draw(k):
-        if k == 0:
-            _disc(m, AMBER, 330, 18, 28, at=(0, 40), steps=20)
-            for j, (y, t) in enumerate(((-30, 30), (-110, 40), (-200, 54))):
-                m.box(NAVY, (0, y, 26), (700, t, 8))
-            for j, c in enumerate((MAG, CYAN)):
-                m.box(c, (0, -360 - j * 60, 23), (812, 30, 8))
-        else:
-            a, b, c = ((MAG, AMBER, CYAN), (TEAL, MAG, AMBER))[0 if k < 0 else 1]
-            _disc(m, a, 190, 18, 28, at=(-k * 150, 230), steps=16)
-            m.plan(b, _ccw([(k * 40, -330), (k * 330, -330), (k * 185, -60)]), 18, 27)
-            for j in range(4):
-                m.box(c, (-k * 250 + j * k * 95, -200 + (j % 2) * 70, 23), (150, 30, 8), rot=(0, 38 if j % 2 else -38, 0))
-            for i in range(3):
-                for j in range(2):
-                    m.box(CREAM, (k * 150 + i * 80, 150 + j * 80, 23), (46, 46, 8))
-    for k in (-1, 0, 1):
-        _bank_len(m, k, STONE_L, NAVY, draw)
-
-
-def syn_bank(m):
-    """The Syndicate's embankment: black plates, the gold double chevron on every length, a red line top and bottom.
-    Unlit: the gold and the red are paint here."""
-    def draw(k):
-        for ya in (300, 40):
-            for s in (-1, 1):
-                m.box(GOLD, (s * 150, ya - 126, 23), (400, 64, 8), rot=(0, -s * 40.0, 0))
-        for s in (-1, 1):
-            m.box(RED, (0, s * 440, 23), (812, 36, 8))
-    for k in (-1, 0, 1):
-        _bank_len(m, k, GREY_D, BLACK, draw)
-
-
 def blade_sign(m, word='HOTEL', col=MAG, trim=CYAN, base=1150.0):
     """A blade sign on a tower's front, over its podium: a dark blade standing out towards the avenue from 11.5 m up,
     the word stacked in lights on both faces (it is read along the street, from either way), a tube of light down each
-    edge, a gold ball on top. Lit and STEADY (nothing on it blinks), and stood 31.8 m out, so its lights are 30 m and
-    more from the road's centre line. Its mast is inside the podium."""
+    edge, a gold ball on top. Third pass: stood 26 m out, at the podiums' own line (at 31.8 m most of them were inside
+    the level's towers), and the letters light one after the other from the top (animate()); the tubes are steady.
+    Its mast is inside the podium."""
     lh = 150.0
     H = len(word) * lh * 1.3 + 160.0
     yc = -40.0
@@ -1055,16 +1122,281 @@ def blade_sign(m, word='HOTEL', col=MAG, trim=CYAN, base=1150.0):
         m.box(GREY_D, (0, yc + 205, z), (20, 170, 20))
     m.box(GREY_D, (0, 110, base / 2.0 + H * 0.4), (26, 26, base + H * 0.8))
 
+# ------------------------------------------------------------------------------------------ third pass: the cut banks
+# The second pass's two tilted faces (SM_BankTiles, SM_SynBank) are gone: they stood only where a bend held its full
+# bank. The track faces every cutting itself now (a Bank rule, FTDress.h) with these panels, drawn FLAT as
+# ft_dress_bank.py says (x along the road, y up the slope, z out of the bank). Unlit: every colour here is paint.
+def cut_tiles(m):
+    """The city's tall panel (5.5 m of cutting and more): slate tiles between pale kerbs, a pink course and a cyan
+    one that run on from panel to panel, a row of small square tiles between them."""
+    h = B.TALL / 2.0
+    B.body(m, SLATE, B.TALL)
+    B.band(m, STONE_L, -h, -h + 60.0, 10.0)
+    B.band(m, STONE_L, h - 50.0, h, 10.0)
+    B.band(m, MAG, -h + 215.0, -h + 265.0, 8.0)
+    B.band(m, CYAN, h - 300.0, h - 250.0, 8.0)
+    for k in range(5):
+        B.block(m, AMBER if k % 2 else CREAM, -B.L / 2.0 + (k + 0.5) * B.L / 5.0, 0.0, 90.0, 90.0, 14.0)
+
+
+def cut_syn(m):
+    """The Syndicate's tall panel: black plates, two courses of gold bars laid like bricks (the lower course's end
+    bars are halves that meet the next panel's), a red line top and bottom. Bars, not the gold chevron of the
+    Syndicate's signs: nothing on a cutting may point (a Bank panel lies 9 to 16 m from the centre line)."""
+    h = B.TALL / 2.0
+    B.body(m, BLACK, B.TALL)
+    B.band(m, RED, -h + 40.0, -h + 80.0, 8.0)
+    B.band(m, RED, h - 80.0, h - 40.0, 8.0)
+    q = B.L / 4.0
+    for k in range(4):
+        B.block(m, GOLD, -B.L / 2.0 + (k + 0.5) * q, 120.0, 170.0, 56.0, 10.0)
+    for k in range(1, 4):
+        B.block(m, GOLD, -B.L / 2.0 + k * q, -120.0, 170.0, 56.0, 10.0)
+    for s in (-1, 1):                                             # inside the panel's own 11 m: the track stretches the mesh's box
+        B.block(m, GOLD, s * (B.L / 2.0 - 42.5), -120.0, 85.0, 56.0, 10.0)
+
+
+def cut_city_low(m):
+    """The low panel for both (2.4 to 5.5 m of cutting): slate between pale kerbs, one amber course."""
+    h = B.LOW / 2.0
+    B.body(m, SLATE, B.LOW)
+    B.band(m, STONE_L, -h, -h + 50.0, 10.0)
+    B.band(m, STONE_L, h - 44.0, h, 10.0)
+    B.band(m, AMBER, -30.0, 30.0, 8.0)
+
+
+# ------------------------------------------------------------------------------------------ third pass: the street wall, closed and signed
+def _lampsq(m, a, b, n, cols=(WARM, MAG, CYAN, AMBER), s=26.0, glow=G4):
+    """n square bulbs strung from a to b: twelve triangles each (a round one is thirty)."""
+    for k in range(n):
+        t = (k + 0.5) / n
+        m.box(cols[k % len(cols)], (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t), (s, s, s), glow=glow)
+
+
+def infill(m, kind=0, seed=1):
+    """The gap between two towers, closed: a narrow building 13 m wide and 34 m tall as a stage flat (2.6 m thick; it
+    stands behind an alley or flush with the podiums). kind 0: brick, fire-escape landings down its middle, a water
+    tank and a sign cube on a mast on its roof (the cube is the mover: it turns). kind 1: dark glass, a fin of neon up
+    one edge (it climbs), an aerial with a beacon and a scanner bar (the mover). Its windows go on and off."""
+    r = random.Random(seed)
+    W, D, H = 1300.0, 260.0, 3400.0
+    body, trim, lit, alt = ((BRICK, STONE_L, WARM, CYAN), (GLASS_D, SLATE_L, CYAN, WARM_L))[kind]
+    m.box(body, (0, 0, H / 2.0 - 100), (W, D, H + 200))
+    m.box(trim, (0, -8, H + 20), (W + 30, D + 30, 40))
+    floors = 9
+    for f in range(floors):
+        z = 470 + f * 330
+        for i in (-1, 1):
+            on = r.random() < 0.7
+            m.box((lit if r.random() < 0.75 else alt) if on else GLASS, (i * W * 0.27, -D / 2.0 - 2, z), (W * 0.3, 4, 160), glow=G2 if on else 0.0)
+    if kind == 0:
+        for f in range(1, floors):
+            z = 330 + f * 330
+            m.box(GREY_D, (0, -D / 2.0 - 50, z), (230, 100, 16))
+            m.box(GREY_D, (0, -D / 2.0 - 96, z + 46), (230, 10, 76))
+        m.cyl(WOOD, (-330, 20, H + 170), 150, 260, steps=8)
+        m.cyl(WOOD_D, (-330, 20, H + 430), 164, 110, steps=8, top_r=8)
+        for a in (-1, 1):
+            m.box(GREY_D, (-330 + a * 100, 20, H + 105), (14, 150, 130))
+        m.cyl(GREY_D, (330, 0, H + 40), 13, 250, steps=5)
+        m.box(mv(NAVY), (330, 0, H + 420), (270, 270, 270))
+        for s in (-1, 1):
+            m.box(mv(MAG), (330, s * 137, H + 420), (210, 6, 210), glow=G3)
+            m.box(mv(CYAN), (330 + s * 137, 0, H + 420), (6, 210, 210), glow=G3)
+    else:
+        m.box(NAVY, (-W / 2.0 + 44, -D / 2.0 - 40, H * 0.55), (64, 84, H * 0.8))
+        for k in range(10):
+            m.box(MAG, (-W / 2.0 + 44, -D / 2.0 - 86, H * 0.19 + k * H * 0.08), (46, 8, H * 0.055), glow=G3)
+        m.cyl(SILVER, (300, 0, H + 40), 11, 520, steps=5)
+        m.sphere(RED, (300, 0, H + 590), 32, steps=(3, 5), glow=G4)
+        m.cyl(GREY_D, (-280, 0, H + 40), 13, 200, steps=5)
+        m.box(mv(SILVER), (-280, 0, H + 290), (420, 50, 110))
+        m.box(mv(CYAN), (-280, -27, H + 290), (360, 6, 50), glow=G2)
+
+
+def roof_sign(m, word='JAZZ', col=MAG, trim=CYAN, W=940.0, Hb=420.0):
+    """A sign on a podium's roof, 9 m wide: the word in lights on a dark board (it swells and fades), a row of bulbs
+    above and below (they chase), raking legs behind. The table stands it on the roof by a set's "up"."""
+    for sx in (-1, 1):
+        m.box(GREY_D, (sx * W * 0.4, 0, 80), (24, 24, 160))
+        tilt_box(m, GREY_D, (sx * W * 0.4, 150, 0), (sx * W * 0.4, 0, 150 + Hb * 0.8), 22, 22)
+    m.box(NAVY, (0, 0, 160 + Hb / 2.0), (W, 26, Hb))
+    _letters(m, word, -13, 160 + Hb * 0.25, Hb * 0.5, col, x=0.0)
+    for z in (160 + 26, 160 + Hb - 26):
+        _lampsq(m, (-W / 2.0 + 30, -18, z), (W / 2.0 - 30, -18, z), 9, (trim, WARM))
+
+
+BEAM = (WARM_L, '#f3c4dc', '#c391d8', '#8662b8', '#523f8c')
+
+
+def klieg(m):
+    """A premiere searchlight on a picture house's roof: a drum, and a slim beam 60 m long painted as light is in a
+    cel (in lengths that step from warm white at the lamp to the violet of the upper sky). The lamp and the beam are
+    the mover: they rock along the street, never across it."""
+    m.cyl(GREY_D, (0, 0, 0), 70, 90, steps=8)
+    m.cyl(mv(SILVER), (0, 0, 90), 56, 110, steps=8)
+    z, rad = 200.0, 14.0
+    for col, glow, h in zip(BEAM, (0.3, 0.16, 0.1, 0.08, 0.06), (900.0, 1200.0, 1400.0, 1400.0, 1100.0)):
+        top = rad + h * 0.012
+        m.cyl(mv(col), (0, 0, z), rad, h, steps=6, top_r=top, glow=glow)
+        z, rad = z + h, top
+
+
+def crane(m, H=8500.0):
+    """A tower crane over the building sites, 85 m of mast: solid, in orange with white bands (a lattice would ink to
+    scribble). What slews is in the mover shade: the cab, the jib (46 m) and its counterweight, the tower head and
+    ties, the hook, a red beacon at the jib's tip. It turns very slowly; the track keeps the whole swing off the road."""
+    m.box(CONC, (0, 0, 60), (700, 700, 120))
+    m.box(ORANGE, (0, 0, 120 + H / 2.0), (240, 240, H))
+    for k in range(int(H // 900)):
+        m.box(WHITE, (0, 0, 600 + k * 900), (250, 250, 120))
+    z = H + 120
+    m.box(mv(GREY_D), (0, 0, z + 60), (360, 360, 120))
+    m.box(mv(WHITE), (150, -170, z + 210), (260, 200, 200))
+    m.box(mv(WARM_L), (150, -272, z + 230), (200, 4, 110), glow=G2)
+    m.box(mv(ORANGE), (2300, 0, z + 330), (4600, 150, 170))
+    m.box(mv(ORANGE), (-900, 0, z + 330), (1800, 150, 170))
+    m.box(mv(CONC_D), (-1500, 0, z + 190), (500, 260, 300))
+    m.cyl(mv(ORANGE), (0, 0, z + 120), 60, 900, steps=6, top_r=20)
+    tilt_box(m, mv(GREY_D), (0, 0, z + 1000), (3800, 0, z + 420), 22, 22)
+    tilt_box(m, mv(GREY_D), (0, 0, z + 1000), (-1500, 0, z + 420), 22, 22)
+    m.box(mv(GREY_D), (3300, 0, z - 650), (22, 22, 1800))
+    m.box(mv(AMBER), (3300, 0, z - 1640), (130, 130, 180))
+    m.sphere(mv(RED), (4600, 0, z + 460), 44, steps=(3, 5), glow=G4)
+
+
+# ------------------------------------------------------------------------------------------ third pass: the horizon's cards
+def _towers(seed, width, hmin, hmax):
+    """A city's outline as one polygon [(x, z)]: slabs of many widths and heights, a spire on one in four."""
+    r = random.Random(seed)
+    x = -width / 2.0
+    pts = [(x, -2500.0)]
+    while x < width / 2.0 - 1000.0:
+        w = min(r.choice((1400.0, 1800.0, 2400.0, 3000.0)), width / 2.0 - x)
+        h = r.uniform(hmin, hmax) * (1.35 if r.random() < 0.2 else 1.0)
+        pts.append((x, h))
+        if r.random() < 0.25 and w > 1500.0:
+            pts += [(x + w / 2.0 - 140.0, h), (x + w / 2.0, h * 1.28), (x + w / 2.0 + 140.0, h)]
+        pts.append((x + w, h))
+        x += w
+        gap = r.choice((0.0, 0.0, 400.0, 700.0))
+        if gap and x + gap < width / 2.0 - 1000.0:
+            pts += [(x, hmin * 0.35), (x + gap, hmin * 0.35)]
+            x += gap
+    pts.append((x, -2500.0))
+    return pts
+
+
+def sky_card(m, seed, width, hmin, hmax, col, glow, dots):
+    """A flat skyline card for the horizon: the outline of a far part of town in one tone (a little self-lit: paler
+    and bluer than the night behind it, as haze makes it), a scatter of lit windows. 60 cm thick, its face to the road."""
+    r = random.Random(seed + 100)
+    pts = _towers(seed, width, hmin, hmax)
+    _side(m, col, pts, -30, 30, glow=glow)
+    tops = [(a, b) for a, b in zip(pts, pts[1:]) if a[1] == b[1] and a[1] > hmin * 0.5]
+    for k in range(dots):
+        (x0, h), (x1, _) = tops[r.randrange(len(tops))]
+        m.box((WARM, CYAN, WARM_L)[k % 3], (r.uniform(x0 + 200, max(x1 - 200, x0 + 201)), -34, r.uniform(0.2, 0.9) * h), (300, 8, 200), glow=G2)
+
+
+# ------------------------------------------------------------------------------------------ third pass: what travels (ft_life.Kit)
+# Distant traffic on its own paths, never on the road: an elevated train along its viaduct, cars going AWAY from the
+# avenue down a side street, the lights of a far bridge, an airship over the towers. Each draws into an ft_life.Kit;
+# a Conveyor part is drawn about the origin and sent along a line by the material (ConvDir is a UNIT vector). They
+# return how far the parts leave the mesh as built, for Kit.save() (culling, and the track's own road test).
+def el_train(k, run=18000.0, cars=4):
+    """The elevated railway's train: four lit cars that run the 180 m of an "ElLine" set (three lengths of SM_ElRail
+    end to end; this is the set's fourth part, at the middle length's place) from the far end to the station by the
+    avenue, and round again."""
+    g = k.group('Conveyor', ConvStart=(-run / 2.0, 0.0, 960.0), ConvDir=(1.0, 0.0, 0.0), ConvLen=run, ConvRate=0.045, ConvRand=1.0)
+    for i in range(cars):
+        def car(m, head=(i == cars - 1)):
+            m.box(SILVER, (0, 0, 150), (1460, 300, 300))
+            m.box(MAG, (0, 0, 50), (1466, 306, 40))
+            m.box(WARM_L, (0, 0, 190), (1300, 308, 100), glow=G2)
+            m.box(GREY_D, (0, 0, 312), (900, 200, 24))
+            if head:
+                m.box(WARM_L, (732, 0, 120), (6, 200, 60), glow=G4)
+        g.piece(car, a=i * 0.0845)
+    return dict(grow=(run / 2.0 + 800.0, 0.0, 1300.0), grow_down=(run / 2.0 + 800.0, 0.0, 0.0))
+
+
+def cross_traffic(k, run=3600.0):
+    """Traffic on a side street (SM_FloorCross: this stands at the same place in the same set): three cars, one after
+    the other, driving AWAY from the avenue, from 33 m out to the street's far end, tail lights to the road. Nothing
+    here comes towards the player's road."""
+    g = k.group('Conveyor', ConvStart=(0.0, -1100.0, 28.0), ConvDir=(0.0, 1.0, 0.0), ConvLen=run, ConvRate=0.16, ConvRand=1.0)
+    for i, (c, x) in enumerate(((AMBER, -150.0), (BLUE, 150.0), (CREAM, -150.0))):
+        def car(m, c=c, x=x):
+            m.box(c, (x, 0, 62), (190, 440, 64))
+            m.box(GLASS, (x, 20, 122), (166, 230, 58))
+            for sx in (-1, 1):
+                m.box(RED, (x + sx * 66, -222, 70), (40, 6, 20), glow=G3)
+        g.piece(car, a=i * 0.34)
+    return dict(grow=(280.0, run - 1100.0 + 320.0, 60.0), grow_down=(280.0, 1420.0, 0.0))
+
+
+def blimp(k, run=120000.0):
+    """An airship over the towers, 54 m of it, high and slow: a silver hull with a pink band and fins, a gondola, a
+    row of lamps along each flank that run like a sign (Light), a red light at the tail. One part on a line 1.2 km
+    long (it takes four minutes): the table stands it 115 m and more above the road."""
+    g = k.group(('Conveyor', 'Light'), ConvStart=(-run / 2.0, 0.0, 0.0), ConvDir=(1.0, 0.0, 0.0), ConvLen=run, ConvRate=0.004, ConvRand=1.0,
+                LightAxis=(1.0, 0.0, 0.0), LightLen=900.0, LightRate=0.6, LightDuty=0.55, LightSoft=0.1, LightMin=0.3)
+
+    def ship(m):
+        m.sphere(SILVER, (0, 0, 0), 900, scale=(3.0, 1.0, 1.0), steps=(6, 10))
+        m.cyl(MAG, (300, 0, 0), 906, 600, rot=(90, 0, 0), steps=12)
+        m.box(MAG, (-2450, 0, 480), (700, 40, 620))
+        m.box(MAG, (-2450, 0, -480), (700, 40, 620))
+        m.box(MAG, (-2450, 0, 0), (700, 1300, 40))
+        m.box(NAVY, (200, 0, -950), (720, 240, 200))
+        m.box(WARM_L, (200, 0, -940), (600, 246, 70), glow=G2)
+        for sy in (-1, 1):
+            for j in range(9):
+                m.box((AMBER, CYAN)[j % 2], (-800 + j * 200, sy * 880, 0), (150, 60, 150), glow=G3)
+        m.sphere(RED, (-2750, 0, 820), 50, steps=(3, 5), glow=G4)
+    g.piece(ship, a=0.0)
+    return dict(grow=(run / 2.0 + 3000.0, 0.0, 0.0), grow_down=(run / 2.0 + 3000.0, 0.0, 0.0))
+
+
+def bridge_kit(k, L=42000.0, deck=3400.0):
+    """SM_FarBridge with its traffic: the bridge as it was (far_bridge), and on its deck streaks of light going both
+    ways, white towards the town and red away (Conveyor): distant traffic on a path of its own."""
+    far_bridge(k.group(), L)
+    for sy, col, d in ((-1, WARM_L, 1.0), (1, RED, -1.0)):
+        g = k.group('Conveyor', ConvStart=(-d * L / 2.0, sy * 340.0, deck + 230.0), ConvDir=(d, 0.0, 0.0), ConvLen=L, ConvRate=0.045, ConvRand=1.0)
+        r = random.Random(5 + sy)
+        for i in range(9):
+            g.piece(lambda m, c=col: m.box(c, (0, 0, 0), (1500, 260, 150), glow=G4), a=(i + r.uniform(-0.3, 0.3)) / 9.0 % 1.0)
+    return dict(grow=(0.0, 0.0, 0.0), grow_down=(0.0, 0.0, 0.0))
+
+
+KITS = [('SM_ElTrain', el_train), ('SM_CrossTraffic', cross_traffic), ('SM_Blimp', blimp), ('SM_FarBridge', bridge_kit)]
+MOVERS = {
+    'SM_Infill1': dict(what='the sign cube on the roof: turns about its mast', SpinAxis=(0, 0, 1), SpinPivot=(330, 0, 0), SpinRate=0.7),
+    'SM_Infill2': dict(what='the scanner bar on the roof: turns about its mast', SpinAxis=(0, 0, 1), SpinPivot=(-280, 0, 0), SpinRate=1.1),
+    'SM_Klieg': dict(what='the lamp and its beam: rock along the street', SpinAxis=(0, 1, 0), SpinPivot=(0, 0, 140), SpinRate=0.4, SpinSwing=26.0),
+    'SM_Crane': dict(what='the cab, jib, counterweight and hook: slew about the mast', far=True, SpinAxis=(0, 0, 1), SpinPivot=(0, 0, 0), SpinRate=0.06),
+}
+
 
 W = 300.0     # the street wall's foundation
 JOBS = [
     ('SM_BladeHotel', lambda m: blade_sign(m, 'HOTEL', MAG, CYAN)), ('SM_BladeClub', lambda m: blade_sign(m, 'CLUB', CYAN, MAG)),
-    ('SM_BladeDiner', lambda m: blade_sign(m, 'DINER', AMBER, MAG)),
+    ('SM_BladeDiner', lambda m: blade_sign(m, 'DINER', AMBER, MAG)), ('SM_BladeShow', lambda m: blade_sign(m, 'SHOW', AMBER, MAG)),
+    ('SM_BladePark', lambda m: blade_sign(m, 'PARK', CYAN, ORANGE)), ('SM_BladeBank', lambda m: blade_sign(m, 'BANK', WARM_L, CYAN)),
+    ('SM_BladeJazz', lambda m: blade_sign(m, 'JAZZ', MAG, AMBER)),
     ('SM_FloorCross', floor_cross), ('SM_FloorLot', floor_lot), ('SM_FloorPlaza', floor_plaza), ('SM_KerbCafe', kerb_cafe),
-    ('SM_KerbWorks', kerb_works), ('SM_BankTiles', bank_tiles), ('SM_SynBank', syn_bank),
+    ('SM_KerbWorks', kerb_works), ('SM_CutTiles', cut_tiles), ('SM_CutSyn', cut_syn), ('SM_CutCity', cut_city_low),
+    ('SM_Infill1', lambda m: infill(m, 0, 1)), ('SM_Infill2', lambda m: infill(m, 1, 2)),
+    ('SM_RoofSign1', lambda m: roof_sign(m, 'JAZZ', MAG, CYAN)), ('SM_RoofSign2', lambda m: roof_sign(m, 'EAT', AMBER, MAG, W=760.0)),
+    ('SM_RoofSign3', lambda m: roof_sign(m, 'FILM', CYAN, MAG)), ('SM_RoofSign4', lambda m: roof_sign(m, 'CASH', WARM_L, CYAN)),
+    ('SM_Klieg', klieg), ('SM_Crane', crane),
+    ('SM_SkyCard1', lambda m: sky_card(m, 5, 44000.0, 5200.0, 11500.0, '#2e2c66', 0.06, 16)),
+    ('SM_SkyCard2', lambda m: sky_card(m, 9, 56000.0, 7000.0, 15500.0, '#4a3f8a', 0.08, 8)),
     ('SM_Shops1', _std(shops, slab=W)),
     ('SM_Shops2', _std(lambda m: shops(m, ('BAR', 'HATS', 'LOANS'), (TAN, BRICK_D, STONE), ((MAG, CREAM), (BLUE, CREAM), (GREEN_D, CREAM)),
-                                     (MAG, AMBER, CYAN), tall=(0, 2), seed=2), slab=W)),
+                                     (MAG, AMBER, CYAN), tall=(0, 2), seed=2, line=CYAN), slab=W)),
     ('SM_Shops3', _std(diner_row, slab=W)),
     ('SM_Marquee', _std(marquee, slab=W)), ('SM_BankFront', _std(bank_front, slab=W)), ('SM_PentEntry', _std(pent_entry, slab=W)),
     ('SM_GarageRamp', _std(garage, slab=W)), ('SM_Alley', _std(alley, slab=W)), ('SM_ServiceYard', _std(service_yard, slab=W)),
@@ -1077,5 +1409,5 @@ JOBS = [
     ('SM_MidBlock', _std(mid_block)), ('SM_GlassBlock', _std(glass_block)), ('SM_ElRail', _std(el_rail, foot=True)),
     ('SM_Monument', _std(monument, foot=True)), ('SM_ClockTower', _std(clock_tower)), ('SM_SynHQ', _std(syn_hq)),
     ('SM_FarTowersA', _std(far_towers, foot=True)), ('SM_FarTowersB', _std(lambda m: far_towers(m, seed=12, deco=True), foot=True)),
-    ('SM_FarRadio', _std(far_radio, foot=True)), ('SM_FarBridge', _std(far_bridge, foot=True)), ('SM_FarSyndicate', _std(far_syndicate, foot=True)),
+    ('SM_FarRadio', _std(far_radio, foot=True)), ('SM_FarSyndicate', _std(far_syndicate, foot=True)),
 ]

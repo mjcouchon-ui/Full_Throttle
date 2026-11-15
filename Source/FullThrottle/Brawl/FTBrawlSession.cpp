@@ -1,5 +1,6 @@
 #include "FTBrawlGameMode.h"
 #include "FTBrawlPlayerController.h"
+#include "FTInput.h"
 #include "Engine/World.h"
 #include "Engine/GameInstance.h"
 #include "GameFramework/PlayerInput.h"
@@ -22,7 +23,8 @@
 #endif
 
 // Screen: 0 gameplay, 1 title, 2 pause, 3 options, 4 replace campaign,
-// 5 checkpoint-aware exit confirmation, 6 save failure, 7 asynchronous save barrier. Menu input never enters combat.
+// 5 checkpoint-aware exit confirmation, 6 save failure, 7 controls, 8 restart confirmation, 9 asynchronous save barrier.
+// This is the only menu state machine. Input remains live while the world is paused.
 void AFTBrawlGameMode::InitializeSession()
 {
 	bSessionReady=true;
@@ -120,8 +122,11 @@ FString AFTBrawlGameMode::SaveStatus(bool& bError) const
 void AFTBrawlGameMode::SetSystemScreen(int32 Screen)
 {
 	const bool bOpening=SystemScreen==0 && Screen!=0;
-	SystemScreen=Screen; SystemSelection=0;
+	if (SystemScreen==MenuHome && Screen!=MenuHome) MenuHomeSelection=SystemSelection;
+	SystemScreen=Screen; SystemSelection=Screen==MenuHome?MenuHomeSelection:0;
 	if (Screen==1) while (SystemSelection<3 && !SystemRowEnabled(SystemSelection)) ++SystemSelection;
+	SuppressActionInput();
+	SyncPauseCompatibility();
 	if (APlayerController* PC=GetWorld()->GetFirstPlayerController())
 	{
 		if (bOpening)
@@ -143,6 +148,8 @@ void AFTBrawlGameMode::SetSystemScreen(int32 Screen)
 	}
 	if (Screen==0)
 	{
+		bDisconnectedPause=false;
+		if (UFTInputSubsystem* Input=UFTInputSubsystem::Get(this)) Input->DismissDisconnect();
 		for (const auto& Audio:SystemPausedAudio) if (Audio.IsValid()) Audio->SetPaused(false);
 		SystemPausedAudio.Reset();
 		// Require release of menu controls before accepting gameplay/dialogue input again.
@@ -158,13 +165,31 @@ void AFTBrawlGameMode::ToggleSystemMenu()
 	if (!bSessionReady) return;
 	if (SystemScreen==0)
 	{
-		MenuHome=2; bool Error=false; SaveStatus(Error); RequestedExit=0; SetSystemScreen(Error?6:2);
+		MenuHome=2; MenuHomeSelection=0; bool Error=false; SaveStatus(Error); RequestedExit=0; SetSystemScreen(Error?6:2);
 	}
 	else SystemBack();
 }
+void AFTBrawlGameMode::OpenDisconnectedSystemMenu()
+{
+	if (!bSessionReady) return;
+	bDisconnectedPause=true;
+	if (!SystemScreen) ToggleSystemMenu();
+	else SuppressActionInput();
+	UE_LOG(LogTemp,Display,TEXT("FTBRAWL pause disconnected=1 screen=%d"),SystemScreen);
+}
+void AFTBrawlGameMode::SyncPauseCompatibility()
+{
+	PausePage=SystemScreen==0?0:SystemScreen==7?2:(SystemScreen==8 || SystemScreen==5 || SystemScreen==4)?3:1;
+	PauseSelection=SystemSelection;
+}
+void AFTBrawlGameMode::SystemAdjust(int32 Delta)
+{
+	if (SystemScreen==7 && SystemSelection==0)
+		if (UFTInputSubsystem* Input=UFTInputSubsystem::Get(this)) Input->SetPromptStyle((Input->GetPromptStyle()+Delta+5)%5);
+}
 void AFTBrawlGameMode::SystemBack()
 {
-	if (SystemScreen==7) { bSystemSaveWait=false; bSystemExitNeedsConfirm=false; bSystemDiscardAfterWait=false; SetSystemScreen(MenuHome); return; }
+	if (SystemScreen==9) { bSystemSaveWait=false; bSystemExitNeedsConfirm=false; bSystemDiscardAfterWait=false; SetSystemScreen(MenuHome); return; }
 	if (SystemScreen==1) return;
 	if (SystemScreen==2) SetSystemScreen(0);
 	else SetSystemScreen(MenuHome);
@@ -174,6 +199,7 @@ void AFTBrawlGameMode::SystemNavigate(int32 Delta)
 	if (!SystemScreen) return;
 	const int32 N=SystemRows().Num();
 	for (int32 Attempt=0; Attempt<N; ++Attempt) { SystemSelection=(SystemSelection+Delta+N)%N; if (SystemRowEnabled(SystemSelection)) break; }
+	SyncPauseCompatibility();
 	UE_LOG(LogTemp,Log,TEXT("FT BRAWL SYSTEM selection=%d label=%s"),SystemSelection,*SystemRows()[SystemSelection]);
 }
 bool AFTBrawlGameMode::SystemRowEnabled(int32 Index) const
@@ -191,7 +217,7 @@ bool AFTBrawlGameMode::SystemRowEnabled(int32 Index) const
 TArray<FString> AFTBrawlGameMode::SystemRows() const
 {
 	if (SystemScreen==1) return {TEXT("CONTINUE"),TEXT("NEW GAME"),TEXT("OPTIONS"),TEXT("QUIT TO DESKTOP")};
-	if (SystemScreen==2) return {TEXT("RESUME"),TEXT("OPTIONS"),TEXT("QUIT TO TITLE"),TEXT("QUIT TO DESKTOP")};
+	if (SystemScreen==2) return {TEXT("RESUME"),TEXT("CONTROLS"),TEXT("RESTART SECTION"),TEXT("OPTIONS"),TEXT("SAVE AND QUIT TO TITLE"),TEXT("SAVE AND QUIT TO DESKTOP")};
 	if (SystemScreen==3)
 	{
 		bool Muted=false,Reduced=ReducedPresentationMotion();
@@ -204,21 +230,30 @@ TArray<FString> AFTBrawlGameMode::SystemRows() const
 	}
 	if (SystemScreen==4) return {TEXT("CANCEL"),TEXT("REPLACE CAMPAIGN")};
 	if (SystemScreen==5) return {TEXT("CANCEL"),RequestedExit==2?TEXT("SAVE AND QUIT TO DESKTOP"):TEXT("SAVE AND QUIT TO TITLE")};
-	if (SystemScreen==7) return {TEXT("CANCEL REQUEST / SAVE CONTINUES")};
+	if (SystemScreen==9) return {TEXT("CANCEL REQUEST / SAVE CONTINUES")};
 	if (SystemScreen==6) return {TEXT("RETRY SAVE"),RequestedExit>0&&RequestedExit<3?TEXT("QUIT WITHOUT SAVING"):TEXT("BACK")};
+	if (SystemScreen==7)
+	{
+		const UFTInputSubsystem* Input=UFTInputSubsystem::Get(this);
+		return {FString(TEXT("BUTTON STYLE   <  "))+UFTInputSubsystem::PromptStyleName(Input?Input->GetPromptStyle():0)+TEXT("  >"),TEXT("REPLAY COMBAT TIPS"),TEXT("BACK")};
+	}
+	if (SystemScreen==8) return {TEXT("CANCEL"),TEXT("RESTART")};
 	return {};
 }
 FString AFTBrawlGameMode::SystemHeading() const
 {
 	switch(SystemScreen)
 	{
-	case 1:return TEXT("FULL THROTTLE / BRAWL"); case 2:return TEXT("PAUSED"); case 3:return TEXT("OPTIONS");
-	case 4:return TEXT("START A NEW CAMPAIGN?"); case 5:return TEXT("LEAVE THIS SESSION?"); case 6:return TEXT("PROGRESS WAS NOT SAVED"); case 7:return TEXT("SAVING..."); default:return {};
+	case 1:return TEXT("FULL THROTTLE / BRAWL"); case 2:return bDisconnectedPause?TEXT("CONTROLLER DISCONNECTED"):TEXT("PAUSED"); case 3:return TEXT("OPTIONS");
+	case 4:return TEXT("START A NEW CAMPAIGN?"); case 5:return TEXT("LEAVE THIS SESSION?"); case 6:return TEXT("PROGRESS WAS NOT SAVED");
+	case 7:return TEXT("CONTROLS / ON FOOT"); case 8:return TEXT("RESTART THIS SECTION?"); case 9:return TEXT("SAVING..."); default:return {};
 	}
 }
 FString AFTBrawlGameMode::SystemDetail() const
 {
-	if (SystemScreen==7) return TEXT("Your request is queued until saving finishes. You can cancel the request while the save continues.\nContinue currently restores:\n")+CheckpointLabel();
+	if (SystemScreen==8) return InCut()?TEXT("Restart the current story scene. Campaign progress and settings stay unchanged."):TEXT("Restart this fight section with full health. Held items and active power-ups reset. Progress in the current fight section will be lost.");
+	if (SystemScreen==2 && bDisconnectedPause) return TEXT("Reconnect, or use keyboard: Up/Down to select, Enter to confirm, Esc to resume. Reconnecting keeps the game paused.\n")+CheckpointLabel();
+	if (SystemScreen==9) return TEXT("Your request is queued until saving finishes. You can cancel the request while the save continues.\nContinue currently restores:\n")+CheckpointLabel();
 	if (SystemScreen==3) return TEXT("Audio and accessibility preferences are kept when starting a New Game.");
 	if (SystemScreen==4) return TEXT("This replaces campaign progress with Day 1. Audio and accessibility preferences stay unchanged. Cancel leaves the save untouched.");
 	if (SystemScreen==6)
@@ -263,8 +298,27 @@ void AFTBrawlGameMode::SystemActivate()
 	{
 		MenuHome=2;
 		if (Row==0) SetSystemScreen(0);
-		else if (Row==1) SetSystemScreen(3);
-		else RequestSystemQuit(Row==3);
+		else if (Row==1) SetSystemScreen(7);
+		else if (Row==2) SetSystemScreen(8);
+		else if (Row==3) SetSystemScreen(3);
+		else RequestSystemQuit(Row==5);
+		return;
+	}
+	if (SystemScreen==7)
+	{
+		if (Row==0) SystemAdjust(1);
+		else if (Row==1) { ReplayCombatHelp(); SetSystemScreen(0); }
+		else SystemBack();
+		return;
+	}
+	if (SystemScreen==8)
+	{
+		if (Row==0) { SystemBack(); return; }
+		SetSystemScreen(0);
+		if (InCut()) StartCut(CutId);
+		else if (bWon) Restart();
+		else Retry();
+		SaveCheckpoint(TEXT("RestartSection"));
 		return;
 	}
 	if (SystemScreen==3)
@@ -282,7 +336,7 @@ void AFTBrawlGameMode::SystemActivate()
 #endif
 		return;
 	}
-	if (SystemScreen==7) { SystemBack(); return; }
+	if (SystemScreen==9) { SystemBack(); return; }
 	if (SystemScreen==4 || SystemScreen==5) { if (Row==0) SetSystemScreen(MenuHome); else FinishSystemAction(false); return; }
 	if (SystemScreen==6) { if (Row==0) FinishSystemAction(false); else if (RequestedExit>0&&RequestedExit<3) FinishSystemAction(true); else SetSystemScreen(MenuHome); }
 }
@@ -293,10 +347,10 @@ void AFTBrawlGameMode::RequestSystemQuit(bool bDesktop)
 	MenuHome=SystemScreen==0?2:SystemScreen==1?1:MenuHome;
 	if (IsSystemSaving())
 	{
-		bSystemSaveWait=true; bSystemExitNeedsConfirm=true; SetSystemScreen(7);
+		bSystemSaveWait=true; bSystemExitNeedsConfirm=true; SetSystemScreen(9);
 		UE_LOG(LogTemp,Log,TEXT("FT BRAWL SYSTEM exit queued=%s"),bDesktop?TEXT("desktop"):TEXT("title")); return;
 	}
-	if (MenuHome==1 || (StT<0.5f && CutT<0.5f)) FinishSystemAction(false);
+	if (MenuHome==1) FinishSystemAction(false);
 	else SetSystemScreen(5);
 }
 bool AFTBrawlGameMode::IsSystemSaving() const
@@ -338,7 +392,7 @@ void AFTBrawlGameMode::FinishSystemAction(bool bDiscard)
 {
 	if (bDiscard)
 	{
-		if (IsSystemSaving()) { bSystemSaveWait=true; bSystemDiscardAfterWait=true; bSystemExitNeedsConfirm=false; SetSystemScreen(7); return; }
+		if (IsSystemSaving()) { bSystemSaveWait=true; bSystemDiscardAfterWait=true; bSystemExitNeedsConfirm=false; SetSystemScreen(9); return; }
 		CompleteSystemAction(true); return;
 	}
 	bSystemDiscardAfterWait=false;
@@ -353,7 +407,7 @@ void AFTBrawlGameMode::FinishSystemAction(bool bDiscard)
 	if (!Accepted && !IsSystemSaving()) { SetSystemScreen(6); return; }
 	if (IsSystemSaving())
 	{
-		bSystemSaveWait=true; bSystemExitNeedsConfirm=false; SetSystemScreen(7);
+		bSystemSaveWait=true; bSystemExitNeedsConfirm=false; SetSystemScreen(9);
 		UE_LOG(LogTemp,Log,TEXT("FT BRAWL SYSTEM save wait action=%d"),RequestedExit); return;
 	}
 	if (HasSystemSaveError()) { SetSystemScreen(6); return; }

@@ -43,6 +43,35 @@
 //  - Zones written BEFORE the districts place the flat pieces and the banners by Far rules first, so those cast no
 //    shadow.
 
+// THIRD PASS (15 Nov 2026, the overhaul: "dense, distinctive and alive at racing speed"). What it added:
+//  - The lifts MOVE: SM_LiftSpan is a moving prop now (ft_dress_ice.lift_span_live): chairs travel up one cable and
+//    down the other, every span in step with the next. The rules that place it are unchanged.
+//  - The gondola over the road (signature; the set GondolaCross): 140 m of cable from a station 70 m out on one side to
+//    one on the other, over a pylon either side of the road (30 m out), eight cabins crossing 17 m over the road. At
+//    0.226 km (the top), 3.529 km (leaving the super pipe) and 8.325 km (the valley, where the third jump lands). The
+//    cable is a piece of its own (SM_CableCross: nothing of it is within 9 m of the deck, so the track's road test lets
+//    it stand over the road; under 2.5 m tall, so it casts no shadow). Not in the finale: the fight has the road.
+//  - The skyline is flat cards in receding tones now, not cones: SM_RidgeSaw (the near ridge, 340 to 400 m),
+//    SM_RangeMid (the sierra, 660 to 800 m) and SM_RangeFar (the massif, 1.3 to 1.5 km, 1.2 km long), written once for
+//    the whole road ("The far ranges"). Snow streams off the summits of the two far ones. The chute keeps its steep
+//    peaks overhead; the glacier tongues, the far lift lines and the observatory stay. About 140 fewer horizon pieces
+//    (none of them is ever culled).
+//  - Spindrift nearer: off the tops of the ice walls (SM_RockIceWall, SM_RockIceWall2) and off the cornices
+//    (SM_RockIceShelf), all three moving props under their old names; ice walls now also 34 m from the road in the
+//    glacier districts. Snow lances blowing by the piste (SM_SnowLance, 27 m out, footed 12 m down).
+//  - The near layer. FOUND: this hill falls 7 in 100, and the track's sight line (anything 2 m over a road keeps 24 m
+//    from its centre line) counts a piece's top against the road further DOWN the hill as well. So a piece 18 m out
+//    whose box tops about 1.4 m is pushed out to the 24 m line: every fence, bank, marker and snow gun of the first two
+//    passes stands at 24.7 m, not where it was written, and the strip behind the barrier was empty. What can stand
+//    there is low and short: crash padding in the resort's colours (SM_PadRun, 1.2 m, 8 m, three to a slot: the sets
+//    PadsR / PadsL, each length at its own height down the grade), and in the glacier districts ice blocks at 0.85 of
+//    their size (IceKerbR / IceKerbL). The wooden snow fence is on every slot of the ridge districts now.
+//  - Wind-driven snow: gusts that lift the snow off the snowfield 58 m out and stream it 20 m down the wind
+//    (SM_SnowGust, a moving prop: its box is the 20 m its snow travels, so it is written 58 m out), on the ridge
+//    districts, the top and the whiteout.
+//  - Lodges up to the road: SM_ChaletRow (three chalets gable-on, lit windows, 27 m out) with a lodge behind, where the
+//    road runs straight through the resort (the sets StreetR / StreetL).
+
 Set(TEXT("FenceR"), { { TEXT("SM_SnowFence"), 0, 0, 0, 0, 1 } });
 Set(TEXT("FenceL"), { { TEXT("SM_SnowFenceL"), 0, 0, 0, 0, 1 } });
 Set(TEXT("RescuePost"), {    // the mountain rescue: hut, landing pad, groomer, mast
@@ -122,6 +151,47 @@ Set(TEXT("Tarn1"), { { TEXT("SM_SnowTarn"),  -4.9f, 0, 1570.75f, 0, 1 } });
 Set(TEXT("Tarn2"), { { TEXT("SM_SnowTarn"),  -4.5f, 0, 1383.35f, 0, 1 } });
 Set(TEXT("Tarn3"), { { TEXT("SM_SnowTarn"), -16.5f, 0, 1166.14f, 0, 1 } });
 
+// Third pass. Crash padding right behind the barrier: three lengths to a slot, each at its own height down the grade
+// (Up = -0.07 x along on the right, +0.07 x along on the left).
+Set(TEXT("PadsR"), { { TEXT("SM_PadRun"), -15, 0, 1.05f, 0, 1 }, { TEXT("SM_PadRun"), 0, 0, 0, 0, 1 }, { TEXT("SM_PadRun"), 15, 0, -1.05f, 0, 1 } });
+Set(TEXT("PadsL"), { { TEXT("SM_PadRun"), -15, 0, -1.05f, 0, 1 }, { TEXT("SM_PadRun"), 0, 0, 0, 0, 1 }, { TEXT("SM_PadRun"), 15, 0, 1.05f, 0, 1 } });
+// Blocks of blue ice along the verge of the glacier districts: three clusters to a slot, under 1.3 m (see the head).
+Set(TEXT("IceKerbR"), {
+	{ TEXT("SM_SnowRockIce"),       -15,    0,  1.05f,    0, 0.85f },
+	{ TEXT("SM_SnowRockIce"),         0, 0.6f,      0,  180, 0.8f },
+	{ TEXT("SM_SnowRockIce"),        15,    0, -1.05f,    0, 0.85f },
+});
+Set(TEXT("IceKerbL"), {
+	{ TEXT("SM_SnowRockIce"),       -15,    0, -1.05f,    0, 0.85f },
+	{ TEXT("SM_SnowRockIce"),         0, 0.6f,      0,  180, 0.8f },
+	{ TEXT("SM_SnowRockIce"),        15,    0,  1.05f,    0, 0.85f },
+});
+// The gondola over the road (signature). The anchor is the right-hand pylon, 30 m out; the cable's middle is over the
+// road's middle, 16.8 m up, and its stations stand 70 m out on either side (the left one turned to face the road).
+Set(TEXT("GondolaCross"), {
+	{ TEXT("SM_CablePylon"),          0,    0,      0,    0, 1 },
+	{ TEXT("SM_CablePylon"),          0,  -60,      0,    0, 1 },
+	{ TEXT("SM_CableCross"),          0,  -30,  16.8f,    0, 1 },
+	{ TEXT("SM_CableTower"),          0,   40,      0,    0, 1 },
+	{ TEXT("SM_CableTower"),          0, -100,      0,  180, 1 },
+});
+// The resort's street front, with a lodge behind it and a groomer parked between.
+Set(TEXT("StreetR"), {
+	{ TEXT("SM_ChaletRow"),           0,    0,      0,    0, 1 },
+	{ TEXT("SM_Lodge"),               5,   26,      0,    0, 1 },
+	{ TEXT("SM_Snowcat"),           -15,   12,  1.05f,   30, 1 },
+});
+Set(TEXT("StreetL"), {
+	{ TEXT("SM_ChaletRow"),           0,    0,      0,    0, 1 },
+	{ TEXT("SM_Lodge"),               5,   26,      0,    0, 1 },
+	{ TEXT("SM_Snowcat"),           -15,   12, -1.05f,   30, 1 },
+});
+// Wind-driven snow: gusts lifting the snow off the snowfield and streaming it down the world's wind (the same way on
+// both sides of the road, whichever way the piece is turned).
+Set(TEXT("GustR"), { { TEXT("SM_SnowGust"), 0, 0, 0, 0, 1 } });
+Set(TEXT("GustL"), { { TEXT("SM_SnowGust"), 0, 0, 0, 180, 1 } });
+Set(TEXT("Row"), { { TEXT("SM_ChaletRow"), 0, 0, 0, 0, 1 } });    // the street front alone, where the resort's ground (a rink, the service road) lies behind it
+
 // ---- SECOND PASS, before the districts: the lakes, the land under the set pieces, the jumps' aprons, the banners.
 // A frozen lake under each jump: one slot each (51, 111, 181), the lake's sheet at its own height above the floor.
 Zone(TEXT("Under the first jump: the lake"), 2.3f, 2.32f);
@@ -133,11 +203,44 @@ Zone(TEXT("Under the second jump: the lake"), 5.01f, 5.03f);
 Zone(TEXT("Under the third jump: the lake"), 8.18f, 8.2f);
 	SiteAfloat(TEXT("Tarn3"), 1, 0, 1, 0, 1.f);
 
+// ---- THIRD PASS, before the districts.
+// The far ranges, for the whole road: three rows in receding tones, each a different outline, left and right out of
+// step. The near ridge has gaps (three slots in five get one), so the two behind it show through.
+Zone(TEXT("The far ranges"), 0.f, 99.f);
+	Far(TEXT("SM_RangeFar"), 1300, 1500, 20, 3, 1.f, 1.f, 0.1f, -1, 30.f, 6.f);
+	Far(TEXT("SM_RangeFar"), 1300, 1500, 20, 13, 1.f, 1.f, 0.1f, 1, 30.f, 6.f);
+	Far(TEXT("SM_RangeMid"), 660, 800, 14, 5, 1.f, 1.f, 0.12f, -1, 20.f, 8.f);
+	Far(TEXT("SM_RangeMid"), 660, 800, 14, 12, 1.f, 1.f, 0.12f, 1, 20.f, 8.f);
+	Far(TEXT("SM_RidgeSaw"), 340, 400, 8, 2, 0.6f, 0.8f, 0.12f, -1, 8.f, 8.f);
+	Far(TEXT("SM_RidgeSaw"), 340, 400, 8, 6, 0.6f, 0.8f, 0.12f, 1, 8.f, 8.f);
+
+// The gondola over the road, three times (one slot each: 5, 78 and 184; a slot is 45.24 m).
+Zone(TEXT("The gondola over the top"), 0.22f, 0.23f);
+	Site(TEXT("GondolaCross"), 1, 30, 1, 0, 1.f);
+
+Zone(TEXT("The gondola over the glacier"), 3.52f, 3.535f);
+	Site(TEXT("GondolaCross"), 1, 30, 1, 0, 1.f);
+
+Zone(TEXT("The gondola over the valley"), 8.32f, 8.33f);
+	Site(TEXT("GondolaCross"), 1, 30, 1, 0, 1.f);
+
+// Crash padding right behind the barrier (third pass): three lengths a slot a side for the first 9 km, alternate slots a
+// side after that; the banked bends and the pipes too (the land beside a bend is not cut: the padding stands on its lip, over the cutting).
+Zone(TEXT("Crash padding"), 0.f, 9.f);
+	Site(TEXT("PadsL"), -1, 18, 1, 0, 0.95f);
+	Site(TEXT("PadsR"), 1, 18, 1, 0, 0.95f);
+
+Zone(TEXT("Crash padding, the finale"), 9.f, 99.f);     // alternate slots a side
+	Site(TEXT("PadsL"), -1, 18, 2, 0, 0.95f);
+	Site(TEXT("PadsR"), 1, 18, 2, 1, 0.95f);
+
 // Under the corkscrews and the loops the camera looks at the land, and Scatter and Site are left out there: so the
 // resort's ground (rink, terrain park, car park) is written as Far rules with the land's own drop, one piece a side
 // every second slot (a Far piece is moved up to 11 m along its slot: closer than that they would overlap), and the
 // banners line the set piece itself. The land runs straight and level-across under these.
 Zone(TEXT("Under the chute's corkscrew"), 2.51f, 2.685f);
+	Far(TEXT("SM_SnowLance"), 28, 28.6f, 2, 1, 1.f, 1.f, 0.f, 0, 0.78f, 0.f);     // third pass: the lance's first piece (so it casts no shadow)
+	Far(TEXT("SM_SnowGust"), 60, 62, 2, 0, 1.f, 1.f, 0.f, 0, 0.58f, 0.f);        // and the gust's
 	Far(TEXT("SM_PoleFeather"), 26, 28, 1, 0, 1.f, 1.f, 0.f, 0, 0.78f, 0.f);
 	Far(TEXT("SM_SnowParkL"), 54, 58, 4, 0, 1.f, 1.f, 0.f, -1, 0.6f, 3.f);
 	Far(TEXT("SM_SnowRinkL"), 58, 62, 4, 2, 1.f, 1.f, 0.f, -1, 0.57f, 3.f);
@@ -249,7 +352,7 @@ Zone(TEXT("Banners: finale, 9"), 23.725f, 24.54f);
 // great peaks stand close. Second pass: the summit hotel on the left slope, the crew's depot on the right, a near
 // ridge in front of the peaks, and two more shapes of peak.
 Zone(TEXT("First tracks"), 0.f, 1.19f);
-	Site(TEXT("LiftLine"), -1, 85, 8, 3, 1.f, 1.f, 0.f);
+	Site(TEXT("LiftLine"), -1, 85, 8, 5, 1.f, 1.f, 0.f);     // third pass: phase 5 (was 3: slot 5 is the gondola's now)
 	Site(TEXT("RescuePost"), 1, 165, 9, 4, 1.f, 1.f, 0.f);
 	Site(TEXT("DepotR"), 1, 68, 9, 1, 1.f);
 	Scatter(TEXT("SM_Hotel"), 204, 210, 12, 5, 1.f, 1.f, 0.f, -1, 0.f);
@@ -260,14 +363,14 @@ Zone(TEXT("First tracks"), 0.f, 1.19f);
 	Scatter(TEXT("SM_RockIceShelf"), 230, 272, 4, 1, 0.8f, 1.f, 0.2f, 0, 8.f);
 	Scatter(TEXT("SM_RidgeFences"), 236, 262, 9, 6, 1.f, 1.f, 0.f, 0, 6.f);
 	Scatter(TEXT("SM_PoleSignal"), 200, 282, 7, 5, 1.f, 1.2f, 0.f, 0, 0.f);
-	Far(TEXT("SM_RidgeSaw"), 345, 400, 10, 4, 0.7f, 1.f, 0.15f, 0, 8.f, 10.f);
 	Far(TEXT("SM_PeakObservatory"), 430, 700, 9, 3, 1.f, 1.3f, 0.1f, 1, 25.f, 30.f);
-	Far(TEXT("SM_PeakGreat"), 800, 1200, 12, 0, 1.f, 1.3f, 0.3f, 0, 25.f, 60.f);
-	Far(TEXT("SM_PeakHorn"), 760, 1100, 12, 6, 1.f, 1.1f, 0.2f, 0, 25.f, 40.f);
-	Far(TEXT("SM_PeakTwin"), 700, 1000, 14, 9, 1.f, 1.2f, 0.2f, 0, 25.f, 40.f);
-	Far(TEXT("SM_RidgeRange"), 820, 1200, 9, 2, 1.f, 1.7f, 0.2f, 0, 0.f, 8.f);
+
+Zone(TEXT("The summit street"), 0.1f, 0.15f);     // third pass: one row a side by the gondola's top station (0.136 km)
+	Site(TEXT("StreetL"), -1, 27.6f, 1, 0, 1.f);
+	Site(TEXT("StreetR"), 1, 27.6f, 1, 0, 1.f);
 
 Zone(TEXT("First tracks, the verge"), 0.f, 0.25f);
+	Site(TEXT("GustL"), -1, 58, 2, 0, 0.9f);     // third pass: wind-driven snow (left only: the right has the street's lodge)
 	Site(TEXT("FenceL"), -1, 19, 4, 0, 0.9f, 1.f, 0.f);
 	Site(TEXT("FenceR"), 1, 19, 4, 2, 0.9f, 1.f, 0.f);
 	Scatter(TEXT("SM_SnowRockBank"), 20.2f, 22, 2, 1, 0.6f, 1.f, 0.2f, 0, 2.f);
@@ -279,19 +382,18 @@ Zone(TEXT("First tracks, the verge"), 0.f, 0.25f);
 Zone(TEXT("The half pipe"), 1.19f, 2.43f);
 	Scatter(TEXT("SM_Snowcat"), 150, 225, 5, 2, 0.9f, 1.f, 0.f, 0, 180.f);
 	Site(TEXT("RescuePost"), -1, 165, 11, 5, 1.f, 1.f, 0.f);
-	Far(TEXT("SM_RidgeSaw"), 345, 400, 9, 1, 0.7f, 1.f, 0.15f, 0, 8.f, 10.f);
-	Far(TEXT("SM_PeakLesser"), 520, 820, 9, 2, 1.f, 1.2f, 0.3f, 0, 25.f, 60.f);
-	Far(TEXT("SM_PeakGreat"), 800, 1200, 11, 4, 1.f, 1.4f, 0.3f, 0, 25.f, 60.f);
-	Far(TEXT("SM_PeakTwin"), 620, 900, 12, 7, 1.f, 1.1f, 0.2f, 0, 25.f, 40.f);
-	Far(TEXT("SM_RidgeRange"), 820, 1200, 8, 0, 1.f, 1.7f, 0.2f, 0, 0.f, 8.f);
 
 Zone(TEXT("The half pipe, the verge (1)"), 1.21f, 1.77f);
+	Scatter(TEXT("SM_SnowLance"), 27.5f, 29, 3, 0, 0.85f, 1.f, 0.f, -1, 0.f);     // third pass: snow lances, blowing
+	Scatter(TEXT("SM_SnowLance"), 27.5f, 29, 3, 1, 0.85f, 1.f, 0.f, 1, 0.f);
 	Site(TEXT("PipeSide"), 0, 33, 2, 0, 0.9f, 1.f, 0.f);
 	Scatter(TEXT("SM_SnowCannon"), 20, 21.5f, 2, 1, 0.7f, 1.f, 0.f, 0, 15.f);
 	Site(TEXT("FenceL"), -1, 19, 6, 0, 0.8f, 1.f, 0.f);
 	Site(TEXT("FenceR"), 1, 19, 6, 3, 0.8f, 1.f, 0.f);
 
 Zone(TEXT("The half pipe, the verge (2)"), 2.1f, 2.43f);
+	Scatter(TEXT("SM_SnowLance"), 27.5f, 29, 3, 0, 0.85f, 1.f, 0.f, -1, 0.f);     // third pass: snow lances, blowing
+	Scatter(TEXT("SM_SnowLance"), 27.5f, 29, 3, 1, 0.85f, 1.f, 0.f, 1, 0.f);
 	Site(TEXT("PipeSide"), 0, 33, 2, 0, 0.9f, 1.f, 0.f);
 	Scatter(TEXT("SM_SnowCannon"), 20, 21.5f, 2, 1, 0.7f, 1.f, 0.f, 0, 15.f);
 	Site(TEXT("FenceL"), -1, 19, 6, 0, 0.8f, 1.f, 0.f);
@@ -326,6 +428,8 @@ Zone(TEXT("Avalanche chute"), 2.43f, 2.96f);
 // the road after it, ice falls, seracs and frozen falls up the slopes, and a glacier tongue coming down between the
 // peaks.
 Zone(TEXT("The super pipe"), 2.96f, 4.02f);
+	Far(TEXT("SM_RockIceWall"), 33.5f, 35.5f, 3, 1, 0.9f, 1.f, 0.1f, -1, 0.74f, 2.f);     // third pass: ice walls right by the road, a gap between
+	Far(TEXT("SM_RockIceWall"), 33.5f, 35.5f, 3, 2, 0.9f, 1.f, 0.1f, 1, 0.74f, 2.f);
 	Far(TEXT("SM_RockIceWall"), 38, 46, 1, 0, 0.7f, 1.f, 0.15f, 0, 0.69f, 6.f);
 	Site(TEXT("IceFall"), 0, 118, 1, 0, 0.85f, 1.f, 0.1f);
 	Far(TEXT("SM_RockIceWall2"), 100, 110, 2, 0, 0.8f, 1.2f, 0.2f, 0, -2.54f, 6.f);
@@ -333,11 +437,10 @@ Zone(TEXT("The super pipe"), 2.96f, 4.02f);
 	Far(TEXT("SM_RockIceFalls"), 196, 206, 4, 2, 0.9f, 1.2f, 0.f, 0, -14.02f, 10.f);
 	Far(TEXT("SM_RockIceWall2"), 240, 250, 2, 1, 0.8f, 1.4f, 0.2f, 0, -19.27f, 6.f);
 	Far(TEXT("SM_RidgeGlacier"), 380, 600, 5, 1, 1.f, 1.f, 0.15f, 0, 20.f, 14.f);
-	Far(TEXT("SM_PeakGreat"), 800, 1200, 9, 3, 1.f, 1.4f, 0.3f, 0, 25.f, 60.f);
-	Far(TEXT("SM_PeakTwin"), 700, 1000, 11, 6, 1.f, 1.2f, 0.2f, 0, 25.f, 40.f);
 
 Zone(TEXT("The super pipe, the verge"), 2.96f, 3.59f);
-	Scatter(TEXT("SM_SnowRockIce"), 20.6f, 22.5f, 1, 0, 0.6f, 1.f, 0.2f, 0, 8.f);
+	Site(TEXT("IceKerbL"), -1, 20.5f, 1, 0, 0.9f);     // third pass: ice blocks, three clusters a slot a side
+	Site(TEXT("IceKerbR"), 1, 20.5f, 1, 0, 0.9f);
 
 // ---- 4.02 to 5.65 km: BLACK DIAMOND, the exposed ridge (a loop, a jump, a corkscrew). Wind country: fences down the
 // whole verge, cornices and carved drift on the slopes, crevasse fields, a weather post and signal masts, and the far
@@ -347,20 +450,21 @@ Zone(TEXT("Black diamond"), 4.02f, 5.65f);
 	Far(TEXT("SM_RockIceShelf"), 138, 146, 2, 0, 0.9f, 1.f, 0.15f, 0, -6.96f, 8.f);
 	Site(TEXT("WeatherPost"), 1, 172, 9, 3, 1.f, 1.f, 0.f);
 	Far(TEXT("SM_PoleSignal"), 176, 184, 4, 1, 0.7f, 1.2f, 0.f, 0, -11.5f, 0.f);
-	Far(TEXT("SM_RidgeSaw"), 345, 400, 8, 2, 0.7f, 1.f, 0.15f, 0, 8.f, 10.f);
-	Far(TEXT("SM_RidgeRange"), 850, 1200, 6, 0, 1.f, 1.4f, 0.2f, 0, 0.f, 8.f);
-	Far(TEXT("SM_PeakHorn"), 800, 1150, 9, 4, 1.f, 1.2f, 0.2f, 0, 25.f, 40.f);
 	Far(TEXT("SM_PeakObservatory"), 500, 800, 11, 4, 1.f, 1.3f, 0.1f, 0, 25.f, 30.f);
 	Far(TEXT("SM_RidgeLiftLine"), 420, 650, 9, 6, 1.f, 1.f, 0.1f, 0, 20.f, 8.f);
 
 Zone(TEXT("Black diamond, the verge (1)"), 4.03f, 4.46f);
-	Site(TEXT("FenceL"), -1, 19, 2, 0, 0.8f, 1.f, 0.f);
-	Site(TEXT("FenceR"), 1, 19, 2, 1, 0.8f, 1.f, 0.f);
+	Site(TEXT("GustL"), -1, 58, 2, 0, 0.9f);     // third pass: wind-driven snow, a gust every other slot a side (58 m: its snow travels 20 m)
+	Site(TEXT("GustR"), 1, 58, 2, 1, 0.9f);
+	Site(TEXT("FenceL"), -1, 19, 1, 0, 0.9f, 1.f, 0.f);     // third pass: every slot (was every other)
+	Site(TEXT("FenceR"), 1, 19, 1, 0, 0.9f, 1.f, 0.f);
 	Scatter(TEXT("SM_SnowRockBank2"), 20.2f, 22, 2, 0, 0.6f, 1.f, 0.2f, 0, 2.f);
 
-Zone(TEXT("Black diamond, the verge (2)"), 4.83f, 5.43f);
-	Site(TEXT("FenceL"), -1, 19, 2, 0, 0.8f, 1.f, 0.f);
-	Site(TEXT("FenceR"), 1, 19, 2, 1, 0.8f, 1.f, 0.f);
+Zone(TEXT("Black diamond, the verge (2)"), 5.12f, 5.43f);     // (review) starts past the second jump: fences and banks hung beside its pylons
+	Site(TEXT("GustL"), -1, 58, 2, 0, 0.9f);     // third pass: wind-driven snow, a gust every other slot a side (58 m: its snow travels 20 m)
+	Site(TEXT("GustR"), 1, 58, 2, 1, 0.9f);
+	Site(TEXT("FenceL"), -1, 19, 1, 0, 0.9f, 1.f, 0.f);     // third pass: every slot (was every other)
+	Site(TEXT("FenceR"), 1, 19, 1, 0, 0.9f, 1.f, 0.f);
 	Scatter(TEXT("SM_SnowRockBank2"), 20.2f, 22, 2, 0, 0.6f, 1.f, 0.2f, 0, 2.f);
 
 // The same district, for what lies flat on the slopes: carved drift and crevasse fields, through the loop and the
@@ -389,12 +493,12 @@ Zone(TEXT("The whiteout"), 5.65f, 7.3f);
 	Far(TEXT("SM_RockSeracB"), 226, 234, 2, 1, 0.7f, 1.2f, 0.3f, 0, -17.48f, 180.f);
 	Far(TEXT("SM_RockSeracH"), 252, 258, 3, 0, 0.7f, 1.2f, 0.2f, 0, -20.47f, 180.f);
 	Far(TEXT("SM_SnowRockDrift"), 150, 158, 2, 1, 0.6f, 1.2f, 0.2f, 0, -8.4f, 8.f);
-	Far(TEXT("SM_RidgeSaw"), 345, 400, 10, 6, 0.7f, 1.f, 0.15f, 0, 8.f, 10.f);
-	Far(TEXT("SM_PeakLesser"), 520, 820, 8, 0, 1.f, 1.2f, 0.3f, 0, 25.f, 60.f);
-	Far(TEXT("SM_PeakTwin"), 640, 900, 11, 5, 1.f, 1.f, 0.2f, 0, 25.f, 40.f);
-	Far(TEXT("SM_RidgeRange"), 850, 1200, 8, 2, 1.f, 1.7f, 0.2f, 0, 0.f, 8.f);
 
 Zone(TEXT("The whiteout, the verge (1)"), 5.66f, 6.33f);
+	Site(TEXT("GustL"), -1, 58, 2, 0, 0.9f);     // third pass: wind-driven snow, a gust every other slot a side (58 m: its snow travels 20 m)
+	Site(TEXT("GustR"), 1, 58, 2, 1, 0.9f);
+	Scatter(TEXT("SM_SnowLance"), 27.5f, 29, 3, 0, 0.85f, 1.f, 0.f, -1, 0.f);     // third pass: snow lances, blowing
+	Scatter(TEXT("SM_SnowLance"), 27.5f, 29, 3, 1, 0.85f, 1.f, 0.f, 1, 0.f);
 	Scatter(TEXT("SM_PoleMarker"), 18, 19.5f, 1, 0, 0.8f, 1.f, 0.f, 0, 0.f);
 	Scatter(TEXT("SM_PoleMarker2"), 18, 19.5f, 1, 0, 0.5f, 1.f, 0.f, 0, 0.f);
 	Site(TEXT("FenceL"), -1, 20.5f, 2, 0, 0.7f, 1.f, 0.f);
@@ -403,6 +507,10 @@ Zone(TEXT("The whiteout, the verge (1)"), 5.66f, 6.33f);
 	Site(TEXT("PipeSide"), 0, 33, 3, 1, 0.9f, 1.f, 0.f);
 
 Zone(TEXT("The whiteout, the verge (2)"), 6.82f, 7.3f);
+	Site(TEXT("GustL"), -1, 58, 2, 0, 0.9f);     // third pass: wind-driven snow, a gust every other slot a side (58 m: its snow travels 20 m)
+	Site(TEXT("GustR"), 1, 58, 2, 1, 0.9f);
+	Scatter(TEXT("SM_SnowLance"), 27.5f, 29, 3, 0, 0.85f, 1.f, 0.f, -1, 0.f);     // third pass: snow lances, blowing
+	Scatter(TEXT("SM_SnowLance"), 27.5f, 29, 3, 1, 0.85f, 1.f, 0.f, 1, 0.f);
 	Scatter(TEXT("SM_PoleMarker"), 18, 19.5f, 1, 0, 0.8f, 1.f, 0.f, 0, 0.f);
 	Scatter(TEXT("SM_PoleMarker2"), 18, 19.5f, 1, 0, 0.5f, 1.f, 0.f, 0, 0.f);
 	Site(TEXT("FenceL"), -1, 20.5f, 2, 0, 0.7f, 1.f, 0.f);
@@ -414,7 +522,7 @@ Zone(TEXT("The whiteout, the verge (2)"), 6.82f, 7.3f);
 // and chalets on the slopes, lifts going up out of base stations on the left, groomers, a gallery now and then, a lift
 // line on the far ridge. Second pass: the grand hotel above every other village, the crew's depot by the road.
 Zone(TEXT("The valley run"), 7.3f, 8.94f);
-	Site(TEXT("LiftLine"), -1, 85, 5, 1, 1.f, 1.f, 0.f);
+	Site(TEXT("LiftLine"), -1, 85, 5, 2, 1.f, 1.f, 0.f);     // third pass: phase 2 (was 1: slot 184 is the gondola's now)
 	Site(TEXT("Village"), 1, 165, 4, 0, 1.f, 1.f, 0.f);
 	Scatter(TEXT("SM_Hotel"), 204, 210, 8, 4, 1.f, 1.f, 0.f, 1, 0.f);
 	Site(TEXT("DepotR"), 1, 68, 6, 0, 1.f);
@@ -423,15 +531,32 @@ Zone(TEXT("The valley run"), 7.3f, 8.94f);
 	Scatter(TEXT("/Game/Maps/Glacier/Props/SM_Chalet"), 228, 262, 2, 0, 0.7f, 1.f, 0.15f, 1, 40.f);
 	Scatter(TEXT("SM_Snowcat"), 150, 232, 4, 1, 0.8f, 1.f, 0.f, 0, 180.f);
 	Far(TEXT("SM_RidgeLiftLine"), 400, 640, 5, 0, 1.f, 1.f, 0.1f, 0, 20.f, 8.f);
-	Far(TEXT("SM_PeakGreat"), 800, 1200, 9, 2, 1.f, 1.4f, 0.3f, 0, 25.f, 60.f);
-	Far(TEXT("SM_PeakHorn"), 760, 1100, 12, 7, 1.f, 1.1f, 0.2f, 0, 25.f, 40.f);
 	Far(TEXT("SM_PeakObservatory"), 520, 820, 13, 7, 1.f, 1.3f, 0.1f, 0, 25.f, 30.f);
+
+// Third pass: THE VILLAGE STREET. Chalets gable-on to the road, both sides, a lodge behind each row: after the corkscrew
+// (7.42 and 7.47 km), before the jump (8.01 km), and where the jump lands (8.23 and 8.28 km), with the gondola crossing
+// over the road right after (8.325 km: signature, see "The gondola over the valley").
+Zone(TEXT("The village street (7.4 km)"), 7.4f, 7.5f);
+	Site(TEXT("StreetL"), -1, 27.6f, 1, 0, 1.f);
+	Site(TEXT("StreetR"), 1, 27.6f, 1, 0, 1.f);
+
+Zone(TEXT("The village street (8.0 km)"), 8.f, 8.02f);
+	Site(TEXT("StreetL"), -1, 27.6f, 1, 0, 1.f);
+	Site(TEXT("StreetR"), 1, 27.6f, 1, 0, 1.f);
+
+Zone(TEXT("The village street (8.25 km)"), 8.22f, 8.3f);
+	Site(TEXT("StreetL"), -1, 27.6f, 1, 0, 1.f);
+	Site(TEXT("Row"), 1, 27.6f, 1, 0, 1.f);     // the landing's rink lies behind these
 
 Zone(TEXT("The valley run, its galleries (7.3 km)"), 7.3f, 7.52f);
 	Site(TEXT("Cutting"), 1, 30, 5, 3, 1.f, 1.f, 0.f);
 
 Zone(TEXT("The valley run, its galleries (7.98 km)"), 7.98f, 8.37f);
-	Site(TEXT("Cutting"), 1, 30, 5, 3, 1.f, 1.f, 0.f);
+	Site(TEXT("Cutting"), 1, 30, 5, 3, 0.f, 1.f, 0.f);     // (review) off: the street front stands on its only two slots
+
+Zone(TEXT("The valley's pipe, its lances"), 8.39f, 8.94f);     // third pass
+	Scatter(TEXT("SM_SnowLance"), 27.5f, 29, 3, 0, 0.85f, 1.f, 0.f, -1, 0.f);     // third pass: snow lances, blowing
+	Scatter(TEXT("SM_SnowLance"), 27.5f, 29, 3, 1, 0.85f, 1.f, 0.f, 1, 0.f);
 
 Zone(TEXT("The valley run, the verge (1)"), 7.3f, 7.52f);
 	Site(TEXT("FenceL"), -1, 19, 4, 0, 0.8f, 1.f, 0.f);
@@ -449,9 +574,12 @@ Zone(TEXT("The valley run, the verge (2)"), 7.98f, 8.94f);
 // 8.94 to 11.6 km, THE GLACIER: ice walls by the road, ice falls and serac fields on the slopes, crevasses, glacier
 // tongues between the peaks. (No banked bends here: the verge stays in the district.)
 Zone(TEXT("The Abominable's glacier"), 8.94f, 11.6f);
+	Far(TEXT("SM_RockIceWall"), 33.5f, 35.5f, 3, 0, 0.9f, 1.f, 0.1f, -1, 0.74f, 2.f);     // third pass: ice walls right by the road, a gap between
+	Far(TEXT("SM_RockIceWall"), 33.5f, 35.5f, 3, 1, 0.9f, 1.f, 0.1f, 1, 0.74f, 2.f);
 	Far(TEXT("SM_RockIceWall"), 38, 46, 2, 0, 0.7f, 1.f, 0.15f, 0, 0.69f, 6.f);
 	Far(TEXT("SM_RockIceWall2"), 62, 72, 3, 1, 0.7f, 1.f, 0.2f, 0, 0.53f, 6.f);
-	Scatter(TEXT("SM_SnowRockIce"), 20.6f, 22.5f, 2, 0, 0.6f, 1.f, 0.2f, 0, 8.f);
+	Site(TEXT("IceKerbL"), -1, 20.5f, 1, 0, 0.9f);     // third pass: ice blocks, three clusters a slot a side
+	Site(TEXT("IceKerbR"), 1, 20.5f, 1, 0, 0.9f);
 	Scatter(TEXT("SM_SnowRockBank"), 20.2f, 22, 3, 1, 0.6f, 1.f, 0.2f, 0, 2.f);
 	Scatter(TEXT("SM_PoleMarker2"), 18, 19.5f, 4, 2, 0.8f, 1.f, 0.f, 0, 0.f);
 	Site(TEXT("IceFall"), 0, 120, 3, 0, 0.9f, 1.f, 0.1f);
@@ -459,14 +587,13 @@ Zone(TEXT("The Abominable's glacier"), 8.94f, 11.6f);
 	Far(TEXT("SM_SnowRockCrevasse"), 170, 176, 3, 2, 0.7f, 1.f, 0.2f, 0, -10.67f, 8.f);
 	Far(TEXT("SM_RockIceFalls"), 250, 258, 4, 1, 0.9f, 1.2f, 0.f, 0, -20.35f, 10.f);
 	Far(TEXT("SM_RidgeGlacier"), 380, 600, 6, 0, 1.f, 1.f, 0.15f, 0, 20.f, 14.f);
-	Far(TEXT("SM_PeakGreat"), 800, 1200, 10, 2, 1.f, 1.4f, 0.3f, 0, 25.f, 60.f);
-	Far(TEXT("SM_PeakHorn"), 800, 1150, 11, 5, 1.f, 1.2f, 0.2f, 0, 25.f, 40.f);
-	Far(TEXT("SM_PeakLesser"), 520, 820, 11, 3, 1.f, 1.2f, 0.3f, 0, 25.f, 60.f);
 
 // 11.6 to 14.3 km, THE WHITE RIDGE: fences, cornices, carved drift and the weather post; the far ranges open.
 Zone(TEXT("The white ridge"), 11.6f, 14.3f);
-	Site(TEXT("FenceL"), -1, 19, 2, 0, 0.8f, 1.f, 0.f);
-	Site(TEXT("FenceR"), 1, 19, 2, 1, 0.8f, 1.f, 0.f);
+	Site(TEXT("GustL"), -1, 58, 2, 0, 0.9f);     // third pass: wind-driven snow, a gust every other slot a side (58 m: its snow travels 20 m)
+	Site(TEXT("GustR"), 1, 58, 2, 1, 0.9f);
+	Site(TEXT("FenceL"), -1, 19, 1, 0, 0.9f, 1.f, 0.f);     // third pass: every slot (was every other)
+	Site(TEXT("FenceR"), 1, 19, 1, 0, 0.9f, 1.f, 0.f);
 	Scatter(TEXT("SM_SnowRockBank2"), 20.2f, 22, 2, 0, 0.6f, 1.f, 0.2f, 0, 2.f);
 	Far(TEXT("SM_RockIceShelf"), 138, 146, 2, 0, 0.9f, 1.f, 0.15f, 0, -6.96f, 8.f);
 	Site(TEXT("WeatherPost"), 0, 172, 9, 3, 1.f, 1.f, 0.f);
@@ -475,9 +602,6 @@ Zone(TEXT("The white ridge"), 11.6f, 14.3f);
 	Far(TEXT("SM_SnowRockDrift"), 204, 212, 2, 1, 0.7f, 1.2f, 0.2f, 0, -14.85f, 8.f);
 	Far(TEXT("SM_SnowRockDrift"), 250, 256, 2, 0, 0.7f, 1.2f, 0.2f, 0, -20.23f, 8.f);
 	Far(TEXT("SM_SnowRockCrevasse"), 226, 232, 2, 0, 0.7f, 1.f, 0.2f, 0, -17.36f, 8.f);
-	Far(TEXT("SM_RidgeSaw"), 345, 400, 9, 5, 0.7f, 1.f, 0.15f, 0, 8.f, 10.f);
-	Far(TEXT("SM_RidgeRange"), 850, 1200, 6, 0, 1.f, 1.4f, 0.2f, 0, 0.f, 8.f);
-	Far(TEXT("SM_PeakTwin"), 700, 1000, 11, 3, 1.f, 1.2f, 0.2f, 0, 25.f, 40.f);
 	Far(TEXT("SM_PeakObservatory"), 500, 800, 11, 4, 1.f, 1.3f, 0.1f, 0, 25.f, 30.f);
 
 // 14.3 to 17.0 km, THE RESORT: lifts, lodges and chalets, groomers, the rescue post; a lift line on the far ridge.
@@ -494,13 +618,28 @@ Zone(TEXT("The resort"), 14.3f, 17.f);
 	Scatter(TEXT("/Game/Maps/Glacier/Props/SM_Chalet"), 190, 262, 3, 0, 0.7f, 1.f, 0.15f, -1, 40.f);
 	Scatter(TEXT("/Game/Maps/Glacier/Props/SM_Chalet"), 228, 262, 3, 0, 0.7f, 1.f, 0.15f, 1, 40.f);
 	Scatter(TEXT("SM_Snowcat"), 150, 232, 5, 1, 0.8f, 1.f, 0.f, 0, 180.f);
-	Far(TEXT("SM_RidgeSaw"), 345, 400, 9, 7, 0.7f, 1.f, 0.15f, 0, 8.f, 10.f);
 	Far(TEXT("SM_RidgeLiftLine"), 400, 640, 5, 0, 1.f, 1.f, 0.1f, 0, 20.f, 8.f);
-	Far(TEXT("SM_PeakLesser"), 600, 900, 9, 2, 1.f, 1.3f, 0.3f, 0, 25.f, 60.f);
-	Far(TEXT("SM_PeakHorn"), 760, 1100, 13, 4, 1.f, 1.1f, 0.2f, 0, 25.f, 40.f);
 	Far(TEXT("SM_PeakObservatory"), 520, 820, 13, 7, 1.f, 1.3f, 0.1f, 0, 25.f, 30.f);
 
+// Third pass: the village street on the resort's straights (between each pipe and the next bends).
+// (review, 15 Nov) On the Abominable's road the street fronts stand 33 m out, not 27.6 (their windows, lit and
+// switching, were the brightest things beside his fight), and the snow lances are off (chance 0: white balls of
+// snow moving 28 m from the road where he hurls snowballs). The village street at 7.4 to 8.3 km keeps both.
+Zone(TEXT("The resort's street (1)"), 14.3f, 14.6f);
+	Site(TEXT("Row"), -1, 33.f, 2, 0, 1.f);
+	Site(TEXT("Row"), 1, 33.f, 2, 1, 1.f);
+
+Zone(TEXT("The resort's street (2)"), 15.46f, 15.73f);
+	Site(TEXT("Row"), -1, 33.f, 2, 0, 1.f);
+	Site(TEXT("Row"), 1, 33.f, 2, 1, 1.f);
+
+Zone(TEXT("The resort's street (3)"), 16.6f, 16.87f);
+	Site(TEXT("Row"), -1, 33.f, 2, 0, 1.f);
+	Site(TEXT("Row"), 1, 33.f, 2, 1, 1.f);
+
 Zone(TEXT("The resort, the verge (1)"), 14.3f, 14.62f);
+	Scatter(TEXT("SM_SnowLance"), 27.5f, 29, 4, 1, 0.f, 1.f, 0.f, -1, 0.f);     // third pass: snow lances, blowing
+	Scatter(TEXT("SM_SnowLance"), 27.5f, 29, 4, 0, 0.f, 1.f, 0.f, 1, 0.f);
 	Site(TEXT("FenceL"), -1, 19, 4, 0, 0.8f, 1.f, 0.f);
 	Site(TEXT("FenceR"), 1, 19, 4, 2, 0.8f, 1.f, 0.f);
 	Scatter(TEXT("SM_SnowCannon"), 20, 21.5f, 3, 2, 0.7f, 1.f, 0.f, 0, 15.f);
@@ -508,6 +647,8 @@ Zone(TEXT("The resort, the verge (1)"), 14.3f, 14.62f);
 	Site(TEXT("PipeSide"), 0, 33, 9, 2, 0.9f, 1.f, 0.f);
 
 Zone(TEXT("The resort, the verge (2)"), 14.97f, 15.75f);
+	Scatter(TEXT("SM_SnowLance"), 27.5f, 29, 4, 1, 0.f, 1.f, 0.f, -1, 0.f);     // third pass: snow lances, blowing
+	Scatter(TEXT("SM_SnowLance"), 27.5f, 29, 4, 0, 0.f, 1.f, 0.f, 1, 0.f);
 	Site(TEXT("FenceL"), -1, 19, 4, 0, 0.8f, 1.f, 0.f);
 	Site(TEXT("FenceR"), 1, 19, 4, 2, 0.8f, 1.f, 0.f);
 	Scatter(TEXT("SM_SnowCannon"), 20, 21.5f, 3, 2, 0.7f, 1.f, 0.f, 0, 15.f);
@@ -515,6 +656,8 @@ Zone(TEXT("The resort, the verge (2)"), 14.97f, 15.75f);
 	Site(TEXT("PipeSide"), 0, 33, 9, 2, 0.9f, 1.f, 0.f);
 
 Zone(TEXT("The resort, the verge (3)"), 16.11f, 16.89f);
+	Scatter(TEXT("SM_SnowLance"), 27.5f, 29, 4, 1, 0.f, 1.f, 0.f, -1, 0.f);     // third pass: snow lances, blowing
+	Scatter(TEXT("SM_SnowLance"), 27.5f, 29, 4, 0, 0.f, 1.f, 0.f, 1, 0.f);
 	Site(TEXT("FenceL"), -1, 19, 4, 0, 0.8f, 1.f, 0.f);
 	Site(TEXT("FenceR"), 1, 19, 4, 2, 0.8f, 1.f, 0.f);
 	Scatter(TEXT("SM_SnowCannon"), 20, 21.5f, 3, 2, 0.7f, 1.f, 0.f, 0, 15.f);
@@ -523,6 +666,8 @@ Zone(TEXT("The resort, the verge (3)"), 16.11f, 16.89f);
 
 // 17.0 to 19.7 km: the glacier again, its tongues nearer.
 Zone(TEXT("The ice again"), 17.f, 19.7f);
+	Far(TEXT("SM_RockIceWall"), 33.5f, 35.5f, 3, 1, 0.9f, 1.f, 0.1f, -1, 0.74f, 2.f);     // third pass: ice walls right by the road, a gap between
+	Far(TEXT("SM_RockIceWall"), 33.5f, 35.5f, 3, 2, 0.9f, 1.f, 0.1f, 1, 0.74f, 2.f);
 	Far(TEXT("SM_RockIceWall"), 38, 46, 2, 1, 0.7f, 1.f, 0.15f, 0, 0.69f, 6.f);
 	Far(TEXT("SM_RockIceWall2"), 62, 72, 3, 1, 0.7f, 1.f, 0.2f, 0, 0.53f, 6.f);
 	Site(TEXT("IceFall"), 0, 120, 3, 1, 0.9f, 1.f, 0.1f);
@@ -530,22 +675,22 @@ Zone(TEXT("The ice again"), 17.f, 19.7f);
 	Far(TEXT("SM_SnowRockCrevasse"), 170, 176, 3, 2, 0.7f, 1.f, 0.2f, 0, -10.67f, 8.f);
 	Far(TEXT("SM_RockIceFalls"), 250, 258, 4, 1, 0.9f, 1.2f, 0.f, 0, -20.35f, 10.f);
 	Far(TEXT("SM_RidgeGlacier"), 420, 640, 4, 2, 1.f, 1.2f, 0.15f, 0, 20.f, 14.f);
-	Far(TEXT("SM_PeakLesser"), 480, 760, 8, 0, 1.f, 1.3f, 0.3f, 0, 25.f, 60.f);
-	Far(TEXT("SM_PeakTwin"), 700, 1000, 12, 6, 1.f, 1.2f, 0.2f, 0, 25.f, 40.f);
-	Far(TEXT("SM_RidgeRange"), 850, 1250, 9, 4, 1.f, 1.7f, 0.2f, 0, 0.f, 8.f);
 
 Zone(TEXT("The ice again, the verge (1)"), 17.24f, 18.03f);
-	Scatter(TEXT("SM_SnowRockIce"), 20.6f, 22.5f, 2, 0, 0.6f, 1.f, 0.2f, 0, 8.f);
+	Site(TEXT("IceKerbL"), -1, 20.5f, 1, 0, 0.9f);     // third pass: ice blocks, three clusters a slot a side
+	Site(TEXT("IceKerbR"), 1, 20.5f, 1, 0, 0.9f);
 	Scatter(TEXT("SM_SnowRockBank"), 20.2f, 22, 3, 1, 0.6f, 1.f, 0.2f, 0, 2.f);
 	Scatter(TEXT("SM_PoleMarker2"), 18, 19.5f, 4, 2, 0.8f, 1.f, 0.f, 0, 0.f);
 
 Zone(TEXT("The ice again, the verge (2)"), 18.38f, 19.17f);
-	Scatter(TEXT("SM_SnowRockIce"), 20.6f, 22.5f, 2, 0, 0.6f, 1.f, 0.2f, 0, 8.f);
+	Site(TEXT("IceKerbL"), -1, 20.5f, 1, 0, 0.9f);     // third pass: ice blocks, three clusters a slot a side
+	Site(TEXT("IceKerbR"), 1, 20.5f, 1, 0, 0.9f);
 	Scatter(TEXT("SM_SnowRockBank"), 20.2f, 22, 3, 1, 0.6f, 1.f, 0.2f, 0, 2.f);
 	Scatter(TEXT("SM_PoleMarker2"), 18, 19.5f, 4, 2, 0.8f, 1.f, 0.f, 0, 0.f);
 
 Zone(TEXT("The ice again, the verge (3)"), 19.52f, 19.7f);
-	Scatter(TEXT("SM_SnowRockIce"), 20.6f, 22.5f, 2, 0, 0.6f, 1.f, 0.2f, 0, 8.f);
+	Site(TEXT("IceKerbL"), -1, 20.5f, 1, 0, 0.9f);     // third pass: ice blocks, three clusters a slot a side
+	Site(TEXT("IceKerbR"), 1, 20.5f, 1, 0, 0.9f);
 	Scatter(TEXT("SM_SnowRockBank"), 20.2f, 22, 3, 1, 0.6f, 1.f, 0.2f, 0, 2.f);
 	Scatter(TEXT("SM_PoleMarker2"), 18, 19.5f, 4, 2, 0.8f, 1.f, 0.f, 0, 0.f);
 
@@ -558,25 +703,27 @@ Zone(TEXT("The high ridge"), 19.7f, 22.4f);
 	Far(TEXT("SM_SnowRockDrift"), 204, 212, 2, 1, 0.7f, 1.2f, 0.2f, 0, -14.85f, 8.f);
 	Far(TEXT("SM_SnowRockDrift"), 250, 256, 2, 0, 0.7f, 1.2f, 0.2f, 0, -20.23f, 8.f);
 	Far(TEXT("SM_SnowRockCrevasse"), 226, 232, 2, 1, 0.7f, 1.f, 0.2f, 0, -17.36f, 8.f);
-	Far(TEXT("SM_RidgeSaw"), 345, 400, 9, 2, 0.7f, 1.f, 0.15f, 0, 8.f, 10.f);
-	Far(TEXT("SM_RidgeRange"), 880, 1250, 6, 1, 1.f, 1.4f, 0.2f, 0, 0.f, 8.f);
-	Far(TEXT("SM_PeakHorn"), 800, 1150, 10, 3, 1.f, 1.2f, 0.2f, 0, 25.f, 40.f);
 	Far(TEXT("SM_RidgeLiftLine"), 420, 650, 7, 2, 1.f, 1.f, 0.1f, 0, 20.f, 8.f);
-	Far(TEXT("SM_PeakGreat"), 900, 1300, 14, 5, 1.f, 1.4f, 0.3f, 0, 25.f, 60.f);
 
 Zone(TEXT("The high ridge, the verge (1)"), 19.7f, 20.3f);
-	Site(TEXT("FenceL"), -1, 19, 2, 0, 0.8f, 1.f, 0.f);
-	Site(TEXT("FenceR"), 1, 19, 2, 1, 0.8f, 1.f, 0.f);
+	Site(TEXT("GustL"), -1, 58, 2, 0, 0.9f);     // third pass: wind-driven snow, a gust every other slot a side (58 m: its snow travels 20 m)
+	Site(TEXT("GustR"), 1, 58, 2, 1, 0.9f);
+	Site(TEXT("FenceL"), -1, 19, 1, 0, 0.9f, 1.f, 0.f);     // third pass: every slot (was every other)
+	Site(TEXT("FenceR"), 1, 19, 1, 0, 0.9f, 1.f, 0.f);
 	Scatter(TEXT("SM_SnowRockBank2"), 20.2f, 22, 2, 1, 0.6f, 1.f, 0.2f, 0, 2.f);
 
 Zone(TEXT("The high ridge, the verge (2)"), 20.66f, 21.44f);
-	Site(TEXT("FenceL"), -1, 19, 2, 0, 0.8f, 1.f, 0.f);
-	Site(TEXT("FenceR"), 1, 19, 2, 1, 0.8f, 1.f, 0.f);
+	Site(TEXT("GustL"), -1, 58, 2, 0, 0.9f);     // third pass: wind-driven snow, a gust every other slot a side (58 m: its snow travels 20 m)
+	Site(TEXT("GustR"), 1, 58, 2, 1, 0.9f);
+	Site(TEXT("FenceL"), -1, 19, 1, 0, 0.9f, 1.f, 0.f);     // third pass: every slot (was every other)
+	Site(TEXT("FenceR"), 1, 19, 1, 0, 0.9f, 1.f, 0.f);
 	Scatter(TEXT("SM_SnowRockBank2"), 20.2f, 22, 2, 1, 0.6f, 1.f, 0.2f, 0, 2.f);
 
 Zone(TEXT("The high ridge, the verge (3)"), 21.79f, 22.4f);
-	Site(TEXT("FenceL"), -1, 19, 2, 0, 0.8f, 1.f, 0.f);
-	Site(TEXT("FenceR"), 1, 19, 2, 1, 0.8f, 1.f, 0.f);
+	Site(TEXT("GustL"), -1, 58, 2, 0, 0.9f);     // third pass: wind-driven snow, a gust every other slot a side (58 m: its snow travels 20 m)
+	Site(TEXT("GustR"), 1, 58, 2, 1, 0.9f);
+	Site(TEXT("FenceL"), -1, 19, 1, 0, 0.9f, 1.f, 0.f);     // third pass: every slot (was every other)
+	Site(TEXT("FenceR"), 1, 19, 1, 0, 0.9f, 1.f, 0.f);
 	Scatter(TEXT("SM_SnowRockBank2"), 20.2f, 22, 2, 1, 0.6f, 1.f, 0.2f, 0, 2.f);
 
 // 22.4 km to the end of the road: the resort again.
@@ -592,12 +739,19 @@ Zone(TEXT("The last lifts"), 22.4f, 99.f);
 	Scatter(TEXT("/Game/Maps/Glacier/Props/SM_Chalet"), 190, 262, 3, 1, 0.7f, 1.f, 0.15f, -1, 40.f);
 	Scatter(TEXT("/Game/Maps/Glacier/Props/SM_Chalet"), 228, 262, 3, 1, 0.7f, 1.f, 0.15f, 1, 40.f);
 	Scatter(TEXT("SM_Snowcat"), 150, 232, 5, 1, 0.8f, 1.f, 0.f, 0, 180.f);
-	Far(TEXT("SM_RidgeSaw"), 345, 400, 9, 4, 0.7f, 1.f, 0.15f, 0, 8.f, 10.f);
 	Far(TEXT("SM_RidgeLiftLine"), 440, 680, 6, 3, 1.f, 1.2f, 0.1f, 0, 20.f, 8.f);
-	Far(TEXT("SM_PeakGreat"), 800, 1200, 8, 1, 1.f, 1.4f, 0.3f, 0, 25.f, 60.f);
-	Far(TEXT("SM_PeakTwin"), 700, 1000, 12, 2, 1.f, 1.2f, 0.2f, 0, 25.f, 40.f);
+
+Zone(TEXT("The last street (1)"), 22.4f, 22.56f);     // third pass
+	Site(TEXT("Row"), -1, 33.f, 2, 0, 1.f);
+	Site(TEXT("Row"), 1, 33.f, 2, 1, 1.f);
+
+Zone(TEXT("The last street (2)"), 23.42f, 23.7f);
+	Site(TEXT("Row"), -1, 33.f, 2, 0, 1.f);
+	Site(TEXT("Row"), 1, 33.f, 2, 1, 1.f);
 
 Zone(TEXT("The last lifts, the verge (1)"), 22.4f, 22.58f);
+	Scatter(TEXT("SM_SnowLance"), 27.5f, 29, 4, 1, 0.f, 1.f, 0.f, -1, 0.f);     // third pass: snow lances, blowing
+	Scatter(TEXT("SM_SnowLance"), 27.5f, 29, 4, 0, 0.f, 1.f, 0.f, 1, 0.f);
 	Site(TEXT("FenceL"), -1, 19, 4, 3, 0.8f, 1.f, 0.f);
 	Site(TEXT("FenceR"), 1, 19, 4, 1, 0.8f, 1.f, 0.f);
 	Scatter(TEXT("SM_SnowCannon"), 20, 21.5f, 3, 2, 0.7f, 1.f, 0.f, 0, 15.f);
@@ -605,6 +759,8 @@ Zone(TEXT("The last lifts, the verge (1)"), 22.4f, 22.58f);
 	Site(TEXT("PipeSide"), 0, 33, 9, 2, 0.9f, 1.f, 0.f);
 
 Zone(TEXT("The last lifts, the verge (2)"), 22.93f, 23.72f);
+	Scatter(TEXT("SM_SnowLance"), 27.5f, 29, 4, 1, 0.f, 1.f, 0.f, -1, 0.f);     // third pass: snow lances, blowing
+	Scatter(TEXT("SM_SnowLance"), 27.5f, 29, 4, 0, 0.f, 1.f, 0.f, 1, 0.f);
 	Site(TEXT("FenceL"), -1, 19, 4, 3, 0.8f, 1.f, 0.f);
 	Site(TEXT("FenceR"), 1, 19, 4, 1, 0.8f, 1.f, 0.f);
 	Scatter(TEXT("SM_SnowCannon"), 20, 21.5f, 3, 2, 0.7f, 1.f, 0.f, 0, 15.f);
@@ -612,6 +768,8 @@ Zone(TEXT("The last lifts, the verge (2)"), 22.93f, 23.72f);
 	Site(TEXT("PipeSide"), 0, 33, 9, 2, 0.9f, 1.f, 0.f);
 
 Zone(TEXT("The last lifts, the verge (3)"), 24.07f, 99.f);
+	Scatter(TEXT("SM_SnowLance"), 27.5f, 29, 4, 1, 0.f, 1.f, 0.f, -1, 0.f);     // third pass: snow lances, blowing
+	Scatter(TEXT("SM_SnowLance"), 27.5f, 29, 4, 0, 0.f, 1.f, 0.f, 1, 0.f);
 	Site(TEXT("FenceL"), -1, 19, 4, 3, 0.8f, 1.f, 0.f);
 	Site(TEXT("FenceR"), 1, 19, 4, 1, 0.8f, 1.f, 0.f);
 	Scatter(TEXT("SM_SnowCannon"), 20, 21.5f, 3, 2, 0.7f, 1.f, 0.f, 0, 15.f);

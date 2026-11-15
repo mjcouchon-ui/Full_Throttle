@@ -207,7 +207,7 @@ void UFTBrawlVenueDetails::TickComponent(float Dt, ELevelTick TickType, FActorCo
 {
 	Super::TickComponent(Dt, TickType, ThisTick);
 	if (const AFTBrawlGameMode* Game = Cast<AFTBrawlGameMode>(GetOwner()))
-		if (Game->ReducedPresentationMotion()) return;
+		if (Game->SystemScreen != 0 || Game->ReducedPresentationMotion()) return;
 	Clock += FMath::Min(Dt, 0.1f);
 	float CameraX = 0.f;
 	if (const APlayerController* PC = GetWorld()->GetFirstPlayerController())

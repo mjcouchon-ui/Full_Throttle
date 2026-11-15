@@ -2,6 +2,8 @@
 #include "FTHUDStyle.h"
 #include "FTGameMode.h"
 #include "FTGameInstance.h"
+#include "FTInput.h"
+#include "FTInputGlyphs.h"
 #include "FTPlayerCar.h"
 #include "FTEntity.h"
 #include "FTPlayerController.h"
@@ -23,6 +25,13 @@ namespace
 		return R;
 	}
 	FString Money(int64 V) { return V < 0 ? TEXT("-$") + Num(V).RightChop(1) : TEXT("$") + Num(V); }
+	FString InputHint(const UObject* Context, const TCHAR* Keyboard, const FKey& Pad)
+	{
+		const UFTInputSubsystem* Input = UFTInputSubsystem::Get(Context);
+		return Input && Input->UsesGamepad() ? Input->KeyLabel(Pad) : FString(Keyboard);
+	}
+	FString ConfirmHint(const UObject* Context) { return InputHint(Context, TEXT("ENTER"), EKeys::Gamepad_FaceButton_Bottom); }
+	FString BackHint(const UObject* Context) { return InputHint(Context, TEXT("ESC"), EKeys::Gamepad_FaceButton_Right); }
 
 	FString Binding(const UFTGameInstance* GI, EFTAction Action)
 	{
@@ -329,7 +338,7 @@ void AFTHUD::DrawHUD()
 	if (const UFTGameInstance* GI = G->GI())
 	{
 		if (GI->bShowFps) Print(FString::Printf(TEXT("%.0f FPS  %.1f ms"), G->FpsSmoothed, 1000.f / FMath::Max(1.f, G->FpsSmoothed)), W - 12 * S, H - 22 * S, Green, LabelSize, 2);
-		if (GI->bMuted) Print(TEXT("MUTED / M"), 12 * S, H - 22 * S, Grey, LabelSize);
+		if (GI->bMuted) Print(TEXT("MUTED"), 12 * S, H - 22 * S, Grey, LabelSize);
 	}
 }
 
@@ -437,11 +446,13 @@ void AFTHUD::DrawTitle(AFTGameMode* G)
 		Print(SaveDetail, X + 16 * S, Y + 580 * S, Career->bSaveError || Career->bLoadError ? Amber : Grey, LabelSize, 0, false, BoardW - 32 * S);
 	}
 
-	static const TCHAR* Actions[] = { TEXT("CONTINUE"), TEXT("NEW GAME"), TEXT("OPTIONS"), TEXT("QUIT DESKTOP"), TEXT("PLAY SELECTED") };
-	static const TCHAR* Hints[] = { TEXT("SAVED CHECKPOINT"), TEXT("FRESH CAMPAIGN"), TEXT("O"), TEXT("ESC"), TEXT("SELECTED SHOOT") };
+	static const TCHAR* Actions[] = { TEXT("CONTINUE"), TEXT("NEW GAME"), TEXT("OPTIONS"), TEXT("QUIT DESKTOP"), TEXT("PLAY SELECTED"), TEXT("CONTROLS") };
+	const FString Hints[] = { TEXT("SAVED CHECKPOINT"), TEXT("FRESH CAMPAIGN"),
+		InputHint(this, TEXT("O"), EKeys::Gamepad_FaceButton_Bottom), InputHint(this, TEXT("ESC"), EKeys::Gamepad_FaceButton_Bottom),
+		TEXT("SELECTED SHOOT"), InputHint(this, TEXT("C"), EKeys::Gamepad_FaceButton_Top) };
 	const AFTPlayerController* PC = Cast<AFTPlayerController>(GetOwningPlayerController());
-	const float BarW = Right - X - Safe * S, LeadW = 272 * S;
-	const float OtherW = (BarW - LeadW - 4 * Gap * S) * .25f;
+	const float BarW = Right - X - Safe * S, LeadW = 220 * S;
+	const float OtherW = (BarW - LeadW - 5 * Gap * S) / 5.f;
 	G->TitleBtnRects.SetNum(UE_ARRAY_COUNT(Actions));
 	float Bx = X;
 	for (int32 I = 0; I < UE_ARRAY_COUNT(Actions); ++I)
@@ -459,7 +470,11 @@ void AFTHUD::DrawTitle(AFTGameMode* G)
 			FocusAccent(ButtonRect, MenuAge(EMenuView::Title, true), I == 0 ? Cyan : Pink);
 		Bx += Bw + Gap * S;
 	}
-	Print(G->TitleActionFocus == INDEX_NONE ? TEXT("TAB / RB   ACTIONS     G   PRE-PRODUCTION     C   CONTROLS") : TEXT("LEFT-RIGHT / D-PAD   ACTIONS     TAB / RB   SHOOTS     G   PRE-PRODUCTION     C   CONTROLS"),
+	Print(G->TitleActionFocus == INDEX_NONE ? InputHint(this, TEXT("TAB"), EKeys::Gamepad_RightShoulder) + TEXT("   ACTIONS")
+		+ TEXT("     ") + InputHint(this, TEXT("G"), EKeys::Gamepad_Special_Left) + TEXT("   PRE-PRODUCTION")
+		: TEXT("LEFT-RIGHT   ACTIONS     ") + ConfirmHint(this) + TEXT("   SELECT     ")
+		+ InputHint(this, TEXT("TAB"), EKeys::Gamepad_RightShoulder) + TEXT("   SHOOTS     ")
+		+ InputHint(this, TEXT("G"), EKeys::Gamepad_Special_Left) + TEXT("   PRE-PRODUCTION"),
 		W * .5f, ActionY + 58 * S, Grey, LabelSize, 1);
 
 	if (!G->SystemMessage.IsEmpty() && G->Overlay == EFTOverlay::None)
@@ -565,9 +580,8 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 	const FFTLevelDef& Level = G->Def();
 	const UFTGameInstance* GI = G->GI();
 	const FFTProgressData& ProgressData = FFTProgressData::Get();
-	const AFTPlayerController* PC = Cast<AFTPlayerController>(GetOwningPlayerController());
-	const bool bPad = PC && PC->UsesGamepadPrompts();
-	const auto Hint = [&](EFTAction Action, const TCHAR* Pad) { return bPad ? FString(Pad) : Binding(GI, Action); };
+	const UFTInputSubsystem* Input = UFTInputSubsystem::Get(this);
+	const auto Hint = [&](EFTAction Action, const TCHAR*) { return Input ? Input->RacePrompt(Action) : Binding(GI, Action); };
 	const float Now = G->RealClockNow();
 	const float X = Left + Safe * S, R = Right - Safe * S, Center = W * .5f;
 	const float Top = 25 * S, Base = H - 47 * S;
@@ -736,10 +750,11 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 	{
 		const FString Keys = FString::Printf(TEXT("DRIFT %s   /   TURBO %s   /   FIRE %s   /   MISSILE %s   /   AMMO %s   /   %s PAUSE"),
 			*Hint(EFTAction::Drift, TEXT("A/RB")), *Hint(EFTAction::Turbo, TEXT("LB/RT")), *Hint(EFTAction::Fire, TEXT("X")),
-			*Hint(EFTAction::Missile, TEXT("B")), *Hint(EFTAction::Ammo, TEXT("Y")), bPad ? TEXT("START") : TEXT("P"));
+			*Hint(EFTAction::Missile, TEXT("B")), *Hint(EFTAction::Ammo, TEXT("Y")), *InputHint(this, TEXT("P / ESC"), EKeys::Gamepad_Special_Right));
 		Box(Center - 306 * S, H - 32 * S, 612 * S, 22 * S, Ink);
 		Print(Keys, Center, H - 31 * S, Grey, LabelSize, 1, false, 588 * S);
 	}
+	if (G->Overlay == EFTOverlay::None) DrawTutorial(G);
 }
 
 void AFTHUD::DrawAttractWipe(AFTGameMode* G)
@@ -792,7 +807,7 @@ void AFTHUD::DrawCard(AFTGameMode* G)
 	Print(FString::Printf(TEXT("%02d / %02d"), G->Scene + 1, G->NumScenes()), X + 24 * S, Y + 197 * S, Cyan, Heading, 0, true);
 	Print(FString::Printf(TEXT("%02d"), G->Take), X + 232 * S, Y + 197 * S, G->Take > 1 ? Red : White, Heading, 0, true);
 	Print(FString::Printf(TEXT("%02d"), Level.Index + 1), X + 439 * S, Y + 197 * S, White, Heading, 0, true);
-	if (Time > 1.2f) Print(TEXT("ENTER / A   SKIP SLATE"), X + 615 * S, Y + 266 * S, Grey, Body, 2);
+	if (Time > 1.2f) Print(ConfirmHint(this) + TEXT("   SKIP SLATE"), X + 615 * S, Y + 266 * S, Grey, Body, 2);
 }
 
 void AFTHUD::DrawCut(AFTGameMode* G)
@@ -851,7 +866,7 @@ void AFTHUD::DrawReelContinue(AFTGameMode* G)
 	const bool bArmed = G->PhaseT > AFTGameMode::ReelArmT;
 	const EControl State = G->ReelHoldT > 0.f ? EControl::Pressed : ControlState(Action, true, bArmed || G->bReelDone);
 	G->ReelContinueRect = Control(Action, G->bReelDone ? TEXT("CONTINUE") : TEXT("HOLD TO SKIP"),
-		G->bReelDone ? TEXT("ENTER / A / CLICK") : TEXT("HOLD ENTER / A / CLICK"), State, Cyan);
+		G->bReelDone ? ConfirmHint(this) + TEXT(" / CLICK") : TEXT("HOLD ") + ConfirmHint(this) + TEXT(" / CLICK"), State, Cyan);
 	if (G->bReelDone) FocusAccent(Action, MenuAge(EMenuView::Reel, true), Cyan);
 	if (!G->bReelDone)
 		Meter(Rect(Action.Min.X, Action.Max.Y + 5 * S, Action.GetSize().X, 4 * S),
@@ -909,9 +924,10 @@ void AFTHUD::DrawRating(AFTGameMode* G)
 			RatingX, Y + 340 * S, Grey, Body, 0, false, 398 * S);
 	}
 	const FBox2D Continue = Rect(R - 442 * S, Y + 481 * S, 442 * S, 55 * S);
-	G->ResultsContinueRect = Control(Continue, TEXT("CONTINUE TO PAYCHECK"), TEXT("ENTER / A"),
+	G->ResultsContinueRect = Control(Continue, TEXT("CONTINUE TO PAYCHECK"), ConfirmHint(this),
 		ControlState(Continue, true, G->PhaseT > 2.9f), Cyan);
-	Print(TEXT("R   RESHOOT     B   TITLE     ESC / START   PAUSE"), X + 2 * S, Y + 499 * S, Grey, Body);
+	Print(InputHint(this, TEXT("R"), EKeys::Gamepad_FaceButton_Top) + TEXT("   RESHOOT     ") + InputHint(this, TEXT("B"), EKeys::Gamepad_FaceButton_Right) + TEXT("   TITLE     ")
+		+ InputHint(this, TEXT("ESC"), EKeys::Gamepad_Special_Right) + TEXT("   PAUSE"), X + 2 * S, Y + 499 * S, Grey, Body);
 }
 
 TArray<FString> AFTHUD::WrapText(const FString& Text, float MaxWidth, float FontHeight, bool bDisplay)
@@ -976,7 +992,7 @@ void AFTHUD::DrawPreProduction(AFTGameMode* G)
 		G->TabRects[I] = Control(TabRect, Tabs[I], FString(), ControlState(TabRect, bCurrent), Cyan);
 		if (bCurrent) FocusAccent(TabRect, DepartmentAge, Cyan);
 	}
-	Print(TEXT("TAB / Q E / LB RB   SWITCH DEPARTMENT"), R, TabY + 13 * S, Grey, LabelSize, 2, false, 307 * S);
+	Print(InputHint(this, TEXT("Q / E"), EKeys::Gamepad_LeftShoulder) + TEXT(" / ") + InputHint(this, TEXT("TAB"), EKeys::Gamepad_RightShoulder) + TEXT("   DEPARTMENT"), R, TabY + 13 * S, Grey, LabelSize, 2, false, 307 * S);
 
 	const int32 Cols = bSkills ? 5 : bGarage ? 3 : bExtras ? 4 : 6;
 	const int32 Rows = bSkills ? 6 : bGarage ? 10 : bExtras ? 2 : 7;
@@ -1117,12 +1133,12 @@ void AFTHUD::DrawPreProduction(AFTGameMode* G)
 		else if (Tile.State == EFTTile::Available && !bCanAfford)
 			Print(FString::Printf(TEXT("AVAILABLE CASH  %s"), *Money(Career->C.Cash)), Dx, Dy + 5 * S, Red, LabelSize, 0, false, Dw);
 
-		FString Action = TEXT("BUY"), Hint = Tile.bCash ? TEXT("HOLD ENTER / A / MOUSE") : TEXT("ENTER / A / CLICK");
+		FString Action = TEXT("BUY"), Hint = Tile.bCash ? TEXT("HOLD ") + ConfirmHint(this) : ConfirmHint(this);
 		const bool bEquipped = bShop && Tile.State == EFTTile::Equipped;
 		const bool bRequiredSlot = Tile.Slot == TEXT("paint") || Tile.Slot == TEXT("rims") || Tile.Slot == TEXT("neon") || Tile.Slot == TEXT("nitro");
-		if (bShop && Tile.State == EFTTile::Owned) { Action = TEXT("EQUIP"); Hint = TEXT("ENTER / A / CLICK"); }
-		else if (bEquipped) { Action = bRequiredSlot ? TEXT("EQUIPPED") : TEXT("UNEQUIP"); Hint = bRequiredSlot ? TEXT("REQUIRED SLOT") : TEXT("ENTER / A / CLICK"); }
-		else if (Tile.Id == TEXT("sequel") && Tile.State == EFTTile::Owned) { Action = TEXT("SWITCH"); Hint = TEXT("ENTER / A / CLICK"); }
+		if (bShop && Tile.State == EFTTile::Owned) { Action = TEXT("EQUIP"); Hint = ConfirmHint(this); }
+		else if (bEquipped) { Action = bRequiredSlot ? TEXT("EQUIPPED") : TEXT("UNEQUIP"); Hint = bRequiredSlot ? TEXT("REQUIRED SLOT") : ConfirmHint(this); }
+		else if (Tile.Id == TEXT("sequel") && Tile.State == EFTTile::Owned) { Action = TEXT("SWITCH"); Hint = ConfirmHint(this); }
 		else if (Tile.State != EFTTile::Available) { Action = States[static_cast<int32>(Tile.State)]; Hint = Tile.State == EFTTile::Pending ? TEXT("KEPT ON READY") : FString(); }
 		const bool bEnabled = !Career->bSaving && ((Tile.State == EFTTile::Available && bCanAfford)
 			|| (Tile.State == EFTTile::Owned && (bShop || Tile.Id == TEXT("sequel"))) || (bEquipped && !bRequiredSlot));
@@ -1134,14 +1150,14 @@ void AFTHUD::DrawPreProduction(AFTGameMode* G)
 		if (bSkills)
 		{
 			const FBox2D Undo = Rect(Dx, ActionY + 59 * S, Dw, 31 * S);
-			G->UndoRect = Control(Undo, TEXT("UNDO  /  BACKSPACE OR B"), FString(), ControlState(Undo, false, !Career->bSaving && !Career->C.PendingSkills.IsEmpty()), Yellow);
+			G->UndoRect = Control(Undo, TEXT("UNDO"), InputHint(this, TEXT("BACKSPACE"), EKeys::Gamepad_FaceButton_Right), ControlState(Undo, false, !Career->bSaving && !Career->C.PendingSkills.IsEmpty()), Yellow);
 		}
 	}
 	else Print(TEXT("NO ITEMS AVAILABLE"), DetailX + 18 * S, BoardY + 20 * S, Grey, Strong, 0, true);
 
 	const FBox2D Ready = Rect(R - 344 * S, Bottom + 13 * S, 344 * S, 54 * S);
 	const FString ReadyLabel = G->bPPFromTitle || G->PPNextLevel < 0 ? TEXT("READY / TITLE") : FString::Printf(TEXT("READY / LEVEL %d"), G->PPNextLevel + 1);
-	G->ReadyRect = Control(Ready, ReadyLabel, TEXT("SPACE / Y / CLICK"), ControlState(Ready, false, !Career->bSaving && G->PhaseT >= .3f), Cyan);
+	G->ReadyRect = Control(Ready, ReadyLabel, InputHint(this, TEXT("SPACE / CLICK"), EKeys::Gamepad_FaceButton_Top), ControlState(Ready, false, !Career->bSaving && G->PhaseT >= .3f), Cyan);
 	const bool bFeedback = (Career->bSaving || T - G->PPMsgT < 2.2f) && !G->PPMsg.IsEmpty();
 	if (bFeedback)
 	{
@@ -1152,7 +1168,7 @@ void AFTHUD::DrawPreProduction(AFTGameMode* G)
 	}
 	else if (bSkills && !Career->C.bTipSeen && Career->SPLeft() > 0)
 		Print(TEXT("Pick an available skill to spend a point. READY keeps pending changes."), X + 2 * S, Bottom + 16 * S, Yellow, Body, 0, false, 836 * S);
-	Print(TEXT("ARROWS / D-PAD   MOVE     ENTER / A   CONFIRM     Q E / LB RB   CHANGE TAB"),
+	Print(TEXT("ARROWS / D-PAD   MOVE     ") + ConfirmHint(this) + TEXT("   CONFIRM     ") + InputHint(this, TEXT("Q / E"), EKeys::Gamepad_LeftShoulder) + TEXT(" / ") + InputHint(this, TEXT("TAB"), EKeys::Gamepad_RightShoulder) + TEXT("   CHANGE TAB"),
 		X + 2 * S, Bottom + 48 * S, Grey, Body, 0, false, 836 * S);
 }
 
@@ -1259,9 +1275,10 @@ void AFTHUD::DrawPaycheck(AFTGameMode* G)
 	else Print(TEXT("NO PAYCHECK FOR A BENCHMARK RUN"), Cash.Min.X + 20 * S, Cash.Min.Y + 67 * S, Grey, Body);
 
 	const FBox2D Continue = Rect(R - 447 * S, Y + 622 * S, 447 * S, 54 * S);
-	G->ResultsContinueRect = Control(Continue, TEXT("CONTINUE"), TEXT("ENTER / A"),
+	G->ResultsContinueRect = Control(Continue, TEXT("CONTINUE"), ConfirmHint(this),
 		ControlState(Continue, true, G->PhaseT >= .6f), Cyan);
-	Print(TEXT("R   RESHOOT     B   TITLE     ESC / START   PAUSE"), X, Y + 638 * S, Grey, Body);
+	Print(InputHint(this, TEXT("R"), EKeys::Gamepad_FaceButton_Top) + TEXT("   RESHOOT     ") + InputHint(this, TEXT("B"), EKeys::Gamepad_FaceButton_Right) + TEXT("   TITLE     ")
+		+ InputHint(this, TEXT("ESC"), EKeys::Gamepad_Special_Right) + TEXT("   PAUSE"), X, Y + 638 * S, Grey, Body);
 }
 
 // ---------------------------------------------------------------------------------------------- cosmetic overlays (07): wreck FX and boss finishers
@@ -1301,24 +1318,37 @@ void AFTHUD::DrawPause(AFTGameMode* G)
 	const float Entry = MenuAge(EMenuView::Pause);
 	const float In = Entry < 0.f ? 1.f : EaseOut(Entry, MenuEntrance);
 	Box(0, 0, W, H, Alpha(Deep, FMath::Lerp(.48f, .68f, In)));
+	const UFTCareerSubsystem* Career = UFTCareerSubsystem::Get(G);
+	const bool bRetrySave = Career && Career->bSaveError;
+	const bool bRestartRace = G->CanRestartRace();
+	const float ExtraHeight = (int32(bRestartRace) + int32(bRetrySave)) * 60.f;
 	const float X = W * .5f - 251 * S, Y = (H - CanvasHeight * S) * .5f + 121 * S, WidthPx = 502 * S;
-	Plate(Rect(X, Y, WidthPx, 468 * S), Yellow, Ink);
+	Plate(Rect(X, Y, WidthPx, (468 + ExtraHeight) * S), Yellow, Ink);
 	AccentSweep(Rect(X + 2 * S, Y + 2 * S, WidthPx - 4 * S, 4 * S), Entry, Yellow, MenuEntrance);
 	Print(TEXT("CAMERAS HOLDING"), X + (24.f + 9.f * (1.f - In)) * S, Y + 23 * S, White, Heading, 0, true);
-	Print(G->ResumeDescription(), X + 24 * S, Y + 67 * S, Grey, Body, 0, false, WidthPx - 48 * S);
+	const UFTInputSubsystem* Input = UFTInputSubsystem::Get(this);
+	const bool bDisconnected = Input && Input->HasDisconnectedController();
+	Print(bDisconnected ? TEXT("CONTROLLER DISCONNECTED") : G->ResumeDescription(), X + 24 * S, Y + 67 * S,
+		bDisconnected ? Yellow : Grey, Body, 0, false, WidthPx - 48 * S);
 	Print(TEXT("PAUSED"), X + WidthPx - 24 * S, Y + 30 * S, Yellow, LabelSize, 2, true);
-	static const TCHAR* Names[] = { TEXT("RESUME"), TEXT("OPTIONS"), TEXT("CONTROLS"), TEXT("QUIT TO TITLE"), TEXT("QUIT TO DESKTOP") };
-	static const TCHAR* Hints[] = { TEXT("ESC / START"), TEXT("O"), TEXT("C / Y"), TEXT("SAVE AND RETURN / T"), TEXT("SAVE AND EXIT") };
-	for (int32 I = 0; I < UE_ARRAY_COUNT(Names); ++I)
+	TArray<FString> Names = { TEXT("RESUME"), TEXT("OPTIONS"), TEXT("CONTROLS"), TEXT("QUIT TO TITLE"), TEXT("QUIT TO DESKTOP") };
+	TArray<FString> Hints = { InputHint(this, TEXT("P / ESC"), EKeys::Gamepad_Special_Right),
+		InputHint(this, TEXT("O"), EKeys::Gamepad_FaceButton_Bottom), InputHint(this, TEXT("C"), EKeys::Gamepad_FaceButton_Top),
+		TEXT("SAVE AND RETURN"), TEXT("SAVE AND EXIT") };
+	if (bRestartRace) { Names.Add(TEXT("RESTART RACE")); Hints.Add(TEXT("RETAKE THIS RACE")); }
+	if (bRetrySave) { Names.Add(TEXT("RETRY SAVE")); Hints.Add(InputHint(this, TEXT("R"), EKeys::Gamepad_FaceButton_Bottom)); }
+	const int32 Rows = Names.Num();
+	for (int32 I = 0; I < Rows; ++I)
 	{
 		const FBox2D Row = Rect(X + 24 * S, Y + (108 + 60 * I) * S, WidthPx - 48 * S, 51 * S);
 		const FLinearColor& Accent = I == 0 ? Cyan : Pink;
-		const bool bSelected = G->PauseRow == I;
+		const bool bSelected = G->bPendingSystemSave ? I == 0 : G->PauseRow == I;
 		G->OverlayRects.Add(Control(Row, G->bPendingSystemSave && I == 0 ? TEXT("STAY HERE") : Names[I], Hints[I], ControlState(Row, bSelected, !G->bPendingSystemSave || I == 0), Accent));
 		if (bSelected) FocusAccent(Row, MenuAge(EMenuView::Pause, true), Accent);
 	}
-	Print(G->bPendingSystemSave ? G->SystemMessage : TEXT("UP-DOWN / D-PAD   NAVIGATE     ENTER / A   SELECT     R   RETRY SAVE"),
-		X + 24 * S, Y + 420 * S, Grey, Body, 0, false, WidthPx - 48 * S);
+	Print(G->bPendingSystemSave ? G->SystemMessage : bDisconnected ? TEXT("Reconnect your controller, or resume with the keyboard.")
+		: TEXT("UP-DOWN   NAVIGATE     ") + ConfirmHint(this) + TEXT("   SELECT"),
+		X + 24 * S, Y + (420 + ExtraHeight) * S, Grey, Body, 0, false, WidthPx - 48 * S);
 }
 
 void AFTHUD::DrawSystemDialog(AFTGameMode* G)
@@ -1326,51 +1356,55 @@ void AFTHUD::DrawSystemDialog(AFTGameMode* G)
 	Box(0, 0, W, H, Alpha(Deep, .86f));
 	const bool bFailure = G->SystemDialog == EFTSystemDialog::SaveFailed;
 	const bool bNew = G->SystemDialog == EFTSystemDialog::NewGame;
+	const bool bRestart = G->SystemDialog == EFTSystemDialog::RestartRace;
 	const bool bExit = G->SystemAction == 1 || G->SystemAction == 2;
 	const float X = W * .5f - 328 * S, Y = (H - CanvasHeight * S) * .5f + 157 * S;
 	const FLinearColor Accent = bFailure ? Red : Amber;
 	Plate(Rect(X, Y, 656 * S, 382 * S), Accent, Ink);
-	Print(G->bPendingSystemSave ? TEXT("SAVING PROGRESS...") : bFailure ? TEXT("SAVE COULD NOT COMPLETE") : bNew ? TEXT("START A NEW CAMPAIGN?") : TEXT("LEAVE THIS TAKE?"),
+	Print(G->bPendingSystemSave ? TEXT("SAVING PROGRESS...") : bFailure ? TEXT("SAVE COULD NOT COMPLETE") : bNew ? TEXT("START A NEW CAMPAIGN?") : bRestart ? TEXT("RESTART THIS RACE?") : TEXT("LEAVE THIS TAKE?"),
 		X + 25 * S, Y + 25 * S, White, Heading, 0, true, 606 * S);
 	FString Message = G->bPendingSystemSave ? G->SystemMessage : bNew ? TEXT("This replaces your campaign, including cash, XP, skills, gear and story progress. Your controls and display preferences are kept.") : G->SystemMessage;
 	if (bFailure && Message.IsEmpty()) Message = TEXT("Your last successful save is still available. Retry the save, or cancel and stay here.");
 	const TArray<FString> Lines = WrapText(Message, 596 * S, Strong);
 	for (int32 I = 0; I < Lines.Num() && I < 5; ++I)
 		Print(Lines[I], X + 29 * S, Y + (88 + 26 * I) * S, bFailure ? Amber : Grey, Strong);
-	if (!bNew && !bFailure)
+	if (!bNew && !bFailure && !bRestart)
 		Print(G->ResumeDescription(), X + 29 * S, Y + 221 * S, Cyan, Body, 0, false, 596 * S);
 	const int32 Rows = G->bPendingSystemSave ? 1 : bFailure && bExit ? 3 : 2;
 	const float Bw = (598.f - 12.f * (Rows - 1)) / Rows;
 	for (int32 I = 0; I < Rows; ++I)
 	{
 		const TCHAR* Label = G->bPendingSystemSave ? TEXT("STAY HERE") : bFailure ? (I == 0 ? TEXT("RETRY") : I == 1 ? TEXT("CANCEL") : TEXT("QUIT WITHOUT SAVING"))
-			: (I == 0 ? TEXT("CANCEL") : bNew ? TEXT("START NEW GAME") : G->SystemAction == 1 ? TEXT("SAVE AND QUIT") : TEXT("SAVE AND RETURN"));
+			: (I == 0 ? TEXT("CANCEL") : bNew ? TEXT("START NEW GAME") : bRestart ? TEXT("RESTART RACE") : G->SystemAction == 1 ? TEXT("SAVE AND QUIT") : TEXT("SAVE AND RETURN"));
 		const FBox2D Row = Rect(X + (29 + I * (Bw + 12)) * S, Y + 273 * S, Bw * S, 57 * S);
-		G->OverlayRects.Add(Control(Row, Label, FString(), ControlState(Row, G->SystemRow == I, true), I == 2 ? Red : Cyan));
+		G->OverlayRects.Add(Control(Row, Label, FString(), ControlState(Row, G->bPendingSystemSave || G->SystemRow == I, true), I == 2 ? Red : Cyan));
 	}
-	Print(TEXT("LEFT-RIGHT / D-PAD   CHOOSE     ENTER / A   SELECT     ESC / B   CANCEL"),
+	Print(TEXT("LEFT-RIGHT   CHOOSE     ") + ConfirmHint(this) + TEXT("   SELECT     ") + BackHint(this) + TEXT("   CANCEL"),
 		X + 29 * S, Y + 349 * S, Grey, LabelSize, 0, false, 598 * S);
 }
 
 void AFTHUD::DrawSaveStatus(AFTGameMode* G)
 {
+	// Title and dialogs show their own save details; keep the transient status clear of their controls.
+	if (G->Overlay != EFTOverlay::None || G->bAttract || G->Phase == EFTPhase::Title) return;
 	const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(G);
 	if (!CS) return;
 	FString Status;
 	FLinearColor Color = Cyan;
 	if (CS->bSaving) Status = TEXT("SAVING...");
-	else if (CS->bSaveError) { Status = TEXT("SAVE FAILED  /  PAUSE THEN R TO RETRY"); Color = Amber; }
+	else if (CS->bSaveError) { Status = TEXT("SAVE FAILED  /  OPEN PAUSE TO RETRY"); Color = Amber; }
 	else if (CS->LastSaveTime > 0 && FPlatformTime::Seconds() - CS->LastSaveTime < 3.) Status = TEXT("CHECKPOINT SAVED");
 	if (!Status.IsEmpty())
 	{
-		const FBox2D R = Rect(Right - 340 * S, 104 * S, 308 * S, 31 * S);
+		const FBox2D R = Rect(W * .5f - 154 * S, H - 27 * S, 308 * S, 23 * S);
 		Plate(R, Color, Ink);
-		Print(Status, R.Max.X - 11 * S, R.Min.Y + 7 * S, Color, LabelSize, 2, true, 284 * S);
+		Print(Status, R.Max.X - 11 * S, R.Min.Y + 5 * S, Color, LabelSize, 2, true, 284 * S);
 	}
 }
 
 void AFTHUD::DrawControls(AFTGameMode* G)
 {
+	if (G->ControlsPage == 0) { DrawControlGuide(G); return; }
 	const UFTGameInstance* GI = G->GI();
 	if (!GI) return;
 	Box(0, 0, W, H, Alpha(Deep, .86f));
@@ -1383,7 +1417,7 @@ void AFTHUD::DrawControls(AFTGameMode* G)
 	Print(TEXT("Active layout switches when you steer with the other set of bindings."),
 		X + 25 * S, Y + 62 * S, Grey, Body, 0, false, 690 * S);
 	const FBox2D Back = Rect(X + 715 * S, Y + 18 * S, 161 * S, 46 * S);
-	G->OverlayRects.Add(Control(Back, G->bControlsWaiting ? TEXT("CANCEL") : TEXT("BACK"), TEXT("ESC / B"),
+	G->OverlayRects.Add(Control(Back, G->bControlsWaiting ? TEXT("CANCEL") : TEXT("BACK"), BackHint(this),
 		ControlState(Back), Cyan));
 	const float KeysX = X + 308 * S, KeyPitch = 270 * S, RowH = 36 * S;
 	for (int32 Layout = 0; Layout < 2; ++Layout)
@@ -1421,11 +1455,111 @@ void AFTHUD::DrawControls(AFTGameMode* G)
 		Print(TEXT("ESC CANCELS   /   DELETE OR BACKSPACE CLEARS"), X + 326 * S, Y + 462 * S, Yellow, Body);
 	else if (G->RealClockNow() - G->OverlayFeedbackT < 2.7f)
 		Print(G->OverlayFeedback, X + 326 * S, Y + 461 * S, G->bOverlayFeedbackError ? Red : Cyan, Body, 0, false, 542 * S);
-	Print(TEXT("UP-DOWN / D-PAD   ACTION     LEFT-RIGHT   LAYOUT     ENTER / A   REBIND"), X + 25 * S, Y + 522 * S, White, Body);
+	Print(TEXT("UP-DOWN   ACTION     LEFT-RIGHT   LAYOUT     ") + ConfirmHint(this) + TEXT("   REBIND"), X + 25 * S, Y + 522 * S, White, Body);
 	Print(TEXT("MOUSE   LEFT: GUNS   /   RIGHT: MISSILE   /   MIDDLE: AMMO"), X + 25 * S, Y + 555 * S, Grey, Body);
-	Print(TEXT("GAMEPAD   STICK: STEER   /   A OR RB: DRIFT   /   LB OR RT: TURBO   /   X: GUNS   /   B: MISSILE   /   Y: AMMO"),
+	Print(TEXT("Primary, secondary and utility bindings also carry over to the fighting controls."),
 		X + 25 * S, Y + 581 * S, Grey, Body, 0, false, 850 * S);
 	Print(TEXT("Reserved keys and fixed mouse and gamepad actions cannot be rebound."), X + 25 * S, Y + 617 * S, Grey, LabelSize);
+}
+
+void AFTHUD::DrawControlGuide(AFTGameMode* G)
+{
+	const UFTInputSubsystem* Input = UFTInputSubsystem::Get(this);
+	if (!Input) return;
+	Box(0, 0, W, H, Alpha(Deep, .88f));
+	const float X = W * .5f - 492 * S, Y = (H - CanvasHeight * S) * .5f + 24 * S, WidthPx = 984 * S;
+	Plate(Rect(X, Y, WidthPx, 672 * S), Cyan, Ink);
+	Print(TEXT("KNOW YOUR CONTROLS"), X + 24 * S, Y + 20 * S, White, Heading, 0, true);
+	const FBox2D Back = Rect(X + 800 * S, Y + 18 * S, 160 * S, 45 * S);
+	G->OverlayRects.Add(Control(Back, TEXT("BACK"), BackHint(this), ControlState(Back), Cyan));
+	Print(Input->UsesGamepad() ? Input->DeviceLabel() : TEXT("KEYBOARD + MOUSE"), X + 25 * S, Y + 68 * S, Cyan, Body);
+	Print(TEXT("Same attack positions. A different way to move."), X + 25 * S, Y + 95 * S, Grey, Body);
+	const float ColW = 448 * S, L = X + 24 * S, R = X + 512 * S;
+	Print(TEXT("ON THE ROAD"), L + 12 * S, Y + 135 * S, Cyan, Strong, 0, true);
+	Print(TEXT("ON FOOT"), R + 12 * S, Y + 135 * S, Pink, Strong, 0, true);
+	const TCHAR* RaceNames[] = { TEXT("STEER"), TEXT("MOVE UP / BRAKE"), TEXT("DRIFT"), TEXT("TURBO"), TEXT("FIRE GUNS"), TEXT("MISSILE"), TEXT("CYCLE AMMO"), TEXT("PAUSE") };
+	const FString RaceKeys[] = {
+		Input->UsesGamepad() ? Input->RacePrompt(EFTAction::Left) : Input->RacePrompt(EFTAction::Left) + TEXT(" / ") + Input->RacePrompt(EFTAction::Right),
+		Input->RacePrompt(EFTAction::Up) + TEXT(" / ") + Input->RacePrompt(EFTAction::Down),
+		Input->RacePrompt(EFTAction::Drift), Input->RacePrompt(EFTAction::Turbo), Input->RacePrompt(EFTAction::Fire),
+		Input->RacePrompt(EFTAction::Missile), Input->RacePrompt(EFTAction::Ammo), InputHint(this, TEXT("P / ESC"), EKeys::Gamepad_Special_Right)
+	};
+	const TCHAR* FightNames[] = { TEXT("MOVE"), TEXT("PUNCH / SWING"), TEXT("KICK"), TEXT("JUMP"), TEXT("GRAB / THROW FOE"), TEXT("PICK UP / DRINK"), TEXT("THROW WEAPON"), TEXT("PAUSE") };
+	const EFTBrawlAction FightActions[] = { EFTBrawlAction::Move, EFTBrawlAction::Punch, EFTBrawlAction::Kick, EFTBrawlAction::Jump,
+		EFTBrawlAction::GrabThrow, EFTBrawlAction::Punch, EFTBrawlAction::Kick, EFTBrawlAction::Pause };
+	const EFTAction RaceActions[] = { EFTAction::Left, EFTAction::Down, EFTAction::Drift, EFTAction::Turbo, EFTAction::Fire, EFTAction::Missile, EFTAction::Ammo, EFTAction::Count };
+	for (int32 I = 0; I < 8; ++I)
+	{
+		const float RowY = Y + (168 + I * 31) * S;
+		for (int32 Col = 0; Col < 2; ++Col)
+		{
+			const float CX = Col == 0 ? L : R;
+			Box(CX, RowY, ColW, 28 * S, I % 2 ? Steel : Deep);
+			Print(Col == 0 ? RaceNames[I] : FightNames[I], CX + 12 * S, RowY + 4 * S, White, Body, 0, false, 215 * S);
+			Print(Col == 0 ? RaceKeys[I] : Input->BrawlPrompt(FightActions[I]), CX + ColW - 12 * S, RowY + 4 * S,
+				Col == 0 ? Cyan : Pink, Body, 2, false, 180 * S);
+			FTInputGlyphs::DrawFace(Canvas, Input, Col == 0 ? UFTInputSubsystem::RacePadKey(RaceActions[I]) : UFTInputSubsystem::BrawlPadKey(FightActions[I]),
+				FVector2D(CX + ColW - 204 * S, RowY + 14 * S), 17 * S, FRaj ? FRaj.Get() : FB.Get());
+		}
+	}
+	Print(TEXT("Auto-accelerates. Collect supplies by driving through them."), L + 8 * S, Y + 424 * S, Grey, LabelSize, 0, false, ColW - 16 * S);
+	Print(TEXT("Get close to a foe or an item before grabbing or picking up."), R + 8 * S, Y + 424 * S, Grey, LabelSize, 0, false, ColW - 16 * S);
+	const FString Labels[] = {
+		FString(TEXT("BUTTON STYLE: ")) + UFTInputSubsystem::PromptStyleName(Input->GetPromptStyle()),
+		TEXT("REPLAY TUTORIAL / LEVEL 1"), TEXT("EDIT KEYBOARD BINDINGS"), TEXT("SKIP CURRENT TUTORIAL")
+	};
+	const FString Hints[] = { TEXT("< / >"), TEXT("RESTARTS LEVEL 1"), InputHint(this, TEXT("TAB"), EKeys::Gamepad_RightShoulder), InputHint(this, TEXT("F2"), EKeys::Gamepad_Special_Left) };
+	const int32 Rows = G->IsTutorialActive() ? 4 : 3;
+	for (int32 I = 0; I < Rows; ++I)
+	{
+		const float BY = Y + (464 + I * 44) * S;
+		const FBox2D Button = Rect(L, BY, WidthPx - 48 * S, 42 * S);
+		G->OverlayRects.Add(Control(Button, Labels[I], Hints[I], ControlState(Button, G->ControlsRow == I), I == 1 ? Yellow : Cyan));
+	}
+	Print(TEXT("Button style changes labels, keeping the same physical button positions."), L + 8 * S, Y + 445 * S, Grey, LabelSize, 0, false, WidthPx - 64 * S);
+	Print(FString::Printf(TEXT("%s  SELECT     %s  BACK     UP / DOWN  NAVIGATE     LEFT / RIGHT  BUTTON STYLE"), *ConfirmHint(this), *BackHint(this)),
+		L + 8 * S, Y + 644 * S, White, Body, 0, false, WidthPx - 64 * S);
+}
+
+void AFTHUD::DrawTutorial(AFTGameMode* G)
+{
+	if (!G->IsTutorialActive()) return;
+	const UFTInputSubsystem* Input = UFTInputSubsystem::Get(this);
+	if (!Input) return;
+	FString Title, Instruction, Cue;
+	switch (G->Tutorial.Step)
+	{
+	case EFTTutorialStep::Steer:
+		Title = TEXT("FIND YOUR LINE"); Instruction = TEXT("The car drives forward automatically. Steer left and right.");
+		Cue = Input->UsesGamepad() ? Input->RacePrompt(EFTAction::Left) : Input->RacePrompt(EFTAction::Left) + TEXT(" / ") + Input->RacePrompt(EFTAction::Right); break;
+	case EFTTutorialStep::Drift:
+		Title = TEXT("SLIDE INTO THE TURN"); Instruction = TEXT("Hold drift while steering. Charge the meter, then release."); Cue = Input->RacePrompt(EFTAction::Drift); break;
+	case EFTTutorialStep::Turbo:
+		Title = TEXT("GIVE IT SOME HEAT"); Instruction = TEXT("Hold turbo for a burst of speed. Release to recharge."); Cue = Input->RacePrompt(EFTAction::Turbo); break;
+	case EFTTutorialStep::Fire:
+		Title = TEXT("OPEN FIRE"); Instruction = TEXT("Hold your primary attack to fire the guns."); Cue = Input->RacePrompt(EFTAction::Fire); break;
+	case EFTTutorialStep::Pickup:
+		Title = TEXT("PICK UP SUPPLIES"); Instruction = TEXT("Drive through the missile pickup ahead. Collection is automatic."); Cue = TEXT("DRIVE THROUGH"); break;
+	case EFTTutorialStep::Missile:
+		Title = TEXT("MAKE AN ENTRANCE"); Instruction = TEXT("Press your secondary attack to launch a missile."); Cue = Input->RacePrompt(EFTAction::Missile); break;
+	default: return;
+	}
+	const float X = Left + Safe * S, Y = 25 * S, WidthPx = 312 * S;
+	const bool bDone = G->Tutorial.bActionObserved;
+	const FLinearColor Accent = bDone ? Green : Cyan;
+	Plate(Rect(X, Y, WidthPx, 202 * S), Accent, Ink);
+	Print(FString::Printf(TEXT("FIRST TAKE  /  %d OF %d"), G->Tutorial.StepIndex() + 1, FFTTutorialState::NumSteps), X + 14 * S, Y + 10 * S, Accent, LabelSize, 0, true);
+	Meter(Rect(X + 14 * S, Y + 34 * S, WidthPx - 28 * S, 5 * S), G->Tutorial.Progress(), Accent, FFTTutorialState::NumSteps);
+	Print(bDone ? TEXT("NAILED IT!") : Title, X + 14 * S, Y + 49 * S, White, Strong, 0, true, WidthPx - 28 * S);
+	float LineY = Y + 81 * S;
+	for (const FString& Line : WrapText(Instruction, WidthPx - 28 * S, Body))
+	{
+		Print(Line, X + 14 * S, LineY, White, Body, 0, false, WidthPx - 28 * S);
+		LineY += 20 * S;
+	}
+	Box(X + 14 * S, Y + 133 * S, WidthPx - 28 * S, 28 * S, Active);
+	Print(Cue.ToUpper(), X + WidthPx * .5f, Y + 137 * S, Accent, Strong, 1, true, WidthPx - 44 * S);
+	Print(InputHint(this, TEXT("F2"), EKeys::Gamepad_Special_Left) + TEXT("  SKIP    /    TAKE YOUR TIME"), X + 14 * S, Y + 174 * S, Grey, LabelSize, 0, false, WidthPx - 28 * S);
 }
 
 void AFTHUD::DrawOptions(AFTGameMode* G)
@@ -1434,18 +1568,18 @@ void AFTHUD::DrawOptions(AFTGameMode* G)
 	if (!GI) return;
 	Box(0, 0, W, H, Alpha(Deep, .82f));
 	const float X = W * .5f - 365 * S, Y = (H - CanvasHeight * S) * .5f + 83 * S, WidthPx = 730 * S;
-	Plate(Rect(X, Y, WidthPx, 554 * S), Cyan, Ink);
+	Plate(Rect(X, Y, WidthPx, 607 * S), Cyan, Ink);
 	Print(TEXT("OPTIONS"), X + 25 * S, Y + 21 * S, White, Heading, 0, true);
 	const FBox2D Back = Rect(X + 545 * S, Y + 20 * S, 161 * S, 48 * S);
-	G->OverlayRects.Add(Control(Back, TEXT("BACK"), TEXT("ESC / B"), ControlState(Back), Cyan));
+	G->OverlayRects.Add(Control(Back, TEXT("BACK"), BackHint(this), ControlState(Back), Cyan));
 
-	static const TCHAR* Labels[] = { TEXT("GRAPHICS PRESET"), TEXT("SHOW FRAME RATE"), TEXT("VSYNC"), TEXT("REDUCED MOTION") };
-	static const TCHAR* Groups[] = { TEXT("DISPLAY"), TEXT("ACCESSIBILITY") };
+	static const TCHAR* Labels[] = { TEXT("GRAPHICS PRESET"), TEXT("SHOW FRAME RATE"), TEXT("VSYNC"), TEXT("REDUCED MOTION"), TEXT("AUDIO") };
+	static const TCHAR* Groups[] = { TEXT("DISPLAY"), TEXT("AUDIO & ACCESSIBILITY") };
 	const FString Values[] = { UFTGameInstance::QualityName(GI->Quality), GI->bShowFps ? TEXT("ON") : TEXT("OFF"),
-		GI->bVSync ? TEXT("ON") : TEXT("OFF"), GI->bReducedMotion ? TEXT("ON") : TEXT("OFF") };
+		GI->bVSync ? TEXT("ON") : TEXT("OFF"), GI->bReducedMotion ? TEXT("ON") : TEXT("OFF"), GI->bMuted ? TEXT("MUTED") : TEXT("ON") };
 	for (int32 I = 0; I < UE_ARRAY_COUNT(Labels); ++I)
 	{
-		const float RowY = Y + (112 + I * 53 + (I == 3 ? 38 : 0)) * S;
+		const float RowY = Y + (112 + I * 53 + (I >= 3 ? 38 : 0)) * S;
 		const bool bSelected = G->OptionsRow == I;
 		if (I == 0 || I == 3)
 			Print(Groups[I == 0 ? 0 : 1], X + 25 * S, RowY - 24 * S, Grey, LabelSize, 0, true);
@@ -1459,20 +1593,21 @@ void AFTHUD::DrawOptions(AFTGameMode* G)
 		G->OverlayRects.Add(Control(Dec, TEXT("<"), FString(), ControlState(Dec), Cyan));
 		G->OverlayRects.Add(Control(Inc, TEXT(">"), FString(), ControlState(Inc), Cyan));
 	}
-	Box(X + 24 * S, Y + 381 * S, WidthPx - 48 * S, S, Rule);
+	Box(X + 24 * S, Y + 434 * S, WidthPx - 48 * S, S, Rule);
 	static const TCHAR* Details[] = {
 		// (2.7 left Lumen to EPIC only and 2.8 gave LOW and MEDIUM TAA: this line still described 2.6)
 		TEXT("Low and Medium use TAA with Lumen off. High uses TSR. Epic adds Lumen lighting and reflections. Auto chooses for this computer."),
 		TEXT("Display the current frame rate and frame time in the corner."),
 		TEXT("Synchronize frame presentation to the display refresh rate."),
-		TEXT("Reduce decorative movement and flashes in the interface and game.")
+		TEXT("Reduce decorative movement and flashes in the interface and game."),
+		TEXT("Turn game audio on or mute it. This setting carries between driving and fighting.")
 	};
-	float DetailY = Y + 398 * S;
-	for (const FString& Line : WrapText(Details[FMath::Clamp(G->OptionsRow, 0, 3)], WidthPx - 48 * S, Body))
+	float DetailY = Y + 451 * S;
+	for (const FString& Line : WrapText(Details[FMath::Clamp(G->OptionsRow, 0, 4)], WidthPx - 48 * S, Body))
 	{
 		Print(Line, X + 24 * S, DetailY, Grey, Body, 0, false, WidthPx - 48 * S);
 		DetailY += 22 * S;
 	}
-	Print(TEXT("CHANGES SAVE AUTOMATICALLY"), X + 24 * S, Y + 473 * S, Grey, LabelSize, 0, true);
-	Print(TEXT("UP-DOWN / D-PAD   PICK     LEFT-RIGHT   CHANGE"), X + 24 * S, Y + 508 * S, White, Body);
+	Print(TEXT("CHANGES SAVE AUTOMATICALLY"), X + 24 * S, Y + 526 * S, Grey, LabelSize, 0, true);
+	Print(TEXT("UP-DOWN / D-PAD   PICK     LEFT-RIGHT   CHANGE"), X + 24 * S, Y + 561 * S, White, Body);
 }

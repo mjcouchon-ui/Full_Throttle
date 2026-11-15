@@ -2,6 +2,7 @@
 #include "FTBrawlHUD.h"
 #include "FTBrawlPlayerController.h"
 #include "FTBrawlMusic.h"
+#include "FTInput.h"
 #if __has_include("FTGameInstance.h")   // the main game only (the standalone beat-em-up has no settings of its own)
 #include "FTGameInstance.h"
 #define FT_BRAWL_MAIN_GAME 1
@@ -237,6 +238,7 @@ void AFTBrawlGameMode::SetupNight()
 void AFTBrawlGameMode::BeginPlay()
 {
 	Super::BeginPlay();
+	SuppressActionInput();
 	Rnd.Initialize(1986 + 11);
 	SetupNight();
 	bAuto = FParse::Param(FCommandLine::Get(), TEXT("brawlauto"));
@@ -442,27 +444,50 @@ AFTBrawlGameMode::FIn AFTBrawlGameMode::ReadInput()
 	FIn I;
 	APlayerController* PC = GetWorld()->GetFirstPlayerController();
 	if (!PC) return I;
-	auto D = [PC](const FKey& K) { return PC->IsInputKeyDown(K); };
-	I.Steer = (D(EKeys::D) || D(EKeys::Right) || D(EKeys::Gamepad_DPad_Right) ? 1.f : 0.f) - (D(EKeys::A) || D(EKeys::Left) || D(EKeys::Gamepad_DPad_Left) ? 1.f : 0.f);
-	I.Throttle = (D(EKeys::W) || D(EKeys::Up) || D(EKeys::Gamepad_DPad_Up) ? 1.f : 0.f) - (D(EKeys::S) || D(EKeys::Down) || D(EKeys::Gamepad_DPad_Down) ? 1.f : 0.f);
+	auto D = [PC](const FKey& K)
+	{
+		return K.IsValid() && (PC->IsInputKeyDown(K)
+			|| (K == EKeys::LeftShift && PC->IsInputKeyDown(EKeys::RightShift))
+			|| (K == EKeys::LeftControl && PC->IsInputKeyDown(EKeys::RightControl))
+			|| (K == EKeys::LeftAlt && PC->IsInputKeyDown(EKeys::RightAlt)));
+	};
+	UFTGameInstance* GI = GetGameInstance<UFTGameInstance>();
+	if (GI)
+	{
+		// Match the race: steering with the other layout activates that layout unless the key is already bound here.
+		const int32 Other = 1 - GI->Layout;
+		for (EFTAction A : { EFTAction::Left, EFTAction::Right, EFTAction::Up, EFTAction::Down })
+		{
+			const FKey Key = GI->Binds[(int32)A][Other];
+			bool bCurrent = false;
+			for (int32 B = 0; B < UFTGameInstance::NumActions; ++B) bCurrent |= GI->Binds[B][GI->Layout] == Key;
+			if (Key.IsValid() && !bCurrent && PC->WasInputKeyJustPressed(Key)) { GI->Layout = Other; GI->SaveSettings(); break; }
+		}
+	}
+	auto Bound = [&](EFTAction A, const FKey& Fallback) { return D(GI ? GI->Binds[(int32)A][GI->Layout] : Fallback); };
+	I.Steer = (Bound(EFTAction::Right, EKeys::D) || D(EKeys::Gamepad_DPad_Right) ? 1.f : 0.f) - (Bound(EFTAction::Left, EKeys::A) || D(EKeys::Gamepad_DPad_Left) ? 1.f : 0.f);
+	I.Throttle = (Bound(EFTAction::Up, EKeys::W) || D(EKeys::Gamepad_DPad_Up) ? 1.f : 0.f) - (Bound(EFTAction::Down, EKeys::S) || D(EKeys::Gamepad_DPad_Down) ? 1.f : 0.f);
 	const float SX = PC->GetInputAnalogKeyState(EKeys::Gamepad_LeftX), SY = PC->GetInputAnalogKeyState(EKeys::Gamepad_LeftY);
-	if (FMath::Abs(SX) > 0.3f) I.Steer = FMath::Sign(SX);
-	if (FMath::Abs(SY) > 0.3f) I.Throttle = FMath::Sign(SY);
-	I.Fire = D(EKeys::J) || D(EKeys::Z) || D(EKeys::Gamepad_FaceButton_Left) || D(EKeys::LeftMouseButton);
-	I.Kick = D(EKeys::K) || D(EKeys::X) || D(EKeys::Gamepad_FaceButton_Top) || D(EKeys::RightMouseButton);
-	I.Jump = D(EKeys::SpaceBar) || D(EKeys::Gamepad_FaceButton_Bottom);
+	// Keep fine analogue control for lining up punches and grabs; digital keys and the D-pad retain full speed.
+	if (I.Steer == 0.f && FMath::Abs(SX) > .25f) I.Steer = FMath::Sign(SX) * FMath::Clamp((FMath::Abs(SX) - .25f) / .75f, 0.f, 1.f);
+	if (I.Throttle == 0.f && FMath::Abs(SY) > .25f) I.Throttle = FMath::Sign(SY) * FMath::Clamp((FMath::Abs(SY) - .25f) / .75f, 0.f, 1.f);
+	I.Fire = Bound(EFTAction::Fire, EKeys::J) || D(UFTInputSubsystem::BrawlPadKey(EFTBrawlAction::Punch)) || D(EKeys::LeftMouseButton);
+	I.Kick = Bound(EFTAction::Missile, EKeys::K) || D(UFTInputSubsystem::BrawlPadKey(EFTBrawlAction::Kick)) || D(EKeys::RightMouseButton);
+	const UFTInputSubsystem* SharedInput = UFTInputSubsystem::Get(this);
+	I.Jump = D(SharedInput ? SharedInput->BrawlKeyboardKey(EFTBrawlAction::Jump) : EKeys::SpaceBar) || D(UFTInputSubsystem::BrawlPadKey(EFTBrawlAction::Jump));
 	I.Enter = D(EKeys::Enter);
 	// loop cycle 2: with a pad, A (the jump button) also works the cards and the K.O. / knocked-out screens; only Start did
 	if (!I.Enter && D(EKeys::Gamepad_FaceButton_Bottom) && (InCut() || P.Hp <= 0 || bWon)) I.Enter = true;
-	// 3.9 (owner: "clicks not registering"): a left click works them too (the cards, KNOCKED OUT, the win); in the fight it punches
+	// A left click confirms cards/results; during the fight it remains the primary attack.
 	if (!I.Enter && D(EKeys::LeftMouseButton) && (InCut() || P.Hp <= 0 || bWon)) I.Enter = true;
-	I.Grab = D(EKeys::L) || D(EKeys::C) || D(EKeys::Gamepad_FaceButton_Right);
-	if (FMath::Abs(SX) > 0.3f || FMath::Abs(SY) > 0.3f || D(EKeys::Gamepad_FaceButton_Bottom) || D(EKeys::Gamepad_FaceButton_Left) ||
-		D(EKeys::Gamepad_FaceButton_Top) || D(EKeys::Gamepad_FaceButton_Right) || D(EKeys::Gamepad_DPad_Left) ||
-		D(EKeys::Gamepad_DPad_Right) || D(EKeys::Gamepad_DPad_Up) || D(EKeys::Gamepad_DPad_Down) || D(EKeys::Gamepad_Special_Right))
-		bPadLast = true;
-	else if (I.Steer != 0 || I.Throttle != 0 || I.Fire || I.Kick || I.Jump || I.Grab || I.Enter)
-		bPadLast = false;
+	I.Grab = Bound(EFTAction::Ammo, EKeys::L) || D(UFTInputSubsystem::BrawlPadKey(EFTBrawlAction::GrabThrow));
+	if (bBlockCombatInput)
+	{
+		const AFTBrawlPlayerController* BrawlPC = Cast<AFTBrawlPlayerController>(PC);
+		if (!(I.Fire || I.Kick || I.Jump || I.Grab || I.Enter) && (!BrawlPC || !BrawlPC->HasHeldActionInput())) bBlockCombatInput = false;
+		I.Fire = I.Kick = I.Jump = I.Grab = I.Enter = false;
+	}
+	if (UFTInputSubsystem* Input = UFTInputSubsystem::Get(this)) bPadLast = Input->UsesGamepad();
 	return I;
 }
 
@@ -1273,6 +1298,7 @@ void AFTBrawlGameMode::StepShots(float Dt)
 
 void AFTBrawlGameMode::Retry()
 {
+	SuppressActionInput();
 	// back on his feet, full health, the wave he was on again (a boss fight starts the boss again)
 	const int32 Wv = Wave; const bool bBoss = bBossOut; const float C = LockX >= 0 ? LockX : Cam;
 	ResetState(Wv, true);
@@ -1314,6 +1340,7 @@ void AFTBrawlGameMode::Restart()
 {
 	bCutDone = false;
 	ResetState(0, false);
+	SuppressActionInput();
 	SaveCheckpoint(TEXT("RestartNight"));
 	Banner = VenueName; BannerSub = VenueTag; BannerT = 0;
 }
@@ -1322,6 +1349,7 @@ void AFTBrawlGameMode::Tick(float Dt)
 {
 	Super::Tick(Dt);
 	if (SystemScreen || FPlatformTime::Seconds() < InputResumeAt) return;
+	TickCombatHelp(Dt);
 #ifdef FT_BRAWL_MAIN_GAME
 	// loop cycle 6: M mutes here too, as in the races (the same setting, saved)
 	if (APlayerController* MPC = GetWorld()->GetFirstPlayerController())
@@ -1351,14 +1379,15 @@ void AFTBrawlGameMode::Tick(float Dt)
 	if (InCut())   // night 1's cutscenes play instead of the fight (FTBrawlCutscene.cpp)
 	{
 		StepCut(FMath::Min(Dt, 0.05f), Real);   // the autopilot's punches don't hurry the lines
-		if (InCut()) SyncCut(FMath::Min(Dt, 0.05f)); else SyncActors(Dt);
+		if (InCut()) SyncCut(FMath::Min(Dt, 0.05f)); else { SyncActors(Dt); In = FIn(); }
 	}
-	else if (P.Hp <= 0 && KoT > 1 && (bScreenEnter || bBotScreenEnter)) Retry();
+	else if (P.Hp <= 0 && KoT > 1 && (bScreenEnter || bBotScreenEnter)) { Retry(); In = FIn(); }
 	else if (bWon && bCuts && !bCutDone && WinT > 2.2f) { bCutDone = true; StartCut(2); }   // LAST CALL, then the pier
 	else if (bWon && !bCuts && WinT > 2.6f && (bScreenEnter || bBotScreenEnter))
 	{
 		UE_LOG(LogFTBrawl, Log, TEXT("FT BRAWL screen=win key=enter result=on"));
 		GoOn();
+		In = FIn();
 	}
 	if (!InCut())
 	{
@@ -2749,27 +2778,32 @@ void AFTBrawlGameMode::StepHurled(FFTBrawlBody& F, float Dt)
 }
 
 // test hook -brawlkeytest: the autopilot's input goes in as key events on the player controller (the same key state
-// ReadInput reads when you play), so a headless run plays the keyboard path: arrows, J, K, L, Space, Enter
+// ReadInput reads when you play), using the active bindings so a saved alternate layout is tested correctly.
 void AFTBrawlGameMode::PressKeys(const FIn& In)
 {
 	APlayerController* PC = GetWorld()->GetFirstPlayerController();
 	if (!PC) return;
 	auto Key = [this, PC](const FKey& K, bool bOn)
 	{
+		if (!K.IsValid()) return;
 		if (TestKeysDown.Contains(K.GetFName()) == bOn) return;
 		if (bOn) TestKeysDown.Add(K.GetFName()); else TestKeysDown.Remove(K.GetFName());
 		PC->InputKey(FInputKeyEventArgs::CreateSimulated(K, bOn ? IE_Pressed : IE_Released, bOn ? 1.f : 0.f));
 		if (K == EKeys::L && bOn) UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL key L"));
 	};
-	Key(bPadTest ? EKeys::Gamepad_DPad_Right : EKeys::Right, In.Steer > 0.1f);
-	Key(bPadTest ? EKeys::Gamepad_DPad_Left : EKeys::Left, In.Steer < -0.1f);
-	Key(bPadTest ? EKeys::Gamepad_DPad_Up : EKeys::Up, In.Throttle > 0.1f);
-	Key(bPadTest ? EKeys::Gamepad_DPad_Down : EKeys::Down, In.Throttle < -0.1f);
-	Key(bPadTest ? EKeys::Gamepad_FaceButton_Left : EKeys::J, In.Fire);
-	Key(bPadTest ? EKeys::Gamepad_FaceButton_Top : EKeys::K, In.Kick);
-	Key(bPadTest ? EKeys::Gamepad_FaceButton_Right : EKeys::L, In.Grab);
-	Key(bPadTest ? EKeys::Gamepad_FaceButton_Bottom : EKeys::SpaceBar, In.Jump || (bPadTest && In.Enter));
-	if (!bPadTest) Key(EKeys::Enter, In.Enter);
+	const UFTGameInstance* GI = GetGameInstance<UFTGameInstance>();
+	auto Bound = [GI](EFTAction A, const FKey& Fallback) { return GI ? GI->Binds[int32(A)][GI->Layout] : Fallback; };
+	Key(bPadTest ? EKeys::Gamepad_DPad_Right : Bound(EFTAction::Right, EKeys::D), In.Steer > .1f);
+	Key(bPadTest ? EKeys::Gamepad_DPad_Left : Bound(EFTAction::Left, EKeys::A), In.Steer < -.1f);
+	Key(bPadTest ? EKeys::Gamepad_DPad_Up : Bound(EFTAction::Up, EKeys::W), In.Throttle > .1f);
+	Key(bPadTest ? EKeys::Gamepad_DPad_Down : Bound(EFTAction::Down, EKeys::S), In.Throttle < -.1f);
+	const UFTInputSubsystem* Input = UFTInputSubsystem::Get(this);
+	Key(bPadTest ? UFTInputSubsystem::BrawlPadKey(EFTBrawlAction::Punch) : Bound(EFTAction::Fire, EKeys::J), In.Fire);
+	Key(bPadTest ? UFTInputSubsystem::BrawlPadKey(EFTBrawlAction::Kick) : Bound(EFTAction::Missile, EKeys::K), In.Kick);
+	Key(bPadTest ? UFTInputSubsystem::BrawlPadKey(EFTBrawlAction::GrabThrow) : Bound(EFTAction::Ammo, EKeys::L), In.Grab);
+	// Bottom is Jump in a fight and Confirm on cards; Start is now always Pause.
+	if (bPadTest) Key(UFTInputSubsystem::BrawlPadKey(EFTBrawlAction::Jump), In.Jump || In.Enter);
+	else { Key(Input ? Input->BrawlKeyboardKey(EFTBrawlAction::Jump) : EKeys::SpaceBar, In.Jump); Key(EKeys::Enter, In.Enter); }
 }
 
 // ---------------------------------------------------------------- fight-night polish (run 38222; owner, 15 Nov: "in the fight scenes we

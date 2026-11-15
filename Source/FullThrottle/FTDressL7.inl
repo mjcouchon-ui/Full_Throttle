@@ -1,4 +1,4 @@
-// 3.2 dressing table, level 7: City Center (Midtown). The words (Set, Zone, Scatter, Site, Far) are explained at the top of
+// 3.2 dressing table, level 7: City Center (Midtown). The words (Set, Zone, Scatter, Site, Far, SiteAfloat, Bank) are explained at the top of
 // FTTrackDress.cpp; the meshes are made by Content/Python/ft_dress_metro.py. Distances across are metres from the road's
 // centre line; districts are in kilometres along the road.
 //
@@ -45,20 +45,46 @@
 //     cut fills a third of the frame. SM_BankTiles and SM_SynBank are faces built to lie on it; the "Bank..." sets stand
 //     them with a negative "up", one where the bank is at its full angle (the "Bend ..." districts at the end, one
 //     slot each, from the track's section list). The Syndicate's black and gold from 7 km on, the city's tiles before.
+//
+// THIRD PASS (15 Nov 2026, the overhaul: tight canyons, lit storefronts, signs that move, traffic on its own paths):
+//   - THE BANKS are faced by the track itself: a Bank rule ("Cut banks" below: SM_CutTiles to 7 km, SM_CutSyn after,
+//     SM_CutCity on the shallow cuttings) instead of the two tilted faces, which stood only where a bend held its
+//     full bank. Those faces and their one-slot "Bend" districts are gone;
+//   - THE CANYON: behind every alley stands a narrow brick building 34 m tall (SM_Infill1, in the G_Alley set), and
+//     the gaps that held nothing in Theatre Row, Wall Street and Penthouse Row are closed by a glass one flush with
+//     the podiums (G_Fill: SM_Infill2). Their windows go on and off; something turns on each roof;
+//   - SIGNS: the blade signs stand 26 m out now, at the podiums' own line (at 31.8 m most were inside the level's
+//     towers), each district has its own words, and their letters light one after the other. Signs on the podiums'
+//     roofs chase and swell, steam comes off the roofs, a picture house has a searchlight on its roof: all of these
+//     are in the sets the SIX districts before Syndicate Territory use ("W_Shops2s", "W_Banks", "W_Yards": the same
+//     podium with the roof's sign or steam). The finale keeps the plain sets: nothing near the road there blinks,
+//     chases or turns at the height the Chairman's shots fly;
+//   - A SIGN AT THE END OF EVERY STREET: on the outside of each hairpin before the finale, dead ahead as the street
+//     runs up to the bend, a roof sign at three times its size on its legs (28 m of lights), turned to face the street;
+//   - TRAFFIC ON ITS OWN PATHS: the elevated train runs every ElLine (SM_ElTrain), cars drive away down every side
+//     street (SM_CrossTraffic), lights cross the far bridge, an airship goes over (SM_Blimp, 125 m up). And under the
+//     flights: THE GARAGE JUMP goes over the elevated railway, its train running under the car; THE WALL STREET
+//     JUMP over a boulevard of traffic. Both are afloat sets, stood from the level's floor (FTBED's "floor z"
+//     -1637: if the track's heights ever change they must be laid out again);
+//   - tower cranes over the Garages and Wall Street, searchlights round both loops, the Syndicate's gate (two
+//     headquarters towers at half size, one each side) where its territory begins;
+//   - THE HORIZON: two rows of flat skyline cards (SM_SkyCard1 at 0.9 to 1.1 km, SM_SkyCard2 at 1.5 to 1.8 km).
+// This pass's own districts are at the END of the table (a rule added in the middle moves the dice of every rule
+// after it); in place, only numbers and set names were changed.
 
 // ---------------------------------------------------------------- the street wall: a podium a block (anchor 29 m: its front 25.5 m out,
 // its awnings 24.5 m; the track itself moves anything over 2 m tall out to 24 m where the street bends towards it)
-Set(TEXT("W_Shops1"),  { { TEXT("SM_Shops1"),      0, 0,    0, 0, 1 } });
+Set(TEXT("W_Shops1"),  { { TEXT("SM_Shops1"),      0, 0,    0, 0, 1 }, { TEXT("SM_RoofSign1"), -10.7f, 0.6f, 5.5f, 0, 1 }, { TEXT("/Game/Maps/Metro/Life/SM_SteamGrate"), 10.7f, 1.2f, 5.5f, 0, 1 } });   // third pass: JAZZ in lights on one low roof, steam off the other
 Set(TEXT("W_Shops2"),  { { TEXT("SM_Shops2"),      0, 0,    0, 0, 1 } });
-Set(TEXT("W_Shops3"),  { { TEXT("SM_Shops3"),      0, 0,    0, 0, 1 } });
-Set(TEXT("W_Marquee"), { { TEXT("SM_Marquee"),     0, 0,    0, 0, 1 } });
+Set(TEXT("W_Shops3"),  { { TEXT("SM_Shops3"),      0, 0,    0, 0, 1 }, { TEXT("SM_RoofSign3"), 11.5f, 0.6f, 6.f, 0, 1 } });       // third pass: FILM over the pawn shop
+Set(TEXT("W_Marquee"), { { TEXT("SM_Marquee"),     0, 0,    0, 0, 1 }, { TEXT("SM_Klieg"), 12, 0.5f, 11.9f, 0, 1 } });           // third pass: a premiere searchlight on its roof
 Set(TEXT("W_Bank"),    { { TEXT("SM_BankFront"),   0, 0.5f, 0, 0, 1 } });
 Set(TEXT("W_Pent"),    { { TEXT("SM_PentEntry"),   0, 0.5f, 0, 0, 1 } });
 Set(TEXT("W_Garage"),  { { TEXT("SM_GarageRamp"),  0, 2.5f, 0, 0, 1 } });
 Set(TEXT("W_Yard"),    { { TEXT("SM_ServiceYard"), 0, 0,    0, 0, 1 } });
 Set(TEXT("W_Syn"),     { { TEXT("SM_SynGate"),     0, 0,    0, 0, 1 } });
 // what stands in the 13 m between two podiums (half a slot on from the anchor)
-Set(TEXT("G_Alley"),    { { TEXT("SM_Alley"),       22.6f,  0,    0, 0, 1 } });
+Set(TEXT("G_Alley"),    { { TEXT("SM_Alley"),       22.6f,  0,    0, 0, 1 }, { TEXT("SM_Infill1"), 22.6f, 4.9f, 0, 0, 1 } });     // third pass: the building behind the alley closes the gap to 34 m
 Set(TEXT("G_Monument"), { { TEXT("SM_Monument"),    22.6f,  4.5f, 0, 0, 1 } });
 Set(TEXT("G_Check"),    { { TEXT("SM_Checkpoint"),  21.3f, -1.5f, 0, 0, 1 } });
 Set(TEXT("G_Search"),   { { TEXT("SM_SearchTower"), 22.6f,  1.5f, 0, 0, 1 } });
@@ -72,24 +98,25 @@ Set(TEXT("KerbSyn2"), { { TEXT("SM_SynBarriers"), -12, 1.5f, 0,   0, 1 }, { TEXT
 
 // second pass: a side street in a gap (it starts at the kerb, 19 m out), the brighter kerb, a whole elevated line
 // (anchor 96 m: 66 to 246 m out), the bank faces (anchor and size go with the bank's angle; "up" is from the sidewalk)
-Set(TEXT("G_Street"),  { { TEXT("SM_FloorCross"), 22.6f, 15, 0, 0, 1 } });
+Set(TEXT("G_Street"),  { { TEXT("SM_FloorCross"), 22.6f, 15, 0, 0, 1 }, { TEXT("SM_CrossTraffic"), 22.6f, 15, 0, 0, 1 } });      // third pass: cars drive away down it
 Set(TEXT("KerbCafe"),  { { TEXT("SM_KerbCafe"),   -8, 3.4f, 0, 0, 1 }, { TEXT("SM_ParkedCars"),  12, 0, 0,   0, 1 } });
 Set(TEXT("KerbWorks"), { { TEXT("SM_KerbWorks"),  -6, 2.6f, 0, 0, 1 }, { TEXT("SM_ParkedCars2"), 13, 0, 0, 180, 1 } });
-Set(TEXT("ElLine"),    { { TEXT("SM_ElRail"), 0, 0, 0, -90, 1 }, { TEXT("SM_ElRail"), 0, 60, 0, -90, 1 }, { TEXT("SM_ElRail"), 0, 120, 0, 90, 1 } });
-Set(TEXT("Bank10T"), { { TEXT("SM_BankTiles"), 0, 0, -5.82f, 0, 1 } });     // anchor 12.1 m
-Set(TEXT("Bank10S"), { { TEXT("SM_SynBank"),   0, 0, -5.82f, 0, 1 } });
-Set(TEXT("Bank09T"), { { TEXT("SM_BankTiles"), 0, 0, -5.814f, 0, 1 } });    // anchor 12.72 m, size 0.9
-Set(TEXT("Bank09S"), { { TEXT("SM_SynBank"),   0, 0, -5.814f, 0, 1 } });
-// a second face beside the first, one length round the bend (a set for each radius and side: r86p = an 86 m bend, the
-// second face on the first one's +along side)
-Set(TEXT("Bank09T_r93p"), { { TEXT("SM_BankTiles"), 24.004f, 3.27f, -5.814f, 15.516f, 1 } });
-Set(TEXT("Bank10S_r86m"), { { TEXT("SM_SynBank"), -23.861f, 3.976f, -5.82f, -18.92f, 1 } });
-Set(TEXT("Bank10S_r86p"), { { TEXT("SM_SynBank"), 23.861f, 3.976f, -5.82f, 18.92f, 1 } });
-Set(TEXT("Bank10T_r69m"), { { TEXT("SM_BankTiles"), -23.556f, 5.15f, -5.82f, -24.664f, 1 } });
-Set(TEXT("Bank10T_r73m"), { { TEXT("SM_BankTiles"), -23.67f, 4.75f, -5.82f, -22.695f, 1 } });
-Set(TEXT("Bank10T_r73p"), { { TEXT("SM_BankTiles"), 23.67f, 4.75f, -5.82f, 22.695f, 1 } });
-Set(TEXT("Bank10T_r79p"), { { TEXT("SM_BankTiles"), 23.771f, 4.359f, -5.82f, 20.782f, 1 } });
-Set(TEXT("Bank10T_r86m"), { { TEXT("SM_BankTiles"), -23.861f, 3.976f, -5.82f, -18.92f, 1 } });
+Set(TEXT("ElLine"),    { { TEXT("SM_ElRail"), 0, 0, 0, -90, 1 }, { TEXT("SM_ElRail"), 0, 60, 0, -90, 1 }, { TEXT("SM_ElRail"), 0, 120, 0, 90, 1 }, { TEXT("SM_ElTrain"), 0, 60, 0, -90, 1 } });   // third pass: its train runs the line
+// THIRD PASS: the same podiums with what the six districts before the finale carry on their roofs (signs that chase,
+// steam); the gap closed flush with the podiums; a roof sign at three times its size on the outside of a hairpin, turned
+// to face the street that runs up to it (L: outside a right-hand bend, on the left; R: the other way); the Syndicate's
+// gate; and the two sets under the jumps, afloat ("up" is metres over the level's floor: the valley under the flight)
+Set(TEXT("W_Shops2s"), { { TEXT("SM_Shops2"),      0, 0,    0, 0, 1 }, { TEXT("SM_RoofSign2"), 0, 0.6f, 5.5f, 0, 1 } });
+Set(TEXT("W_Banks"),   { { TEXT("SM_BankFront"),   0, 0.5f, 0, 0, 1 }, { TEXT("SM_RoofSign4"), 10.5f, 1.1f, 10.4f, 0, 1 } });
+Set(TEXT("W_Yards"),   { { TEXT("SM_ServiceYard"), 0, 0,    0, 0, 1 }, { TEXT("/Game/Maps/Metro/Life/SM_SteamGrate"), 4, 1.7f, 6.7f, 0, 1 } });
+Set(TEXT("G_Fill"),    { { TEXT("SM_Infill2"),     22.6f, -2.2f, 0, 0, 1 } });
+Set(TEXT("BigJazzL"), { { TEXT("SM_RoofSign1"), 0, 0, 0,  25, 3 } });   Set(TEXT("BigJazzR"), { { TEXT("SM_RoofSign1"), 0, 0, 0, -25, 3 } });
+Set(TEXT("BigEatL"), { { TEXT("SM_RoofSign2"), 0, 0, 0,  25, 3 } });   Set(TEXT("BigEatR"), { { TEXT("SM_RoofSign2"), 0, 0, 0, -25, 3 } });
+Set(TEXT("BigFilmL"), { { TEXT("SM_RoofSign3"), 0, 0, 0,  25, 3 } });   Set(TEXT("BigFilmR"), { { TEXT("SM_RoofSign3"), 0, 0, 0, -25, 3 } });
+Set(TEXT("BigCashL"), { { TEXT("SM_RoofSign4"), 0, 0, 0,  25, 3 } });   Set(TEXT("BigCashR"), { { TEXT("SM_RoofSign4"), 0, 0, 0, -25, 3 } });
+Set(TEXT("SynGatePair"), { { TEXT("SM_SynHQ"), 0, 0, 0, 0, 0.55f } });
+Set(TEXT("ElUnder"), { { TEXT("SM_ElRail"), -13.823f, -60, 5.422f, -90, 1 }, { TEXT("SM_ElRail"), -13.823f, 0, 5.422f, -90, 1 }, { TEXT("SM_ElRail"), -13.823f, 60, 5.422f, 90, 1 }, { TEXT("SM_ElTrain"), -13.823f, 0, 5.422f, -90, 1 } });
+Set(TEXT("BlvdUnder"), { { TEXT("SM_FloorCross"), -11.104f, -42, 12.015f, 0, 1.6f }, { TEXT("SM_FloorCross"), -11.104f, 38, 12.015f, 0, 1.6f }, { TEXT("SM_CrossTraffic"), -11.104f, -42, 12.015f, 0, 1.6f }, { TEXT("SM_CrossTraffic"), -11.104f, 38, 12.015f, 0, 1.6f } });
 
 // ---- 0 to 1.10 km: FIFTH AND MAIN. Three kinds of shop row in turn on each side (out of step with the other side),
 // an alley in every other gap, taxis and a bus shelter at the kerb.
@@ -102,8 +129,8 @@ Zone(TEXT("Fifth and Main"), 0.f, 1.10f);
 	Site(TEXT("KerbCafe"), 1, 17.6f, 3, 2, 0.9f);
 	Site(TEXT("W_Shops1"), -1, 29, 3, 0, 1.f);
 	Site(TEXT("W_Shops3"), -1, 29, 3, 1, 1.f);
-	Site(TEXT("W_Shops2"), -1, 29, 3, 2, 1.f);
-	Site(TEXT("W_Shops2"), 1, 29, 3, 0, 1.f);
+	Site(TEXT("W_Shops2s"), -1, 29, 3, 2, 1.f);
+	Site(TEXT("W_Shops2s"), 1, 29, 3, 0, 1.f);
 	Site(TEXT("W_Shops1"), 1, 29, 3, 1, 1.f);
 	Site(TEXT("W_Shops3"), 1, 29, 3, 2, 1.f);
 	Site(TEXT("G_Alley"), -1, 29, 2, 0, 0.9f);
@@ -127,7 +154,7 @@ Zone(TEXT("Theatre Row"), 1.10f, 2.10f);
 	Site(TEXT("KerbCafe"), 1, 17.6f, 3, 2, 0.9f);
 	Site(TEXT("W_Marquee"), -1, 29, 2, 0, 1.f);
 	Site(TEXT("W_Shops3"), -1, 29, 4, 1, 1.f);
-	Site(TEXT("W_Shops2"), -1, 29, 4, 3, 1.f);
+	Site(TEXT("W_Shops2s"), -1, 29, 4, 3, 1.f);
 	Site(TEXT("W_Marquee"), 1, 29, 2, 1, 1.f);
 	Site(TEXT("W_Shops3"), 1, 29, 4, 2, 1.f);
 	Site(TEXT("W_Shops1"), 1, 29, 4, 0, 1.f);
@@ -156,8 +183,8 @@ Zone(TEXT("The Garages"), 2.10f, 3.13f);
 	Site(TEXT("KerbWorks"), -1, 17.6f, 2, 1, 0.7f);
 	Site(TEXT("KerbWorks"), 1, 17.6f, 2, 0, 0.7f);
 	Site(TEXT("W_Garage"), -1, 29, 2, 0, 1.f);
-	Site(TEXT("W_Yard"), -1, 29, 2, 1, 1.f);
-	Site(TEXT("W_Yard"), 1, 29, 2, 0, 1.f);
+	Site(TEXT("W_Yards"), -1, 29, 2, 1, 1.f);
+	Site(TEXT("W_Yards"), 1, 29, 2, 0, 1.f);
 	Site(TEXT("W_Garage"), 1, 29, 2, 1, 1.f);
 	Site(TEXT("G_Alley"), -1, 29, 1, 0, 0.9f);
 	Site(TEXT("G_Alley"), 1, 29, 1, 0, 0.9f);
@@ -182,7 +209,7 @@ Zone(TEXT("The Plaza"), 3.13f, 4.62f);
 	Site(TEXT("KerbCafe"), 1, 17.6f, 3, 0, 0.9f);
 	Site(TEXT("W_Shops1"), -1, 29, 4, 0, 1.f);
 	Site(TEXT("W_Pent"), -1, 29, 4, 2, 1.f);
-	Site(TEXT("W_Shops2"), 1, 29, 4, 1, 1.f);
+	Site(TEXT("W_Shops2s"), 1, 29, 4, 1, 1.f);
 	Site(TEXT("W_Pent"), 1, 29, 4, 3, 1.f);
 	Site(TEXT("G_Monument"), -1, 29, 2, 1, 1.f);
 	Site(TEXT("G_Monument"), 1, 29, 2, 0, 1.f);
@@ -207,12 +234,12 @@ Zone(TEXT("Wall Street"), 4.62f, 6.29f);
 	Site(TEXT("Kerb1"), -1, 17.6f, 2, 1, 0.8f);
 	Site(TEXT("Kerb1"), 1, 17.6f, 2, 0, 0.8f);
 	Site(TEXT("Kerb3"), 1, 17.6f, 2, 1, 0.9f);
-	Site(TEXT("W_Bank"), -1, 29, 2, 0, 1.f);
+	Site(TEXT("W_Banks"), -1, 29, 2, 0, 1.f);
 	Site(TEXT("W_Pent"), -1, 29, 4, 1, 1.f);
-	Site(TEXT("W_Shops2"), -1, 29, 4, 3, 1.f);
-	Site(TEXT("W_Bank"), 1, 29, 2, 1, 1.f);
+	Site(TEXT("W_Shops2s"), -1, 29, 4, 3, 1.f);
+	Site(TEXT("W_Banks"), 1, 29, 2, 1, 1.f);
 	Site(TEXT("W_Pent"), 1, 29, 4, 2, 1.f);
-	Site(TEXT("W_Yard"), 1, 29, 4, 0, 1.f);
+	Site(TEXT("W_Yards"), 1, 29, 4, 0, 1.f);
 	Site(TEXT("G_Alley"), 0, 29, 2, 0, 0.8f);
 	Site(TEXT("G_Street"), -1, 29, 4, 1, 1.f);
 	Site(TEXT("G_Street"), 1, 29, 4, 3, 1.f);
@@ -242,7 +269,7 @@ Zone(TEXT("Penthouse Row"), 6.29f, 7.66f);
 	Site(TEXT("KerbCafe"), 1, 17.6f, 4, 0, 0.9f);
 	Site(TEXT("W_Pent"), -1, 29, 3, 0, 1.f);
 	Site(TEXT("W_Pent"), -1, 29, 3, 1, 1.f);
-	Site(TEXT("W_Bank"), -1, 29, 3, 2, 1.f);
+	Site(TEXT("W_Banks"), -1, 29, 3, 2, 1.f);
 	Site(TEXT("W_Pent"), 1, 29, 3, 1, 1.f);
 	Site(TEXT("W_Pent"), 1, 29, 3, 2, 1.f);
 	Site(TEXT("W_Marquee"), 1, 29, 3, 0, 1.f);
@@ -308,76 +335,103 @@ Zone(TEXT("Floor: the plaza and wall street"), 2.89f, 5.46f);
 Zone(TEXT("Floor: penthouse row and the finale"), 5.95f, 99.f);
 	CityFloor();
 
-// ================================================================ SECOND PASS: BLADE SIGNS
-// On the towers' fronts over the podiums, read along the street: lit, steady, their lights 30 m out and more. None in
-// the Garages (no night trade there) and none in Syndicate Territory (nothing lit is added at the Chairman's height).
+// ================================================================ SECOND PASS: BLADE SIGNS (third pass: moved, more, their own words)
+// On the podiums' fronts, read along the street: 26 m out (their lights 24.2 m: the nearest a lit thing may stand), their
+// letters lighting one after the other from the top. Each district has its own words. None in Syndicate Territory
+// (nothing lit is added at the Chairman's height).
 Zone(TEXT("Signs: Fifth and Main"), 0.f, 1.1f);
-	Scatter(TEXT("SM_BladeHotel"), 31.8f, 31.8f, 4, 1, 1.f, 1.f, 0.f, 0, 0.f);
-	Scatter(TEXT("SM_BladeDiner"), 31.8f, 31.8f, 4, 3, 1.f, 1.f, 0.f, 0, 0.f);
+	Scatter(TEXT("SM_BladeHotel"), 26.f, 26.f, 2, 1, 1.f, 1.f, 0.f, 0, 0.f);
+	Scatter(TEXT("SM_BladeDiner"), 26.f, 26.f, 4, 0, 1.f, 1.f, 0.f, 0, 0.f);
 Zone(TEXT("Signs: Theatre Row"), 1.1f, 2.1f);
-	Scatter(TEXT("SM_BladeClub"), 31.8f, 31.8f, 2, 0, 1.f, 1.f, 0.f, 0, 0.f);
-	Scatter(TEXT("SM_BladeHotel"), 31.8f, 31.8f, 4, 1, 1.f, 1.f, 0.f, 0, 0.f);
+	Scatter(TEXT("SM_BladeShow"), 26.f, 26.f, 2, 0, 1.f, 1.f, 0.f, 0, 0.f);
+	Scatter(TEXT("SM_BladeJazz"), 26.f, 26.f, 4, 1, 1.f, 1.f, 0.f, 0, 0.f);
 Zone(TEXT("Signs: the Plaza"), 3.13f, 4.62f);
-	Scatter(TEXT("SM_BladeHotel"), 31.8f, 31.8f, 4, 0, 1.f, 1.f, 0.f, 0, 0.f);
-	Scatter(TEXT("SM_BladeClub"), 31.8f, 31.8f, 6, 3, 1.f, 1.f, 0.f, 0, 0.f);
+	Scatter(TEXT("SM_BladeHotel"), 26.f, 26.f, 4, 0, 1.f, 1.f, 0.f, 0, 0.f);
+	Scatter(TEXT("SM_BladeClub"), 26.f, 26.f, 4, 2, 1.f, 1.f, 0.f, 0, 0.f);
 Zone(TEXT("Signs: Wall Street"), 4.62f, 6.29f);
-	Scatter(TEXT("SM_BladeClub"), 31.8f, 31.8f, 5, 2, 1.f, 1.f, 0.f, 0, 0.f);
-	Scatter(TEXT("SM_BladeDiner"), 31.8f, 31.8f, 5, 4, 1.f, 1.f, 0.f, 0, 0.f);
+	Scatter(TEXT("SM_BladeBank"), 26.f, 26.f, 2, 0, 1.f, 1.f, 0.f, 0, 0.f);
+	Scatter(TEXT("SM_BladeDiner"), 26.f, 26.f, 4, 1, 1.f, 1.f, 0.f, 0, 0.f);
 Zone(TEXT("Signs: Penthouse Row"), 6.29f, 7.6f);
-	Scatter(TEXT("SM_BladeHotel"), 31.8f, 31.8f, 3, 0, 1.f, 1.f, 0.f, 0, 0.f);
-	Scatter(TEXT("SM_BladeClub"), 31.8f, 31.8f, 3, 1, 1.f, 1.f, 0.f, 0, 0.f);
+	Scatter(TEXT("SM_BladeHotel"), 26.f, 26.f, 2, 0, 1.f, 1.f, 0.f, 0, 0.f);
+	Scatter(TEXT("SM_BladeClub"), 26.f, 26.f, 4, 1, 1.f, 1.f, 0.f, 0, 0.f);
 
-// ================================================================ SECOND PASS: THE BANKED BENDS
-// One district a slot: the bank's face on the bend's INSIDE where the bank is at its full angle for the face's whole
-// length (24 m). From the track's section list; the track is locked.
-Zone(TEXT("Bend 0.95"), 0.9471f, 0.9531f); Site(TEXT("Bank10T"), 1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10T_r86m"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 1.04"), 1.0376f, 1.0436f); Site(TEXT("Bank10T"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 1.09"), 1.0828f, 1.0888f); Site(TEXT("Bank10T"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 1.67"), 1.6710f, 1.6770f); Site(TEXT("Bank10T"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 1.72"), 1.7162f, 1.7222f); Site(TEXT("Bank10T"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 2.31"), 2.3044f, 2.3104f); Site(TEXT("Bank10T"), -1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10T_r73p"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 2.40"), 2.3949f, 2.4009f); Site(TEXT("Bank10T"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 2.44"), 2.4401f, 2.4461f); Site(TEXT("Bank10T"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 3.66"), 3.6617f, 3.6677f); Site(TEXT("Bank10T"), -1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10T_r79p"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 3.80"), 3.7974f, 3.8034f); Site(TEXT("Bank10T"), 1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10T_r79p"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 4.34"), 4.3403f, 4.3463f); Site(TEXT("Bank10T"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 4.39"), 4.3856f, 4.3916f); Site(TEXT("Bank10T"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 4.57"), 4.5665f, 4.5725f); Site(TEXT("Bank10T"), -1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10T_r69m"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 4.93"), 4.9285f, 4.9345f); Site(TEXT("Bank09T"), 1, 12.72f, 1, 0, 1.f, 0.9f); Site(TEXT("Bank09T_r93p"), 1, 12.72f, 1, 0, 1.f, 0.9f);
-Zone(TEXT("Bend 5.07"), 5.0642f, 5.0702f); Site(TEXT("Bank09T"), -1, 12.72f, 1, 0, 1.f, 0.9f); Site(TEXT("Bank09T_r93p"), -1, 12.72f, 1, 0, 1.f, 0.9f);
-Zone(TEXT("Bend 6.11"), 6.1048f, 6.1108f); Site(TEXT("Bank10T"), 1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10T_r73p"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 6.24"), 6.2405f, 6.2465f); Site(TEXT("Bank10T"), -1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10T_r73m"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 7.15"), 7.1454f, 7.1514f); Site(TEXT("Bank10S"), -1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10S_r86m"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 7.28"), 7.2811f, 7.2871f); Site(TEXT("Bank10S"), 1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10S_r86p"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 13.80"), 13.7961f, 13.8021f); Site(TEXT("Bank10S"), 1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10S_r86p"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 13.93"), 13.9318f, 13.9378f); Site(TEXT("Bank10S"), -1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10S_r86m"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 14.66"), 14.6557f, 14.6617f); Site(TEXT("Bank10S"), 1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10S_r86m"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 14.75"), 14.7462f, 14.7522f); Site(TEXT("Bank10S"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 14.79"), 14.7915f, 14.7975f); Site(TEXT("Bank10S"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 15.47"), 15.4701f, 15.4761f); Site(TEXT("Bank10S"), 1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10S_r86p"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 15.61"), 15.6058f, 15.6118f); Site(TEXT("Bank10S"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 16.33"), 16.3297f, 16.3357f); Site(TEXT("Bank10S"), 1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10S_r86m"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 16.42"), 16.4202f, 16.4262f); Site(TEXT("Bank10S"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 16.47"), 16.4655f, 16.4715f); Site(TEXT("Bank10S"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 17.15"), 17.1441f, 17.1501f); Site(TEXT("Bank10S"), 1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10S_r86p"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 17.28"), 17.2798f, 17.2858f); Site(TEXT("Bank10S"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 18.01"), 18.0037f, 18.0097f); Site(TEXT("Bank10S"), 1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10S_r86m"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 18.10"), 18.0942f, 18.1002f); Site(TEXT("Bank10S"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 18.14"), 18.1394f, 18.1454f); Site(TEXT("Bank10S"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 18.82"), 18.8181f, 18.8241f); Site(TEXT("Bank10S"), 1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10S_r86p"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 18.96"), 18.9538f, 18.9598f); Site(TEXT("Bank10S"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 19.68"), 19.6777f, 19.6837f); Site(TEXT("Bank10S"), 1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10S_r86m"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 19.77"), 19.7682f, 19.7742f); Site(TEXT("Bank10S"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 19.82"), 19.8134f, 19.8194f); Site(TEXT("Bank10S"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 20.50"), 20.4921f, 20.4981f); Site(TEXT("Bank10S"), 1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10S_r86p"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 20.63"), 20.6278f, 20.6338f); Site(TEXT("Bank10S"), -1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10S_r86p"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 21.35"), 21.3517f, 21.3577f); Site(TEXT("Bank10S"), 1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10S_r86m"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 21.45"), 21.4422f, 21.4482f); Site(TEXT("Bank10S"), -1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10S_r86m"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 22.17"), 22.1661f, 22.1721f); Site(TEXT("Bank10S"), 1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10S_r86p"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 22.30"), 22.3018f, 22.3078f); Site(TEXT("Bank10S"), -1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10S_r86p"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 23.03"), 23.0257f, 23.0317f); Site(TEXT("Bank10S"), 1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10S_r86m"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 23.12"), 23.1162f, 23.1222f); Site(TEXT("Bank10S"), -1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10S_r86m"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 23.84"), 23.8401f, 23.8461f); Site(TEXT("Bank10S"), 1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10S_r86p"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 23.98"), 23.9758f, 23.9818f); Site(TEXT("Bank10S"), -1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10S_r86p"), -1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 24.70"), 24.6997f, 24.7057f); Site(TEXT("Bank10S"), 1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10S_r86m"), 1, 12.1f, 1, 0, 1.f, 1);
-Zone(TEXT("Bend 24.79"), 24.7902f, 24.7962f); Site(TEXT("Bank10S"), -1, 12.1f, 1, 0, 1.f, 1); Site(TEXT("Bank10S_r86m"), -1, 12.1f, 1, 0, 1.f, 1);
+// ================================================================ THIRD PASS (the overhaul)
+// ---- the cut banks, faced by the track (FTDress.h, Bank): the city's tiles to 7 km, the Syndicate's black and gold
+// after; the tall panel where 5.5 m and more of cutting shows, the low one (the same for both) on the rest
+Zone(TEXT("Cut banks: the city"), 0.f, 7.f);
+	Bank(TEXT("SM_CutTiles"), 4, 1, 0, 1.f, 5.5f);
+	Bank(TEXT("SM_CutCity"), 4, 1, 0, 1.f, 2.4f, 5.5f);
+Zone(TEXT("Cut banks: the Syndicate"), 7.f, 99.f);
+	Bank(TEXT("SM_CutSyn"), 4, 1, 0, 1.f, 5.5f);
+	Bank(TEXT("SM_CutCity"), 4, 1, 0, 1.f, 2.4f, 5.5f);
+
+// ---- the canyon closed: a glass building in every gap the second pass left empty (which gap, each side, follows from
+// the alleys', monuments', banners' and side streets' own every-and-phase in the district above)
+Zone(TEXT("Closed gaps: Theatre Row"), 1.10f, 2.10f);
+	Site(TEXT("G_Fill"), -1, 29, 3, 2, 1.f);
+	Site(TEXT("G_Fill"), -1, 29, 6, 3, 1.f);
+	Site(TEXT("G_Fill"), 1, 29, 3, 1, 1.f);
+	Site(TEXT("G_Fill"), 1, 29, 6, 0, 1.f);
+Zone(TEXT("Closed gaps: Wall Street"), 4.62f, 6.29f);
+	Site(TEXT("G_Fill"), -1, 29, 4, 2, 1.f);
+	Site(TEXT("G_Fill"), -1, 29, 4, 3, 1.f);
+	Site(TEXT("G_Fill"), 1, 29, 4, 0, 1.f);
+	Site(TEXT("G_Fill"), 1, 29, 4, 1, 1.f);
+Zone(TEXT("Closed gaps: Penthouse Row"), 6.29f, 7.66f);
+	Site(TEXT("G_Fill"), -1, 29, 6, 3, 1.f);
+	Site(TEXT("G_Fill"), -1, 29, 6, 1, 1.f);
+	Site(TEXT("G_Fill"), 1, 29, 6, 0, 1.f);
+	Site(TEXT("G_Fill"), 1, 29, 6, 4, 1.f);
+Zone(TEXT("Signs: the Garages"), 2.1f, 3.13f);
+	Scatter(TEXT("SM_BladePark"), 26.f, 26.f, 3, 1, 1.f, 1.f, 0.f, 0, 0.f);
+
+// ---- a sign at the end of every street: on the outside of each hairpin before the finale (one slot each, from the
+// track's section list), a roof sign at three times its size, turned to face the street that runs up to the bend
+Zone(TEXT("Street's end 0.95"), 0.9471f, 0.9531f); Site(TEXT("BigEatL"), -1, 32, 1, 0, 1.f);
+Zone(TEXT("Street's end 1.09"), 1.0828f, 1.0888f); Site(TEXT("BigJazzR"), 1, 32, 1, 0, 1.f);
+Zone(TEXT("Street's end 1.72"), 1.7162f, 1.7222f); Site(TEXT("BigFilmL"), -1, 32, 1, 0, 1.f);
+Zone(TEXT("Street's end 2.31"), 2.3044f, 2.3104f); Site(TEXT("BigJazzR"), 1, 32, 1, 0, 1.f);
+Zone(TEXT("Street's end 2.44"), 2.4401f, 2.4461f); Site(TEXT("BigEatL"), -1, 32, 1, 0, 1.f);
+Zone(TEXT("Street's end 3.66"), 3.6617f, 3.6677f); Site(TEXT("BigFilmR"), 1, 32, 1, 0, 1.f);
+Zone(TEXT("Street's end 3.80"), 3.7974f, 3.8034f); Site(TEXT("BigJazzL"), -1, 32, 1, 0, 1.f);
+Zone(TEXT("Street's end 4.39"), 4.3856f, 4.3916f); Site(TEXT("BigFilmL"), -1, 32, 1, 0, 1.f);
+Zone(TEXT("Street's end 4.61"), 4.6118f, 4.6178f); Site(TEXT("BigJazzR"), 1, 32, 1, 0, 1.f);
+Zone(TEXT("Street's end 4.98"), 4.9737f, 4.9797f); Site(TEXT("BigJazzL"), -1, 32, 1, 0, 1.f);
+Zone(TEXT("Street's end 5.07"), 5.0642f, 5.0702f); Site(TEXT("BigCashR"), 1, 32, 1, 0, 1.f);
+Zone(TEXT("Street's end 6.11"), 6.1048f, 6.1108f); Site(TEXT("BigJazzL"), -1, 32, 1, 0, 1.f);
+Zone(TEXT("Street's end 6.24"), 6.2405f, 6.2465f); Site(TEXT("BigCashR"), 1, 32, 1, 0, 1.f);
+Zone(TEXT("Street's end 7.19"), 7.1906f, 7.1966f); Site(TEXT("BigJazzR"), 1, 32, 1, 0, 1.f);
+
+// ---- under the flights (afloat sets, one slot each). THE GARAGE JUMP goes over the elevated railway: three lengths of
+// viaduct across the valley under the car, its train running; THE WALL STREET JUMP over a boulevard: two lengths of
+// street across the valley, cars driving along it
+Zone(TEXT("Under the garage jump"), 2.7568f, 2.7628f);
+	SiteAfloat(TEXT("ElUnder"), 1, 0, 1, 0, 1.f);
+Zone(TEXT("Under the Wall Street jump"), 5.7881f, 5.7941f);
+	SiteAfloat(TEXT("BlvdUnder"), 1, 0, 1, 0, 1.f);
+
+// ---- machinery over the roofs: tower cranes behind the Garages and Wall Street (the jib slews; the track keeps its
+// whole swing off the road), searchlights round both loops, an airship over the towers every kilometre or two
+Zone(TEXT("Cranes: the Garages"), 2.1f, 3.13f);
+	Far(TEXT("SM_Crane"), 76, 92, 6, 2, 1.f, 1.f, 0.f, 0, 0.6f, 180.f);
+Zone(TEXT("Cranes: Wall Street"), 4.62f, 6.29f);
+	Far(TEXT("SM_Crane"), 76, 92, 9, 4, 1.f, 1.f, 0.f, 0, 0.6f, 180.f);
+Zone(TEXT("Searchlights: the Plaza loop"), 3.208f, 3.488f);
+	Far(TEXT("SM_Klieg"), 68, 84, 2, 0, 1.f, 1.5f, 0.f, 0, 0.62f, 180.f);
+Zone(TEXT("Searchlights: the Penthouse loop"), 6.737f, 6.972f);
+	Far(TEXT("SM_Klieg"), 68, 84, 2, 1, 1.f, 1.5f, 0.f, 0, 0.62f, 180.f);
+Zone(TEXT("Airships"), 0.f, 99.f);
+	Far(TEXT("SM_Blimp"), 30, 90, 47, 9, 1.f, 1.f, 0.f, -1, -125.f, 40.f);
+	Far(TEXT("SM_Blimp"), 30, 90, 61, 31, 1.f, 1.f, 0.f, 1, -140.f, 40.f);
+
+// ---- the Syndicate's gate: two of its headquarters towers at half size, one each side, where its territory begins
+Zone(TEXT("The Syndicate's gate"), 7.7336f, 7.7396f);
+	Site(TEXT("SynGatePair"), -1, 33, 1, 0, 1.f);
+	Site(TEXT("SynGatePair"), 1, 33, 1, 0, 1.f);
+
+// ---- the horizon's cards: two rows of flat skyline behind the lit towers, each row its own outline and tone
+Zone(TEXT("Horizon cards"), 0.f, 99.f);
+	Far(TEXT("SM_SkyCard1"), 900, 1100, 9, 0, 1.f, 1.2f, 0.1f, -1, 30.f, 6.f);
+	Far(TEXT("SM_SkyCard1"), 900, 1100, 9, 4, 1.f, 1.2f, 0.1f, 1, 30.f, 6.f);
+	Far(TEXT("SM_SkyCard2"), 1500, 1800, 12, 3, 1.f, 1.5f, 0.1f, -1, 35.f, 6.f);
+	Far(TEXT("SM_SkyCard2"), 1500, 1800, 12, 9, 1.f, 1.5f, 0.1f, 1, 35.f, 6.f);

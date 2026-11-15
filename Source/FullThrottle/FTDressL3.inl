@@ -39,6 +39,37 @@
 //  - The left-hand channel takes SM_LavaRaftsL (the table turns a left-hand piece round; the twin is drawn turned round,
 //    so both channels flow the way the road goes).
 
+// THIRD PASS (15 Nov 2026, the overhaul: "dense, distinctive and alive at racing speed"). What it added:
+//  - The near layer, continuous: a causeway of basalt stubs right behind the barrier (SM_BasaltKerb and SM_BasaltKerb2,
+//    under 2.3 m, two to a slot by the Kerb sets, both sides, the whole road: the zone "The causeway") and fumaroles at
+//    31 m and more (SM_Fumarole: steam in bursts, each on its own clock). All unlit.
+//  - Basalt walls right BEHIND the lava channels (SM_BasaltWall, the zones "Basalt walls: ..."): from the road each
+//    channel's glow lies along the foot of a wall. NOTHING TALLER THAN THE KERB STANDS BETWEEN THE ROAD AND A CHANNEL:
+//    from the chase camera (3.4 m up) anything over 1.2 m above the road at 29 m hides the whole channel behind it
+//    (round 1 of this pass stood the walls there, and the lava's glow went out all along the left of the road).
+//  - The channels FLOW: SM_LavaRafts / SM_LavaRaftsL are moving props now (ft_dress_volcano.lava_flow: crust and bright
+//    flow that travel down the channel, embers rising off it). One to EVERY slot, by a set (a set is not moved along
+//    its slot, and every slot's flow is in step with the next: a raft that leaves one enters the next).
+//  - Fire: SM_FissureFire (flames, two fountains, smoke) on the slopes 118 to 150 m out, never nearer; the curtain of
+//    fire down the left of the opening straight (signature, 0.36 to 0.54 km).
+//  - The gate of the pass (signature, 6.65 and 6.74 km): four great fall cliffs right behind the channels, where the
+//    big jump lands. And lava falls behind the channels in the caldera (left only), the pass and the burning slopes.
+//  - The mine's bucket wheel (SM_BucketWheel, turning) in the Dig set, between the crushers.
+//  - The vent stacks vent; ash climbs off the cinder cones and leans down the wind (both rebuilt as moving props under
+//    their old names: the rules that place them are unchanged).
+//  - The eruption's side: still nothing tall, bright or moving of the dressing on the right between 2.4 and 3.9 km (there
+//    the right-hand verge gets the kerb and nothing else).
+//  - A moving prop's box is grown by how far its parts travel, and the box is what the road test and the 24 m sight
+//    line use: a fumarole (5 m of box either way) is written at 31 m and more, a vent stack at 30.
+//  - The kerbs, SM_BasaltWall and SM_Fumarole are placed FIRST by Far rules ("Under the first corkscrew"), so they cast
+//    no shadow (the Volcano already fills the shadow maps' queue).
+//  - The pipe (SM_PipeRun, written at 19.5 m) tops 2 m over the road, so the track has always stood it at 24.7 m: the
+//    kerb is written on its side of the road too.
+//  - What can be SEEN behind the barrier: it is 1.6 m tall and the chase camera 3.4 m up, so from the middle of the road
+//    the land is hidden out to 33 m, and a thing 20 m out shows only what tops 1.7 m. The kerb's heads are 1.2 to 2.2 m
+//    (ragged: a kerb tall all along would hide the lava channel from the middle lane); it shows whole from the near lane,
+//    from a banked bend and from the air.
+
 Set(TEXT("Fence"), { { TEXT("SM_GuardFence"), 0, 0, 0, 0, 1 } });
 Set(TEXT("Pipe"), { { TEXT("SM_PipeRun"), 0, 0, 0, 0, 1 } });
 Set(TEXT("SurveyCamp"), {    // the survey's camp round its watch tower
@@ -90,6 +121,18 @@ Set(TEXT("Mine"), {    // the crusher, the conveyor climbing away from it, the t
 	{ TEXT("SM_Conveyor"),           36,    4, 0,    0, 1 },
 	{ TEXT("SM_AshTip"),             76,    2, 0,    0, 1 },
 	{ TEXT("SM_Hauler"),            -20,   -8, 0,   30, 1 },
+});
+
+// Third pass. The causeway behind the barrier: two lengths to a slot (the anchor is 20.9 m out; a kerb is 21 m long).
+Set(TEXT("KerbA"), { { TEXT("SM_BasaltKerb"), -11.3f, 0, 0, 0, 1 }, { TEXT("SM_BasaltKerb2"), 11.3f, 0.4f, 0, 0, 1 } });
+Set(TEXT("KerbB"), { { TEXT("SM_BasaltKerb2"), -11.3f, 0.3f, 0, 180, 1 }, { TEXT("SM_BasaltKerb"), 11.3f, 0, 0, 180, 1 } });
+// The channels' flow: one length a slot, on the channel's middle.
+Set(TEXT("FlowL"), { { TEXT("SM_LavaRaftsL"), 0, 0, 0, 0, 1 } });
+Set(TEXT("FlowR"), { { TEXT("SM_LavaRafts"), 0, 0, 0, 0, 1 } });
+Set(TEXT("Dig"), {    // the bucket wheel at its face, the spoil it has thrown behind it, a hauler waiting
+	{ TEXT("SM_BucketWheel"),         0,    0, 0,    0, 1 },
+	{ TEXT("SM_AshTip"),             54,   12, 0,    0, 0.8f },
+	{ TEXT("SM_Hauler"),             22,  -15, 0,   25, 1 },
 });
 
 // ---- SECOND PASS, before the districts: the lava lakes, the land under the set pieces, the banked bends, the channels.
@@ -183,44 +226,53 @@ Zone(TEXT("The lava lake at 24.32 km"), 24.307f, 24.378f);
 // stacks along the set piece, ash crescents on the flat, rafts on the channels, all as Far rules with the land's own
 // drop. The caldera's loop looks at the eruption's cone (ahead and to the right): nothing of these on its right.
 Zone(TEXT("Under the first corkscrew"), 1.95f, 2.12f);
+	Far(TEXT("SM_BasaltWall"), 56, 57, 2, 1, 1.f, 1.f, 0.f, -1, 0.8f, 4.f);      // third pass: its first piece (no shadow, see the head)
+	Far(TEXT("SM_BasaltKerb"), 21, 21, 2, 0, 1.f, 1.f, 0.f, 1, 0.83f, 0.f);       // the kerbs' too
+	Far(TEXT("SM_BasaltKerb2"), 21, 21, 2, 1, 1.f, 1.f, 0.f, 1, 0.83f, 0.f);
+	Far(TEXT("SM_Fumarole"), 31.5f, 33, 2, 0, 1.f, 1.f, 0.f, 1, 0.83f, 180.f);   // and the fumarole's
 	Far(TEXT("SM_VentStacks"), 30, 33, 2, 0, 1.f, 1.f, 0.f, -1, 0.83f, 0.f);
 	Far(TEXT("SM_AshRipples"), 26, 30, 1, 0, 0.9f, 1.f, 0.f, 0, 0.84f, 3.f);
-	Far(TEXT("SM_LavaRaftsL"), 45, 45, 2, 0, 1.f, 1.f, 0.f, -1, 0.81f, 0.f);
+	Far(TEXT("SM_LavaRaftsL"), 45, 45, 1, 0, 1.f, 1.f, 0.f, -1, 0.81f, 0.f);
 	Far(TEXT("SM_VentStacks"), 30, 33, 2, 1, 1.f, 1.f, 0.f, 1, 0.83f, 0.f);
-	Far(TEXT("SM_LavaRafts"), 53.5f, 53.5f, 2, 1, 1.f, 1.f, 0.f, 1, 0.8f, 0.f);
+	Far(TEXT("SM_LavaRafts"), 53.5f, 53.5f, 1, 0, 1.f, 1.f, 0.f, 1, 0.8f, 0.f);
 
 Zone(TEXT("Under the caldera's loop"), 2.565f, 2.85f);
+	Far(TEXT("SM_FissureFire"), 136, 144, 2, 0, 1.f, 1.f, 0.f, -1, -1.54f, 6.f);     // third pass: fire on the slope, seen from the loop
 	Far(TEXT("SM_VentStacks"), 30, 33, 2, 0, 1.f, 1.f, 0.f, -1, 0.83f, 0.f);
 	Far(TEXT("SM_AshRipples"), 26, 30, 1, 0, 0.9f, 1.f, 0.f, -1, 0.84f, 3.f);
-	Far(TEXT("SM_LavaRaftsL"), 45, 45, 2, 0, 1.f, 1.f, 0.f, -1, 0.81f, 0.f);
+	Far(TEXT("SM_LavaRaftsL"), 45, 45, 1, 0, 1.f, 1.f, 0.f, -1, 0.81f, 0.f);
 
 Zone(TEXT("Under the second corkscrew"), 4.895f, 5.07f);
 	Far(TEXT("SM_VentStacks"), 30, 33, 2, 0, 1.f, 1.f, 0.f, -1, 0.83f, 0.f);
 	Far(TEXT("SM_AshRipples"), 26, 30, 1, 0, 0.9f, 1.f, 0.f, 0, 0.84f, 3.f);
-	Far(TEXT("SM_LavaRaftsL"), 45, 45, 2, 0, 1.f, 1.f, 0.f, -1, 0.81f, 0.f);
+	Far(TEXT("SM_LavaRaftsL"), 45, 45, 1, 0, 1.f, 1.f, 0.f, -1, 0.81f, 0.f);
 	Far(TEXT("SM_VentStacks"), 30, 33, 2, 1, 1.f, 1.f, 0.f, 1, 0.83f, 0.f);
-	Far(TEXT("SM_LavaRafts"), 53.5f, 53.5f, 2, 1, 1.f, 1.f, 0.f, 1, 0.8f, 0.f);
+	Far(TEXT("SM_LavaRafts"), 53.5f, 53.5f, 1, 0, 1.f, 1.f, 0.f, 1, 0.8f, 0.f);
 
 Zone(TEXT("Under the magma run's loop"), 5.815f, 6.1f);
+	Far(TEXT("SM_FissureFire"), 136, 144, 2, 0, 1.f, 1.f, 0.f, -1, -1.54f, 6.f);
+	Far(TEXT("SM_FissureFire"), 136, 144, 2, 1, 1.f, 1.f, 0.f, 1, -2.25f, 6.f);
 	Far(TEXT("SM_VentStacks"), 30, 33, 2, 0, 1.f, 1.f, 0.f, -1, 0.83f, 0.f);
 	Far(TEXT("SM_AshRipples"), 26, 30, 1, 0, 0.9f, 1.f, 0.f, 0, 0.84f, 3.f);
-	Far(TEXT("SM_LavaRaftsL"), 45, 45, 2, 0, 1.f, 1.f, 0.f, -1, 0.81f, 0.f);
+	Far(TEXT("SM_LavaRaftsL"), 45, 45, 1, 0, 1.f, 1.f, 0.f, -1, 0.81f, 0.f);
 	Far(TEXT("SM_VentStacks"), 30, 33, 2, 1, 1.f, 1.f, 0.f, 1, 0.83f, 0.f);
-	Far(TEXT("SM_LavaRafts"), 53.5f, 53.5f, 2, 1, 1.f, 1.f, 0.f, 1, 0.8f, 0.f);
+	Far(TEXT("SM_LavaRafts"), 53.5f, 53.5f, 1, 0, 1.f, 1.f, 0.f, 1, 0.8f, 0.f);
 
 Zone(TEXT("Under the third corkscrew"), 7.035f, 7.21f);
 	Far(TEXT("SM_VentStacks"), 30, 33, 2, 0, 1.f, 1.f, 0.f, -1, 0.83f, 0.f);
 	Far(TEXT("SM_AshRipples"), 26, 30, 1, 0, 0.9f, 1.f, 0.f, 0, 0.84f, 3.f);
-	Far(TEXT("SM_LavaRaftsL"), 45, 45, 2, 0, 1.f, 1.f, 0.f, -1, 0.81f, 0.f);
+	Far(TEXT("SM_LavaRaftsL"), 45, 45, 1, 0, 1.f, 1.f, 0.f, -1, 0.81f, 0.f);
 	Far(TEXT("SM_VentStacks"), 30, 33, 2, 1, 1.f, 1.f, 0.f, 1, 0.83f, 0.f);
-	Far(TEXT("SM_LavaRafts"), 53.5f, 53.5f, 2, 1, 1.f, 1.f, 0.f, 1, 0.8f, 0.f);
+	Far(TEXT("SM_LavaRafts"), 53.5f, 53.5f, 1, 0, 1.f, 1.f, 0.f, 1, 0.8f, 0.f);
 
 Zone(TEXT("Under the pass's loop"), 7.885f, 8.17f);
+	Far(TEXT("SM_FissureFire"), 136, 144, 2, 1, 1.f, 1.f, 0.f, -1, -1.54f, 6.f);
+	Far(TEXT("SM_FissureFire"), 136, 144, 2, 0, 1.f, 1.f, 0.f, 1, -2.25f, 6.f);
 	Far(TEXT("SM_VentStacks"), 30, 33, 2, 0, 1.f, 1.f, 0.f, -1, 0.83f, 0.f);
 	Far(TEXT("SM_AshRipples"), 26, 30, 1, 0, 0.9f, 1.f, 0.f, 0, 0.84f, 3.f);
-	Far(TEXT("SM_LavaRaftsL"), 45, 45, 2, 0, 1.f, 1.f, 0.f, -1, 0.81f, 0.f);
+	Far(TEXT("SM_LavaRaftsL"), 45, 45, 1, 0, 1.f, 1.f, 0.f, -1, 0.81f, 0.f);
 	Far(TEXT("SM_VentStacks"), 30, 33, 2, 1, 1.f, 1.f, 0.f, 1, 0.83f, 0.f);
-	Far(TEXT("SM_LavaRafts"), 53.5f, 53.5f, 2, 1, 1.f, 1.f, 0.f, 1, 0.8f, 0.f);
+	Far(TEXT("SM_LavaRafts"), 53.5f, 53.5f, 1, 0, 1.f, 1.f, 0.f, 1, 0.8f, 0.f);
 
 // Vent stacks down the banked bends (the track's own bank, 15 Nov): a group every other slot a side, left on even
 // slots and right on odd ones (a group a slot on both sides read as a picket of posts). Left only where the eruption's
@@ -251,16 +303,82 @@ Zone(TEXT("Vent stacks: the bends at 7.25 km"), 7.255f, 7.36f);
 	Scatter(TEXT("SM_VentStacks"), 30, 33, 2, 0, 1.f, 1.f, 0.f, -1, 0.f);
 	Scatter(TEXT("SM_VentStacks"), 30, 33, 2, 1, 1.f, 1.f, 0.f, 1, 0.f);
 
-// Rafts of crust and chevrons of flow on the lava channels, every other slot: the left-hand channel the whole way,
-// the right-hand one except where the eruption is watched over it.
+// The lava channels flow (third pass: crust and bright flow that travel, embers; see the head). A length to every
+// slot, by a set: the left-hand channel the whole way, the right-hand one except where the eruption is watched over it.
 Zone(TEXT("The left-hand channel, flowing"), 0.f, 99.f);
-	Scatter(TEXT("SM_LavaRaftsL"), 45, 45, 2, 1, 1.f, 1.f, 0.f, -1, 0.f);
+	Site(TEXT("FlowL"), -1, 45, 1, 0, 1.f);
 
 Zone(TEXT("The right-hand channel, flowing (from 0 km)"), 0.f, 2.4f);
-	Scatter(TEXT("SM_LavaRafts"), 53.5f, 53.5f, 2, 0, 1.f, 1.f, 0.f, 1, 0.f);
+	Site(TEXT("FlowR"), 1, 53.5f, 1, 0, 1.f);
 
 Zone(TEXT("The right-hand channel, flowing (from 3.9 km)"), 3.9f, 99.f);
-	Scatter(TEXT("SM_LavaRafts"), 53.5f, 53.5f, 2, 0, 1.f, 1.f, 0.f, 1, 0.f);
+	Site(TEXT("FlowR"), 1, 53.5f, 1, 0, 1.f);
+
+// The causeway (third pass): basalt stubs right behind the barrier, two lengths to a slot, both sides, the whole road
+// (the banked bends too: the land beside a bend is not cut, the kerb stands on its lip over the cutting). The second
+// time round the finale (16.7 km on: few races come this far) it takes alternate slots a side.
+Zone(TEXT("The causeway"), 0.f, 16.7f);
+	Site(TEXT("KerbA"), -1, 20.9f, 2, 0, 0.92f);
+	Site(TEXT("KerbB"), -1, 20.9f, 2, 1, 0.92f);
+	Site(TEXT("KerbB"), 1, 20.9f, 2, 0, 0.92f);
+	Site(TEXT("KerbA"), 1, 20.9f, 2, 1, 0.92f);
+
+Zone(TEXT("The causeway, the second time round"), 16.7f, 99.f);
+	Site(TEXT("KerbA"), -1, 20.9f, 2, 0, 0.92f);
+	Site(TEXT("KerbB"), 1, 20.9f, 2, 1, 0.92f);
+
+// The basalt walls (third pass): columns in three ranks right BEHIND the lava channels (SM_BasaltWall, 5 to 9 m), so
+// that from the road each channel's glow lies along the foot of a wall. Far rules: they run on under the loops and
+// stand in the lakes under the jumps. Not on the right between 2.4 and 3.9 km (the eruption), not where the rail
+// runs behind the right-hand channel (lava jumps, Engine 13's road, the far works), not in front of the curtain of
+// fire, and on slots that the pump houses and the channels' falls (56 to 58 m and 65 to 67 m too) do not take.
+Zone(TEXT("Basalt walls: the ash road"), 0.f, 1.17f);
+	Far(TEXT("SM_BasaltWall"), 64.5f, 66.0f, 2, 0, 1.00f, 1.25f, 0.1f, 1, 0.78f, 4.f);
+
+Zone(TEXT("Basalt walls: the ash road, past the fire"), 0.6f, 1.17f);
+	Far(TEXT("SM_BasaltWall"), 56.0f, 57.5f, 2, 1, 1.00f, 1.25f, 0.1f, -1, 0.80f, 4.f);
+
+Zone(TEXT("Basalt walls: lava jumps"), 1.17f, 2.5f);
+	Far(TEXT("SM_BasaltWall"), 56.0f, 57.5f, 4, 2, 1.00f, 1.25f, 0.1f, -1, 0.80f, 4.f);
+	Far(TEXT("SM_BasaltWall"), 56.0f, 57.5f, 4, 3, 1.00f, 1.25f, 0.1f, -1, 0.80f, 4.f);
+
+Zone(TEXT("Basalt walls: the caldera"), 2.5f, 3.76f);
+	Far(TEXT("SM_BasaltWall"), 56.0f, 57.5f, 2, 1, 1.00f, 1.25f, 0.1f, -1, 0.80f, 4.f);
+
+Zone(TEXT("Basalt walls: fire and brimstone"), 3.76f, 5.18f);
+	Far(TEXT("SM_BasaltWall"), 56.0f, 57.5f, 2, 1, 1.00f, 1.25f, 0.1f, -1, 0.80f, 4.f);
+
+Zone(TEXT("Basalt walls: fire and brimstone, the right"), 3.95f, 5.18f);
+	Far(TEXT("SM_BasaltWall"), 64.5f, 66.0f, 2, 0, 1.00f, 1.25f, 0.1f, 1, 0.78f, 4.f);
+
+Zone(TEXT("Basalt walls: the magma run"), 5.18f, 6.64f);
+	Far(TEXT("SM_BasaltWall"), 56.0f, 57.5f, 2, 0, 1.00f, 1.25f, 0.1f, -1, 0.80f, 4.f);
+	Far(TEXT("SM_BasaltWall"), 64.5f, 66.0f, 2, 1, 1.00f, 1.25f, 0.1f, 1, 0.78f, 4.f);
+
+Zone(TEXT("Basalt walls: obsidian pass"), 6.8f, 8.34f);
+	Far(TEXT("SM_BasaltWall"), 56.0f, 57.5f, 2, 1, 1.00f, 1.25f, 0.1f, -1, 0.80f, 4.f);
+	Far(TEXT("SM_BasaltWall"), 64.5f, 66.0f, 2, 1, 1.00f, 1.25f, 0.1f, 1, 0.78f, 4.f);
+
+Zone(TEXT("Basalt walls: Engine 13's road"), 8.34f, 11.1f);
+	Far(TEXT("SM_BasaltWall"), 56.0f, 57.5f, 4, 2, 1.00f, 1.25f, 0.1f, -1, 0.80f, 4.f);
+	Far(TEXT("SM_BasaltWall"), 56.0f, 57.5f, 4, 3, 1.00f, 1.25f, 0.1f, -1, 0.80f, 4.f);
+
+Zone(TEXT("Basalt walls: the burning slopes"), 11.1f, 13.9f);
+	Far(TEXT("SM_BasaltWall"), 56.0f, 57.5f, 5, 0, 1.00f, 1.25f, 0.1f, -1, 0.80f, 4.f);
+	Far(TEXT("SM_BasaltWall"), 56.0f, 57.5f, 5, 4, 1.00f, 1.25f, 0.1f, -1, 0.80f, 4.f);
+	Far(TEXT("SM_BasaltWall"), 64.5f, 66.0f, 5, 1, 1.00f, 1.25f, 0.1f, 1, 0.78f, 4.f);
+	Far(TEXT("SM_BasaltWall"), 64.5f, 66.0f, 5, 2, 1.00f, 1.25f, 0.1f, 1, 0.78f, 4.f);
+
+Zone(TEXT("Basalt walls: the ash fields"), 13.9f, 16.7f);
+	Far(TEXT("SM_BasaltWall"), 56.0f, 57.5f, 3, 0, 1.00f, 1.25f, 0.1f, -1, 0.80f, 4.f);
+	Far(TEXT("SM_BasaltWall"), 64.5f, 66.0f, 3, 1, 1.00f, 1.25f, 0.1f, 1, 0.78f, 4.f);
+
+Zone(TEXT("Basalt walls: the far works"), 16.7f, 19.5f);
+	Far(TEXT("SM_BasaltWall"), 56.0f, 57.5f, 4, 2, 1.00f, 1.25f, 0.1f, -1, 0.80f, 4.f);
+
+Zone(TEXT("Basalt walls: the inner wall"), 19.5f, 22.3f);
+	Far(TEXT("SM_BasaltWall"), 56.0f, 57.5f, 5, 0, 1.00f, 1.25f, 0.1f, -1, 0.80f, 4.f);
+	Far(TEXT("SM_BasaltWall"), 64.5f, 66.0f, 5, 1, 1.00f, 1.25f, 0.1f, 1, 0.78f, 4.f);
 
 // ---- 0 to 1.17 km: THE ASH ROAD. Everything under ash: banks along the verge, dunes on the slopes with haulers and
 // roofs showing out of them, instrument masts, the stained stacks behind, terraces under the edge. The rim stands
@@ -278,10 +396,21 @@ Zone(TEXT("The ash road"), 0.f, 1.17f);
 	Far(TEXT("SM_RidgeCaldera"), 560, 860, 5, 1, 1.f, 1.f, 0.3f, 0, 25.f, 12.f);
 	Far(TEXT("SM_PeakCinder"), 720, 1200, 9, 4, 1.f, 1.f, 0.25f, 0, 25.f, 180.f);
 	Far(TEXT("SM_PeakCone2AD"), 380, 620, 7, 2, 0.9f, 1.f, 0.25f, 0, 25.f, 180.f);
-	Scatter(TEXT("SM_AshTip"), 96, 112, 4, 2, 0.9f, 1.f, 0.15f, 0, 180.f);
+	Scatter(TEXT("SM_AshTip"), 96, 112, 4, 2, 0.9f, 1.f, 0.15f, 1, 180.f);     // third pass: right only; the left's are below, clear of the fire
+
+Zone(TEXT("The ash road, past the fire"), 0.6f, 1.17f);
+	Scatter(TEXT("SM_AshTip"), 96, 112, 4, 2, 0.9f, 1.f, 0.15f, -1, 180.f);
+
+// Third pass, signature: THE CURTAIN OF FIRE. A fissure has opened down the left of the opening straight, 120 m out:
+// five lengths of it, slot after slot (0.36 to 0.54 km), each with its flames, two fountains and its smoke. It is the
+// first thing seen from the start line (the smoke, then the fountains over the spires), and it is passed at speed.
+Zone(TEXT("The curtain of fire"), 0.34f, 0.56f);
+	Scatter(TEXT("SM_FissureFire"), 118, 126, 1, 0, 1.f, 1.f, 0.f, -1, 5.f);
 
 Zone(TEXT("The ash road, the verge"), 0.f, 0.89f);
 	Site(TEXT("Fence"), 0, 18.5f, 1, 0, 0.7f, 1.f, 0.f);
+	Scatter(TEXT("SM_Fumarole"), 31.0f, 34.0f, 3, 0, 0.85f, 1.f, 0.2f, -1, 180.f);
+	Scatter(TEXT("SM_Fumarole"), 31.5f, 38.0f, 3, 1, 0.85f, 1.f, 0.2f, 1, 180.f);
 	Scatter(TEXT("SM_AshBank"), 20.5f, 22.5f, 1, 0, 0.6f, 1.f, 0.2f, 0, 2.f);
 	Scatter(TEXT("SM_AshBank2"), 20.5f, 22.5f, 2, 1, 0.5f, 1.f, 0.2f, 0, 2.f);
 	Scatter(TEXT("SM_CableReels"), 20.2f, 22, 5, 2, 0.8f, 1.f, 0.f, 0, 20.f);
@@ -305,6 +434,7 @@ Zone(TEXT("Lava jumps"), 1.17f, 2.5f);
 	Far(TEXT("SM_PeakCone2AD"), 420, 700, 9, 6, 1.f, 1.2f, 0.25f, 0, 25.f, 180.f);
 	Site(TEXT("Rail"), 1, 66, 1, 0, 1.f);
 	Site(TEXT("Mine"), -1, 112, 6, 2, 1.f);
+	Site(TEXT("Dig"), -1, 110, 6, 5, 1.f);     // third pass: the bucket wheel, turning, between the crushers
 	Scatter(TEXT("SM_PumpHouse"), 56, 58, 8, 1, 0.9f, 1.f, 0.f, -1, 0.f);
 	Scatter(TEXT("SM_PumpHouse"), 39.5f, 40.5f, 8, 5, 0.9f, 1.f, 0.f, 1, 0.f);
 
@@ -314,11 +444,17 @@ Zone(TEXT("Lava jumps, the mine on the right"), 1.17f, 2.2f);
 	Scatter(TEXT("SM_OreTrain"), 66, 66, 7, 3, 0.9f, 1.f, 0.f, 1, 0.f);
 
 Zone(TEXT("Lava jumps, the verge (1)"), 1.25f, 1.66f);
+	Scatter(TEXT("SM_Fumarole"), 31.5f, 38.0f, 2, 1, 0.85f, 1.f, 0.2f, 1, 180.f);
+	Scatter(TEXT("SM_Fumarole"), 31.0f, 34.0f, 2, 0, 0.85f, 1.f, 0.2f, -1, 180.f);
 	Site(TEXT("Pipe"), 1, 19.5f, 1, 0, 1.f, 1.f, 0.f);
 	Site(TEXT("Fence"), -1, 18.5f, 2, 0, 0.8f, 1.f, 0.f);
 	Scatter(TEXT("SM_AshRipples"), 26, 30, 2, 0, 0.8f, 1.f, 0.f, 0, 3.f);
 
+Zone(TEXT("Lava jumps, fumaroles behind the pipe"), 1.89f, 2.38f);
+	Scatter(TEXT("SM_Fumarole"), 31.5f, 38.0f, 2, 1, 0.85f, 1.f, 0.2f, 1, 180.f);
+
 Zone(TEXT("Lava jumps, the verge (2)"), 1.89f, 2.5f);
+	Scatter(TEXT("SM_Fumarole"), 31.0f, 34.0f, 2, 0, 0.85f, 1.f, 0.2f, -1, 180.f);
 	Site(TEXT("Pipe"), 1, 19.5f, 1, 0, 1.f, 1.f, 0.f);
 	Site(TEXT("Fence"), -1, 18.5f, 2, 0, 0.8f, 1.f, 0.f);
 	Scatter(TEXT("SM_AshRipples"), 26, 30, 2, 0, 0.8f, 1.f, 0.f, 0, 3.f);
@@ -343,11 +479,14 @@ Zone(TEXT("The caldera"), 2.5f, 3.76f);
 	Far(TEXT("SM_CragColumns2"), 240, 250, 1, 0, 0.7f, 1.3f, 0.2f, 1, -8.55f, 10.f);
 	Far(TEXT("SM_RidgeCaldera"), 345, 520, 2, 0, 1.f, 1.2f, 0.3f, 0, 25.f, 12.f);
 	Far(TEXT("SM_RidgeRim2"), 720, 1040, 4, 1, 1.f, 1.5f, 0.3f, 0, 25.f, 12.f);
+	Far(TEXT("SM_CragFallA"), 56.5f, 57.5f, 4, 2, 1.f, 1.f, 0.f, -1, 0.8f, 4.f);     // third pass: falls that feed the left-hand channel (left only: the eruption)
 
 Zone(TEXT("The caldera, the verge (1)"), 2.5f, 2.94f);
+	Scatter(TEXT("SM_Fumarole"), 31.0f, 34.0f, 2, 1, 0.85f, 1.f, 0.2f, -1, 180.f);
 	Scatter(TEXT("SM_RockRubble"), 21.2f, 23, 1, 0, 0.6f, 1.f, 0.15f, 0, 12.f);
 
 Zone(TEXT("The caldera, the verge (2)"), 3.31f, 3.76f);
+	Scatter(TEXT("SM_Fumarole"), 31.0f, 34.0f, 2, 1, 0.85f, 1.f, 0.2f, -1, 180.f);
 	Scatter(TEXT("SM_RockRubble"), 21.2f, 23, 1, 0, 0.6f, 1.f, 0.15f, 0, 12.f);
 
 // ---- 3.76 to 5.18 km: FIRE AND BRIMSTONE (the long jump and a corkscrew). Where the survey worked: its camp round a
@@ -363,18 +502,23 @@ Zone(TEXT("Fire and brimstone"), 3.76f, 5.18f);
 	Far(TEXT("SM_RidgePylons"), 370, 600, 4, 0, 1.f, 1.f, 0.15f, 0, 25.f, 6.f);
 	Far(TEXT("SM_PeakCinder"), 620, 1000, 5, 2, 1.f, 1.f, 0.25f, 0, 25.f, 180.f);
 	Far(TEXT("SM_RidgeCaldera"), 900, 1300, 7, 3, 1.f, 1.4f, 0.3f, 0, 25.f, 12.f);
+	Scatter(TEXT("SM_FissureFire"), 120, 134, 5, 2, 0.9f, 1.f, 0.f, -1, 8.f);     // third pass: the fire of its name
 
 // The right-hand camp and its tower, clear of the eruption's cone (see the head of this file).
 Zone(TEXT("Fire and brimstone, the right-hand camp"), 3.95f, 5.18f);
 	Site(TEXT("SurveyCamp"), 1, 178, 6, 0, 1.f, 1.f, 0.f);
+	Scatter(TEXT("SM_FissureFire"), 120, 134, 5, 4, 0.9f, 1.f, 0.f, 1, 8.f);
 	Far(TEXT("SM_TowerSurvey"), 238, 250, 5, 2, 0.9f, 1.f, 0.f, 1, -8.49f, 0.f);
 
 Zone(TEXT("Fire and brimstone, the verge (1)"), 3.76f, 3.84f);
+	Scatter(TEXT("SM_Fumarole"), 31.0f, 34.0f, 1, 0, 0.85f, 1.f, 0.2f, -1, 180.f);
 	Site(TEXT("Fence"), 0, 18.5f, 1, 0, 0.6f, 1.f, 0.f);
 	Scatter(TEXT("SM_PoleMarker"), 18, 19.5f, 3, 1, 0.8f, 1.f, 0.f, 0, 0.f);
 	Scatter(TEXT("SM_AshRipples"), 26, 30, 2, 1, 0.8f, 1.f, 0.f, 0, 3.f);
 
 Zone(TEXT("Fire and brimstone, the verge (2)"), 4.09f, 5.18f);
+	Scatter(TEXT("SM_Fumarole"), 31.0f, 34.0f, 1, 0, 0.80f, 1.f, 0.2f, -1, 180.f);
+	Scatter(TEXT("SM_Fumarole"), 31.5f, 38.0f, 1, 0, 0.80f, 1.f, 0.2f, 1, 180.f);
 	Site(TEXT("Fence"), 0, 18.5f, 1, 0, 0.6f, 1.f, 0.f);
 	Scatter(TEXT("SM_PoleMarker"), 18, 19.5f, 3, 1, 0.8f, 1.f, 0.f, 0, 0.f);
 	Scatter(TEXT("SM_AshRipples"), 26, 30, 2, 1, 0.8f, 1.f, 0.f, 0, 3.f);
@@ -399,11 +543,23 @@ Zone(TEXT("The magma run"), 5.18f, 6.73f);
 	Far(TEXT("SM_RidgePylons"), 640, 900, 9, 5, 1.f, 1.2f, 0.15f, 0, 25.f, 6.f);
 	Site(TEXT("Mine"), 1, 118, 8, 4, 1.f);
 	Scatter(TEXT("SM_PumpHouse"), 56, 58, 8, 3, 0.9f, 1.f, 0.f, -1, 0.f);
+	Site(TEXT("Dig"), 1, 114, 8, 0, 1.f);                                           // third pass
+	Scatter(TEXT("SM_FissureFire"), 134, 148, 7, 3, 0.9f, 1.f, 0.f, -1, 8.f);
 
 Zone(TEXT("The magma run, the verge"), 5.53f, 6.73f);
+	Scatter(TEXT("SM_Fumarole"), 31.0f, 34.0f, 2, 0, 0.85f, 1.f, 0.2f, -1, 180.f);
+	Scatter(TEXT("SM_Fumarole"), 31.5f, 38.0f, 2, 1, 0.85f, 1.f, 0.2f, 1, 180.f);
 	Site(TEXT("Pipe"), -1, 19.5f, 1, 0, 1.f, 1.f, 0.f);
 	Scatter(TEXT("SM_AshBank"), 20.5f, 22.5f, 2, 0, 0.6f, 1.f, 0.2f, 1, 2.f);
 	Scatter(TEXT("SM_AshRipples"), 26, 30, 2, 0, 0.8f, 1.f, 0.f, 0, 3.f);
+
+// Third pass, signature: THE GATE OF THE PASS. The big jump (6.55 km) lands between four great cliffs, two a side,
+// right behind the lava channels, a fall coming down each into the channel at its foot (the mesh half as big again:
+// 35 m). Seen whole from the air, then driven through. Written after the caldera so the mesh's first use is at its
+// ordinary size (a mesh first placed bigger than 40 m across is never culled, wherever it stands).
+Zone(TEXT("The gate of the pass"), 6.64f, 6.8f);
+	Far(TEXT("SM_CragFallA"), 64, 65, 2, 1, 1.f, 1.5f, 0.f, -1, 0.8f, 3.f);
+	Far(TEXT("SM_CragFallA"), 73, 74, 2, 1, 1.f, 1.5f, 0.f, 1, 0.78f, 3.f);
 
 // ---- 6.73 to 8.34 km: OBSIDIAN PASS (a banked wall, a corkscrew, two jumps, a loop). A canyon of black glass: columns
 // right behind the lava on both sides, taller ones over them, cliffs high on the slopes, the rim hard overhead; the
@@ -421,14 +577,22 @@ Zone(TEXT("Obsidian pass"), 6.73f, 8.34f);
 	Site(TEXT("Ruin"), -1, 210, 13, 9, 1.f, 1.f, 0.f);
 	Far(TEXT("SM_RidgeCaldera"), 335, 460, 2, 0, 1.f, 1.3f, 0.3f, 0, 25.f, 12.f);
 	Far(TEXT("SM_RidgeRim2"), 345, 470, 2, 1, 1.f, 1.3f, 0.3f, 0, 25.f, 12.f);
+	Far(TEXT("SM_CragFallA"), 56.5f, 57.5f, 4, 2, 1.f, 1.f, 0.f, -1, 0.8f, 4.f);     // third pass: falls into both channels, in front of the columns
+	Far(TEXT("SM_CragFallA"), 65.5f, 66.5f, 4, 0, 1.f, 1.f, 0.f, 1, 0.78f, 4.f);
 
 Zone(TEXT("Obsidian pass, the verge (1)"), 6.73f, 6.83f);
+	Scatter(TEXT("SM_Fumarole"), 31.0f, 34.0f, 3, 1, 0.85f, 1.f, 0.2f, -1, 180.f);
+	Scatter(TEXT("SM_Fumarole"), 31.5f, 38.0f, 3, 2, 0.85f, 1.f, 0.2f, 1, 180.f);
 	Scatter(TEXT("SM_RockRubble"), 21.2f, 23, 1, 0, 0.7f, 1.f, 0.15f, 0, 12.f);
 
 Zone(TEXT("Obsidian pass, the verge (2)"), 7.08f, 7.25f);
+	Scatter(TEXT("SM_Fumarole"), 31.0f, 34.0f, 3, 1, 0.85f, 1.f, 0.2f, -1, 180.f);
+	Scatter(TEXT("SM_Fumarole"), 31.5f, 38.0f, 3, 2, 0.85f, 1.f, 0.2f, 1, 180.f);
 	Scatter(TEXT("SM_RockRubble"), 21.2f, 23, 1, 0, 0.7f, 1.f, 0.15f, 0, 12.f);
 
 Zone(TEXT("Obsidian pass, the verge (3)"), 7.37f, 8.34f);
+	Scatter(TEXT("SM_Fumarole"), 31.0f, 34.0f, 3, 1, 0.85f, 1.f, 0.2f, -1, 180.f);
+	Scatter(TEXT("SM_Fumarole"), 31.5f, 38.0f, 3, 2, 0.85f, 1.f, 0.2f, 1, 180.f);
 	Scatter(TEXT("SM_RockRubble"), 21.2f, 23, 1, 0, 0.7f, 1.f, 0.15f, 0, 12.f);
 
 // ---- 8.34 km to the end: THE FINALE, Engine 13's road, in three districts that come round twice.
@@ -437,6 +601,10 @@ Zone(TEXT("Obsidian pass, the verge (3)"), 7.37f, 8.34f);
 // Second pass: the mine on both sides, its railway and slag trains on the right, pump houses on the channels.
 Zone(TEXT("Engine 13's road"), 8.34f, 11.1f);
 	Site(TEXT("Fence"), 0, 18.5f, 2, 0, 0.8f, 1.f, 0.f);
+	Scatter(TEXT("SM_Fumarole"), 31.0f, 34.0f, 3, 0, 0.85f, 1.f, 0.2f, -1, 180.f);
+	Scatter(TEXT("SM_Fumarole"), 31.5f, 38.0f, 3, 1, 0.85f, 1.f, 0.2f, 1, 180.f);
+	Site(TEXT("Dig"), -1, 110, 6, 5, 1.f);     // third pass: bucket wheels between the crushers, both sides
+	Site(TEXT("Dig"), 1, 116, 6, 2, 1.f);
 	Scatter(TEXT("SM_AshBank"), 20.5f, 22.5f, 2, 1, 0.6f, 1.f, 0.2f, 0, 2.f);
 	Scatter(TEXT("SM_PoleMarker"), 18, 19.5f, 5, 3, 0.8f, 1.f, 0.f, 0, 0.f);
 	Site(TEXT("ChannelWorks"), -1, 45, 4, 1, 1.f, 1.f, 0.f);
@@ -463,6 +631,12 @@ Zone(TEXT("Engine 13's road"), 8.34f, 11.1f);
 
 // 11.1 to 13.9 km, THE BURNING SLOPES: cliff and columns up both slopes, lava falls between and behind.
 Zone(TEXT("The burning slopes"), 11.1f, 13.9f);
+	Scatter(TEXT("SM_Fumarole"), 31.0f, 34.0f, 3, 1, 0.85f, 1.f, 0.2f, -1, 180.f);
+	Scatter(TEXT("SM_Fumarole"), 31.5f, 38.0f, 3, 2, 0.85f, 1.f, 0.2f, 1, 180.f);
+	Far(TEXT("SM_CragFallA"), 56.5f, 57.5f, 5, 2, 1.f, 1.f, 0.f, -1, 0.8f, 4.f);     // third pass
+	Far(TEXT("SM_CragFallA"), 65.5f, 66.5f, 5, 4, 1.f, 1.f, 0.f, 1, 0.78f, 4.f);
+	Scatter(TEXT("SM_FissureFire"), 134, 144, 5, 1, 0.9f, 1.f, 0.f, -1, 8.f);
+	Scatter(TEXT("SM_FissureFire"), 134, 144, 5, 3, 0.9f, 1.f, 0.f, 1, 8.f);
 	Scatter(TEXT("SM_RockRubble"), 21.2f, 23, 2, 0, 0.7f, 1.f, 0.15f, 0, 12.f);
 	Scatter(TEXT("SM_AshBank2"), 20.5f, 22.5f, 3, 1, 0.6f, 1.f, 0.2f, 0, 2.f);
 	Far(TEXT("SM_CragColumns"), 116, 124, 2, 0, 0.9f, 1.f, 0.15f, -1, -0.62f, 8.f);
@@ -484,6 +658,8 @@ Zone(TEXT("The burning slopes"), 11.1f, 13.9f);
 // Second pass: spoil tips, ash crescents down both verges.
 Zone(TEXT("The ash fields"), 13.9f, 16.7f);
 	Site(TEXT("Fence"), 0, 18.5f, 1, 0, 0.6f, 1.f, 0.f);
+	Scatter(TEXT("SM_Fumarole"), 31.0f, 34.0f, 3, 0, 0.85f, 1.f, 0.2f, -1, 180.f);
+	Scatter(TEXT("SM_Fumarole"), 31.5f, 38.0f, 3, 1, 0.85f, 1.f, 0.2f, 1, 180.f);
 	Scatter(TEXT("SM_AshBank"), 20.5f, 22.5f, 1, 0, 0.5f, 1.f, 0.2f, 0, 2.f);
 	Scatter(TEXT("SM_CableReels"), 20.2f, 22, 6, 2, 0.8f, 1.f, 0.f, 0, 20.f);
 	Site(TEXT("AshField"), 0, 166, 3, 2, 0.9f, 1.f, 0.f);
@@ -503,6 +679,10 @@ Zone(TEXT("The ash fields"), 13.9f, 16.7f);
 // 16.7 to 19.5 km: the works again, under far lava falls.
 // Second pass: as Engine 13's road.
 Zone(TEXT("The far works"), 16.7f, 19.5f);
+	Scatter(TEXT("SM_Fumarole"), 31.0f, 34.0f, 3, 0, 0.85f, 1.f, 0.2f, -1, 180.f);
+	Scatter(TEXT("SM_Fumarole"), 31.5f, 38.0f, 3, 1, 0.85f, 1.f, 0.2f, 1, 180.f);
+	Site(TEXT("Dig"), -1, 110, 6, 5, 1.f);
+	Site(TEXT("Dig"), 1, 116, 6, 2, 1.f);
 	Site(TEXT("Fence"), 0, 18.5f, 2, 1, 0.8f, 1.f, 0.f);
 	Scatter(TEXT("SM_AshBank"), 20.5f, 22.5f, 2, 1, 0.6f, 1.f, 0.2f, 0, 2.f);
 	Scatter(TEXT("SM_PoleMarker"), 18, 19.5f, 5, 3, 0.8f, 1.f, 0.f, 0, 0.f);
@@ -530,6 +710,12 @@ Zone(TEXT("The far works"), 16.7f, 19.5f);
 
 // 19.5 to 22.3 km: the burning slopes again, with the rim's wall near.
 Zone(TEXT("The inner wall"), 19.5f, 22.3f);
+	Scatter(TEXT("SM_Fumarole"), 31.0f, 34.0f, 3, 1, 0.85f, 1.f, 0.2f, -1, 180.f);
+	Scatter(TEXT("SM_Fumarole"), 31.5f, 38.0f, 3, 2, 0.85f, 1.f, 0.2f, 1, 180.f);
+	Far(TEXT("SM_CragFallA"), 56.5f, 57.5f, 5, 2, 1.f, 1.f, 0.f, -1, 0.8f, 4.f);
+	Far(TEXT("SM_CragFallA"), 65.5f, 66.5f, 5, 4, 1.f, 1.f, 0.f, 1, 0.78f, 4.f);
+	Scatter(TEXT("SM_FissureFire"), 134, 144, 5, 1, 0.9f, 1.f, 0.f, -1, 8.f);
+	Scatter(TEXT("SM_FissureFire"), 134, 144, 5, 3, 0.9f, 1.f, 0.f, 1, 8.f);
 	Scatter(TEXT("SM_RockRubble"), 21.2f, 23, 2, 1, 0.7f, 1.f, 0.15f, 0, 12.f);
 	Scatter(TEXT("SM_AshBank2"), 20.5f, 22.5f, 3, 1, 0.6f, 1.f, 0.2f, 0, 2.f);
 	Far(TEXT("SM_CragColumns"), 116, 124, 2, 1, 0.9f, 1.f, 0.15f, -1, -0.62f, 8.f);
@@ -550,6 +736,8 @@ Zone(TEXT("The inner wall"), 19.5f, 22.3f);
 // 22.3 km to the end of the road: the ash fields again, a young cone close by.
 // Second pass: spoil tips, ash crescents.
 Zone(TEXT("The last ash"), 22.3f, 99.f);
+	Scatter(TEXT("SM_Fumarole"), 31.0f, 34.0f, 3, 0, 0.85f, 1.f, 0.2f, -1, 180.f);
+	Scatter(TEXT("SM_Fumarole"), 31.5f, 38.0f, 3, 1, 0.85f, 1.f, 0.2f, 1, 180.f);
 	Site(TEXT("Fence"), 0, 18.5f, 1, 0, 0.6f, 1.f, 0.f);
 	Scatter(TEXT("SM_AshBank"), 20.5f, 22.5f, 1, 0, 0.5f, 1.f, 0.2f, 0, 2.f);
 	Scatter(TEXT("SM_CableReels"), 20.2f, 22, 6, 2, 0.8f, 1.f, 0.f, 0, 20.f);

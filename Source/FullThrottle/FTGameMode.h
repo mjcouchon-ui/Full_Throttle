@@ -8,6 +8,7 @@
 #include "Camera/CameraTypes.h"
 #include "FTCore.h"
 #include "FTProgress.h"
+#include "FTTutorial.h"
 #include "FTGameMode.generated.h"
 
 class AFTTrack;
@@ -25,7 +26,7 @@ enum class EFTPhase : uint8 { Title, Card, Play, Wreck, Wrap, Reel, Rating, Payc
 
 UENUM()
 enum class EFTOverlay : uint8 { None, Pause, Controls, Options, System };
-enum class EFTSystemDialog : uint8 { None, NewGame, ExitCheckpoint, SaveFailed };
+enum class EFTSystemDialog : uint8 { None, NewGame, ExitCheckpoint, SaveFailed, RestartRace };
 
 // 2.6 PRE-PRODUCTION tabs (spec 10 §4)
 enum class EFTTab : uint8 { Skills, Garage, Custom, Sfx, Extras, Count };
@@ -163,6 +164,7 @@ public:
 	/** Shared orderly exit path for menu actions and ordinary window-close requests. */
 	void RequestSystemQuit(bool bDesktop = true);
 	void OpenSystemPause();
+	bool CanRestartRace() const;
 	void ResumeSystemPause();
 	void AttemptSystemAction(bool bWithoutSaving = false);
 	void OpenSystemDialog(EFTSystemDialog Dialog, int32 Action);
@@ -175,6 +177,13 @@ public:
 	void FinishPreProduction();
 	void ContinuePaycheck(int32 Kind);
 	FString ResumeDescription() const;
+
+	// First-play driving lesson. The HUD uses the same live input prompts as Controls.
+	FFTTutorialState Tutorial;
+	bool bTutorialWrapPending = false, bTutorialWrapEscape = false;
+	bool IsTutorialActive() const { return Tutorial.IsActive() && !bAttract; }
+	void SkipTutorial();
+	void ReplayTutorial();
 
 	// ---- state the HUD reads
 	EFTPhase Phase = EFTPhase::Title;
@@ -207,8 +216,9 @@ public:
 	float LastRumbleT = -10.f;
 	int32 OptionsRow = 0, ControlsRow = 0, ControlsCol = 0; bool bControlsWaiting = false;
 	int32 PauseRow = 0;
+	int32 ControlsPage = 0; // 0 driving/fighting guide, 1 keyboard bindings
 	EFTSystemDialog SystemDialog = EFTSystemDialog::None;
-	int32 SystemRow = 0, SystemAction = 0; // 1 desktop, 2 title, 3 new campaign, 4 retry checkpoint
+	int32 SystemRow = 0, SystemAction = 0; // 1 desktop, 2 title, 3 new campaign, 4 saved continuation/retry, 5 restart race
 	bool bSystemPaused = false, bDialogFromPause = false, bOverlayFromPause = false;
 	bool bPauseMouse = false, bPendingSystemSave = false, bSystemSaveSubmitted = false;
 	bool bExitWarningAfterSave = false;
@@ -267,7 +277,7 @@ public:
 	float AttractCover() const;
 	float LastMenuInputT = -10.f;
 	TArray<FBox2D> TitleRowRects;    // the HUD writes the level rows and the buttons here for the mouse
-	TArray<FBox2D> TitleBtnRects;    // Continue, New Game, Options, Quit, selected shoot
+	TArray<FBox2D> TitleBtnRects;    // Continue, New Game, Options, Quit, selected shoot, Controls
 	int32 TitleActionFocus = INDEX_NONE;
 	float LastMenuSoundT = -10.f;
 	FVector2D TitleMouse = FVector2D(-1, -1);
@@ -314,6 +324,10 @@ public:
 	int32 NumScenes() const { return Def().Scenes.Num(); }
 
 protected:
+	void TickTutorial(float RDt);
+	void ClearTutorialPickup();
+	int32 TutorialPickupId = 0;
+	float TutorialPickupRetry = 0.f, TutorialSteerHeld = 0.f, TutorialTurboHeld = 0.f;
 	// flow
 	void SetupLevel();
 	void StartRace(bool bRetake);

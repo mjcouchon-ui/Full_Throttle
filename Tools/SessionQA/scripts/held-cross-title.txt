@@ -1,0 +1,47 @@
+# Use a fresh, isolated -brawlsave profile and default standalone title entry.
+# The second long press intentionally replays the native held-Cross event on the new controller.
+waitfor FT BRAWL SYSTEM screen=1|15
+waitfor FT BRAWL SYSTEM input_ready=1|5
+mark
+press Enter
+waitfor FT BRAWL SAVE result=ok reason=NewGame|10
+waitfor FTBRAWL start DAY 1 ON SET before|20
+waitfor FT BRAWL SYSTEM input_ready=1|5
+wait 0.8
+# Keep the script waiting for map arrival before the async exit completes.
+ft.SaveDelayMs 500
+press Gamepad_Special_Right
+waitfor FT BRAWL SYSTEM screen=2|5
+press Gamepad_DPad_Down
+press Gamepad_DPad_Down
+press Gamepad_FaceButton_Bottom
+waitfor FT BRAWL SYSTEM screen=5|5
+press Gamepad_DPad_Down
+mark
+press Gamepad_FaceButton_Bottom 2
+waitfor FT BRAWL SYSTEM exit=title discard=0|10
+waitfor FT BRAWL SYSTEM screen=1|20
+ftb.Press Gamepad_FaceButton_Bottom 2
+ftb.SessionState
+wait 2.3
+ftb.SessionState
+shot held-cross-title-stable
+waitfor FT BRAWL SYSTEM input_ready=1|5
+# This NEW press after release must work normally.
+mark
+press Gamepad_FaceButton_Bottom
+waitfor FTBRAWL start DAY 1 ON SET before|20
+waitfor FT BRAWL SYSTEM input_ready=1|5
+wait 0.8
+ftb.SessionState
+ft.SaveDelayMs 0
+# Finish through the actual gamepad desktop-exit menu.
+press Gamepad_Special_Right
+waitfor FT BRAWL SYSTEM screen=2|5
+press Gamepad_DPad_Down
+press Gamepad_DPad_Down
+press Gamepad_DPad_Down
+press Gamepad_FaceButton_Bottom
+waitfor FT BRAWL SYSTEM screen=5|5
+press Gamepad_DPad_Down
+press Gamepad_FaceButton_Bottom

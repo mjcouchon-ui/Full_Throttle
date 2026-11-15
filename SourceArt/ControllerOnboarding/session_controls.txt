@@ -1,0 +1,239 @@
+# Run after day_cut using the isolated test profile and real gamepad input.
+FTQuality 0
+ft.AssertControl title 1
+ft.AssertControl hascontinue 1
+ft.AssertControl titleactionfocus 0
+ft.InputDevice xbox
+# New Game replacement defaults to Cancel; backing out retains Continue.
+ft.InputHold Gamepad_DPad_Right
+ft.InputRelease Gamepad_DPad_Right
+ft.InputHold Gamepad_FaceButton_Bottom
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.AssertControl systemdialog 1
+ft.AssertControl systemrow 0
+ft.AssertControl worldpaused 1
+shot controller_newgame_confirmation
+ft.InputHold Gamepad_FaceButton_Right
+ft.InputRelease Gamepad_FaceButton_Right
+ft.AssertControl overlay 0
+ft.AssertControl titleactionfocus 1
+ft.AssertControl hascontinue 1
+ft.InputHold Gamepad_DPad_Left
+ft.InputRelease Gamepad_DPad_Left
+ft.InputHold Gamepad_FaceButton_Bottom
+waitfor FT SESSION continue kind=race|40
+ft.InputRelease Gamepad_FaceButton_Bottom
+waitfor FT CLOCK level=|45
+FTInvuln 1
+ft.AssertControl phase 2
+ft.AssertControl worldpaused 0
+# Closing while an async save is pending stays responsive and can be cancelled by pad.
+ft.SaveDelayMs 2500
+FTSaveCareer
+ft.AssertControl savepending 1
+ft.WindowClose
+ft.AssertControl pendingsystemsave 1
+ft.AssertControl worldpaused 1
+ft.InputHold Gamepad_FaceButton_Right
+ft.InputRelease Gamepad_FaceButton_Right
+ft.AssertControl overlay 0
+ft.AssertControl worldpaused 0
+ft.SaveDelayMs 0
+wait 2.5
+ft.AssertControl savepending 0
+# Pause freezes the world and checkpoint exit cancellation preserves row3.
+ft.InputHold Gamepad_Special_Right
+ft.InputRelease Gamepad_Special_Right
+ft.AssertControl worldpaused 1
+ft.SessionState
+wait 1
+ft.SessionState
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.AssertControl pauserow 3
+ft.InputHold Gamepad_FaceButton_Bottom
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.AssertControl systemdialog 2
+ft.AssertControl systemaction 2
+ft.InputHold Gamepad_FaceButton_Right
+ft.InputRelease Gamepad_FaceButton_Right
+ft.AssertControl overlay 1
+ft.AssertControl pauserow 3
+# A deliberately failed save remains recoverable by controller, even after disconnect.
+ft.InputHold Gamepad_FaceButton_Bottom
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.InputHold Gamepad_DPad_Right
+ft.InputRelease Gamepad_DPad_Right
+ft.SaveFail 1
+ft.InputHold Gamepad_FaceButton_Bottom
+waitfor FT SYSTEM dialog=3 action=2|10
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.AssertControl systemdialog 3
+ft.AssertControl saveerror 1
+ft.AssertControl systemrow 0
+ft.InputDisconnect
+ft.AssertControl systemdialog 3
+ft.AssertControl disconnected 1
+ft.AssertControl worldpaused 1
+shot controller_save_failed
+ft.InputReconnect
+ft.AssertControl systemdialog 3
+ft.InputHold Gamepad_FaceButton_Right
+ft.InputRelease Gamepad_FaceButton_Right
+ft.AssertControl overlay 1
+ft.AssertControl pauserow 3
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.AssertControl pauserow 6
+ft.InputHold Gamepad_FaceButton_Bottom
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.AssertControl systemdialog 3
+ft.AssertControl systemaction 4
+ft.SaveFail 0
+ft.InputHold Gamepad_FaceButton_Bottom
+waitfor FT SYSTEM action=4 saved=1|10
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.AssertControl saveerror 0
+ft.AssertControl overlay 1
+ft.AssertControl worldpaused 1
+# Resume then invoke the actual window-close delegate; cancel must preserve play.
+ft.InputHold Gamepad_Special_Right
+ft.InputRelease Gamepad_Special_Right
+ft.AssertControl overlay 0
+ft.AssertControl worldpaused 0
+ft.WindowClose
+ft.AssertControl systemdialog 2
+ft.AssertControl systemaction 1
+ft.AssertControl systemrow 0
+ft.InputHold Gamepad_FaceButton_Right
+ft.InputRelease Gamepad_FaceButton_Right
+ft.AssertControl overlay 0
+ft.AssertControl worldpaused 0
+ft.AssertControl hascontinue 1
+ft.ControlState
+shot controller_checkpoint_recovered
+# Restart is directly reachable in pause, with Cancel selected by default.
+ft.InputHold Gamepad_Special_Right
+ft.InputRelease Gamepad_Special_Right
+ft.InputHold Gamepad_DPad_Up
+ft.InputRelease Gamepad_DPad_Up
+ft.AssertControl pauserow 5
+ft.InputHold Gamepad_FaceButton_Bottom
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.AssertControl systemdialog 4
+ft.AssertControl systemaction 5
+ft.AssertControl systemrow 0
+ft.AssertControl worldpaused 1
+shot controller_restart_confirmation
+ft.InputHold Gamepad_FaceButton_Right
+ft.InputRelease Gamepad_FaceButton_Right
+ft.AssertControl pauserow 5
+ft.InputHold Gamepad_FaceButton_Bottom
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.InputHold Gamepad_DPad_Right
+ft.InputRelease Gamepad_DPad_Right
+ft.InputHold Gamepad_FaceButton_Bottom
+waitfor FT CLOCK level=|45
+wait 0.5
+ft.AssertControl phase 2
+ft.AssertControl worldpaused 0
+ft.AssertControl drift 0
+ft.ControlState
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.AssertControl hascontinue 1
+ft.AssertControl tutorial 0
+# Explicit discard is a separate, deliberate choice after a failed title-exit save.
+ft.InputHold Gamepad_Special_Right
+ft.InputRelease Gamepad_Special_Right
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.InputHold Gamepad_FaceButton_Bottom
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.InputHold Gamepad_DPad_Right
+ft.InputRelease Gamepad_DPad_Right
+ft.SaveFail 1
+ft.InputHold Gamepad_FaceButton_Bottom
+waitfor FT SYSTEM dialog=3 action=2|10
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.AssertControl systemdialog 3
+ft.AssertControl systemaction 2
+ft.InputHold Gamepad_DPad_Right
+ft.InputRelease Gamepad_DPad_Right
+ft.InputHold Gamepad_DPad_Right
+ft.InputRelease Gamepad_DPad_Right
+ft.AssertControl systemrow 2
+ft.InputHold Gamepad_FaceButton_Bottom
+waitfor FT SYSTEM action=2 saved=0 explicitDiscard=1|10
+ft.InputRelease Gamepad_FaceButton_Bottom
+wait 2
+ft.SaveFail 0
+ft.AssertControl title 1
+ft.AssertControl worldpaused 0
+ft.AssertControl hascontinue 1
+ft.AssertControl tutorialcompleted 1
+ft.AssertControl tutorialskipped 1
+shot controller_discard_returned_title
+# The harness arranges the real finale/deadline and boss kill; lesson progress is never fabricated.
+FTQuality 0
+ft.AssertControl title 1
+ft.InputHold Gamepad_FaceButton_Top
+ft.InputRelease Gamepad_FaceButton_Top
+ft.AssertControl overlay 2
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.InputHold Gamepad_FaceButton_Bottom
+waitfor FT TUTORIAL state=started|45
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.AssertControl phase 2
+ft.AssertControl tutorial 1
+# A shortcut into Controls restores its actual originating pause row on Back.
+ft.InputHold Gamepad_Special_Right
+ft.InputRelease Gamepad_Special_Right
+ft.AssertControl pauserow 0
+ft.InputHold Gamepad_FaceButton_Top
+ft.InputRelease Gamepad_FaceButton_Top
+ft.AssertControl overlay 2
+ft.InputHold Gamepad_FaceButton_Right
+ft.InputRelease Gamepad_FaceButton_Right
+ft.AssertControl overlay 1
+ft.AssertControl pauserow 2
+ft.InputHold Gamepad_Special_Right
+ft.InputRelease Gamepad_Special_Right
+ft.AssertControl overlay 0
+ft.AssertControl worldpaused 0
+FTBossNow
+waitfor FT BOSS state=Arrive|10
+FTBossEscape
+# Normal LastChance expires after eight seconds; a learning player must remain in Play.
+wait 10
+ft.AssertControl phase 2
+ft.AssertControl tutorial 1
+ft.AssertControl bosslastchance 0
+# Defeating the boss must also leave the remaining lesson actionable.
+FTWrapNow
+waitfor FT TUTORIAL outcome=deferred escape=0|10
+ft.AssertControl phase 2
+ft.AssertControl tutorial 1
+ft.AssertControl tutorialwrappending 1
+ft.ControlState
+shot tutorial_deferred_finale
+# A real Skip input releases the deferred outcome and returns to ordinary result flow.
+ft.InputHold F2
+waitfor FT OUTCOME wrap|10
+ft.InputRelease F2
+ft.AssertControl tutorial 0
+ft.AssertControl tutorialwrappending 0
+ft.AssertControl tutorialSkipped 1
+quit

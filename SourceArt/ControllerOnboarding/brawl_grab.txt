@@ -1,0 +1,35 @@
+# Rusty Anchor: run ONLY with -brawlnocut -brawlpadtest -brawlgrab.
+# The focused development fixture arranges one normal target in reach and delays
+# its attacks. Actual Top presses perform grab, lift, carry and hurl through ReadInput.
+# No grabbed/carried/hurled state or result is assigned by the fixture.
+# Afterwards restore the normal real-pad planner for item/buff and animated captures.
+# run_validation.ps1 still requires actual grab AND hurl gameplay log evidence.
+FTQuality 0
+ftb.GrabFixture 1
+ft.InputHold Gamepad_FaceButton_Top
+ft.InputRelease Gamepad_FaceButton_Top
+wait 0.3
+ftb.AssertAction carry
+shot fighting_pad_focused_carry
+ft.InputHold Gamepad_FaceButton_Top
+waitfor FTBRAWL hurl |5
+ft.InputRelease Gamepad_FaceButton_Top
+wait 1
+ftb.GrabFixture 0
+ft.ControlState
+wait 10
+ft.AssertControl brawlPage 0
+ft.AssertControl gamepad 1
+ftb.ControlState
+shot fighting_pad_grab_10s
+wait 15
+ftb.ControlState
+shot fighting_pad_grab_25s
+wait 15
+ftb.ControlState
+wait 10
+ft.AssertControl brawlPage 0
+ft.ControlState
+ftb.ControlState
+shot fighting_pad_grab_50s
+quit

@@ -23,6 +23,11 @@ public:
 	static constexpr int32 NumActions = 9;   // 2.6: AMMO (06 §5)
 	FKey Binds[NumActions][2];
 	int32 Layout = 0;            // 0 WASD, 1 arrows
+	int32 ControllerPromptStyle = 0; // Auto, Xbox, PlayStation, Nintendo, generic; labels only
+	bool bTutorialCompleted = false;
+	bool bTutorialSkipped = false;
+	bool bReplayTutorialRequested = false; // session-only request, consumed by Level 1
+	bool bBrawlHelpSeen = false;
 	bool bMuted = false;
 	int32 Quality = -1;          // -1 auto, 0 low .. 3 epic, 4 cinematic
 	bool bShowFps = false;

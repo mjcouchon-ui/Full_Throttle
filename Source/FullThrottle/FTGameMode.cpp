@@ -5,7 +5,9 @@
 #include "FTFx.h"
 #include "FTPickupReview.h"
 #include "FTPlayerController.h"
+#include "FTInput.h"
 #include "FTGameInstance.h"
+#include "FTInput.h"
 #include "FTHUD.h"
 #include "FTProgress.h"
 #include "FTNightFlow.h"
@@ -234,6 +236,11 @@ void AFTGameMode::GoToLevel(int32 L, bool bStart)
 
 void AFTGameMode::StartRace(bool bRetake)
 {
+	// A fresh run starts the lesson from its beginning; an interrupted retake keeps its current objective.
+	if (!bRetake || bAttract) Tutorial = FFTTutorialState();
+	bTutorialWrapPending = bTutorialWrapEscape = false;
+	TutorialPickupId = 0;
+	TutorialPickupRetry = TutorialSteerHeld = TutorialTurboHeld = 0.f;
 	if (!bAttract)
 	{
 		if (UFTGameInstance* G = GI()) G->StopTitleMusic(1.2f);
@@ -324,6 +331,15 @@ void AFTGameMode::StartRace(bool bRetake)
 void AFTGameMode::BeginPlayPhase()
 {
 	Phase = EFTPhase::Play; PhaseT = 0.f;
+	if (UFTGameInstance* G = GI(); G && !bAttract && Level == 0 && Scene == 0
+		&& !G->bBench && !G->bAutoDrive && !bAutoRun && CVarFTAutopilot.GetValueOnGameThread() == 0
+		&& (G->bReplayTutorialRequested || (!G->bTutorialCompleted && !G->bTutorialSkipped)))
+	{
+		if (!Tutorial.IsActive()) Tutorial.Begin();
+		G->bReplayTutorialRequested = false;
+		bShowKeys = false;
+		UE_LOG(LogFT, Display, TEXT("FT TUTORIAL state=started step=%d"), Tutorial.StepIndex());
+	}
 	ON_SCOPE_EXIT
 	{
 		// 3.9 test jump (FTGo L<n>[boss]): the race is on; bring the boss out and say where it landed
@@ -358,6 +374,120 @@ void AFTGameMode::BeginPlayPhase()
 		Music->Play();
 		bBossMusic = false;
 		UE_LOG(LogFT, Display, TEXT("FTMUSIC level=%d track=%s vol=%.2f"), Level, Song ? *Song->GetName() : TEXT("none"), MusicVol);
+	}
+}
+
+void AFTGameMode::ClearTutorialPickup()
+{
+	if (TutorialPickupId > 0)
+	{
+		for (FFTEnt& E : Ents) if (E.Id == TutorialPickupId && !E.bDead) Release(E);
+		PendingEnts.RemoveAll([this](const FFTEnt& E) { return E.Id == TutorialPickupId; });
+	}
+	TutorialPickupId = 0;
+}
+
+void AFTGameMode::SkipTutorial()
+{
+	if (!Tutorial.IsActive()) return;
+	Tutorial.Skip();
+	ClearTutorialPickup();
+	if (UFTGameInstance* G = GI())
+	{
+		G->bTutorialSkipped = true;
+		G->bReplayTutorialRequested = false;
+		G->SaveSettings();
+	}
+	// A small handover grace keeps an already overlapping foe from immediately punishing a skip.
+	Invuln = FMath::Max(Invuln, 1.5f);
+	UE_LOG(LogFT, Display, TEXT("FT TUTORIAL state=skipped"));
+}
+
+void AFTGameMode::ReplayTutorial()
+{
+	UFTGameInstance* G = GI();
+	if (!G) return;
+	if (!RequireProgressSaved([this]() { ReplayTutorial(); })) return;
+	UFTNightFlow::ClearSession(this);
+	G->bReplayTutorialRequested = true;
+	G->PendingScene = 0;
+	Tutorial = FFTTutorialState();
+	ClearTutorialPickup();
+	if (bSystemPaused) ResumeSystemPause();
+	Overlay = EFTOverlay::None;
+	DrawnOverlay = EFTOverlay::None;
+	UGameplayStatics::SetGamePaused(this, false);
+	const bool bNeedsMap = bAttract || Level != 0 || (Track && Track->IsLight());
+	if (bAttract) StopAttract();
+	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController()))
+	{
+		PC->SetMenuMouse(false);
+		PC->SuppressGameplayUntilRelease();
+	}
+	if (bNeedsMap) GoToLevel(0, true);
+	else StartRace(false);
+}
+
+void AFTGameMode::TickTutorial(float RDt)
+{
+	if (!IsTutorialActive() || Phase != EFTPhase::Play || Overlay != EFTOverlay::None) return;
+	AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController());
+	if (PC && (PC->Hit(EKeys::F2) || PC->Hit(EKeys::Gamepad_Special_Left)))
+	{
+		SkipTutorial();
+		return;
+	}
+	const float Dt = FMath::Min(RDt, 0.1f);
+	if (Tutorial.Step == EFTTutorialStep::Steer && PC)
+	{
+		TutorialSteerHeld = FMath::Abs(PC->In.RawSteer) > 0.3f ? TutorialSteerHeld + Dt : 0.f;
+		if (TutorialSteerHeld >= 0.35f) Tutorial.Signal(EFTTutorialStep::Steer);
+	}
+	if (Tutorial.Step == EFTTutorialStep::Turbo)
+	{
+		TutorialTurboHeld = bTurboOn ? TutorialTurboHeld + Dt : 0.f;
+		if (TutorialTurboHeld >= 0.4f) Tutorial.Signal(EFTTutorialStep::Turbo);
+	}
+	if (Tutorial.Step == EFTTutorialStep::Pickup && !Tutorial.bActionObserved)
+	{
+		TutorialPickupRetry -= Dt;
+		const FFTEnt* Existing = FindEnt(TutorialPickupId);
+		const bool bMissed = Existing && (Existing->bDead || Existing->D < Car->D - 600.f);
+		if (TutorialPickupRetry <= 0.f || bMissed)
+		{
+			ClearTutorialPickup();
+			// A genuine, visible crate in the player's lane. Misses retry rather than silently passing the lesson.
+			const float Ahead = FMath::Clamp(Car->Speed * 1.7f, 6500.f, 12000.f);
+			if (!(Track->FlagsAt(Car->D + Ahead) & (FTFlag::Gap | FTFlag::Loop | FTFlag::Pipe | FTFlag::Coaster)))
+			{
+				FFTEnt& Pickup = Spawn(EFTKind::Crate, Ahead, FMath::Clamp(Car->X, -FT::RoadHalf, FT::RoadHalf));
+				Pickup.Sp = 0.f;
+				TutorialPickupId = Pickup.Id;
+				UE_LOG(LogFT, Display, TEXT("FT TUTORIAL practice=pickup id=%d"), TutorialPickupId);
+			}
+			TutorialPickupRetry = 7.f;
+		}
+	}
+	if (Tutorial.Tick(Dt))
+	{
+		TutorialSteerHeld = TutorialTurboHeld = 0.f;
+		if (Tutorial.Step != EFTTutorialStep::Pickup) ClearTutorialPickup();
+		if (Tutorial.Step == EFTTutorialStep::Pickup) TutorialPickupRetry = 1.f;
+		if (Tutorial.Step == EFTTutorialStep::Missile && Missiles < 1) Missiles = 1;
+		Sfx(TEXT("Pickup"), 0.55f, 1.12f);
+		UE_LOG(LogFT, Display, TEXT("FT TUTORIAL step=%d seconds=%.1f"), Tutorial.StepIndex(), Tutorial.TotalElapsed);
+		if (Tutorial.Step == EFTTutorialStep::Complete)
+		{
+			if (UFTGameInstance* G = GI())
+			{
+				G->bTutorialCompleted = true;
+				G->bTutorialSkipped = false;
+				G->SaveSettings();
+			}
+			Invuln = FMath::Max(Invuln, 2.f);
+			Popup(TEXT("READY TO ROLL"), CGreen, 1.2f);
+			UE_LOG(LogFT, Display, TEXT("FT TUTORIAL state=completed seconds=%.1f"), Tutorial.TotalElapsed);
+		}
 	}
 }
 
@@ -415,6 +545,13 @@ void AFTGameMode::Wrap(bool bEscape)
 {
 	if (Phase != EFTPhase::Play) return;
 	if (bAttract) return; // 3.0: the attract mode never ends a level
+	if (IsTutorialActive())
+	{
+		// Even a boss beaten during practice must not remove the remaining lessons.
+		if (!bTutorialWrapPending) UE_LOG(LogFT, Display, TEXT("FT TUTORIAL outcome=deferred escape=%d"), bEscape ? 1 : 0);
+		bTutorialWrapPending = true; bTutorialWrapEscape = bEscape;
+		return;
+	}
 	Phase = EFTPhase::Wrap; PhaseT = 0.f;
 	bEscaped = bEscape;
 	if (!bEscape)
@@ -498,13 +635,22 @@ void AFTGameMode::Tick(float Dt)
 		}
 	}
 	// System input wins before any phase timer, reward navigation, driving or attract simulation.
+	if (PC && !bAttract && Phase != EFTPhase::Title)
+	{
+		if (UFTInputSubsystem* Input = UFTInputSubsystem::Get(this); Input && Input->ConsumeDisconnect())
+		{
+			PC->SuppressGameplayUntilRelease();
+			if (Overlay != EFTOverlay::System) { OpenSystemPause(); return; }
+		}
+	}
 	if (Overlay != EFTOverlay::None)
 	{
 		if (G && PC && PC->Hit(EKeys::M)) { G->bMuted = !G->bMuted; G->ApplyMute(); G->SaveSettings(); }
 		TickOverlay(RDt);
 		return;
 	}
-	if (PC && PC->MenuInputBlocked()) return;
+	// Release gating suppresses input, not simulation. The world is already unpaused;
+	// skipping this tick would leave the independently ticking car on its old drive command.
 	if (PC && !bAttract && Phase != EFTPhase::Title &&
 		(PC->Hit(EKeys::P) || PC->Hit(EKeys::Escape) || PC->Hit(EKeys::Gamepad_Special_Right)))
 	{
@@ -613,8 +759,8 @@ void AFTGameMode::Tick(float Dt)
 		// title, both through PRE-PRODUCTION
 		if (PC && PhaseT > 1.0f)
 		{
-			if (PC->Hit(EKeys::R)) { if (RequireProgressSaved([this]() { PayNext = 1; EnterPreProduction(Level, false); })) { PayNext = 1; EnterPreProduction(Level, false); } }
-			else if (PC->MenuBack()) { RequestSystemQuit(false); }
+			if (PC->Hit(EKeys::R) || PC->Hit(EKeys::Gamepad_FaceButton_Top)) { if (RequireProgressSaved([this]() { PayNext = 1; EnterPreProduction(Level, false); })) { PayNext = 1; EnterPreProduction(Level, false); } }
+			else if (PC->MenuBack() || PC->Hit(EKeys::B)) { RequestSystemQuit(false); }
 			else if (PhaseT > 2.9f && (PC->MenuOk() || PC->Clicked(ResultsContinueRect)) && RequireProgressSaved([this]() { EnterPaycheck(); })) EnterPaycheck();
 		}
 		break;
@@ -710,7 +856,7 @@ void AFTGameMode::TickTitle(float RDt)
 		}
 	}
 	const int32 Levels = FTData::NumLevels();
-	constexpr int32 Actions = 5;
+	constexpr int32 Actions = 6;
 	const int32 PreviousLevel = TitleSel, PreviousAction = TitleActionFocus;
 	const bool bSwitch = PC->Hit(EKeys::Tab) || PC->Hit(EKeys::Gamepad_RightShoulder);
 	const bool bUp = PC->MenuUp(), bDown = PC->MenuDown(), bLeft = PC->MenuLeft(), bRight = PC->MenuRight();
@@ -731,7 +877,7 @@ void AFTGameMode::TickTitle(float RDt)
 		if (PC->Hit(Number[I])) { TitleSel = I; TitleActionFocus = INDEX_NONE; }
 
 	const FVector2D Mouse = PC->MousePos();
-	const bool bMoved = Mouse.X >= 0.f && TitleMouse.X >= 0.f && FVector2D::Distance(Mouse, TitleMouse) > 1.5f;
+	const bool bMoved = !PC->UsesGamepadPrompts() && Mouse.X >= 0.f && TitleMouse.X >= 0.f && FVector2D::Distance(Mouse, TitleMouse) > 1.5f;
 	TitleMouse = Mouse;
 	int32 Activate = INDEX_NONE;
 	for (int32 I = 0; I < TitleRowRects.Num() && I < Levels; ++I)
@@ -772,7 +918,7 @@ void AFTGameMode::TickTitle(float RDt)
 	case 4: MenuCue(TEXT("Clap")); TitleStart(); return;
 	case 5:
 		OpenSystemPause(); bOverlayFromPause = false;
-		Overlay = EFTOverlay::Controls; ControlsRow = 0; ControlsCol = GT ? GT->Layout : 0; OverlayFeedback.Reset();
+		Overlay = EFTOverlay::Controls; ControlsPage = 0; ControlsRow = 0; ControlsCol = GT ? GT->Layout : 0; OverlayFeedback.Reset();
 		return;
 	case 6: StopAttract(); EnterPreProduction(-2, true); return;
 	default:
@@ -969,11 +1115,12 @@ void AFTGameMode::OpenSystemPause()
 	if (!bSystemPaused)
 	{
 		bSystemPaused = true;
+		PauseRow = 0;
 		if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController()))
 		{
 			bPauseMouse = PC->bMenuMouse;
 			PC->bRaceInput = false;
-			PC->In = FFTInput();
+			PC->SuppressGameplayUntilRelease();
 			PC->SetMenuMouse(true);
 		}
 		bMusicWasPaused = Music && Music->bIsPaused;
@@ -989,7 +1136,7 @@ void AFTGameMode::OpenSystemPause()
 		}
 		UGameplayStatics::SetGamePaused(this, true);
 	}
-	Overlay = EFTOverlay::Pause; PauseRow = 0;
+	Overlay = EFTOverlay::Pause;
 	bOverlayFromPause = true;
 	DrawnOverlay = EFTOverlay::None;
 	UE_LOG(LogFT, Display, TEXT("FT SYSTEM pause phase=%d phaseT=%.3f"), int32(Phase), PhaseT);
@@ -1020,12 +1167,15 @@ void AFTGameMode::ResumeSystemPause()
 		PC->ApplyMouseMode(TEXT("system-resume"));
 		PC->BlockMenuInputUntilRelease();
 	}
+	if (UFTInputSubsystem* Input = UFTInputSubsystem::Get(this)) Input->DismissDisconnect();
 	UE_LOG(LogFT, Display, TEXT("FT SYSTEM resumed phase=%d phaseT=%.3f"), int32(Phase), PhaseT);
 	UE_LOG(LogFT, Display, TEXT("FT SCREEN name=Pause state=resumed"));
 }
 
 void AFTGameMode::OpenSystemDialog(EFTSystemDialog Dialog, int32 Action)
 {
+	bControlsWaiting = false;
+	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->bCapture = false;
 	if (Overlay != EFTOverlay::System) bDialogFromPause = bSystemPaused;
 	if (!bSystemPaused) OpenSystemPause();
 	SystemDialog = Dialog; SystemAction = Action; SystemRow = 0;
@@ -1038,7 +1188,7 @@ void AFTGameMode::CloseSystemDialog()
 	SystemDialog = EFTSystemDialog::None; SystemAction = 0; bPendingSystemSave = false; bSystemSaveSubmitted = false;
 	bExitWarningAfterSave = false; SavedContinuation = {}; SaveRetryOperation = {};
 	SystemMessage.Reset();
-	if (bDialogFromPause) { Overlay = EFTOverlay::Pause; PauseRow = 0; DrawnOverlay = EFTOverlay::None; }
+	if (bDialogFromPause) { Overlay = EFTOverlay::Pause; DrawnOverlay = EFTOverlay::None; }
 	else ResumeSystemPause();
 }
 
@@ -1049,14 +1199,13 @@ void AFTGameMode::RequestSystemQuit(bool bDesktop)
 	if (SystemDialog == EFTSystemDialog::SaveFailed && SystemAction == Action) return;
 	SystemAction = Action; bSystemSaveSubmitted = false;
 	SavedContinuation = {}; SaveRetryOperation = {};
-	const bool bRestartRace = !bAttract && !bRunCommitted &&
-		(Phase == EFTPhase::Play || Phase == EFTPhase::Card || Phase == EFTPhase::Wreck || Phase == EFTPhase::Wrap);
+	const bool bRestartRace = CanRestartRace();
 	UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this);
 	if (CS && CS->bSaving)
 	{
 		bDialogFromPause = bSystemPaused;
 		OpenSystemPause(); bPendingSystemSave = true; bExitWarningAfterSave = bRestartRace;
-		SystemMessage = TEXT("Finishing the save before leaving... ESC / B cancels leaving.");
+		SystemMessage = TEXT("Finishing the save before leaving... You can stay here while the save finishes.");
 		UE_LOG(LogFT, Display, TEXT("FT SYSTEM save_wait action=%d submitted=0"), Action);
 		return;
 	}
@@ -1069,6 +1218,12 @@ void AFTGameMode::RequestSystemQuit(bool bDesktop)
 	AttemptSystemAction();
 }
 
+bool AFTGameMode::CanRestartRace() const
+{
+	return !bAttract && !bRunCommitted &&
+		(Phase == EFTPhase::Card || Phase == EFTPhase::Play || Phase == EFTPhase::Wreck || Phase == EFTPhase::Wrap);
+}
+
 void AFTGameMode::AttemptSystemAction(bool bWithoutSaving)
 {
 	UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this);
@@ -1079,11 +1234,11 @@ void AFTGameMode::AttemptSystemAction(bool bWithoutSaving)
 	{
 		if (!bSystemPaused) { bDialogFromPause = false; OpenSystemPause(); }
 		bPendingSystemSave = true;
-		SystemMessage = TEXT("Finishing the save... ESC / B cancels leaving this screen.");
+		SystemMessage = TEXT("Finishing the save... You can stay here while the save finishes.");
 		return;
 	}
 	const bool bAccepted = CS && (SaveRetryOperation ? SaveRetryOperation() : Action == 3 ? CS->Reset() : CS->Save(
-		Action == 1 ? TEXT("QuitDesktop") : Action == 2 ? TEXT("QuitTitle") : TEXT("RetryCheckpoint")));
+		Action == 1 ? TEXT("QuitDesktop") : Action == 2 ? TEXT("QuitTitle") : Action == 5 ? TEXT("RestartRace") : TEXT("RetryCheckpoint")));
 	bSystemSaveSubmitted = bAccepted;
 	if (!bAccepted || (!CS->bSaving && CS->bSaveError))
 	{
@@ -1096,7 +1251,7 @@ void AFTGameMode::AttemptSystemAction(bool bWithoutSaving)
 	{
 		if (!bSystemPaused) { bDialogFromPause = false; OpenSystemPause(); }
 		bPendingSystemSave = true;
-		SystemMessage = TEXT("Saving progress... ESC / B cancels leaving this screen.");
+		SystemMessage = TEXT("Saving progress... You can stay here while the save finishes.");
 		UE_LOG(LogFT, Display, TEXT("FT SYSTEM save_wait action=%d submitted=1"), Action);
 		return;
 	}
@@ -1131,6 +1286,13 @@ void AFTGameMode::FinishSystemAction(bool bWithoutSaving)
 		TitleSel = 0;
 		TitleStart();
 	}
+	else if (Action == 5)
+	{
+		// Retain the controller so its release gate still sees the held confirmation.
+		// A fresh race resets its run and checkpoint without resetting career progression.
+		if (UFTGameInstance* G = GI()) G->bReplayTutorialRequested = IsTutorialActive();
+		StartLevelAt(Level, 0, bSequelRun);
+	}
 }
 
 void AFTGameMode::WaitForProgressSave(TFunction<void()> OnSaved, TFunction<bool()> Retry)
@@ -1148,7 +1310,7 @@ void AFTGameMode::WaitForProgressSave(TFunction<void()> OnSaved, TFunction<bool(
 	}
 	if (!CS->bSaving) { FinishSystemAction(); return; }
 	OpenSystemPause(); bPendingSystemSave = true;
-	SystemMessage = TEXT("Saving progress... ESC / B cancels leaving this screen.");
+	SystemMessage = TEXT("Saving progress... You can stay here while the save finishes.");
 	UE_LOG(LogFT, Display, TEXT("FT SYSTEM save_wait action=4 submitted=1"));
 }
 
@@ -1226,12 +1388,17 @@ void AFTGameMode::TickOverlay(float RDt)
 	}
 	if (Overlay == EFTOverlay::Pause)
 	{
+		const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this);
 		if (PC->Hit(EKeys::R))
 		{
-			if (const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this); CS && CS->bSaveError)
-			{ SystemMessage = CS->SaveError; OpenSystemDialog(EFTSystemDialog::SaveFailed, 4); return; }
+			if (CS && CS->bSaveError)
+			{ PauseRow = CanRestartRace() ? 6 : 5; SystemMessage = CS->SaveError; OpenSystemDialog(EFTSystemDialog::SaveFailed, 4); return; }
 		}
-		constexpr int32 Rows = 5;
+		const bool bRestart = CanRestartRace();
+		const bool bRetry = CS && CS->bSaveError;
+		const int32 RetryRow = bRestart ? 6 : 5;
+		const int32 Rows = 5 + (bRestart ? 1 : 0) + (bRetry ? 1 : 0);
+		PauseRow = FMath::Clamp(PauseRow, 0, Rows - 1);
 		const int32 Was = PauseRow;
 		if (PC->MenuUp()) PauseRow = (PauseRow + Rows - 1) % Rows;
 		if (PC->MenuDown()) PauseRow = (PauseRow + 1) % Rows;
@@ -1242,10 +1409,17 @@ void AFTGameMode::TickOverlay(float RDt)
 		else if (PC->Hit(EKeys::C) || PC->Hit(EKeys::Gamepad_FaceButton_Top)) Action = 2;
 		else if (PC->Hit(EKeys::T)) Action = 3;
 		if (Action == INDEX_NONE) { if (Was != PauseRow) MenuCue(TEXT("Near"), 1.6f); return; }
+		PauseRow = Action; // Clicks and shortcuts restore focus to their originating row too.
 		MenuCue(TEXT("Near"), Action == 0 ? .9f : 1.35f);
 		if (Action == 0) ResumeSystemPause();
 		else if (Action == 1) { Overlay = EFTOverlay::Options; OptionsRow = 0; bOverlayFromPause = true; }
-		else if (Action == 2) { Overlay = EFTOverlay::Controls; ControlsRow = 0; ControlsCol = G->Layout; OverlayFeedback.Reset(); bOverlayFromPause = true; }
+		else if (Action == 2) { Overlay = EFTOverlay::Controls; ControlsPage = 0; ControlsRow = 0; ControlsCol = G->Layout; OverlayFeedback.Reset(); bOverlayFromPause = true; }
+		else if (Action == 5 && bRestart)
+		{
+			SystemMessage = TEXT("Restart this race from its beginning? This take's score and position will not be kept. Your career progress is kept.");
+			OpenSystemDialog(EFTSystemDialog::RestartRace, 5);
+		}
+		else if (bRetry && Action == RetryRow) { SystemMessage = CS ? CS->SaveError : FString(); OpenSystemDialog(EFTSystemDialog::SaveFailed, 4); }
 		else RequestSystemQuit(Action == 4);
 		return;
 	}
@@ -1257,6 +1431,28 @@ void AFTGameMode::TickOverlay(float RDt)
 	};
 	if (Overlay == EFTOverlay::Controls)
 	{
+		if (ControlsPage == 0)
+		{
+			if (Clicked(0) || PC->MenuBack() || PC->Hit(EKeys::C) || PC->Hit(EKeys::Gamepad_Special_Right)) { Close(); return; }
+			const int32 Rows = IsTutorialActive() ? 4 : 3;
+			ControlsRow = FMath::Clamp(ControlsRow, 0, Rows - 1);
+			if (PC->MenuUp()) ControlsRow = (ControlsRow + Rows - 1) % Rows;
+			if (PC->MenuDown()) ControlsRow = (ControlsRow + 1) % Rows;
+			int32 Activate = bConfirm ? ControlsRow : INDEX_NONE;
+			for (int32 I = 0; I < Rows; ++I) if (Clicked(I + 1)) Activate = ControlsRow = I;
+			if (PC->Hit(EKeys::Tab) || PC->Hit(EKeys::Gamepad_RightShoulder)) Activate = 2;
+			const int32 Dir = PC->MenuLeft() ? -1 : PC->MenuRight() ? 1 : 0;
+			if (Activate == 0 || (ControlsRow == 0 && Dir != 0))
+			{
+				if (UFTInputSubsystem* Input = G->GetSubsystem<UFTInputSubsystem>())
+					Input->SetPromptStyle((Input->GetPromptStyle() + (Dir < 0 ? 4 : 1)) % 5);
+				MenuCue(TEXT("Near"), 1.35f);
+			}
+			else if (Activate == 1) { PC->SuppressGameplayUntilRelease(); ReplayTutorial(); return; }
+			else if (Activate == 2) { ControlsPage = 1; ControlsRow = 0; MenuCue(TEXT("Near"), 1.35f); }
+			else if (Activate == 3) { SkipTutorial(); ControlsRow = 1; }
+			return;
+		}
 		const auto Feedback = [&](const FString& Message, bool bError)
 		{
 			OverlayFeedback = Message;
@@ -1296,7 +1492,7 @@ void AFTGameMode::TickOverlay(float RDt)
 			}
 			return;
 		}
-		if (Clicked(0) || PC->MenuBack() || PC->Hit(EKeys::C) || PC->Hit(EKeys::Gamepad_Special_Right)) { Close(); return; }
+		if (Clicked(0) || PC->MenuBack() || PC->Hit(EKeys::C) || PC->Hit(EKeys::Gamepad_Special_Right)) { ControlsPage = 0; ControlsRow = 2; return; }
 		const int32 MaxRows = UFTGameInstance::NumActions + 1;
 		const int32 BeforeRow = ControlsRow, BeforeCol = ControlsCol;
 		if (PC->MenuUp()) ControlsRow = (ControlsRow + MaxRows - 1) % MaxRows;
@@ -1328,12 +1524,12 @@ void AFTGameMode::TickOverlay(float RDt)
 
 	if (Overlay == EFTOverlay::Options)
 	{
-		if (Clicked(0) || PC->MenuBack() || PC->Hit(EKeys::O) || PC->Hit(EKeys::Enter) || PC->Hit(EKeys::Gamepad_Special_Right)) { Close(); return; }
-		constexpr int32 Rows = 4;
+		if (Clicked(0) || PC->MenuBack() || PC->Hit(EKeys::O) || PC->Hit(EKeys::Gamepad_Special_Right)) { Close(); return; }
+		constexpr int32 Rows = 5;
 		const int32 Was = OptionsRow;
 		if (PC->MenuUp()) OptionsRow = (OptionsRow + Rows - 1) % Rows;
 		if (PC->MenuDown()) OptionsRow = (OptionsRow + 1) % Rows;
-		int32 Dir = PC->MenuRight() ? 1 : PC->MenuLeft() ? -1 : 0;
+		int32 Dir = PC->MenuRight() ? 1 : PC->MenuLeft() ? -1 : bConfirm ? 1 : 0;
 		for (int32 I = 0; I < 2 * Rows; ++I)
 		{
 			if (!Clicked(I + 1)) continue;
@@ -1353,9 +1549,10 @@ void AFTGameMode::TickOverlay(float RDt)
 		case 1: G->bShowFps = !G->bShowFps; G->SaveSettings(); break;
 		case 2: G->bVSync = !G->bVSync; G->ApplyQuality(G->Quality); break;
 		case 3: G->bReducedMotion = !G->bReducedMotion; G->SaveSettings(); break;
+		case 4: G->bMuted = !G->bMuted; G->ApplyMute(); G->SaveSettings(); break;
 		}
 		MenuCue(TEXT("Near"), 1.35f);
-		UE_LOG(LogFT, Display, TEXT("FT OPTIONS row=%d quality=%d fps=%d vsync=%d reduced=%d"), OptionsRow, G->Quality, G->bShowFps, G->bVSync, G->bReducedMotion);
+		UE_LOG(LogFT, Display, TEXT("FT OPTIONS row=%d quality=%d fps=%d vsync=%d reduced=%d muted=%d"), OptionsRow, G->Quality, G->bShowFps, G->bVSync, G->bReducedMotion, G->bMuted);
 	}
 }
 
@@ -1363,7 +1560,6 @@ void AFTGameMode::TickPlay(float Dt, float RDt)
 {
 	AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController());
 	if (PC) PC->bRaceInput = !bAttract;
-
 	Clock += Dt;
 	Timecode += Dt;
 	// the level clock (03 §3): game time from ACTION! to the boss going down; retakes do not reset it
@@ -1378,6 +1574,13 @@ void AFTGameMode::TickPlay(float Dt, float RDt)
 	TickCivilians(Dt);
 	TickEnts(Dt);
 	TickHazards(Dt);
+	TickTutorial(RDt);
+	if (bTutorialWrapPending && !IsTutorialActive())
+	{
+		const bool bEscape = bTutorialWrapEscape;
+		bTutorialWrapPending = bTutorialWrapEscape = false;
+		Wrap(bEscape);
+	}
 	TickStunts(Dt);
 	if (Def().bLightning) TickLightning(Dt);
 	TickSlowmo(RDt);
@@ -1621,6 +1824,7 @@ void AFTGameMode::TickPlayer(float Dt)
 		{
 			if (DriftLevel >= 1)
 			{
+				Tutorial.Signal(EFTTutorialStep::Drift);
 				const bool bHotRel = Stats.Has(TEXT("WHL4"));
 				static const float BT[3] = { 0.55f, 0.95f, 1.45f };
 				static const float BTH[3] = { 0.70f, 1.15f, 1.75f };
@@ -1703,6 +1907,7 @@ void AFTGameMode::TickPlayer(float Dt)
 				}
 			}
 			FireBullet(0, Car->D + 260.f, Car->X + (Alt ? 8.f : -8.f) * XU, 115.f, Car->Speed + 1150.f * DU, 0.f, 0, L);
+			Tutorial.Signal(EFTTutorialStep::Fire);
 			{
 				// 3.1: the flash rides on the car (left in the world it fell 3 m behind the barrel before it faded) and
 				// says which load it was: a yellow star, AP's blue-white needle star, HE's fat orange burst.
@@ -1719,7 +1924,7 @@ void AFTGameMode::TickPlayer(float Dt)
 	else FireT = FMath::Max(FireT, 0.f);
 	if (In.bMissile && MissileCd <= 0.f)
 	{
-		if (Missiles > 0) { FireMissile(); Missiles--; MissileCd = 0.3f; NoMissileT = 0.f; UE_LOG(LogFT, Display, TEXT("FT MISSILES count=%d fired=1"), Missiles); }
+		if (Missiles > 0) { FireMissile(); Missiles--; MissileCd = 0.3f; NoMissileT = 0.f; Tutorial.Signal(EFTTutorialStep::Missile); UE_LOG(LogFT, Display, TEXT("FT MISSILES count=%d fired=1"), Missiles); }
 		else { Sfx(TEXT("Empty")); Say(TEXT("empty"), 1, 4.f); MissileCd = 0.3f; }
 	}
 
@@ -1822,6 +2027,8 @@ void AFTGameMode::TickPlayer(float Dt)
 
 void AFTGameMode::HurtPlayer(float Dmg, const TCHAR* LineKey, float PushX)
 {
+	// First-play practice is forgiving; normal runs and all subsequent encounters keep their original damage.
+	if (IsTutorialActive()) return;
 	if (Invuln > 0.f || Phase != EFTPhase::Play) return;
 	if (!Car->bGrounded && Dmg < 12.f) return; // nothing hurts you in the air (except things that land on you)
 	if (bHarnessInvuln) Dmg = 0.f;
@@ -2795,6 +3002,7 @@ void AFTGameMode::TickEnts(float Dt)
 			{
 				if (E.Kind == EFTKind::Crate)
 				{
+					Tutorial.Signal(EFTTutorialStep::Pickup);
 					const int32 HadMissiles = Missiles; const float HadHp = Hp;
 					Missiles = FMath::Min(MissileCap(), Missiles + 3);
 					UE_LOG(LogFT, Display, TEXT("FT MISSILES count=%d pickup=Crate gained=%d"), Missiles, Missiles - HadMissiles);
@@ -2810,6 +3018,7 @@ void AFTGameMode::TickEnts(float Dt)
 				}
 				if (E.Kind == EFTKind::Wrench)
 				{
+					Tutorial.Signal(EFTTutorialStep::Pickup);
 					const float Fix = Stats.Has(TEXT("CAR2")) ? 45.f : 30.f;   // Pit Crew: 30 -> 45
 					const float HadHp = Hp;
 					Hp = FMath::Min(Stats.MaxArmor, Hp + Fix); Car->RestoreParts(); PartsShed = 0; for (int32 p = 0; p < 7; ++p) if (HpPct() < 88.f - 12.f * p) { Car->ShedPart(p); PartsShed = p + 1; } Car->SetDamageLook(HpPct()); PrevHp = Hp;
@@ -4363,7 +4572,7 @@ void AFTGameMode::TickReel(float RDt)
 	{
 		for (const FKey& K : { EKeys::LeftMouseButton, EKeys::SpaceBar, EKeys::Escape, EKeys::RightMouseButton, EKeys::Gamepad_FaceButton_Right, EKeys::Gamepad_Special_Right })
 			if (PC->Hit(K) && !(K == EKeys::LeftMouseButton && PC->MouseIn(ReelContinueRect))) { UE_LOG(LogFT, Display, TEXT("FT INPUT screen=Reel key=%s result=ignored"), *K.ToString()); }
-		const bool bHeld = PC->IsInputKeyDown(EKeys::Enter) || PC->IsInputKeyDown(EKeys::Gamepad_FaceButton_Bottom) || (PC->IsInputKeyDown(EKeys::LeftMouseButton) && PC->MouseIn(ReelContinueRect));
+		const bool bHeld = !PC->MenuInputBlocked() && (PC->IsInputKeyDown(EKeys::Enter) || PC->IsInputKeyDown(EKeys::Gamepad_FaceButton_Bottom) || (PC->IsInputKeyDown(EKeys::LeftMouseButton) && PC->MouseIn(ReelContinueRect)));
 		if (bReelDone)
 		{
 			if (PC->Hit(EKeys::Enter) || PC->Hit(EKeys::Gamepad_FaceButton_Bottom) || PC->Clicked(ReelContinueRect))

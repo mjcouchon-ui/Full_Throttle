@@ -1,4 +1,5 @@
 #include "FTGameInstance.h"
+#include "FTInput.h"
 #include "UObject/UObjectGlobals.h"
 #include "FTCore.h"
 #include "FTProgress.h"
@@ -43,7 +44,7 @@ const TCHAR* UFTGameInstance::ActionName(int32 A)
 bool UFTGameInstance::IsReserved(const FKey& K)
 {
 	return K == EKeys::AnyKey || K == EKeys::Escape || K == EKeys::P || K == EKeys::M || K == EKeys::Enter || K == EKeys::Tab || K == EKeys::BackSpace
-		|| K == EKeys::Delete || K == EKeys::F1 || K == EKeys::O || K.IsMouseButton() || K.IsGamepadKey() || K.IsAxis1D() || K.IsAxis2D();
+		|| K == EKeys::Delete || K == EKeys::F1 || K == EKeys::F2 || K == EKeys::O || K.IsMouseButton() || K.IsGamepadKey() || K.IsAxis1D() || K.IsAxis2D();
 }
 
 void UFTGameInstance::ResetBinds()
@@ -109,6 +110,7 @@ void UFTGameInstance::Init()
 #endif
 	ResetBinds();
 	LoadSettings();
+	if (UFTInputSubsystem* Input = GetSubsystem<UFTInputSubsystem>()) Input->SetPromptStyle(ControllerPromptStyle);
 	// the career (spec 09): loaded after the settings, so a save with no career gets the back-catalogue bonus
 	if (UFTCareerSubsystem* CS = GetSubsystem<UFTCareerSubsystem>())
 	{
@@ -202,6 +204,11 @@ void UFTGameInstance::LoadSettings()
 	J->TryGetNumberField(TEXT("quality"), Quality);
 	J->TryGetBoolField(TEXT("fps"), bShowFps);
 	J->TryGetBoolField(TEXT("vsync"), bVSync);
+	J->TryGetNumberField(TEXT("controllerPromptStyle"), ControllerPromptStyle);
+	ControllerPromptStyle = FMath::Clamp(ControllerPromptStyle, 0, 4);
+	J->TryGetBoolField(TEXT("tutorialCompleted"), bTutorialCompleted);
+	J->TryGetBoolField(TEXT("tutorialSkipped"), bTutorialSkipped);
+	J->TryGetBoolField(TEXT("brawlHelpSeen"), bBrawlHelpSeen);
 	const TArray<TSharedPtr<FJsonValue>>* Best;
 	if (J->TryGetArrayField(TEXT("best"), Best))
 	{
@@ -248,6 +255,10 @@ void UFTGameInstance::SaveSettings()
 	J->SetNumberField(TEXT("quality"), Quality);
 	J->SetBoolField(TEXT("fps"), bShowFps);
 	J->SetBoolField(TEXT("vsync"), bVSync);
+	J->SetNumberField(TEXT("controllerPromptStyle"), ControllerPromptStyle);
+	J->SetBoolField(TEXT("tutorialCompleted"), bTutorialCompleted);
+	J->SetBoolField(TEXT("tutorialSkipped"), bTutorialSkipped);
+	J->SetBoolField(TEXT("brawlHelpSeen"), bBrawlHelpSeen);
 	TArray<TSharedPtr<FJsonValue>> Best;
 	for (int32 i = 0; i < MaxLevels; ++i)
 	{

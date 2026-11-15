@@ -1,0 +1,93 @@
+# Bayshore title with -ftday1: use New Game and its replacement confirmation to establish
+# FTNightFlow's career handoff. Directly opening L_Day1Set would be standalone.
+# The prior scenario created a saved campaign. New Game keeps preferences and first-play flags.
+# Campaign replacement and story travel await durable async saves; wait on their actual destination logs.
+FTQuality 0
+ft.AssertControl title 1
+ft.AssertControl overlay 0
+ft.AssertControl tutorialCompleted 1
+ft.AssertControl style 3
+ft.AssertControl hasContinue 1
+ft.AssertControl titleActionFocus 0
+ft.InputHold Gamepad_DPad_Right
+ft.InputRelease Gamepad_DPad_Right
+ft.AssertControl titleActionFocus 1
+ft.InputHold Gamepad_FaceButton_Bottom
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.AssertControl overlay 4
+ft.AssertControl systemDialog 1
+ft.AssertControl systemAction 3
+ft.AssertControl systemRow 0
+ft.AssertControl worldPaused 1
+shot new_game_confirmation_gamepad
+ft.InputHold Gamepad_DPad_Right
+ft.InputRelease Gamepad_DPad_Right
+ft.AssertControl systemRow 1
+ft.InputHold Gamepad_FaceButton_Bottom
+waitfor FT DAY1 start map=|30
+waitfor FTBRAWL music day start S_DayMusic|20
+ft.InputRelease Gamepad_FaceButton_Bottom
+wait 0.5
+ft.AssertControl brawlCut 10
+ft.AssertControl brawlPage 0
+ft.AssertControl brawlSystem 0
+ft.AssertControl worldPaused 0
+ft.AssertControl tutorialCompleted 1
+ft.AssertControl tutorialSkipped 1
+ft.AssertControl style 3
+ft.AssertControl saveError 0
+
+# Pause and Controls also remain usable during the day cutscene.
+ft.InputHold Gamepad_Special_Right
+ft.InputRelease Gamepad_Special_Right
+ft.AssertControl brawlPage 1
+ft.AssertControl brawlSystem 2
+ft.AssertControl worldPaused 1
+ft.InputHold Gamepad_DPad_Down
+ft.InputRelease Gamepad_DPad_Down
+ft.InputHold Gamepad_FaceButton_Bottom
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.AssertControl brawlPage 2
+ft.AssertControl brawlSystem 7
+ft.AssertControl worldPaused 1
+wait 0.5
+ft.AssertControl brawlCut 10
+shot day_cut_controls_gamepad
+ft.InputHold Gamepad_FaceButton_Right
+ft.InputRelease Gamepad_FaceButton_Right
+ft.AssertControl brawlPage 1
+ft.AssertControl worldPaused 1
+ft.InputHold Gamepad_Special_Right
+ft.InputRelease Gamepad_Special_Right
+ft.AssertControl brawlPage 0
+ft.AssertControl worldPaused 0
+
+# View skips to THE DRIVE, a fresh Top press replays; no held-confirm advance.
+ft.InputHold Gamepad_Special_Left
+ft.InputRelease Gamepad_Special_Left
+wait 0.8
+shot day_cut_end_card
+ft.InputHold Gamepad_FaceButton_Top
+ft.InputRelease Gamepad_FaceButton_Top
+wait 0.5
+ft.AssertControl brawlCut 10
+shot day_cut_replayed
+ft.InputHold Gamepad_Special_Left
+ft.InputRelease Gamepad_Special_Left
+wait 0.8
+ft.InputHold Gamepad_FaceButton_Bottom
+waitfor FT DAY1 over race=L1|30
+ft.InputRelease Gamepad_FaceButton_Bottom
+waitfor FT CLOCK level=|60
+ft.AssertControl title 0
+ft.AssertControl phase 2
+ft.AssertControl overlay 0
+ft.AssertControl worldPaused 0
+ft.AssertControl tutorial 0
+ft.AssertControl tutorialCompleted 1
+ft.AssertControl tutorialSkipped 1
+ft.AssertControl saveError 0
+ft.ControlState
+shot day_cut_to_level1
+ft.ControllerStyle 0
+quit

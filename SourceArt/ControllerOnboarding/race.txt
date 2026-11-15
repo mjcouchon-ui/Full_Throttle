@@ -1,0 +1,106 @@
+# Isolated TestSave only. All action checks use actual player-controller input.
+FTQuality 0
+ft.InputHold C
+ft.InputRelease C
+ft.AssertControl overlay 2
+ft.AssertControl controlsPage 0
+shot controls_keyboard
+ft.InputDevice playstation
+ft.InputHold Gamepad_FaceButton_Left
+ft.InputRelease Gamepad_FaceButton_Left
+ft.AssertControl gamepad 1
+ft.AssertControl family 2
+shot controls_playstation
+ft.InputDevice nintendo
+ft.AssertControl family 3
+shot controls_nintendo
+ft.ControllerStyle 1
+ft.AssertControl style 1
+shot controls_xbox_override
+ft.ControllerStyle 0
+ft.InputHold Gamepad_RightShoulder
+ft.InputRelease Gamepad_RightShoulder
+ft.AssertControl controlsPage 1
+shot keyboard_rebinding
+ft.InputHold Gamepad_FaceButton_Right
+ft.InputRelease Gamepad_FaceButton_Right
+ft.AssertControl controlsPage 0
+ft.InputHold Gamepad_FaceButton_Right
+ft.InputRelease Gamepad_FaceButton_Right
+ft.AssertControl overlay 0
+FTStartLevel 1
+waitfor FT TUTORIAL state=started|45
+ft.InputHold F3
+ft.InputRelease F3
+shot tutorial_keyboard
+ft.InputHold Escape
+ft.InputRelease Escape
+ft.AssertControl overlay 1
+ft.AssertControl worldpaused 1
+ft.ControlState
+wait 1
+ft.ControlState
+ft.AssertControl tutorial 1
+ft.InputHold Escape
+ft.InputRelease Escape
+ft.AssertControl overlay 0
+ft.InputDevice xbox
+ft.InputHold Gamepad_LeftX 0.7
+wait 0.9
+shot tutorial_gamepad
+waitfor FT TUTORIAL step=1|15
+ft.InputRelease Gamepad_LeftX
+ft.InputHold Gamepad_FaceButton_Bottom
+ft.InputHold Gamepad_LeftX 0.6
+wait 1.5
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.InputRelease Gamepad_LeftX
+waitfor FT TUTORIAL step=2|15
+ft.InputHold Gamepad_RightTriggerAxis 0.85
+wait 0.8
+ft.InputRelease Gamepad_RightTriggerAxis
+waitfor FT TUTORIAL step=3|15
+ft.InputHold Gamepad_FaceButton_Left
+wait 0.5
+ft.InputRelease Gamepad_FaceButton_Left
+waitfor FT TUTORIAL step=4|15
+shot tutorial_pickup
+waitfor FT TUTORIAL step=5|35
+ft.InputHold Gamepad_FaceButton_Right
+ft.InputRelease Gamepad_FaceButton_Right
+waitfor FT TUTORIAL state=completed|15
+ft.AssertControl tutorialCompleted 1
+ft.ControlState
+ft.InputDisconnect
+wait 0.5
+ft.AssertControl overlay 1
+ft.AssertControl worldpaused 1
+ft.AssertControl disconnected 1
+shot controller_disconnected
+ft.InputReconnect
+ft.AssertControl overlay 1
+ft.AssertControl worldpaused 1
+ft.InputHold Gamepad_FaceButton_Bottom
+wait 0.5
+ft.AssertControl overlay 0
+ft.AssertControl drift 0
+ft.ControlState
+ft.InputRelease Gamepad_FaceButton_Bottom
+ft.InputHold Escape
+ft.InputRelease Escape
+ft.AssertControl overlay 1
+ft.AssertControl worldpaused 1
+ft.InputHold C
+ft.InputRelease C
+ft.AssertControl controlsPage 0
+ft.InputHold Down
+ft.InputRelease Down
+ft.InputHold Enter
+ft.InputRelease Enter
+waitfor FT TUTORIAL state=started|45
+ft.InputHold F2
+ft.InputRelease F2
+ft.AssertControl tutorialSkipped 1
+ft.ControlState
+shot tutorial_skipped
+quit

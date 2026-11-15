@@ -1,0 +1,10 @@
+ft.AssertControl tutorialCompleted 1
+ft.AssertControl tutorialSkipped 1
+ft.AssertControl style 0
+FTStartLevel 1
+waitfor FT CLOCK level=|45
+ft.AssertControl phase 2
+ft.AssertControl tutorial 0
+ft.ControlState
+shot returning_player_no_tutorial
+quit
