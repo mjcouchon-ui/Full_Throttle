@@ -240,3 +240,53 @@ e-mail address or this project's details into any outside service.
   a compile (14 s). `Build.bat` holds a lock that every editor start waits behind: run one or the other.
 - `main` moves fast and the menus are being restyled there (`FTHUD.cpp` will be split into several files): none of
   that touches your files, but compile after every merge of `main`.
+
+- **15 Nov, 18:00. The owner at 17:53: "build absolutely everything that's planned now, compile and push later."**
+  Author all eight levels' casts back to back; use the editor only to make assets; commit and push as you go (to
+  `claude/people`, and to `main` when a batch compiles); looking in the game can come in one pass at the end.
+- **15 Nov, 18:00. Corrections to this brief** (it was fact-checked against the repo; where these differ from the
+  text above, these are right):
+  1. **A packaged game would have had no people.** `/Game/People` was not cooked (tables name meshes by string).
+     The lead has added it to `Config/DefaultGame.ini` on `main`. A master material of your own must also set
+     `used_with_instanced_static_meshes`.
+  2. **Commit what your generators save outside your folders**: every NEW file under `Content/Core/Palette` and
+     `Content/Core/Life/Instances` (`ft_export.save_mesh` and `ft_life.life_mi` make them; names come from the
+     colours, so both PCs can make the same file: on a merge conflict there keep `main`'s). Never a changed one.
+  3. **Give your Sets names of your own** (a Set named like one of the dressing's replaces it for the dressing's
+     Sites too), and **do not use `Lit()`** (it takes a real light from a pool of 18 that the road's lamps share).
+     When a dressing table changes on `main`, your Scatter pieces are re-rolled (a rule's random stream is seeded by
+     its running index): pin a staged scene with a one-piece Set and a Site at chance 1.
+  4. **Nothing stops vertex movement at 180 m**: that sentence is only a comment in `ft_life.py`; the track's code
+     never set it. A piece stops being DRAWN at its cull distance (`FTTrack.cpp`, `Comp`: 120 x bounds radius x 1.3,
+     600 m at least, 4 km at most).
+  5. **Heights are measured from the ROAD, by the code**: a piece whose bounds reach 2 m above the road's level is
+     pushed out to 24 m by the track itself, or left out (read the log's `FTCLEAR` line per mesh). The land 16 m out
+     lies about 0.85 m under the road's line, so roughly 2.8 m of piece fits before that. The 17 m rule is yours to
+     keep (the code stops only at 15.6 m). Scatter and Site pieces within 40 m of the centre line at a jump's run-up
+     or landing are left out, and at any distance beside a loop, jump gap, pipe or corkscrew: a crew "at a jump"
+     stands 40 m out. Beside a banked bend, whatever stands 17 to 40 m out floats over the cutting: write your near
+     zones to leave the banked bends out, as the dressing tables do. A piece under 2.5 m tall, or more than 70 m
+     out, casts no shadow.
+  6. **The table word `Far` is past the land's edge (300 m), 25 m under the road.** From 150 to 295 m use Scatter
+     or Site. The example line's side defaults to BOTH sides: write the side
+     (`..., 17.5f, 21.f, 2, 0, 1.f, 1.f, 0.f, 1);` = scale 1, jitter 0, right side) under a Zone of a few kilometres.
+  7. **In test scripts wait for `FT CLOCK level=8.|150`** (not `8.0`: a slow frame prints 8.1 and the wait runs out),
+     add ` -ftnoattract` to `-Extra`, give `-Script` a full path, and read the `FTDRESS` line that follows YOUR
+     level's `FTTRACK` line (its level is the number minus 1): "tried" up and "placed" not = a wrong mesh path;
+     neither up = a wrong Set name. If `route=` or `solid=` differ on your PC with `frames=` and `solidTriangles=`
+     equal, compare the `FTTRACKSUM` line with the baseline's before calling the track changed.
+  8. **People that exist already, not to be made twice**, beside the park's `crowd` and `_guest`: City Center's
+     `_ped` (pavements, bus stops, kerb cafes: `ft_dress_metro.py`), the park's `queue_rails`, `plaza_seats` and
+     `mascot`, Under the Sea's `jellyfish`, Bayshore's gulls (the sky plugin). Yours sit beside them without a seam.
+  9. Build first, then start the editor (not both at once).
+- **15 Nov, 18:00. Where the zones want people** (from the zone workers; kilometres along the road, metres out):
+  Theme Park: ticket-gate forecourts 0.1 to 0.9 km, stall rows 1.15 to 2.0 km and from 9.3 km (25 to 30 m), the
+  galleon's deck 2.44 km, Log Falls's pool 3.69 km, lagoon bandstands and lake bridges 3.3 to 6.6 km, rocket pads
+  6.7 to 8.1 km, the Last Ride's gate 9.27 km. City Center: pavements, bus stops and cafes 0 to 7.6 km (17 to 24 m,
+  under 2 m), premiere crowds at the picture houses 1.1 to 2.1 and 6.3 to 7.6 km, bank steps 4.6 to 6.3 km,
+  penthouse roof terraces, Syndicate guards from 7.7 km (plainly scenery). Bayshore: the boardwalk and its shop
+  fronts the whole level, the beach behind the barrier, the piers (9.18 km and the three later ones), the chair
+  lift. Under the Sea: divers at the salvage ship (5.2 km) and the diving bell, aquanauts between Nereida's towers
+  (8.1 km). More lists follow as the zone workers hand back.
+- Seen from here: your figure builder and the crew kit (10d079d) read as this game's. Crew pieces of 1,800 to
+  2,700 triangles are fine for pieces placed a dozen times a level; keep 1,500 for anything scattered by the hundred.
