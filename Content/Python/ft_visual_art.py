@@ -256,10 +256,11 @@ def vehicle(m, path, lo, size):
         return
     if leaf.startswith('SM_Henchman') or leaf.startswith('SM_Yeti'):
         return
-    if 'Moto' in leaf or 'Hog' in leaf:
-        for s in (.13, .87):
-            mesh_box(m, lo, size, armor, (.66, s, .39), (.16, .16, .17), rot=(0, 0, -8))
-            mesh_box(m, lo, size, lamp, (.69, s, .43), (.13, .04, .028), glow=.65)
+    if leaf in ('SM_Moto', 'SM_Hog', 'SM_Hog2'):
+        # ft_bikes models trim against the actual fuel tank and panels.
+        return
+    if leaf == 'SM_Heli' or leaf in BOSSES or leaf in ('SM_Rammer', 'SM_Suv', 'SM_Truck'):
+        # The current enemy exporters attach fitted panels to the authored body.
         return
     if leaf == 'SM_HeliRotor':
         return

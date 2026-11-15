@@ -411,6 +411,18 @@ in when `FTNightFlow.h` is there, `#if __has_include`). New night maps also go i
   - *Music*: race music volume 0.34 -> 0.5 (+3.4 dB; title song unchanged at 0.55).
   - Tests: `../full-throttle-tests/v350` (`run.sh`/`run2.sh <script> [args]`, `secat.py`, `bumps.py`).
 
+- **3.7.0 (owner's queue, 15 Nov 2026): the camera no longer goes under the road in corkscrews.** (Camera: `FTGameMode.*`.)
+  - A corkscrew rolls the road round its centre line; ~10 m behind the car the road is already ~35 degrees less rolled, so
+    the chase camera, hung off the car's own (lagging) up, went up to 2 m under the deck when the car ran near a barrier
+    (Level 1's second corkscrew with the car out left: 26-54 frames under the road, the car hidden as long). Through
+    corkscrews the camera now rides the road's frame where the camera is, pulled halfway to the corkscrew's centre line,
+    with its up between the road's at the camera and at the car (`TwistCamW`, blends in half a second ahead).
+  - The coaster's third-track corkscrew (mode 5, the centre rail orbits the outer pair's middle while the car rides it
+    upright): the camera now rides the car's own rail where the camera is (`RailCamW`); it used to sit under the rail it
+    had just ridden (21 frames, the car hidden 22-24).
+  - `ft.TwistCam 0` = the 3.6 camera. Probe: `-ftcamprobe` logs `FTCAMPROBE` per set piece (camera height over the road or
+    rail under it, frames under it, frames the track hid the car). Tests: `../full-throttle-tests/v370` (`run.sh <script>`).
+
 - **Mac performance audit (14 Nov 2026; taken into the game as 2.9.0 above, Mac bench notes).** On an Apple M1 Max the game ran 19-27 fps: Unreal's synth benchmark reads
   Apple GPUs as far faster than they are, so AUTO picked EPIC (TSR with 200% history ~22 ms, Lumen at Epic ~16 ms; the CPU
   is idle at ~3 ms). This Mac runs Metal SM5: no Nanite, no Virtual Shadow Maps (fallback meshes, cascaded shadows).

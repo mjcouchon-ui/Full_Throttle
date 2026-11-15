@@ -40,6 +40,7 @@
 
 // test hooks: ft.Autopilot 1 drives the car (and starts the race from the title); ft.Shots N takes a screenshot every N seconds
 static TAutoConsoleVariable<int32> CVarFTAutopilot(TEXT("ft.Autopilot"), 0, TEXT("FULL THROTTLE: 1 = the autopilot drives and starts races (tests, benchmarks)"));
+static TAutoConsoleVariable<int32> CVarFTTwistCam(TEXT("ft.TwistCam"), 1, TEXT("FULL THROTTLE 3.7: 1 = through corkscrews the chase camera rides the road's own frame where it is, pulled halfway to the corkscrew's centre line (never under the road); 0 = the 3.6 camera"));
 static TAutoConsoleVariable<float> CVarFTAutoX(TEXT("ft.AutoX"), -99999.f, TEXT("FULL THROTTLE 3.6 tests: the autopilot holds this road x (cm, -1371..1371 between the barriers) instead of picking a lane; -99999 = off"));
 static TAutoConsoleVariable<float> CVarFTHp(TEXT("ft.Hp"), 0.f, TEXT("FULL THROTTLE test hook: start each race with this armour, e.g. 30 = already burning (0 = normal)"));
 static TAutoConsoleVariable<int32> CVarFTAttract(TEXT("ft.Attract"), 1, TEXT("FULL THROTTLE 3.0: 1 = the title plays the game by itself and cuts between the levels (attract mode)"));
@@ -158,6 +159,7 @@ void AFTGameMode::SetupLevel()
 	Car = GetWorld()->SpawnActor<AFTPlayerCar>(CarClass, Track->TransformAt(600.f, 32.f * XU, 140.f), P);
 	Car->SetTrack(Track);
 	Car->SetLightsForLevel(Level);
+	Car->SetHenchmenForLevel(Level);
 	Car->PlaceOnTrack(600.f, 32.f * XU, 0.f);
 	BaseRoadFollow = Car->RoadFollow;
 	if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
@@ -1453,7 +1455,8 @@ void AFTGameMode::TickPlayer(float Dt)
 		HenchHangT += Dt;
 		if (HenchHangT > 3.2f) { HenchHangT = 0.f; Say(TEXT("henchHang"), 1); }
 	}
-	Car->SetHenchmenVisible(HenchOn[0] != 0, HenchOn[1] != 0);
+	Car->SetHenchmenVisible(HenchOn[0] != 0, HenchOn[1] != 0,
+		FVector2D(HenchOnT[0], HenchOnT[1]), FVector2D(HenchPunch[0], HenchPunch[1]));
 
 	// fell off the world: put it back (costs armour)
 	if (Car->H < -3000.f || FMath::Abs(Car->X) > FT::Edge + 2500.f)
@@ -1813,7 +1816,11 @@ void AFTGameMode::HurtEnt(FFTEnt& E, float Dmg, int32 Cause)
 		UE_LOG(LogFT, Display, TEXT("FT DAMAGE target=%s amount=%g left=%g load=%s source=%s"), *KindName(E.Kind), Dmg, FMath::Max(0.f, E.Hp), Cause == 0 ? Ld[FMath::Clamp(HitLoad, 0, 2)] : (Cause == 4 ? TEXT("HE") : TEXT("-")), Src[FMath::Clamp(Cause, 0, 6)]);
 	}
 	if (E.Hp <= 0.f) Kill(E, Cause);
-	else Sfx(TEXT("Hit"), 0.4f);
+	else
+	{
+		if (AFTEntityActor* A = E.Proxy.Get()) A->KickBike();
+		Sfx(TEXT("Hit"), 0.4f);
+	}
 }
 
 void AFTGameMode::Kill(FFTEnt& E, int32 Cause)
@@ -2253,12 +2260,24 @@ void AFTGameMode::TickEnts(float Dt)
 				{
 					HenchOn[E.Side] = 1; HenchPunch[E.Side] = R(1.1f, 1.5f); HenchHangT = 0.f;
 					Sfx(TEXT("Latch")); Duck(0.7f, 0.3f);
+					const FTransform CarT = Car->GetActorTransform();
+					const float Side = E.Side == 0 ? -1.f : 1.f;
+					FTFx::Attach(TEXT("NS_HitPlayerSparks"), Car->GetRootComponent(),
+						CarT.TransformPosition(FVector(20.f, Side * 100.f, 114.f)), (CarT.GetUnitAxis(EAxis::Y) * Side).Rotation(), 0.35f, FTFx::Extra);
 					if (HenchOn[0] && HenchOn[1]) Say(TEXT("latch2"), 2); else Say(TEXT("latch"), 2);
 					Shout(TEXT("HE'S ON THE CAR!"));
 					ReelEvent(3.f, TEXT("PASSENGER"), Car->GetActorLocation());
 					UE_LOG(LogFT, Display, TEXT("FT HENCH latch side=%d off=%.0f"), E.Side, E.Tx - Px);
 				}
-				else { AddScore(150, 2, 150, TEXT("DodgedDrop")); Popup(TEXT("DODGED THE DROP +150"), CCyan); Say(TEXT("dropDodged"), 1); UE_LOG(LogFT, Display, TEXT("FT HENCH dodged side=%d off=%.0f"), E.Side, E.Tx - Px); }
+				else
+				{
+					if (bGround && !Car->IsOnRails())
+					{
+						const FTransform Touch = Track->TransformAt(E.D, E.X, 16.f + MarkH(E.D, E.X, -1));
+						FTFx::Burst(this, TEXT("NS_RevSmoke"), Touch.GetLocation(), Touch.Rotator(), 0.55f, FTFx::Extra);
+					}
+					AddScore(150, 2, 150, TEXT("DodgedDrop")); Popup(TEXT("DODGED THE DROP +150"), CCyan); Say(TEXT("dropDodged"), 1); UE_LOG(LogFT, Display, TEXT("FT HENCH dodged side=%d off=%.0f"), E.Side, E.Tx - Px);
+				}
 				Release(E);
 			}
 			break;
@@ -2588,13 +2607,23 @@ void AFTGameMode::TickEnts(float Dt)
 		{
 			A->SetActorTransform(EntTransform(E));
 			A->bFar = FMath::Abs(Ahead) > 14000.f;
-			A->Animate(Dt, E.Sp, E.Vx);
+			float BikeWindup = 0.f;
+			if (E.Kind == EFTKind::Moto && E.State == 1 && Ahead > 80.f * DU)
+				BikeWindup = 1.f - FMath::SmoothStep(0.f, 0.32f, E.T1);
+			else if (E.Kind == EFTKind::Hog && E.State == 2)
+				BikeWindup = FMath::Sin(PI * FMath::Clamp(E.T1 / 0.6f, 0.f, 1.f));
+			A->Animate(Dt, E.Sp, E.Vx, BikeWindup);
 			// 3.3 the rope runs up to the chopper's door the trooper came out of
 			if (E.Kind == EFTKind::Henchman)
 			{
 				FFTEnt* Hl = FindEnt(E.Owner);
 				AFTEntityActor* HA = (Hl && !Hl->bDead) ? Hl->Proxy.Get() : nullptr;
-				if (HA) A->SetRope(HA->RopeAnchor(E.Side)); else A->Extra->SetVisibility(false);
+				if (HA)
+				{
+					const float Descent = FMath::Clamp(1.f - E.T1 / FMath::Max(E.T2, 0.1f), 0.f, 1.f);
+					A->SetRope(HA->RopeAnchor(E.Side), Descent, E.Side);
+				}
+				else A->Extra->SetVisibility(false);
 			}
 			if (E.Glow > 0.f || E.Kind == EFTKind::Rammer || E.Kind == EFTKind::Hog || E.Kind == EFTKind::Boss) A->SetGlow(E.Glow);
 		}
@@ -3755,7 +3784,7 @@ bool AFTGameMode::ComputeCamera(FMinimalViewInfo& POV, float Dt)
 		POV.Location = CarLoc + Off;
 		POV.Rotation = FRotationMatrix::MakeFromXZ((CarLoc + F.Up * 60.f - POV.Location).GetSafeNormal(), F.Up).Rotator();
 		POV.FOV = 60.f;
-		bCamInit = false;
+		bCamInit = false; TwistCamW = RailCamW = 0.f;
 		return true;
 	}
 	// chase camera: rides the road's frame so loops and pipes turn the world, not the car
@@ -3768,7 +3797,49 @@ bool AFTGameMode::ComputeCamera(FMinimalViewInfo& POV, float Dt)
 	const bool bInLoop = (F.Flags & (FTFlag::Loop | FTFlag::Pipe)) != 0;
 	const float Back = 780.f + Spd * 0.018f;
 	const float Up = bInLoop ? 210.f : 290.f;
+	// 3.7 corkscrew camera (owner: "the camera struggles on the corkscrews... it goes under the road, move it closer to the
+	// centre of the corkscrew"). A corkscrew rolls the road round its centre line; ~10 m behind the car the road is already
+	// ~35 degrees less rolled, so a camera hung off the car's own (lagging) up, out near a barrier, ended up metres under the
+	// deck it had just driven over. Here the camera rides the road's frame where the camera is (Back behind the car), pulled
+	// halfway to the centre line, so it is always Up above that piece of road; its up is the road's up between it and the car.
+	// Blends in just before the corkscrew (looks ahead half a second) and out once the camera itself has left it.
+	const float DCam = FMath::Max(Car->D - Back, 0.f);
+	const FFTFrame FC = Track->Sample(DCam);
+	const bool bTwistNear = CVarFTTwistCam.GetValueOnGameThread() != 0 && Phase != EFTPhase::Wreck
+		&& ((F.Flags | FC.Flags | Track->FlagsAt(Car->D + Spd * 0.5f)) & FTFlag::Twist) != 0;
+	TwistCamW = FMath::FInterpTo(TwistCamW, bTwistNear ? 1.f : 0.f, RDt, 4.f);
+	if (TwistCamW > 0.001f)
+	{
+		FVector TwistUp = (FC.Up + F.Up).GetSafeNormal();
+		if (TwistUp.IsNearlyZero()) TwistUp = F.Up;
+		CamUp = FMath::Lerp(CamUp, TwistUp, TwistCamW).GetSafeNormal();
+		if (CamUp.IsNearlyZero()) CamUp = F.Up;
+	}
 	FVector Desired = CarLoc - CamFwd * Back + CamUp * Up;
+	if (TwistCamW > 0.001f)
+	{
+		const FVector TwistLoc = Track->ToWorld(DCam, Car->X * 0.5f, FMath::Clamp(Car->H, 0.f, 600.f) + Up);
+		Desired = FMath::Lerp(Desired, TwistLoc, TwistCamW);
+	}
+	// 3.7 the coaster's third-track corkscrew (mode 5): the centre rail orbits the middle of the outer pair while the car
+	// rides on top of it upright, so ~10 m behind the car the rail is up to ~8 m away from where the car is now, and a camera
+	// hung off the car sat under the rail it had just ridden (the rail hid the car). Here the camera rides the car's own
+	// rail where the camera is: always Up over that rail, at the car's height above it.
+	const int32 RailI = Car->IsOnRails() ? Car->RailIndex() : -1;
+	auto IsScrew = [this](float At)
+	{
+		const FFTSection* S = Track->SectionAt(At);
+		return S && S->Shape == EFTSec::Coaster && FMath::RoundToInt(FMath::Abs(S->A)) == 5;
+	};
+	const bool bScrewNear = CVarFTTwistCam.GetValueOnGameThread() != 0 && Phase != EFTPhase::Wreck && RailI >= 0
+		&& (IsScrew(Car->D) || IsScrew(DCam) || IsScrew(Car->D + Spd * 0.5f));
+	RailCamW = FMath::FInterpTo(RailCamW, bScrewNear ? 1.f : 0.f, RDt, 4.f);
+	if (RailCamW > 0.001f && RailI >= 0)
+	{
+		const FVector2D RailBack = Track->RailsAt(DCam).P(RailI), RailCar = Track->RailsAt(Car->D).P(RailI);
+		const FVector RailLoc = Track->ToWorld(DCam, RailBack.X, RailBack.Y + FMath::Clamp(Car->H - RailCar.Y, 0.f, 600.f) + Up);
+		Desired = FMath::Lerp(Desired, RailLoc, RailCamW);
+	}
 	FVector Look = CarLoc + CamFwd * 700.f + CamUp * 90.f;
 	if (Phase == EFTPhase::Wreck) { Desired = CarLoc - CamFwd * 1400.f + CamUp * 700.f + F.Right * 600.f; Look = CarLoc; }
 	const float RollTarget = FMath::Clamp(-Car->LatSpeed / 2500.f * 0.0f + Steer * -0.06f, -0.08f, 0.08f);
@@ -3810,6 +3881,49 @@ bool AFTGameMode::ComputeCamera(FMinimalViewInfo& POV, float Dt)
 			}
 			CamMin = FMath::Min(CamMin, CamAbove); CarMin = FMath::Min(CarMin, CarAbove);
 			CamIn += CamAbove < 10.f ? 1 : 0; CarIn += CarAbove < 0.f ? 1 : 0; ++Samples;
+		}
+	}
+	// 3.7 test probe (-ftcamprobe): through each corkscrew, loop, pipe and coaster, the chase camera against the ROAD itself:
+	// its height over the deck at the point of road it is over (min; "under" = frames below a deck that is really there, or
+	// under a coaster rail), and "blocked" = frames the track hid the car from the camera. One FTCAMPROBE line per set piece.
+	static const bool bCamProbe = FParse::Param(FCommandLine::Get(), TEXT("ftcamprobe"));
+	if (bCamProbe)
+	{
+		static int32 PSec = -1, PSamples = 0, PUnder = 0, PBlocked = 0, PTwist = 0, PShape = -1, PMode = 0; static float PMin = 0.f, PXMin = 0.f, PXMax = 0.f;
+		const bool bSet = Phase == EFTPhase::Play && (F.Flags & (FTFlag::Twist | FTFlag::Loop | FTFlag::Pipe | FTFlag::Coaster));
+		if ((!bSet || F.Section != PSec) && PSec >= 0 && PSamples > 0)
+		{
+			UE_LOG(LogFT, Display, TEXT("FTCAMPROBE level=%d section=%d shape=%d mode=%d samples=%d screwcam=%d road: min=%.0f under=%d blocked=%d carx=%.0f..%.0f"),
+				Level, PSec, PShape, PMode, PSamples, PTwist, PMin, PUnder, PBlocked, PXMin, PXMax);
+			PSec = -1; PSamples = 0;
+		}
+		if (bSet)
+		{
+			if (PSec != F.Section)
+			{
+				PSec = F.Section; PSamples = PUnder = PBlocked = PTwist = 0; PMin = 1e9f; PXMin = 1e9f; PXMax = -1e9f;
+				const FFTSection* Sp = Track->SectionAt(Car->D);
+				PShape = Sp ? (int32)Sp->Shape : -1; PMode = Sp ? FMath::RoundToInt(Sp->A) : 0;
+			}
+			float Cx = 0.f, Ch = 0.f;
+			const float Dc = Track->Locate(CamLoc, Car->D, Cx, Ch);
+			const FFTFrame FL = Track->Sample(Dc);
+			bool bUnder = false; float Over = 1e9f;
+			if (FL.Flags & FTFlag::Coaster)
+			{
+				const FFTRails R = Track->RailsAt(Dc);
+				for (int32 r = 0; r < FFTRails::Num; ++r)
+					if (FMath::Abs(Cx - R.X[r]) < FFTRails::HalfW + 150.f) { Over = FMath::Min(Over, Ch - R.H[r]); bUnder |= Ch < R.H[r]; }
+			}
+			else if (FMath::Abs(Cx) < FT::Edge) { Over = Ch - Track->SurfaceH(Dc, Cx); bUnder = Over < 0.f; }
+			if (Over < 1e8f) PMin = FMath::Min(PMin, Over);
+			PUnder += bUnder ? 1 : 0;
+			FHitResult Hit;
+			FCollisionQueryParams Q(SCENE_QUERY_STAT(FTCamProbe), true, Car);
+			if (GetWorld()->LineTraceSingleByChannel(Hit, CamLoc, CarLoc + F.Up * 60.f, ECC_Visibility, Q) && Hit.GetActor() == Track) ++PBlocked;
+			PXMin = FMath::Min(PXMin, Car->X); PXMax = FMath::Max(PXMax, Car->X);
+			PTwist += (TwistCamW > 0.5f || RailCamW > 0.5f) ? 1 : 0;
+			++PSamples;
 		}
 	}
 #endif

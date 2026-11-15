@@ -5,12 +5,14 @@
 # The same build gives a before and an after: -NoDress builds the levels without the dressing (-ftnodress).
 #   powershell -File jam_play.ps1 -Mode tour  -Tag after  -Checkout <project folder> [-Levels "1,4"] [-Times "8,20,35,50"] [-NoDress]
 #       [-Pre "r.Some.CVar 0;another command"]   console commands run before the first level (a setting to compare)
+#       [-Extra "-dpcvars=ft.DressBank=0"]       more command line for the game, in either mode (the benchmark has no script to
+#                                                 run commands from: a setting to compare goes here)
 #   powershell -File jam_play.ps1 -Mode bench -Tag dense  -Checkout <project folder> -Levels "1" [-Seconds 25] [-Quality 3] [-NoDress]
 # Tour frames: SkyScratch/HandBack/jam/play/<Tag>/L<level>_t<seconds>.png. Bench JSON: SkyScratch/DevLog/perf/jam/<Tag>_L<level>.json
 # A benchmark means something only on an idle GPU: say so in the notes if other Unreal jobs were running.
 param([ValidateSet("tour","bench")][string]$Mode = "tour", [Parameter(Mandatory=$true)][string]$Tag, [string]$Checkout = "",
       [string]$Levels = "1,2,3,4,5,6,7,8", [string]$Times = "8,20,35,50", [int]$Quality = 3, [int]$Seconds = 25,
-      [int]$ResX = 3440, [int]$ResY = 1440, [switch]$NoDress, [string]$Pre = "", [string]$Engine = "K:\UE_5.9")
+      [int]$ResX = 3440, [int]$ResY = 1440, [switch]$NoDress, [string]$Pre = "", [string]$Extra = "", [string]$Engine = "K:\UE_5.9")
 $ErrorActionPreference = "Stop"
 if (-not $Checkout) { $Checkout = if ($env:JAM_PORT) { $env:JAM_PORT } else { "K:\Full Throttle\UE\full-throttle-unreal" } }
 $proj = Join-Path $Checkout "FullThrottle.uproject"
@@ -21,6 +23,7 @@ $saved = Join-Path $Checkout "Saved\FullThrottle"
 $lv = @($Levels -split "[,\s]+" | Where-Object { $_ })
 $common = @("`"$proj`"", "-game", "-windowed", "-ResX=$ResX", "-ResY=$ResY", "-RenderOffScreen", "-nosound", "-unattended", "-nosplash")
 if ($NoDress) { $common += "-ftnodress" }
+if ($Extra) { $common += $Extra }   # more of the game's command line, e.g. "-dpcvars=ft.DressBank=0" (a setting the level reads as it is built)
 $global = Enter-JamGlobal -Checkout $Checkout   # the Unreal job queue (see jam_global.ps1)
 $lock = Enter-UeLock -ProjectDir $Checkout
 # The size of the frame. -ResX/-ResY only size the first window: the game applies its saved settings at every map

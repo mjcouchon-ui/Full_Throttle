@@ -312,6 +312,7 @@ AFTBrawlFighter* AFTBrawlGameMode::SpawnFighter(const FFTBrawlKind& K, const FFT
 				if (K.Role == TEXT("boss") && K.Who != TEXT("Earl") && K.Who != TEXT("Vinnie")) { bOk = A->SetSprite(K.Who, K.Height * 1.4f) || A->SetSprite(TEXT("Earl"), 300.f); break; }   // nights 4-7 (run 32365): Frankie, the Kingpin, Sven, the Commodore
 				bOk = A->SetSprite(R.Sprite, R.H) || A->SetSprite(TEXT("Dock"), R.H); break;
 			}
+	if (bOk && K.Who != TEXT("Nova")) A->SetEnemyPresentation(K.Who, K.Role);
 	if (!bOk && !A->SetCast(K.Who, K.Height)) A->SetLook(L);
 	return A;
 }
@@ -1224,6 +1225,7 @@ void AFTBrawlGameMode::Tick(float Dt)
 	}
 	if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
 		if (CamActor && PC->GetViewTarget() != CamActor) PC->SetViewTarget(CamActor);
+	PlaceMoon();
 	// test hook: -brawlshots=<abs dir> saves the game view every 4 s as <dir>/shot_NN.png (look checks without an editor)
 	static FString ShotDir; static bool bShotInit = false; static float ShotT = 0; static int32 ShotN = 0;
 	static float ShotEvery = 4.f;
@@ -2073,14 +2075,29 @@ SL->SetIntensity(b47 ? 0.55f : bLucky ? 0.6f : bVelvet ? 0.5f : bNight ? 0.45f :
 	CamActor->GetCameraComponent()->SetFieldOfView(46.f);
 	CamActor->GetCameraComponent()->SetConstraintAspectRatio(false);
 	if (APlayerController* PC = Wd->GetFirstPlayerController()) PC->SetViewTarget(CamActor);
-	// the moon rides with the camera (it is as good as infinitely far): it stays put on screen and shows through
-	// whichever window scrolls past it
+	// the moon follows the fight's scroll (it is as good as infinitely far): it stays put on screen and shows through
+	// whichever window scrolls past it. Not attached to the camera: a cutscene's camera moves, tilts and zooms, and the
+	// moon must stay in the sky then (PlaceMoon)
 	if (bNight && !bVelvet && !bLucky)
 	{
 		const float CamY = 1450.f, Dw = CamY + Back, K = 9.f, Zw = 325.f, Dm = 75.f, Xw = 260.f;   // the window is wall height 220..364
-		AActor* Moon = Quad(FVector(CamActor->GetActorLocation().X + Xw * K, CamY - K * Dw, CamZ + (Zw - CamZ) * K), FVector2D(Dm * K, Dm * K),
+		MoonOff = FVector(Xw * K, -K * Dw, (Zw - CamZ) * K);
+		MoonA = Quad(FVector(CamActor->GetActorLocation().X, CamY, CamZ) + MoonOff, FVector2D(Dm * K, Dm * K),
 			FRotator(0, 0, 90), OutM, OutMoon, false, [&](UMaterialInstanceDynamic* D) { D->SetScalarParameterValue(TEXT("Bright"), 0.9f); });
-		Moon->AttachToActor(CamActor, FAttachmentTransformRules::KeepWorldTransform);
+	}
+}
+
+void AFTBrawlGameMode::PlaceMoon()
+{
+	if (!MoonA || !CamActor) return;
+	FVector At;
+	if (CutId == 3) At = FVector(PierX - 100.f, 1450.f, CamZ + 600.f) + MoonOff;   // the pier: high over the harbour, clear of the cast
+	else if (!InCut()) At = FVector(CamActor->GetActorLocation().X, 1450.f, CamZ) + MoonOff;      // the fight: rides the scroll (not the shake)
+	else return;                                                                                   // THAT NIGHT / LAST CALL: stays where it is
+	if (!MoonA->GetActorLocation().Equals(At, 1.f))
+	{
+		if (CutId == 3) UE_LOG(LogFTBrawl, Log, TEXT("FTBRAWL moon fixed over the pier at x=%.0f"), At.X);
+		MoonA->SetActorLocation(At);
 	}
 }
 

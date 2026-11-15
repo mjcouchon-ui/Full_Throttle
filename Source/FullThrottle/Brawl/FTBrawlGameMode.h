@@ -242,6 +242,11 @@ private:
 	FRandomStream Rnd;
 	float Rand() { return Rnd.FRand(); }
 	UPROPERTY() TObjectPtr<ACameraActor> CamActor;
+	// the moon (night 1): in the fight it rides the camera's scroll (X only); in a cutscene it stays put in the sky,
+	// and out on the pier it hangs over the harbour (owner, 15 Nov: "the moon travels with the camera")
+	UPROPERTY() TObjectPtr<AActor> MoonA;
+	FVector MoonOff = FVector::ZeroVector;   // from the fight camera's home (X, 1450, CamZ)
+	void PlaceMoon();
 	UPROPERTY() TArray<TObjectPtr<AFTBrawlFighter>> Pool;
 	bool bAuto = false;
 	// grab and throw (run 42137): L / C / pad B lifts the foe in front over his head (state lift -> carry, the foe "lifted"),

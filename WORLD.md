@@ -74,7 +74,8 @@ frame's place and attitude) and of the four solid sections. A scenery change mus
 
 ## The dressing: districts, sets, horizon
 
-`FTDress.h` explains the three kinds of rule; `FTTrackDress.cpp` explains the words a table is written in. Each
+`FTDress.h` explains the kinds of rule (Scatter, Site and Far here; Bank in the next section); `FTTrackDress.cpp`
+explains the words a table is written in. Each
 level has one table, `Source/FullThrottle/FTDressL<n>.inl`, and one kit module, `Content/Python/ft_dress_<level>.py`:
 
 | Level | Table | Kit | Assets |
@@ -113,6 +114,55 @@ box) is skipped for dressing pieces; they take that pass's materials only (`ft_d
 
 `ft.Dress 0` (console) or `-ftnodress` (command line) builds levels without the dressing: the same build gives a
 before and an after.
+
+## The cut banks inside banked bends (3.4)
+
+A banked bend rolls the road about its centre line. Its inner edge sinks (11.5 m at 57 degrees) and the bed cuts
+the land down to it: one straight slope from under the low barrier up to the land's inner edge 16 m out, 4 to
+13 m long. The chase camera, rolled with the road, looks straight at that cutting. It was a third of the frame in
+the land's one colour, and no Scatter or Site piece can stand on it: they stand level, at the uncut land's height.
+
+A **Bank** rule has the track face the cutting itself:
+
+```
+Zone(TEXT("Cut banks"), 0.f, 99.f);
+	Bank(TEXT("SM_CutStrata"), 4, 2, 0, 1.f, 5.5f);         // per slot, every, phase, chance, run min m
+	Bank(TEXT("SM_CutStrata2"), 4, 2, 1, 1.f, 5.5f);
+	Bank(TEXT("SM_CutLedge"), 4, 1, 0, 1.f, 2.4f, 5.5f);    // ... run min m, run max m
+```
+
+- `BuildMeshes` remembers, for every frame, where the bed's last straight run up to the land's edge starts
+  (`AFTTrack::BedCut`: the very line the bed is drawn with). Nothing of the track reads it.
+- `BuildProps` lays a panel on that run every `45 m / per slot` of road: turned to the slope, pitched to the grade,
+  stretched along to its share of the bend and up the slope to the cutting's length, lapped 3% over the next.
+  So one flat piece serves every bank angle, a bend's lead-in and lead-out, and a hill (Ice Mountain falls 7 in
+  100 all the way; two of the Chemical Works' hairpins climb 1 in 8 while banked 57 degrees).
+- Every and phase count panels, so two designs can take alternate panels. `run min` and `run max` give a tall
+  design to the deep cuttings (5.5 m and more: bends banked 32 degrees and up) and a low one to the rest. Under a
+  gentle bank the bed's foot is hidden behind the barrier: the run is counted from 30 cm under the barrier's top,
+  and a bend that shows under 2.4 m of cutting (banked under about 19 degrees) is left alone.
+- A panel that would stand more than 12 cm off the cutting (a lead-in at its quickest) is laid as two halves.
+- A panel is tested against OTHER parts of the road only, and left out if it would touch one (the Chemical Works'
+  finale laps beside itself). Its own road is the bed it lies on. Panels cast no shadow.
+
+Kits draw a panel flat, as if the bank were the floor (x along the road, y up the slope, z out of the bank):
+`Content/Python/ft_dress_bank.py` has the rules and the helpers. Unlit, no arrows, nothing a hand thin.
+
+| Level | Tall panels | Low panels |
+|---|---|---|
+| Chemical Works | `SM_CutRevet`, `SM_CutRevet2`: concrete slabs, the teal main, a hazard placard or leaking outlets | `SM_CutKerb`, `SM_CutKerb2` |
+| Nevada | `SM_CutStrata`, `SM_CutStrata2`: seven beds of red rock, sage and fallen blocks | `SM_CutLedge` |
+| Volcano | `SM_CutBasalt`, `SM_CutBasalt2`: basalt columns, ash on their heads | `SM_CutAsh` |
+| Ice Mountain | `SM_CutIce`, `SM_CutIce2`: layers of blue ice, splinters, a cornice; the mountain's rock | `SM_CutSnow` |
+| Under the Sea | `SM_CutReef`, `SM_CutReef2`: beds of reef rock and packed sand, coral crusts | `SM_CutShoal` |
+
+Bayshore, the Theme Park and City Center keep the second pass's faces: pieces built already tilted and bent,
+stood by one-piece Sets where the bank is at its full angle (`ft_dress_bay.py`, "the banks of the banked bends").
+The first 60 m of each of their bends, and their bends banked under 40 degrees, are still bare; a Bank rule and a
+flat piece would cover those too.
+
+The build logs `FTBANK level=N panels laid=A on B lengths of cutting (C as two halves; left bare: ...)`.
+`ft.DressBank 0` builds without the panels: the same build gives a before and an after.
 
 ## Checking a change
 

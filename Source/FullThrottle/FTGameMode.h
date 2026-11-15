@@ -485,6 +485,7 @@ protected:
 	// camera
 	FVector CamLoc = FVector::ZeroVector, CamUp = FVector::UpVector, CamFwd = FVector::ForwardVector;
 	float CamFov = 82.f, ShakeAmt = 0.f, CamRoll = 0.f;
+	float TwistCamW = 0.f, RailCamW = 0.f;   // 3.7: 0..1 blends into the corkscrew cameras (road / coaster rail, see ComputeCamera)
 	bool bCamInit = false;
 
 	// bench

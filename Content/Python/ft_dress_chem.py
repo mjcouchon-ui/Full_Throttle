@@ -1089,7 +1089,51 @@ def far_gasworks(m):
     px(m, TEAL, -7400, X, -300, 900, 150, steps=8)
 
 
+# ------------------------------------------------------------------------------------------ the cut banks (3.4)
+# Inside a banked bend the track cuts the land down to the road's low edge, and that cutting was a bare slope a third
+# of the frame high. A Bank rule has the track lay these on it (ft_dress_bank.py has the drawing rules: flat, x along
+# the road, y up the slope, z out of the bank). The works face their cuttings with concrete: slabs in a darker frame,
+# the plant's teal main along the bank on its saddles, a hazard placard, and here and there an outlet that has leaked
+# the chemical down the wall. Unlit, like everything this near the road.
+import ft_dress_bank as B   # noqa: E402
+
+
+def cut_revet(m, leak=False):
+    """A deep cutting's facing (11 x 9 m as drawn): two courses of three slabs under a coping, the teal main between
+    the courses; a hazard placard, or with leak=True two outlets in the lower course and what has run out of them."""
+    B.body(m, CONC_D, B.TALL)
+    for x in (-360.0, 0.0, 360.0):
+        B.block(m, PAVE_D, x, -227.0, 330.0, 335.0, 10.0)
+        B.block(m, PAVE_D, x, 227.0, 330.0, 335.0, 10.0)
+    B.block(m, PAVE, 0.0, 427.0, B.L, 46.0, 18.0)                       # the coping, under the land's edge
+    B.block(m, TEAL, 0.0, 0.0, B.L, 56.0, 28.0)                         # the main
+    for x in (-360.0, 0.0, 360.0):
+        B.block(m, TEAL_D, x, 0.0, 44.0, 96.0, 34.0)                    # its saddles
+    if leak:
+        for x, w in ((-360.0, 1.0), (360.0, 0.7)):
+            B.block(m, STEELB_D, x, -120.0, 100.0, 100.0, 20.0)         # an outlet's collar, its mouth
+            B.block(m, NAVY, x, -120.0, 54.0, 54.0, 23.0)
+            B.shape(m, VIOLET, [(x - 36.0 * w, -168.0), (x + 36.0 * w, -168.0), (x + 13.0, -392.0), (x - 13.0, -392.0)], 5.0, B.FACE + 10.0)
+    else:
+        B.block(m, HAZ, 0.0, 227.0, 140.0, 140.0, 16.0)                 # the placard: a yellow plate, a dark square
+        B.block(m, NAVY, 0.0, 227.0, 76.0, 76.0, 20.0)
+
+
+def cut_kerb(m, leak=False):
+    """A shallow cutting's facing (11 x 4 m as drawn): one course of slabs under the coping; leak=True: an outlet in
+    the middle slab and its stain."""
+    B.body(m, CONC_D, B.LOW)
+    for x in (-360.0, 0.0, 360.0):
+        B.block(m, PAVE_D, x, -30.0, 330.0, 280.0, 10.0)
+    B.block(m, PAVE, 0.0, 172.0, B.L, 56.0, 18.0)
+    if leak:
+        B.block(m, STEELB_D, 0.0, 56.0, 96.0, 80.0, 20.0)
+        B.block(m, NAVY, 0.0, 56.0, 52.0, 42.0, 23.0)
+        B.shape(m, VIOLET, [(-32.0, 16.0), (32.0, 16.0), (12.0, -166.0), (-12.0, -166.0)], 5.0, B.FACE + 10.0)
+
+
 JOBS = [
+    ('SM_CutRevet', cut_revet), ('SM_CutRevet2', lambda m: cut_revet(m, True)), ('SM_CutKerb', cut_kerb), ('SM_CutKerb2', lambda m: cut_kerb(m, True)),
     ('SM_FenceRun', buried(fence_run)), ('SM_JerseyRow', buried(jersey_row)), ('SM_DrumPile', buried(drum_pile)),
     ('SM_DrumPile2', buried(lambda m: drum_pile(m, 7))), ('SM_PipeRun', buried(pipe_run)), ('SM_HazSign', buried(haz_sign)),
     ('SM_ValveStation', buried(valve_station)), ('SM_TankerTrailer', buried(tanker_trailer)), ('SM_PumpHouse', buried(pump_house)),

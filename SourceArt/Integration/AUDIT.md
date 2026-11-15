@@ -91,6 +91,20 @@ The Shipping runs' own reports (Epic, 3440x1440, a screenshot every six seconds,
 GPU): median frame 14.8 to 16.0 ms, 99th percentile 18.6 to 30.5 ms, GPU 11.3 to 12.7 ms, game thread 2.2 to 3.5 ms.
 They are what the build did under those conditions, not a benchmark: no run that night had the GPU to itself.
 
+### After the pass: the cut banks (15 Nov, midday)
+
+The dressing's Bank rule and its panels on five levels (`WORLD_PASS_2.md`, "After the pass"; `WORLD.md`, "The cut
+banks"), merged with 3.6.0 and the enemy visual overhaul:
+
+| Check | Result |
+|---|---|
+| Per-level check, uncooked, Epic, 3440x1440, before the merge (`banks_epic`) | 8 of 8 pass; every track fingerprint equal to the baseline |
+| The same on the merged tree (`banks_merged_epic`; no other Unreal job on the PC) | 8 of 8 pass; every track fingerprint equal to the baseline: 3.6.0's change to the bed under corkscrews moves neither the route nor anything solid |
+| The kits after the merge (`30_bank_build.py`, `BANK_EXPORT=check`) | all five import and draw their panels; the same panel counts as before the merge |
+| The real game through the bends, with the panels and without (`play/banks_play`, `banks_play_off`) | 95 frames each; the engine's shadow-queue warning appears once a level in both, at the same moment: it is not the panels' (they cast no shadow) |
+
+Not run for this change: Low, the packaged builds. Frame time: see `WORLD_PASS_2.md`.
+
 ## Open: confirmed in code, not changed
 
 Progression and saves

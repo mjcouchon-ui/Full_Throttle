@@ -23,8 +23,6 @@ BARK_D = '#6a4c36'
 WOOD = '#9a6a44'
 # the bikers
 LEATHER = '#22202a'
-DENIM = '#3b5a9a'
-SKINB = '#e0a070'
 BEARD = '#7a4b2a'
 GREY = '#c9c4d6'
 FLAME = '#ff9e3d'
@@ -57,13 +55,6 @@ def rod(m, col, a, b, r, steps=8, glow=0.0):
 
 
 # ------------------------------------------------------------------ the SNAKE EYES on their choppers
-HOGS = {
-    # tank / fender colour, stripe, rider's bandana, rider's hair
-    1: ('#ff3355', '#ffd23f', '#ff3355', '#3a2a22'),
-    2: ('#7b3bd6', '#2ee6ff', '#1c1a26', '#c9c4d6'),
-}
-
-
 def dice(m, x, y, z, s, glow=0.0):
     """The club's patch: two white dice, each showing one red pip (snake eyes), on the -X face."""
     for k in (-1, 1):
@@ -72,89 +63,8 @@ def dice(m, x, y, z, s, glow=0.0):
 
 
 def hog(m, variant=1, rider=True, x0=0.0):
-    """An outlaw chopper: a long raked fork, a fat rear tyre, ape-hanger bars, a teardrop tank, a V-twin
-    and fishtail pipes. The rider sits back in a black leather cut with the SNAKE EYES patch, arms up to
-    the bars, in a half helmet with a ponytail and a beard."""
-    tank, stripe, band, hair = HOGS[variant]
-    X = lambda v: v + x0
-    # wheels: fat at the back, skinny at the front, far out in front on the long fork
-    m.cyl(TYRE, (X(48), -15, 36), 36, 30, rot=(0, 0, 90), steps=18)
-    m.cyl(CHROME, (X(48), -16, 36), 16, 32, rot=(0, 0, 90), steps=12)
-    m.cyl(TYRE, (X(318), -6, 30), 30, 12, rot=(0, 0, 90), steps=18)
-    m.cyl(CHROME, (X(318), -7, 30), 12, 14, rot=(0, 0, 90), steps=10)
-    # rear fender over the fat tyre, in the tank colour
-    m.side(tank, [(X(8), 52), (X(20), 70), (X(48), 78), (X(80), 72), (X(92), 60), (X(80), 66), (X(48), 72), (X(22), 64)], -17, 17)
-    m.box(RED, (X(6), 0, 62), (4, 18, 8), glow=1.0)               # the tail light
-    m.box(GOLD, (X(7), 0, 50), (3, 22, 6))                          # the plate
-    # the frame: backbone, down tubes, the neck
-    tilt_box(m, BLACK, (X(70), 0, 72), (X(250), 0, 128), 10)
-    tilt_box(m, BLACK, (X(120), 0, 40), (X(250), 0, 120), 9)
-    tilt_box(m, BLACK, (X(48), 0, 40), (X(150), 0, 40), 9)
-    # the V-twin: two chrome cylinders in a V over a black case
-    m.box(BLACK, (X(150), 0, 52), (60, 26, 30))
-    for a in (-28, 28):
-        tilt_box(m, CHROME, (X(150), 0, 64), (X(150 + 36 * math.sin(math.radians(a))), 0, 64 + 36 * math.cos(math.radians(a))), 20, 22)
-    m.cyl(CHROME, (X(176), -15, 58), 9, 30, rot=(0, 0, 90), steps=10)     # the air cleaner
-    # fishtail pipes down the right side, sweeping back past the rear axle
-    for z in (36, 50):
-        m.cyl(CHROME, (X(4), 22, z), 6, 170, rot=(-90, 0, 0), steps=10)
-        m.cyl(CHROME, (X(2), 22, z), 8, 10, rot=(-90, 0, 0), steps=10)
-    # the long raked fork, chrome, from the front axle up and back to the neck
-    for s in (-1, 1):
-        rod(m, CHROME, (X(318), s * 9, 30), (X(250), s * 9, 134), 4.5, steps=8)
-    m.box(BLACK, (X(250), 0, 134), (16, 26, 14))
-    m.sphere(CHROME, (X(268), 0, 128), 12, steps=(6, 10))           # the headlight
-    m.box('#fff3a8', (X(279), 0, 128), (2, 14, 14), glow=1.2)
-    # ape-hanger bars: tall risers, then the grips back toward the rider
-    for s in (-1, 1):
-        rod(m, CHROME, (X(248), s * 10, 140), (X(244), s * 14, 214), 3.5, steps=6)
-        rod(m, CHROME, (X(244), s * 14, 214), (X(228), s * 40, 210), 3.5, steps=6)
-        m.box(BLACK, (X(226), s * 44, 210), (8, 10, 8))
-    # the teardrop tank with a stripe, and the seat
-    m.sphere(tank, (X(204), 0, 122), 30, scale=(1.55, 0.75, 0.62), steps=(8, 14))
-    m.box(stripe, (X(204), 0, 140), (64, 8, 3), rot=(-6, 0, 0))
-    for s in (-1, 1):
-        m.box(stripe, (X(206), s * 22, 122), (56, 1.5, 6), rot=(-8, 0, 0))
-    m.side(LEATHER, [(X(92), 92), (X(118), 98), (X(168), 112), (X(172), 120), (X(140), 116), (X(98), 108), (X(86), 100)], -16, 16)
-    # a low sissy bar behind the seat (kept short, so it doesn't hide the patch)
-    for s in (-1, 1):
-        tilt_box(m, CHROME, (X(84), s * 12, 92), (X(82), s * 12, 122), 4)
-    m.box(CHROME, (X(82), 0, 122), (4, 28, 4))
-    if not rider:
-        return
-    # ---- the rider, sitting back, arms up to the bars
-    hip = (X(128), 0, 120)
-    sh = (X(116), 0, 196)
-    # legs: forward controls, boots on the pegs out by the engine
-    for s in (-1, 1):
-        knee = (X(196), s * 26, 120)
-        foot = (X(222), s * 26, 66)
-        tilt_box(m, DENIM, (hip[0], s * 14, hip[2]), knee, 17, 18)
-        tilt_box(m, DENIM, knee, foot, 14, 15)
-        m.box(BLACK, (foot[0] + 6, s * 26, foot[2] - 4), (26, 13, 12))
-    # torso: a black leather cut over a white tee; the club patch big on the back
-    tilt_box(m, LEATHER, hip, sh, 54, 34)
-    m.box(LEATHER, (sh[0] - 2, 0, sh[2] - 6), (28, 62, 18))              # broad shoulders
-    m.box(WHITE, (X(124), 0, 186), (24, 30, 10))                         # the tee at the collar
-    bx = sh[0] - 19                                                       # the back of the cut
-    m.box(RED, (bx, 0, 192), (2, 44, 6))                                 # top rocker
-    dice(m, bx - 1, 0, 166, 16, glow=0.4)
-    m.box(RED, (bx + 2, 0, 138), (2, 40, 6))                             # bottom rocker
-    # arms, bare, up to the grips
-    for s in (-1, 1):
-        sho = (sh[0] + 4, s * 30, sh[2] - 4)
-        elb = (X(176), s * 46, 196)
-        hand = (X(224), s * 44, 210)
-        tilt_box(m, SKINB, sho, elb, 11, 12)
-        tilt_box(m, SKINB, elb, hand, 10, 10)
-        m.box(LEATHER, (hand[0], s * 44, hand[2]), (10, 10, 10))
-    # head: a black half helmet, a ponytail down the back, a beard, a bandana round the neck
-    m.box(band, (sh[0] + 2, 0, sh[2] + 6), (22, 26, 8))
-    m.sphere(SKINB, (sh[0] + 6, 0, sh[2] + 26), 15, steps=(6, 10))
-    m.sphere(hair, (sh[0] + 14, 0, sh[2] + 16), 11, scale=(1.1, 1, 1.3), steps=(6, 8))   # the beard
-    m.sphere(BLACK, (sh[0] + 5, 0, sh[2] + 32), 16, scale=(1.05, 1.0, 0.62), steps=(6, 12))
-    m.box(BLACK, (sh[0] + 5, 0, sh[2] + 28), (34, 34, 3))                # the helmet's brim
-    tilt_box(m, hair, (sh[0] - 8, 0, sh[2] + 24), (sh[0] - 14, 0, sh[2] - 2), 6, 6)
+    from ft_bikes import hog as build_hog
+    build_hog(m, variant, with_rider=rider, x0=x0)
 
 
 # ------------------------------------------------------------------ the boss: the motorcycle carrier

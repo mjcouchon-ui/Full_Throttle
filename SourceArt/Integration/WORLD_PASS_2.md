@@ -25,9 +25,11 @@ notes ("Second pass") are in `K:\Full Throttle\SkyScratch\DevLog\jam\dress_*.md`
 
 - **Road corkscrews, every level**: the frame is the bed's trench. Only the land's material shows there
   (`ft_world.land_materials`).
-- **Banked bends**: Bayshore, Theme Park and City Center carry faces on the cut bank (the method: a tilted piece laid
-  on the cutting, `SM_BankWaves` in the Bayshore kit is the plainest example). Chemical Works, Nevada, the Volcano and
-  Ice Mountain do not yet: there the inside of a bend is still the cutting's wall and sky. First thing to do next.
+- **Banked bends**: faced since the pass on Chemical Works, Nevada, the Volcano, Ice Mountain and Under the Sea, by
+  a rule of the track's own (see "After the pass: the cut banks" below). Bayshore, Theme Park and City Center keep
+  the pass's tilted pieces (`SM_BankWaves` in the Bayshore kit is the plainest example): the first 60 m of each of
+  their steep bends and their bends banked under 40 degrees are still bare, and one bed a slot leaves bare bank
+  between beds. A Bank rule with a flat piece would cover all of that.
 - **Bayshore**: the opening 3.2 km gained least (flat pieces stand level, and that stretch is hills); banks under
   40 degrees and the first 60 m of each steep bend are bare; the downtown is one piece repeated.
 - **Chemical Works**: the finale's doubled circuit (14.0 to 17.4 km) has one sparse ground row; a few glowing ponds
@@ -37,7 +39,8 @@ notes ("Second pass") are in `K:\Full Throttle\SkyScratch\DevLog\jam\dress_*.md`
 - **Theme Park**: coaster loops and corkscrews unchanged (the track keeps everything 39.6 m from the rails there);
   the bank beds are loud (one number in `_bank_len`); jump valleys are plain.
 - **Ice Mountain**: the skyline is still mostly similar cones; about 135 more horizon instances that never cull.
-- **Under the Sea**: open sand on the first 8 km's hills is thin; the pale wall at 20 s is the level's own cut bank.
+- **Under the Sea**: open sand on the first 8 km's hills is thin. (The pale wall at 20 s was the level's own cut bank:
+  faced since.)
 - **City Center**: straight street views are unchanged (the level's own bright towers dominate); most of the 83 blade
   signs stand inside those towers at 30 m.
 - **Movement** was run on every level and seen in stills only.
@@ -49,7 +52,37 @@ notes ("Second pass") are in `K:\Full Throttle\SkyScratch\DevLog\jam\dress_*.md`
 1. `FTTrackDress.cpp`: a **Ground** word that lands like a Scatter and stays through loops, pipes, corkscrews and
    gaps like a Far (three workers used Far rules with a drop as a stand-in), and an "outside of the bend" flag.
 2. `FTTrack.cpp`, the dressing's `Put`: pitch a piece to the land along the road (on grades a level piece floats at
-   one end: Ice Mountain falls 7 in 100), and keep near pieces off the cutting beside a banked bend.
+   one end: Ice Mountain falls 7 in 100), and keep near pieces off the cutting beside a banked bend. (Not made. The
+   cut banks' panels are pitched and turned by their own rule; Scatter and Site pieces still stand level.)
 3. `AFTTrack::RoadSpan`: coaster loops and corkscrews reserve 38.1 m below the rails; the rails sweep about 16 m.
 4. `ft_dress.run()` should call each kit's `animate()` / `life()`, so an export cannot leave things standing still.
 5. `Clear()`: a 30 m rule for lit pieces.
+
+## After the pass: the cut banks (15 November, midday)
+
+The inside of a banked bend is the bed's own cutting: a third of the frame from the rolled camera, in the land's one
+colour, and nothing could stand on it. The pass's three faces were pieces built tilted for one bank angle and stood by
+hand-listed slots, which is why four levels had none: Ice Mountain falls 7 in 100 all the way, two of the Chemical
+Works' hairpins climb while banked, and no piece could follow a bend's lead-in. The dressing now has a **Bank** rule
+(`WORLD.md`, "The cut banks"; `FTDress.h`): the track reads the cutting from its own bed and lays flat-drawn panels on
+it, turned, pitched and stretched to fit, 11.3 m of road each. The track is untouched: `FTTRACK` equals
+`track_baseline.txt` on every level with the panels on and off (`ft.DressBank 0`).
+
+| Level | Panels laid | Along | What |
+|---|---|---|---|
+| Chemical Works | 589 | 5.9 km | The works' concrete facing: slabs, the teal main on its saddles, a hazard placard or leaking outlets (`SM_CutRevet`, `SM_CutRevet2`); one course of slabs on the shallow cuttings (`SM_CutKerb`, `SM_CutKerb2`). 50 lengths are left bare where the finale laps beside itself, 3 where the bank is too bent |
+| Nevada | 87 | 0.8 km | The highway cut through the red rock: seven beds that run from panel to panel, sage and fallen blocks (`SM_CutStrata`, `SM_CutStrata2`); a low ledge (`SM_CutLedge`) |
+| Volcano | 144 | 1.4 km | Basalt columns in three greys, ash on their heads (`SM_CutBasalt`, `SM_CutBasalt2`); slumped ash (`SM_CutAsh`). The finale's bends are banked 14 degrees: too little cutting shows over the barrier, so they are left alone |
+| Ice Mountain | 516 | 5.3 km | Layers of blue ice, splinters standing proud, a cornice of snow, the mountain's rock on every third panel (`SM_CutIce`, `SM_CutIce2`); a ploughed snow bank with a seam of ice (`SM_CutSnow`) |
+| Under the Sea | 412 | 4.3 km | Beds of reef rock and packed sand, crusts of coral and weed (`SM_CutReef`, `SM_CutReef2`); a low shoal (`SM_CutShoal`). Not one of the four levels asked for: its pale wall was on the list above and the rule made it three table lines |
+
+Before and after, from one build: `K:\Full Throttle\SkyScratch\HandBack\jam\dress2\banks_<level>_before_after.jpg`
+(the editor's chase camera) and `banks_play.jpg` (the real game).
+
+Still weak here:
+- Panels are flat and 11 m long: at a lap a faint tick shows where two meet, most on Ice Mountain's snow.
+- The Volcano's and the Chemical Works' are the brightest thing near the road on a dark level. They are unlit; if
+  they pull the eye, the body colour is one word in each kit (`cut_basalt`, `cut_ash`, `cut_revet`).
+- Under the Sea is now over the pass's guide of 8,000 placed pieces (8,095). Frame time is still not measured.
+- The Chemical Works' finale: the 50 bare lengths are where a panel's box came within 15 m of the other lap. The
+  test is cautious (a box round a tilted panel); a finer one would fill most of them.

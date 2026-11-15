@@ -6,6 +6,15 @@
 //   Scatter  a mesh strewn beside the road between two distances from its centre line      (the near roadside layer)
 //   Site     a SET (a group of pieces with fixed offsets, composed round a landmark) put down as one  (middle distance)
 //   Far      a big silhouette out past the land, on the horizon; it stays through loops and jumps    (the horizon)
+//   Bank     a flat panel laid ON the cutting inside a banked bend, fitted to it by the track         (the cut bank)
+// A banked bend rolls the road about its centre line, so its inner edge sinks (11.5 m at 57 degrees) and the track
+// cuts the land down to it: one straight slope from under the low barrier up to the land's inner edge, 4 to 13 m
+// long. The chase camera, rolled with the road, looks straight at it: a third of the frame. No Scatter or Site piece
+// can stand there (they stand level, at the uncut land's height). A Bank rule gives the track a panel drawn FLAT and
+// the track lays it on its own cutting, panel after panel along the bend: turned to the slope (whatever the bank's
+// angle, and through the bend's lead-in and lead-out, where it changes), pitched to the grade, stretched along to its
+// share of the bend and up the slope to the cutting's length. The cutting is the track's own mesh (the bed), so a
+// panel on it hides nothing the bed does not hide; it is tested only against OTHER parts of the road.
 // Looks only: instanced meshes without collision. AFTTrack::BuildProps places them after the level's own props (which
 // keep their places) and runs every piece through the same road-clearance test as a prop: a piece that would touch
 // its own barrier is pushed out, one that would touch any other part of the road is left out. Near pieces also keep
@@ -18,7 +27,7 @@
 struct FFTDressPart { FString Mesh; float Along = 0.f, Out = 0.f, Up = 0.f, Yaw = 0.f, Scale = 1.f; };
 struct FFTDressSet { FString Name; TArray<FFTDressPart> Parts; };
 
-enum class EFTDress : uint8 { Scatter, Site, Far };
+enum class EFTDress : uint8 { Scatter, Site, Far, Bank };
 
 struct FFTDressRule
 {
@@ -31,6 +40,10 @@ struct FFTDressRule
 	float Drop = 25.f;            // Far only: metres below the road's own level that the piece's base stands at
 	bool bFloor = false;          // Far and Site: stands on the level's floor instead (Bayshore's sea: boats, a marina)
 	bool bLight = false;          // carries one of the road's pooled lamp lights
+	// Bank only. Every and Phase count PANELS there, not slots (so two rules can take alternate panels).
+	int32 Per = 4;                // panels to a 45 m slot: 4 = 11.3 m of road each (on the tightest bend a longer one would not lie flat)
+	float RunMin = 0.f, RunMax = 1.e9f; // laid only where the panel's own run up the cutting is this long (metres): a tall design and a low one
+	float Foot = 0.6f, Top = 0.5f; // metres of the cutting left bare under the panel (behind the low barrier) and above it (under the land's edge)
 };
 
 struct FFTDressZone { FString Name; float FromKm = 0.f, ToKm = 1.e9f; TArray<FFTDressRule> Rules; };

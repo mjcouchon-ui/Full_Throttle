@@ -139,7 +139,9 @@ public:
 	void ShedPart(int32 Index);
 	void RestoreParts();
 	int32 NumPartsOn() const;
-	void SetHenchmenVisible(bool bLeft, bool bRight);
+	void SetHenchmenForLevel(int32 Level);
+	void SetHenchmenVisible(bool bLeft, bool bRight, FVector2D Age = FVector2D::ZeroVector,
+		FVector2D UntilPunch = FVector2D(2.f, 2.f));
 	void Wreck();
 	bool IsWrecked() const { return bWrecked; }
 	void SetLightsForLevel(int32 Level);

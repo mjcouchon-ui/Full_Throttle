@@ -19,6 +19,10 @@ How a piece is drawn (so the tables can place any of them the same way):
   - HORIZON pieces (placed by Far rules, 300 m to 2 km out, past the land's edge) are big: 60 to 250 m. A Far rule
     stands a piece's z = 0 some 25 m below the road's own level (its "drop"), so build it from z = 0 up and make it
     tall enough to stand over the horizon from there.
+  - CUT-BANK panels (placed by Bank rules: SM_Cut... in the Chemical Works, Nevada, Volcano and Ice Mountain kits)
+    are the one exception to "stands on z = 0, front faces -Y": they are drawn flat, as if the cutting inside a banked
+    bend were the floor, and the track turns, pitches and stretches each one onto its own cutting. ft_dress_bank.py
+    has the drawing rules and the few helpers they share.
 Every level but Bayshore gets the visual-finish pass's materials on export (palette instances of M_VisualFinish), but
 not the detail that pass adds to the levels' original props (see export); Bayshore's keep the plain palette (and its
 glass and neon sections when a piece uses ft_buildings panes).

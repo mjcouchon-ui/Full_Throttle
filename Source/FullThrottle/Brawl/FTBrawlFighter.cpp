@@ -245,6 +245,49 @@ void AFTBrawlFighter::SetTint(const FLinearColor& C)
 	if (SpriteMid) SpriteMid->SetVectorParameterValue(TEXT("Tint"), C);
 }
 
+void AFTBrawlFighter::SetEnemyPresentation(const FString& Who, FName FighterRole)
+{
+	if (!Sprite) return;
+	UMaterialInterface* Material = LoadObject<UMaterialInterface>(nullptr,
+		TEXT("/Game/Brawl/Materials/M_BrawlEnemy.M_BrawlEnemy"), nullptr, LOAD_Quiet | LOAD_NoWarn);
+	if (!Material) return;
+	bEnemySprite = true;
+
+	struct FKeyLight { const TCHAR* Name; const TCHAR* Color; };
+	static const FKeyLight BossLights[] = {
+		{ TEXT("Earl"), TEXT("ffc789") },
+		{ TEXT("Vinnie"), TEXT("ff77d1") },
+		{ TEXT("Pitboss"), TEXT("8fffc2") },
+		{ TEXT("Frankie"), TEXT("ff9146") },
+		{ TEXT("Kingpin"), TEXT("53f2ff") },
+		{ TEXT("Sven"), TEXT("a9ddff") },
+		{ TEXT("Commodore"), TEXT("ffe4a3") },
+	};
+	static const FKeyLight RoleLights[] = {
+		{ TEXT("rusher"), TEXT("ff704c") },
+		{ TEXT("grappler"), TEXT("fdb94c") },
+		{ TEXT("thrower"), TEXT("9de584") },
+		{ TEXT("heavy"), TEXT("909cff") },
+		{ TEXT("guard"), TEXT("9adfff") },
+		{ TEXT("dealer"), TEXT("ee8dff") },
+	};
+	const TCHAR* Color = TEXT("ffdfb0");
+	if (FighterRole == TEXT("boss"))
+	{
+		for (const FKeyLight& Key : BossLights)
+			if (Who == Key.Name) { Color = Key.Color; break; }
+	}
+	else
+	{
+		for (const FKeyLight& Key : RoleLights)
+			if (FighterRole == Key.Name) { Color = Key.Color; break; }
+	}
+	SpriteMid = UMaterialInstanceDynamic::Create(Material, this);
+	SpriteMid->SetVectorParameterValue(TEXT("EnemyKey"), FLinearColor(FColor::FromHex(Color)));
+	Sprite->SetMaterial(0, SpriteMid);
+	CurFrame = nullptr;
+}
+
 UTexture* AFTBrawlFighter::Frame(std::initializer_list<const TCHAR*> Names) const
 {
 	for (const TCHAR* N : Names) if (const TObjectPtr<UTexture>* T = Frames.Find(FName(N))) return *T;
@@ -309,6 +352,33 @@ void AFTBrawlFighter::PoseSprite(FName St, float T, float Walk, int32 Combo, flo
 	else if (S == TEXT("cheer")) Tx = Frame({ TEXT("win"), TEXT("taunt"), TEXT("idle") });
 	else if (const TObjectPtr<UTexture>* Named = Frames.Find(St)) Tx = *Named;   // cutscenes: any frame by its name (taunt, give, smoke...)
 	else { Tx = Frame({ TEXT("idle") }); Squash = 1.f + FMath::Sin(T * 5.f) * 0.012f; }   // idle: a breath
+	if (bEnemySprite)
+	{
+		const float Snap = FMath::Exp(-T * 15.f);
+		float Rim = 0.82f;
+		if (S == TEXT("wind") || S == TEXT("slamwind") || S == TEXT("windup") || S == TEXT("whirltell") || S == TEXT("gloves"))
+		{
+			const float Brace = 1.f - FMath::Exp(-T * 13.f);
+			Lean += 6.f * Brace;
+			Squash *= 1.f - 0.045f * Brace;
+			Rim += 0.35f * Brace;
+		}
+		else if (S == TEXT("charge") || S == TEXT("lunge") || S == TEXT("swing") || S == TEXT("slam") || S == TEXT("sweep"))
+		{
+			Lean -= 6.f * Snap;
+			Squash *= 1.f + 0.035f * Snap;
+		}
+		else if (S == TEXT("hurt") || S == TEXT("down"))
+		{
+			Lean += (S == TEXT("hurt") ? 7.f : 3.f) * Snap;
+			Squash *= 1.f - 0.055f * Snap;
+		}
+		if (!FMath::IsNearlyEqual(Rim, EnemyRim, 0.005f))
+		{
+			SpriteMid->SetScalarParameterValue(TEXT("EnemyRim"), Rim);
+			EnemyRim = Rim;
+		}
+	}
 	if (Tx && Tx != CurFrame) { SpriteMid->SetTextureParameterValue(TEXT("Tex"), Tx); CurFrame = Tx; }
 	SpriteMid->SetScalarParameterValue(TEXT("Flash"), FMath::Clamp(Flash, 0.f, 1.f) * 1.6f);
 	// knocked flying: the hurt frame tips back about the feet; a hit shudders the body

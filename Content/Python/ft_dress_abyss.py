@@ -622,7 +622,52 @@ def life():
     A(D + 'SM_SubPad', 'Light', [CYAN + '*'], **dict(ft_life.PULSE, LightRate=0.4, LightMin=0.35))
 
 
+# ------------------------------------------------------------------------------------------ the cut banks (3.4)
+# Inside a banked bend the track cuts the seabed down to the road's low edge, and that cutting was one pale wall of
+# sand a third of the frame high ("the big pale wall at 20 s"). A Bank rule has the track lay these on it
+# (ft_dress_bank.py has the drawing rules: flat, x along the road, y up the slope, z out of the bank). The road is cut
+# through the reef's own rock: beds of the mauve reef rock and of packed sand, one over another, each its own ledge,
+# coral and weed grown on the ledges of every other panel. Unlit and still: nothing here can read as a pickup.
+import ft_dress_bank as B   # noqa: E402
+
+# a deep cut's beds, foot to top: from y, to y, colour, how far the bed stands out
+REEF_BEDS = ((-450.0, -290.0, ROCK, 20.0), (-290.0, -120.0, SAND_D, 10.0), (-120.0, 40.0, ROCK_L, 16.0), (40.0, 200.0, ROCK, 8.0),
+             (200.0, 340.0, SAND_D, 14.0), (340.0, 450.0, SAND, 22.0))
+
+
+def cut_reef(m, seed=0, growth=False):
+    """A deep cut through the reef (11 x 9 m as drawn): six beds, the dark rock in the seams between them;
+    growth=True: coral in three colours and weed on the ledges."""
+    r = random.Random(seed + 600)
+    B.body(m, ROCK_D, B.TALL)
+    last = len(REEF_BEDS) - 1
+    for k, (y0, y1, col, z) in enumerate(REEF_BEDS):
+        B.band(m, col, y0 if k == 0 else y0 + 6.0, y1 if k == last else y1 + 14.0, z,
+               wob=(0.0 if k == 0 else 22.0, 0.0 if k == last else 22.0), n=5, seed=seed * 16 + k)
+    if growth:
+        # Crusts of coral lying on two ledges and weed on a third: flat patches in the reef's own pink and lavender.
+        # (The first try had single bright heads in four colours, a metre across: beside the road they read as
+        # gems to pick up, and this level's verge may carry nothing that does.)
+        for x, y, col in ((-300.0, -276.0, CORAL), (150.0, 52.0, LAV)):
+            for k in range(3):
+                q = r.uniform(58.0, 84.0)
+                B.shape(m, col, [(x + k * 96.0 + math.cos(a) * q * r.uniform(0.8, 1.15), y + math.sin(a) * q * 0.5) for a in [6.2832 * i / 7.0 for i in range(7)]],
+                        10.0 + 6.0 * (k % 2), B.FACE + 8.0)
+        for k in range(3):
+            B.shape(m, KELP if k % 2 else KELP_D, [(-240.0 + k * 70.0 - 28.0, -108.0), (-240.0 + k * 70.0 + 28.0, -108.0), (-240.0 + k * 70.0 + r.uniform(-14.0, 14.0), -108.0 + r.uniform(90.0, 140.0))],
+                    6.0, B.FACE + 16.0)
+
+
+def cut_shoal(m, seed=0):
+    """A shallow cut (11 x 4 m as drawn): the reef rock at its foot, packed sand, a pale cap."""
+    B.body(m, ROCK_D, B.LOW)
+    B.band(m, ROCK, -200.0, -70.0, 20.0, wob=(0.0, 18.0), seed=seed * 16 + 1)
+    B.band(m, SAND_D, -82.0, 88.0, 10.0, wob=18.0, seed=seed * 16 + 2)
+    B.band(m, SAND, 78.0, 200.0, 18.0, wob=(16.0, 0.0), seed=seed * 16 + 3)
+
+
 JOBS = [
+    ('SM_CutReef', cut_reef), ('SM_CutReef2', lambda m: cut_reef(m, seed=4, growth=True)), ('SM_CutShoal', cut_shoal),
     ('SM_ReefLow', reef_low), ('SM_ReefLow2', lambda m: reef_low(m, seed=12)), ('SM_Anemones', anemones), ('SM_Pipeline', pipeline),
     ('SM_MarkerPost', marker_post), ('SM_Crates', crates),
     ('SM_KelpForest', kelp_forest), ('SM_KelpForest2', lambda m: kelp_forest(m, seed=14, n=20, h=2600, w=2000, d=1200)),

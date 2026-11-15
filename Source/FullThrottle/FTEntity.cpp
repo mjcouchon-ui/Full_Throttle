@@ -49,7 +49,7 @@ namespace
 	const FVector TeslaTop(440.f - 625.f, 0.f, 880.f);
 	const FVector ClownProps[4] = { FVector(150.f - 625.f, -400.f, 620.f), FVector(150.f - 625.f, 400.f, 620.f), FVector(1090.f - 625.f, -400.f, 620.f), FVector(1090.f - 625.f, 400.f, 620.f) };
 	constexpr int32 NumClownProps = 4;
-	const FVector HenchHand(0.f, 0.f, 236.f);   // the henchman's raised hand on the rope
+	const FVector RappelGrip(0.f, 0.f, 203.f);   // the raised glove in ft_swat_overhaul.py
 
 	UStaticMeshComponent* MakeBit(AActor* Owner, USceneComponent* Parent)
 	{
@@ -259,6 +259,7 @@ AFTEntityActor::AFTEntityActor()
 void AFTEntityActor::Setup(EFTKind InKind, int32 InVariant, int32 Level)
 {
 	Kind = InKind; Variant = InVariant; Lvl = Level; AnimT = 0.f;
+	BikeHit = 0.f;
 	// 3.3 bug fix: SetGlow/SetTracer leave dynamic material instances on the slots; a pooled actor reused for another
 	// kind kept them, so a car could come back wearing the last one's paint. Any override goes on reuse.
 	if (bTracerColoured || Mesh->GetNumOverrideMaterials() > 0 || Kind == EFTKind::Crate || Kind == EFTKind::Wrench) { Mesh->EmptyOverrideMaterials(); bTracerColoured = false; }
@@ -344,12 +345,15 @@ void AFTEntityActor::Setup(EFTKind InKind, int32 InVariant, int32 Level)
 	}
 	else if (Kind == EFTKind::Henchman)
 	{
-		// the rope: from his raised hand up to the chopper's door (SetRope places it each frame)
+		// SetRope shows the cable only when both endpoints are present.
 		Extra->SetStaticMesh(Kept(TEXT("/Engine/BasicShapes/Cylinder.Cylinder")));
-		Extra->SetRelativeLocation(HenchHand + FVector(0, 0, 700.f));
-		Extra->SetRelativeScale3D(FVector(0.04f, 0.04f, 14.f));
-		Extra->SetVisibility(true);
-		if (UMaterialInterface* RopeM = Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, TEXT("/Game/Core/Palette/MI_1c1a26_g0_m10_r50"), nullptr, LOAD_NoWarn | LOAD_Quiet))) Extra->SetMaterial(0, RopeM);
+		Extra->SetUsingAbsoluteLocation(true);
+		Extra->SetUsingAbsoluteRotation(true);
+		Extra->SetUsingAbsoluteScale(true);
+		if (UMaterialInterface* RopeMaterial = Load<UMaterialInterface>(TEXT("/Game/Core/VisualFinish/MI_e8dcb0_g0_m0_r60")))
+		{
+			Extra->SetMaterial(0, RopeMaterial);
+		}
 	}
 	else if (Kind == EFTKind::Missile)
 	{
@@ -567,18 +571,29 @@ FVector AFTEntityActor::RopeAnchor(int32 Side) const
 	return Mesh->GetComponentTransform().TransformPosition(HeliRope[Side ? 1 : 0]);
 }
 
-void AFTEntityActor::SetRope(const FVector& WorldTop)
+void AFTEntityActor::SetRope(const FVector& WorldTop, float Progress, int32 Side)
 {
-	if (Kind != EFTKind::Henchman || !Extra) return;
-	const FVector Hand = GetActorTransform().TransformPosition(HenchHand);
-	const FVector Dv = WorldTop - Hand;
-	const float L = Dv.Size();
-	if (L < 10.f) { Extra->SetVisibility(false); return; }
-	Extra->SetUsingAbsoluteLocation(true); Extra->SetUsingAbsoluteRotation(true); Extra->SetUsingAbsoluteScale(true);
-	// the engine cylinder is 100 cm tall about its centre, along Z
-	Extra->SetWorldLocationAndRotation(Hand + Dv * 0.5f, FRotationMatrix::MakeFromZ(Dv / L).Rotator());
-	Extra->SetWorldScale3D(FVector(0.045f, 0.045f, L / 100.f));
+	const FVector Anchor = GetActorTransform().TransformPosition(RappelGrip);
+	const FVector Cable = WorldTop - Anchor;
+	const float Length = Cable.Size();
+	if (Length < 8.f) { Extra->SetVisibility(false); return; }
+
+	const float Sway = FMath::Sin(PI * Progress);
+	const float Brace = FMath::SmoothStep(0.72f, 1.f, Progress);
+	const float Outside = Side == 0 ? -1.f : 1.f;
+	const FQuat Pose = FRotator(5.f * Sway * FMath::Sin(AnimT * 7.f) - 9.f * Brace,
+		Outside * (14.f * Brace + 5.f * Sway), Outside * (6.f * Brace + 8.f * Sway * FMath::Sin(AnimT * 5.f))).Quaternion();
+	const FVector Scale(1.f, 1.f, 1.f - 0.075f * Brace);
+	// Rotate and compress around the rope joint so the hands and cable never separate.
+	Mesh->SetRelativeTransform(FTransform(Pose, RappelGrip - Pose.RotateVector(Scale * RappelGrip), Scale));
+	Extra->SetWorldLocationAndRotation(Anchor + Cable * 0.5f, FRotationMatrix::MakeFromZ(Cable / Length).Rotator());
+	Extra->SetWorldScale3D(FVector(0.06f, 0.06f, Length / 100.f));
 	Extra->SetVisibility(true);
+}
+
+void AFTEntityActor::KickBike()
+{
+	if (Kind == EFTKind::Moto || Kind == EFTKind::Hog) BikeHit = 1.f;
 }
 
 void AFTEntityActor::SetTesla(float InCharge, const TArray<FVector>& ArcTo)
@@ -615,7 +630,7 @@ void AFTEntityActor::SetTesla(float InCharge, const TArray<FVector>& ArcTo)
 	}
 }
 
-void AFTEntityActor::Animate(float Dt, float Speed, float Vx)
+void AFTEntityActor::Animate(float Dt, float Speed, float Vx, float BikeWindup)
 {
 	if (Kind == EFTKind::Heli && Extra) Extra->AddLocalRotation(FRotator(0.f, 1900.f * Dt, 0.f));
 	if (Kind == EFTKind::Heli && Bits.Num() > 0 && Bits[0] && Bits[0]->IsVisible()) Bits[0]->AddLocalRotation(FRotator(2600.f * Dt, 0.f, 0.f));
@@ -623,6 +638,23 @@ void AFTEntityActor::Animate(float Dt, float Speed, float Vx)
 	if (Kind == EFTKind::Boss && Lvl == 4) for (int32 p = 1; p <= NumClownProps && p < Bits.Num(); ++p) if (Bits[p]) Bits[p]->AddLocalRotation(FRotator(0.f, (p % 2 ? 1.f : -1.f) * 2200.f * Dt, 0.f));
 	if (Kind == EFTKind::Boss && Lvl == 1 && Bits.Num() > 0 && Bits[0]) Bits[0]->AddLocalRotation(FRotator(0.f, (25.f + 400.f * TeslaCharge) * Dt, 0.f));
 	AnimT += Dt;
+	if (Kind == EFTKind::Moto || Kind == EFTKind::Hog)
+	{
+		if (!bSusInit) { PrevSp = Speed; bSusInit = true; }
+		const float SpeedChange = FMath::Clamp((Speed - PrevSp) / FMath::Max(Dt, 0.001f), -4000.f, 4000.f);
+		PrevSp = Speed;
+		AccLong = FMath::FInterpTo(AccLong, SpeedChange, Dt, 8.f);
+		BumpPhase += Dt * FMath::Clamp(FMath::Abs(Speed) / 500.f, 0.f, 13.f);
+		const float Recoil = BikeHit * FMath::Sin(BikeHit * PI * 1.5f);
+		BikeHit = FMath::Max(0.f, BikeHit - 3.5f * Dt);
+		const float Pitch = FMath::Clamp(AccLong * 0.00035f + 0.35f * FMath::Sin(BumpPhase)
+			- 1.8f * BikeWindup + 1.7f * Recoil, -2.5f, 2.5f);
+		const float Bob = 1.f + FMath::Sin(BumpPhase * 1.6f);
+		const float AxleSpan = Kind == EFTKind::Hog ? 202.f : 170.f;
+		const float WheelClearance = AxleSpan * FMath::Abs(FMath::Sin(FMath::DegreesToRadians(Pitch)));
+		Mesh->SetRelativeLocationAndRotation(FVector(0.f, 0.f, Bob + WheelClearance),
+			FRotator(Pitch, 2.4f * Recoil, 0.f));
+	}
 	// 3.3 the wheels roll on the road and the body rides its springs over them (roll out of a turn, squat and dive,
 	// a little road bounce): the owner's "the cars are so stiff, like they don't really attach to the road"
 	if (WheelSpec.Num() && !bGhostCar)

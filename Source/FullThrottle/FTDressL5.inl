@@ -617,3 +617,20 @@ Zone(TEXT("The last lifts, the verge (3)"), 24.07f, 99.f);
 	Scatter(TEXT("SM_SnowCannon"), 20, 21.5f, 3, 2, 0.7f, 1.f, 0.f, 0, 15.f);
 	Scatter(TEXT("SM_PoleMarker"), 18, 19.5f, 2, 1, 0.8f, 1.f, 0.f, 0, 0.f);
 	Site(TEXT("PipeSide"), 0, 33, 9, 2, 0.9f, 1.f, 0.f);
+
+// ---- THE CUT BANKS (15 Nov 2026, after the second pass). Inside a banked bend the track cuts the land down to the
+// road's low edge; that cutting was the land's one plain colour, a third of the frame from the rolled camera, and no
+// Scatter or Site piece can stand on it. Bank rules (FTDress.h) have the track lay panels on it itself, fitted to the
+// bank's own angle and grade: four to a 45 m slot (11.3 m of road each), tall designs where a panel's run up the
+// cutting is 5.5 m or more (bends banked 32 degrees and up), a low one on the shallower cuttings (down to 2.4 m: about
+// 20 degrees of bank). Every and phase count panels here. ft.DressBank 0 leaves them out, for a before and an after.
+// Ice Mountain: the road cut through the glacier. SM_CutIce (layers of blue ice, splinters standing proud, a cornice
+// of snow) on two panels in three of the deep cuttings (2.7 to 3.0, 4.5 to 4.8, 7.5 to 8.0 km and the bends of the
+// top), SM_CutIce2 (the mountain's own rock in place of the splinters) on the third. SM_CutSnow (a ploughed bank, a
+// seam of ice at its foot) on the shallow ones: most of this level's bends, and all of the finale's. The road falls
+// 7 in 100 all the way: the track pitches each panel.
+Zone(TEXT("Cut banks"), 0.f, 99.f);
+	Bank(TEXT("SM_CutIce"), 4, 3, 0, 1.f, 5.5f);
+	Bank(TEXT("SM_CutIce"), 4, 3, 1, 1.f, 5.5f);
+	Bank(TEXT("SM_CutIce2"), 4, 3, 2, 1.f, 5.5f);
+	Bank(TEXT("SM_CutSnow"), 4, 1, 0, 1.f, 2.4f, 5.5f);

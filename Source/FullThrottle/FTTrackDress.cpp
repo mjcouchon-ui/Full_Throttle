@@ -18,6 +18,17 @@
 //   SiteAfloat(TEXT("SetName"), side, x m, every, phase, chance [, scale]);
 //       The same, standing on the level's floor instead (Bayshore: the sea's surface. Boats, a marina, islands).
 //   Lit();   the rule just written carries a lamp light (a kiosk, a hut, a sign)
+//   Bank(TEXT("SM_Piece"), per slot, every, phase, chance [, run min m, run max m, foot m, top m]);
+//       Panels on the cut bank inside every banked bend of the district (FTDress.h). "per slot" panels to a 45 m
+//       slot; every/phase count PANELS here. The panel is laid where its run up the cutting, after "foot" and "top"
+//       metres are left bare, is between "run min" and "run max": a tall design for the deep cuttings of the wall
+//       bends (banked 32 degrees and more: 5.5 m and up) and a low one for the rest. Under a gentle bank the bed's
+//       foot is hidden behind the low barrier: the run is counted from 30 cm under the barrier's top, so a bend
+//       banked under about 19 degrees shows too little cutting (under 2.4 m) and is left alone. Draw the piece FLAT, as if the
+//       bank were the floor: x along the road, y up the slope (the road is on the -y side), z out of the bank with
+//       z = 0 the bank's own surface. Give it a body from z = -40 to about +14 (the track fits a flat panel to a
+//       curved bank to within 12 cm) and keep what stands on the body under 30 cm. It is stretched in x and y to fit,
+//       so draw bands and blocks, not circles. No lights and no arrows: it lies 9 to 16 m from the centre line.
 //
 // Scatter and Site pieces stand ON the land at their distance (it rises and falls with the level's ground profile),
 // so keep them inside the land: nearer than 295 m (Bayshore's town side: 630 m). Use Far beyond that.
@@ -87,7 +98,13 @@ void FTDress::Build(int32 Level, FFTDress& Out)
 		Q.Kind = EFTDress::Site; Q.Mesh = SetName; Q.XMin = Q.XMax = X; Q.Side = Side; Q.Every = Every; Q.Phase = Phase; Q.Chance = Chance; Q.Scale = Scale; Q.bFloor = true;
 	};
 	auto Lit = [&Out]() { if (Out.Zones.Num() && Out.Zones.Last().Rules.Num()) Out.Zones.Last().Rules.Last().bLight = true; };
-	(void)Set; (void)Zone; (void)Scatter; (void)Site; (void)Far; (void)Afloat; (void)SiteAfloat; (void)Lit;
+	auto Bank = [&Rule, &Path](const TCHAR* Mesh, int32 Per, int32 Every, int32 Phase, float Chance, float RunMin = 0.f, float RunMax = 1.e9f, float Foot = 0.6f, float Top = 0.5f)
+	{
+		FFTDressRule& Q = Rule();
+		Q.Kind = EFTDress::Bank; Q.Mesh = Path(Mesh); Q.Per = Per; Q.Every = Every; Q.Phase = Phase; Q.Chance = Chance;
+		Q.RunMin = RunMin; Q.RunMax = RunMax; Q.Foot = Foot; Q.Top = Top;
+	};
+	(void)Set; (void)Zone; (void)Scatter; (void)Site; (void)Far; (void)Afloat; (void)SiteAfloat; (void)Lit; (void)Bank;
 
 	switch (Level)
 	{

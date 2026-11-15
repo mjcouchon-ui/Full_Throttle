@@ -508,3 +508,20 @@ Zone(TEXT("Yards: tank farm B"), 17.4f, 21.4f);
 Zone(TEXT("Yards: reactor two"), 21.4f, 22.15f);
 	Far(TEXT("SM_Canal"), 32.5f, 33.f, 4, 0, 0.8f, 1.f, 0.03f, 0, 0.95f, 3.f);
 	Far(TEXT("SM_YardLot2"), 37.5f, 38.f, 4, 2, 0.8f, 1.f, 0.03f, 0, 0.98f, 5.f);
+
+// ---- THE CUT BANKS (15 Nov 2026, after the second pass). Inside a banked bend the track cuts the land down to the
+// road's low edge; that cutting was the land's one plain colour, a third of the frame from the rolled camera, and no
+// Scatter or Site piece can stand on it. Bank rules (FTDress.h) have the track lay panels on it itself, fitted to the
+// bank's own angle and grade: four to a 45 m slot (11.3 m of road each), tall designs where a panel's run up the
+// cutting is 5.5 m or more (bends banked 32 degrees and up), a low one on the shallower cuttings (down to 2.4 m: about
+// 20 degrees of bank). Every and phase count panels here. ft.DressBank 0 leaves them out, for a before and an after.
+// Chemical Works: the works' concrete facing. SM_CutRevet (slabs, the teal main, a hazard placard) and SM_CutRevet2
+// (two leaking outlets) take alternate panels of the deep cuttings: the two climbing hairpins (2.6 and 3.6 km), the
+// wall turn at 7.9 km, the S-bends at 5.0 km and the finale's eight bends. SM_CutKerb on the shallow ones, every
+// third panel the stained one (SM_CutKerb2).
+Zone(TEXT("Cut banks"), 0.f, 99.f);
+	Bank(TEXT("SM_CutRevet"), 4, 2, 0, 1.f, 5.5f);
+	Bank(TEXT("SM_CutRevet2"), 4, 2, 1, 1.f, 5.5f);
+	Bank(TEXT("SM_CutKerb"), 4, 3, 0, 1.f, 2.4f, 5.5f);
+	Bank(TEXT("SM_CutKerb"), 4, 3, 1, 1.f, 2.4f, 5.5f);
+	Bank(TEXT("SM_CutKerb2"), 4, 3, 2, 1.f, 2.4f, 5.5f);

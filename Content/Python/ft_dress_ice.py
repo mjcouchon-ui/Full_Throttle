@@ -926,7 +926,50 @@ def animate():
     return n
 
 
+# ------------------------------------------------------------------------------------------ the cut banks (3.4)
+# Inside a banked bend the track cuts the land down to the road's low edge, and that cutting was a plain white wall a
+# third of the frame high. A Bank rule has the track lay these on it (ft_dress_bank.py has the drawing rules: flat, x
+# along the road, y up the slope, z out of the bank), pitched to the hill by the track itself: these need no
+# left-hand twins. The road is cut through the glacier: layers of blue ice, the deepest blue at the foot, splinters
+# standing proud of them, a cornice of snow along the land's edge, and on some panels the mountain's own rock. Unlit.
+import ft_dress_bank as B   # noqa: E402
+
+
+# a deep cutting's layers of ice, foot to top: from y, to y, colour, how far the layer stands out. Along the road, so
+# they run from panel to panel round the bend (standing slabs, the first try, read as a striped hoarding)
+ICE_BEDS = ((-450.0, -250.0, ICE_DEEP, 18.0), (-250.0, -40.0, ICE, 8.0), (-40.0, 150.0, SNOW_SH, 14.0), (150.0, 330.0, ICE, 6.0))
+
+
+def cut_ice(m, seed=0, rock=False):
+    """A deep cutting in the glacier (11 x 9 m as drawn): layers of blue ice, deepest at the foot, two big splinters
+    standing proud across them, the cornice of snow along the land's edge; rock=True: the mountain's own rock shows
+    through in one grey outcrop with snow on its shoulder, in place of the splinters."""
+    r = random.Random(seed + 500)
+    B.body(m, ICE_D, B.TALL)
+    for k, (y0, y1, col, z) in enumerate(ICE_BEDS):
+        B.band(m, col, y0 if k == 0 else y0 + 6.0, y1 + 14.0, z, wob=(0.0 if k == 0 else 20.0, 20.0), n=5, seed=seed * 16 + k)
+    B.band(m, SNOW, 318.0, 450.0, 30.0, wob=(40.0, 0.0), n=6, seed=seed + 11)
+    if rock:
+        x = r.uniform(-160.0, 60.0)
+        B.shape(m, CUT_D, [(x - 250.0, -440.0), (x + 190.0, -440.0), (x + 260.0, -150.0), (x + 90.0, 60.0), (x - 110.0, -30.0), (x - 290.0, -230.0)], 24.0)
+        B.shape(m, CUT, [(x - 150.0, -440.0), (x + 90.0, -440.0), (x + 150.0, -190.0), (x + 20.0, -70.0), (x - 120.0, -200.0)], 30.0)
+        B.band(m, SNOW, -40.0, 30.0, 32.0, wob=(0.0, 12.0), n=3, seed=seed + 13, x0=x - 120.0, x1=x + 110.0)
+    else:
+        x = r.uniform(-420.0, -300.0)
+        B.shape(m, SNOW_SH, [(x, -430.0), (x + 200.0, -430.0), (x + 330.0, 110.0), (x + 250.0, 190.0)], 26.0)
+        x = r.uniform(60.0, 160.0)
+        B.shape(m, ICE_DEEP, [(x, -150.0), (x + 280.0, -210.0), (x + 150.0, 250.0)], 22.0)
+
+
+def cut_snow(m, seed=0):
+    """A shallow cutting (11 x 4 m as drawn): a ploughed bank of snow, a seam of blue ice along its shadowed foot."""
+    B.body(m, SNOW_SH, B.LOW)
+    B.band(m, ICE, -200.0, -116.0, 10.0, wob=(0.0, 14.0), n=5, seed=seed + 1)
+    B.band(m, SNOW, -64.0, 200.0, 20.0, wob=(30.0, 0.0), n=6, seed=seed + 3)
+
+
 JOBS = [
+    ('SM_CutIce', cut_ice), ('SM_CutIce2', lambda m: cut_ice(m, seed=2, rock=True)), ('SM_CutSnow', cut_snow),
     ('SM_SnowRink', ice_rink), ('SM_SnowLot', car_park), ('SM_SnowPark', terrain_park), ('SM_SnowRoad', access_road), ('SM_SnowTarn', tarn),
     ('SM_SnowRinkL', lambda m: ice_rink(m, -1)), ('SM_SnowLotL', lambda m: car_park(m, -1)), ('SM_SnowParkL', lambda m: terrain_park(m, -1)),
     ('SM_SnowFenceL', lambda m: snow_fence(m, -1)),

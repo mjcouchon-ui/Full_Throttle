@@ -144,16 +144,5 @@ def ramp(m):
 
 
 def moto(m):
-    """A Syndicate biker: a chopper-ish sport bike, a rider in a red jacket and a black helmet."""
-    m.cyl(TYRE, (40, -9, 34), 34, 18, rot=(0, 0, 90), steps=16)
-    m.cyl(TYRE, (190, -8, 32), 32, 16, rot=(0, 0, 90), steps=16)
-    m.side('#3a3e4c', [(30, 50), (200, 60), (210, 90), (120, 110), (40, 96)], -18, 18)
-    m.side(PINK, [(60, 92), (150, 104), (150, 108), (60, 98)], -19, 19, glow=0.3)
-    m.box('#ff3355', (20, 0, 92), (4, 20, 10), glow=1.0)
-    m.cyl(CHROME, (40, 22, 50), 6, 70, rot=(90, 0, 0), steps=10)
-    m.side('#d0213a', [(70, 110), (130, 110), (150, 190), (100, 196)], -26, 26)
-    m.sphere(BLACK, (128, 0, 214), 24, scale=(1.1, 1, 1))
-    m.box(CYAN, (148, 0, 214), (8, 34, 10), glow=0.4)
-    for s in (-1, 1):
-        m.box('#d0213a', (150, s * 30, 160), (60, 12, 14), rot=(-30, 0, 0))
-        m.box(BLACK, (88, s * 22, 84), (50, 12, 40), rot=(20, 0, 0))
+    from ft_bikes import moto as build_moto
+    build_moto(m)

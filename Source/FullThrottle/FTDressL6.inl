@@ -330,3 +330,17 @@ PipeSite(519, 523, TEXT("SM_Submarine"), TEXT("SM_DomeHabitat"), TEXT("SM_WatchT
 PipeSite(540, 544, TEXT("SM_CoralGarden2"), TEXT("SM_ReefShelf"), TEXT("SM_ReefArch"), TEXT("SM_Jellyfish2"));
 SetPiece(62, 65); SetPiece(71, 76); SetPiece(128, 131); SetPiece(148, 154);
 JumpSite(57, 57); JumpSite(122, 123);
+
+// ---- THE CUT BANKS (15 Nov 2026, after the second pass). Inside a banked bend the track cuts the seabed down to the
+// road's low edge; that cutting was one pale wall of sand, a third of the frame from the rolled camera ("the big pale
+// wall at 20 s"), and no Scatter or Site piece can stand on it. Bank rules (FTDress.h) have the track lay panels on it
+// itself, fitted to the bank's own angle and grade: four to a 45 m slot (11.3 m of road each), tall designs where a
+// panel's run up the cutting is 5.5 m or more (bends banked 32 degrees and up), a low one on the shallower cuttings
+// (down to 2.4 m: about 20 degrees of bank). Every and phase count panels here. ft.DressBank 0 leaves them out.
+// Under the Sea: the road cut through the reef. SM_CutReef and SM_CutReef2 (the same six beds of reef rock and
+// packed sand, so they meet from panel to panel; the second has coral and weed on its ledges) take alternate panels
+// of the deep cuttings; SM_CutShoal on the shallow ones. The glass tunnels have no cutting: nothing is laid there.
+Zone(TEXT("Cut banks"), 0.f, 99.f);
+	Bank(TEXT("SM_CutReef"), 4, 2, 0, 1.f, 5.5f);
+	Bank(TEXT("SM_CutReef2"), 4, 2, 1, 1.f, 5.5f);
+	Bank(TEXT("SM_CutShoal"), 4, 1, 0, 1.f, 2.4f, 5.5f);

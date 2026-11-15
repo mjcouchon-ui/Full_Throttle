@@ -2,7 +2,7 @@
 colour, hazard stripes, a few glowing lights). Units cm, X forward, Y right, Z up.
 
     THE CHOPPER        Choppers/SM_Heli (+ Themed/L1..L7/SM_Heli), SM_HeliRotor, SM_HeliTailRotor
-    SWAT TEAM          Syndicate/SM_Henchman (rappelling, + Themed/L1..L7), Syndicate/SM_HenchmanHang (on a car door)
+    SWAT TEAM          SM_Henchman (rappelling) and SM_HenchmanHang (on a car door) in Syndicate and Themed/L1..L7
     SPLIT WHEELS       every car exported with ft_car.wheel re-exported body-only, its wheels in Content/Data/wheels.json;
                        Wheels/SM_FoeWheel, SM_FoeWheelChrome, SM_FoeStrut
     TESLA TRUCK        Bosses/SM_Tanker (level 2 boss), SM_TeslaTop (toroid, spins and pulses), SM_TeslaArc (lightning)
@@ -165,6 +165,8 @@ def tint_mi(key):
 
 def save(m, path, offset=(0, 0, 0), collision=None, kind='car'):
     """save_mesh with the '@' keys split off as translucent sections."""
+    from ft_enemy_vehicles import decorate
+    decorate(m, path)
     meshes = dict((k, v) for k, v in m.meshes.items() if not k[0].startswith('@'))
     extra = [(v, tint_mi(k[0]), 'Glass_' + k[0].lstrip('@')) for k, v in m.meshes.items() if k[0].startswith('@')]
     for v, _, _ in extra:
@@ -564,19 +566,8 @@ def swat_hang(m, K):
 
 
 def export_swat(levels=(0, 1, 2, 3, 4, 5, 6, 7)):
-    out = []
-    for L in levels:
-        mm = ft_art.Model('swat')
-        swat_rappel(mm, swat_kit(L))
-        p = '/Game/Characters/Syndicate/SM_Henchman' if not L else '/Game/Characters/Themed/L%d/SM_Henchman' % L
-        save(mm, p, collision='box', kind='prop')                 # matte cloth, not car paint
-        out.append(p)
-    if 0 in levels:
-        mm = ft_art.Model('swat_hang')
-        swat_hang(mm, swat_kit(0))
-        save(mm, '/Game/Characters/Syndicate/SM_HenchmanHang', collision='box', kind='prop')
-        out.append('/Game/Characters/Syndicate/SM_HenchmanHang')
-    return out
+    from ft_swat_overhaul import export
+    return export(levels)
 
 
 # =============================================================================================== WHEELS

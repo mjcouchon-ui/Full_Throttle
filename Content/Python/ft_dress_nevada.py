@@ -967,7 +967,47 @@ def life():
     return n
 
 
+# ------------------------------------------------------------------------------------------ the cut banks (3.4)
+# Inside a banked bend the track cuts the land down to the road's low edge, and that cutting was one plain orange
+# slope a third of the frame high. A Bank rule has the track lay these on it (ft_dress_bank.py has the drawing rules:
+# flat, x along the road, y up the slope, z out of the bank). Here the highway is cut through the red rock: beds of
+# sandstone one over another, each its own ledge, scree at the foot, a pale cap under the land's edge. The beds meet
+# from panel to panel, so a bend reads as one cut. Unlit.
+import ft_dress_bank as B   # noqa: E402
+
+# a deep cut's beds, foot to top: from y, to y, colour, how far the bed stands out
+CUT_BEDS = ((-450.0, -330.0, TALUS, 24.0), (-330.0, -190.0, SANDST, 10.0), (-190.0, -70.0, ROCK_R, 18.0), (-70.0, 90.0, SANDST_L, 8.0),
+            (90.0, 230.0, SANDST, 16.0), (230.0, 350.0, ROCK_R, 10.0), (350.0, 450.0, SAND, 22.0))
+
+
+def cut_strata(m, seed=0, growth=False):
+    """A deep road cut through the red rock (11 x 9 m as drawn): seven beds, the dark rock showing in the seams
+    between them; growth=True: sage on two ledges and blocks fallen into the scree."""
+    r = random.Random(seed + 300)
+    B.body(m, SANDST_D, B.TALL)
+    last = len(CUT_BEDS) - 1
+    for k, (y0, y1, col, z) in enumerate(CUT_BEDS):
+        B.band(m, col, y0 if k == 0 else y0 + 6.0, y1 if k == last else y1 + 14.0, z,
+               wob=(0.0 if k == 0 else 22.0, 0.0 if k == last else 22.0), n=5, seed=seed * 16 + k)
+    if growth:
+        for x, y in ((-300.0, -58.0), (210.0, 102.0)):
+            m.sphere(SAGE, (x, y, B.FACE + 12.0), 46.0, scale=(1.3, 0.8, 0.4), steps=(4, 6))
+            m.sphere(SAGE_D, (x + 62.0, y - 6.0, B.FACE + 12.0), 36.0, scale=(1.2, 0.8, 0.45), steps=(4, 6))
+        for x, y, q in ((-90.0, -384.0, 66.0), (330.0, -398.0, 50.0)):
+            m.sphere(SANDST_D, (x, y, B.FACE + 10.0), q, scale=(1.2, 0.9, 0.3), steps=(3, 6), rot=(0, r.uniform(-25, 25), 0))
+
+
+def cut_ledge(m, seed=0):
+    """A shallow road cut (11 x 4 m as drawn): scree, one bed of sandstone, the pale cap, a fallen block."""
+    B.body(m, SANDST_D, B.LOW)
+    B.band(m, TALUS, -200.0, -72.0, 22.0, wob=(0.0, 18.0), seed=seed * 16 + 1)
+    B.band(m, SANDST, -84.0, 86.0, 10.0, wob=18.0, seed=seed * 16 + 2)
+    B.band(m, SAND, 76.0, 200.0, 20.0, wob=(16.0, 0.0), seed=seed * 16 + 3)
+    m.sphere(SANDST_D, (-260.0, -140.0, B.FACE + 10.0), 54.0, scale=(1.3, 0.9, 0.35), steps=(3, 6))
+
+
 JOBS = [
+    ('SM_CutStrata', cut_strata), ('SM_CutStrata2', lambda m: cut_strata(m, seed=5, growth=True)), ('SM_CutLedge', cut_ledge),
     ('SM_WireFence', buried(wire_fence)), ('SM_WireLine', buried(wire_line)), ('SM_Sagebrush', buried(sagebrush)),
     ('SM_Sagebrush2', buried(lambda m: sagebrush(m, 9))), ('SM_JunkPile', buried(junk_pile)), ('SM_WreckCar', buried(wreck_car)),
     ('SM_RockBank', buried(rock_bank)), ('SM_RockBank2', buried(lambda m: rock_bank(m, 8, 2100, 700))), ('SM_SignFrame', buried(sign_frame)),

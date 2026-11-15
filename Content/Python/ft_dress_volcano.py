@@ -800,7 +800,48 @@ def animate():
     return n
 
 
+# ------------------------------------------------------------------------------------------ the cut banks (3.4)
+# Inside a banked bend the track cuts the land down to the road's low edge, and that cutting was a black slope a third
+# of the frame high. A Bank rule has the track lay these on it (ft_dress_bank.py has the drawing rules: flat, x along
+# the road, y up the slope, z out of the bank). The road is cut through old lava: basalt columns stand up the bank,
+# their heads at ragged heights, pale ash drifted over the top, sulphur run down one. Unlit (the verge carries no
+# light): it reads by its greys against the black ground, like the ash crescents.
+import ft_dress_bank as B   # noqa: E402
+
+
+def cut_basalt(m, seed=0):
+    """A deep cutting in the lava field (11 x 9 m as drawn): eight columns in three greys, ash on their heads, a rib
+    of sulphur."""
+    r = random.Random(seed + 400)
+    B.body(m, BASALT_L, B.TALL)
+    n = 8
+    w = B.L / n
+    for i in range(n):
+        x = -B.L / 2.0 + w * (i + 0.5)
+        head = r.uniform(170.0, 330.0)
+        col = (ASH, PALE, ASH_L, ASH, ASH_L, PALE, ASH, ASH_L)[(i + seed) % 8]
+        B.block(m, col, x, (head - 436.0) / 2.0, w - 16.0, head + 436.0, (10.0, 22.0, 16.0, 28.0)[(i * 3 + seed) % 4])
+    B.band(m, PALE_L, 352.0, 450.0, 30.0, wob=(34.0, 0.0), n=6, seed=seed + 7)
+    # what has run down between two columns: ochre on one design, sulphur on the other (the first try's sulphur rib,
+    # 80 cm wide on every panel, read as a row of lit yellow bars)
+    x = -B.L / 2.0 + w * (3.0 if seed % 2 == 0 else 5.0)
+    B.shape(m, STAIN_O if seed % 2 == 0 else SULPH, [(x - 22.0, 120.0), (x + 22.0, 120.0), (x + 9.0, -300.0), (x - 9.0, -300.0)], 32.0)
+
+
+def cut_ash(m, seed=0):
+    """A shallow cutting (11 x 4 m as drawn): ash slumped down the bank, a paler crest under the land's edge, clinker
+    at its foot. A step darker than the verge's crescents: it stands as a wall in the frame, not as a floor."""
+    r = random.Random(seed + 410)
+    B.body(m, ASH_L, B.LOW)
+    B.band(m, PALE, -60.0, 200.0, 12.0, wob=(40.0, 0.0), n=6, seed=seed + 3)
+    B.band(m, PALE_L, 124.0, 200.0, 20.0, wob=(22.0, 0.0), n=6, seed=seed + 5)
+    for k in range(3):
+        x = -380.0 + k * 370.0 + r.uniform(-60.0, 60.0)
+        m.sphere(BASALT_L if k % 2 else CHAR, (x, -150.0 + r.uniform(-20.0, 20.0), B.FACE + 8.0), 60.0, scale=(1.3, 0.8, 0.4), steps=(3, 6))
+
+
 JOBS = [
+    ('SM_CutBasalt', cut_basalt), ('SM_CutBasalt2', lambda m: cut_basalt(m, seed=3)), ('SM_CutAsh', cut_ash),
     ('SM_AshRipples', ash_ripples), ('SM_AshTip', ash_tip), ('SM_Conveyor', conveyor), ('SM_Crusher', crusher), ('SM_RailSpur', rail_spur),
     ('SM_OreTrain', ore_train), ('SM_PumpHouse', pump_house), ('SM_LavaStones', lava_stones), ('SM_VentStacks', vent_stacks),
     ('SM_LavaRafts', lava_rafts), ('SM_LavaRaftsL', lambda m: lava_rafts(m, left=True)),

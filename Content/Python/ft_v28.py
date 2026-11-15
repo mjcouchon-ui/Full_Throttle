@@ -228,58 +228,8 @@ def rider_head(m, L, T, x, z, r=24):
 
 # ------------------------------------------------------------------------------------------------- the bike
 def moto(m, L, T):
-    """The Syndicate bike (ft_fleet.moto's footprint) in the level's colours, ridden in the level's gear."""
-    if L == 5:
-        # a snowmobile: a ski up front, a rubber track at the back
-        m.box(TYRE, (50, 0, 30), (120, 34, 50))
-        for k in range(8):
-            m.box('#3a3846', (-6 + k * 16, 0, 4), (6, 36, 6))
-        m.box(STEEL, (205, 0, 10), (90, 22, 8))
-        tilt_box(m, STEEL, (250, 0, 10), (272, 0, 34), 22, 8)
-        rod(m, BLACK, (190, 0, 14), (200, 0, 66), 5)
-    else:
-        m.cyl(TYRE, (40, -9, 34), 34, 18, rot=(0, 0, 90), steps=16)
-        m.cyl(TYRE, (190, -8, 32), 32, 16, rot=(0, 0, 90), steps=16)
-    m.side(T['bike'], [(30, 50), (200, 60), (210, 90), (120, 110), (40, 96)], -18, 18)
-    m.side(T['stripe'], [(60, 92), (150, 104), (150, 108), (60, 98)], -19, 19, glow=0.6)
-    m.side(T['bike2'], [(30, 50), (200, 60), (200, 64), (30, 54)], -18.5, 18.5)
-    m.box('#ff3355', (20, 0, 92), (4, 20, 10), glow=1.0)
-    m.cyl(CHROME, (40, 22, 50), 6, 70, rot=(90, 0, 0), steps=10)
-    # the rider
-    m.side(T['suit'], [(70, 110), (130, 110), (150, 190), (100, 196)], -26, 26)
-    for s in (-1, 1):
-        m.box(T['suit'], (150, s * 30, 160), (60, 12, 14), rot=(-30, 0, 0))
-        m.box(T['suit2'], (88, s * 22, 84), (50, 12, 40), rot=(20, 0, 0))
-    rider_head(m, L, T, 128, 214)
-    # the level's kit on the bike
-    if L == 1:      # a glowing toxic canister on the tail
-        m.cyl('#2a6a3a', (16, 0, 96), 16, 34, steps=10)
-        m.cyl(T['stripe'], (16, 0, 104), 16.5, 8, steps=10, glow=1.0)
-        for k in range(4):
-            m.side(BLACK, [(40 + k * 40, 66), (56 + k * 40, 66), (64 + k * 40, 80), (48 + k * 40, 80)], -19, 19)
-    elif L == 2:    # saddlebags and a bedroll
-        for s in (-1, 1):
-            m.box('#6a4a2a', (40, s * 24, 82), (44, 12, 30))
-        m.cyl('#a87a4a', (14, -24, 108), 12, 48, rot=(0, 0, 90), steps=8)
-    elif L == 3:    # a glowing exhaust and a heat-shield plate
-        m.cyl(T['stripe'], (6, 22, 50), 7, 10, rot=(90, 0, 0), steps=10, glow=1.6)
-        m.side(STEEL, [(150, 60), (210, 70), (210, 96), (170, 100)], -20, 20)
-    elif L == 4:    # light bulbs down the bike and a striped tail fin
-        for k in range(5):
-            m.sphere(T['stripe'], (50 + k * 30, 0, 112 + k * 2), 5, steps=(3, 5), glow=1.4)
-        m.side(T['bike2'], [(8, 96), (40, 100), (30, 140)], -3, 3)
-    elif L == 5:    # a windshield and ski-pole holster
-        m.side(GLASS, [(205, 90), (215, 92), (205, 140), (195, 136)], -20, 20)
-        rod(m, STEEL, (30, 22, 80), (0, 26, 170), 3)
-    elif L == 6:    # a propeller at the back and dive tanks
-        m.cyl(T['bike2'], (-4, 0, 70), 12, 14, rot=(-90, 0, 0), steps=10)
-        for a in (0, 90):
-            m.box(T['bike2'], (-6, 0, 70), (4, 70, 12), rot=(0, 0, a))
-        for s in (-1, 1):
-            m.cyl('#c9ccd6', (110, s * 24, 150), 9, 50, rot=(0, 0, 0), steps=8)
-    elif L == 7:    # cyan underglow and gold trim
-        m.box(T['stripe'], (115, 0, 44), (170, 30, 3), glow=1.6)
-        m.side(GOLD, [(30, 96), (200, 86), (200, 89), (30, 99)], -18.6, 18.6)
+    from ft_bikes import moto as build_moto
+    build_moto(m, L, T)
 
 
 # ----------------------------------------------------------------------------------------------- the rammer
@@ -523,21 +473,30 @@ KINDS = (('SM_Moto', moto, (-115, 0, 0)), ('SM_Rammer', rammer, (-235, 0, 0)), (
 
 
 def export_yeti():
+    import ft_v33
     C = '/Game/Characters/Bosses/'
-    save_mesh(model(yeti).meshes, C + 'SM_Yeti', 'car', (0, 0, 0), collision='box')
-    save_mesh(model(yeti_arms).meshes, C + 'SM_YetiArms', 'car', (0, 0, 0))
+    ft_v33.save(model(yeti), C + 'SM_Yeti', collision='box')
+    ft_v33.save(model(yeti_arms), C + 'SM_YetiArms')
     return 'yeti exported'
 
 
 def export(levels=None, yeti_only=False):
+    import ft_v33
     out = [export_yeti()]
     if yeti_only:
         return out
-    for L in (levels or sorted(THEMES)):
+    levels = tuple(levels or sorted(THEMES))
+    for L in levels:
         T = THEMES[L]
         for name, fn, off in KINDS:
-            save_mesh(model(lambda m, f=fn: f(m, L, T)).meshes, '/Game/Characters/Themed/L%d/%s' % (L, name), 'car', off, collision='box')
+            path = '/Game/Characters/Themed/L%d/%s' % (L, name)
+            if name in ('SM_Rammer', 'SM_Suv', 'SM_Truck'):
+                ft_v33.split_vehicle(path, lambda m: fn(m, L, T), off)
+            elif name == 'SM_Moto':
+                save_mesh(model(lambda m: fn(m, L, T)).meshes, path, 'car', off, collision='box')
         out.append('L%d %s' % (L, T['name']))
+    ft_v33.export_heli(levels)
+    ft_v33.export_swat(levels)
     return out
 
 

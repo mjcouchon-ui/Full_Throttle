@@ -155,6 +155,8 @@ static TAutoConsoleVariable<int32> CVarFTLand(TEXT("ft.Land"), 1,
 	TEXT("3.4: 1 = the land and the bed wear the level's own surface (/Game/Maps/<Level>/Materials/MI_Land: slabs, ripples or cracked ground, ft_world.land_materials); 0 = the plain ground, for before/after checks. Takes effect when a track is rebuilt."));
 static TAutoConsoleVariable<int32> CVarFTDress(TEXT("ft.Dress"), 1,
 	TEXT("3.2: 0 = build tracks without the dressing (districts, sets round landmarks, the horizon), for before/after checks. Takes effect when a track is rebuilt."));
+static TAutoConsoleVariable<int32> CVarFTDressBank(TEXT("ft.DressBank"), 1,
+	TEXT("3.4: 0 = the dressing leaves the cut banks inside banked bends bare (no Bank panels), for before/after checks. Takes effect when a track is rebuilt."));
 static TAutoConsoleVariable<int32> CVarFTBedRoom(TEXT("ft.BedRoom"), 1,
 	TEXT("3.6: 1 = the land under a corkscrew (and anywhere the road leans past 60 degrees) is cut under the room the car and the chase camera take, so upside down they no longer drive through the ground; 0 = cut only under the deck, as 3.5 did (before/after checks). Takes effect when a track is rebuilt."));
 namespace { constexpr float RoadCell = 3000.f; inline FIntPoint CellOf(float X, float Y) { return FIntPoint(FMath::FloorToInt(X / RoadCell), FMath::FloorToInt(Y / RoadCell)); } }
@@ -817,6 +819,7 @@ void AFTTrack::BuildMeshes()
 	const FVector2D InL = GP[kIn], InR = GP[kIn + 1];
 	TArray<FBedSec> Secs;
 	Secs.SetNum(Frames.Num());
+	BedCut.Reset(); BedCut.SetNumZeroed(Frames.Num()); BedInL = InL; BedInR = InR; // 3.4: kept for the dressing's Bank rule
 	float LandLow = TNumericLimits<float>::Max();
 	for (const FVector2D& Q : GP) LandLow = FMath::Min(LandLow, (float)Q.Y);
 	float MinZ = TNumericLimits<float>::Max(); // the lowest land anywhere (the floor goes under it)
@@ -1329,6 +1332,9 @@ void AFTTrack::BuildMeshes()
 				{
 					TArray<FVector2D> Line;
 					BedLine(i, Line);
+					// 3.4: where this ring's last straight run up to each of the land's inner edges starts (a cutting's foot,
+					// inside a banked bend). Only remembered, for the dressing's Bank rule: the bed is drawn as it was.
+					if (Line.Num() >= 3 && BedCut.IsValidIndex(i)) BedCut[i] = FVector4f((float)Line[1].X, (float)Line[1].Y, (float)Line[Line.Num() - 2].X, (float)Line[Line.Num() - 2].Y);
 					if (BedProbe.IsValidIndex(i)) BedProbe[i] = Line;
 					TArray<int32> Bd; TArray<float> BdX;
 					for (int32 k = 0; k < Line.Num(); ++k)
@@ -2041,12 +2047,143 @@ void AFTTrack::BuildProps()
 		// a dressed piece stands on the land where it is put, sunk a hand's breadth: up the trench walls and the snow slopes,
 		// down the beach (the level's own props keep their old rule: never above the roadside's height)
 		auto LandAt = [this](float Xcm) { return GroundZ(Xcm) - 15.f; };
+		// 3.4, Bank (FTDress.h): panels on the cutting inside a banked bend. The cutting is read from the bed itself
+		// (BedCut: the line the bed was drawn with), so a panel lies on the mesh that is there, at any bank and grade.
+		// A panel is one flat piece: its plane goes through the cutting at the panel's middle and along the cutting's
+		// middle line from one end to the other, then half way towards the cutting at the panel's four corners (seen
+		// from the road the cutting is round along its length, like the outside of a drum: under 11 m of panel it falls
+		// away about 10 cm at the ends). Where one flat panel would still stand more than BankTol off the cutting (the
+		// quickest part of a bend's lead-in, where the bank turns as it goes) two panels of half the length are laid
+		// instead; what even those cannot fit is left bare and counted as "too bent" in the log.
+		int32 BankPlaced = 0, BankFitted = 0, BankHalved = 0, BankBent = 0, BankRoad = 0;
+		float BankRun = 0.f;
+		const bool bBanks = CVarFTDressBank.GetValueOnAnyThread() != 0;
+		// cm off the cutting; how far a panel laps over the next, as a share of its length (a gap showed the bare bank as
+		// a pale post every 11 m; lapped, a bend reads as one face, and inside the tightest bend, where the cutting's foot
+		// is 3.5% longer than its middle, the lap just closes); and how far every other panel is lifted so that two
+		// lapped faces never lie in one plane
+		constexpr float BankTol = 12.f, BankLap = 0.03f, BankLift = 1.5f;
+		auto CutAt = [this](float D, int32 Side, FVector& Foot, FVector& Top) -> bool
+		{
+			const float Fi = FMath::Clamp(D / Step, 0.f, float(Frames.Num() - 1));
+			const int32 i0 = FMath::FloorToInt(Fi), i1 = FMath::Min(i0 + 1, Frames.Num() - 1);
+			if (!BedCut.IsValidIndex(i0) || !BedCut.IsValidIndex(i1)) return false;
+			FVector Ft[2], Tp[2];
+			for (int32 k = 0; k < 2; ++k)
+			{
+				const int32 i = k ? i1 : i0;
+				const FFTFrame& Fr = Frames[i];
+				const FVector4f& Q = BedCut[i];
+				const FVector2D& In = Side > 0 ? BedInR : BedInL;
+				Ft[k] = Fr.Ground + Fr.GRight * (Side > 0 ? Q.Z : Q.X) + FVector::UpVector * (Side > 0 ? Q.W : Q.Y);
+				Tp[k] = Fr.Ground + Fr.GRight * In.X + FVector::UpVector * In.Y;
+			}
+			Foot = FMath::Lerp(Ft[0], Ft[1], Fi - i0); Top = FMath::Lerp(Tp[0], Tp[1], Fi - i0);
+			return true;
+		};
+		auto LayBank = [&](const FFTDressRule& Q, int32 s0, int32 s1, int32 Idx)
+		{
+			if (!bBanks || !BedCut.Num()) return;
+			UHierarchicalInstancedStaticMeshComponent* C = Comp(Q.Mesh, 1.5f);
+			if (!C) return;
+			const FBoxSphereBounds Bd = C->GetStaticMesh()->GetBounds();
+			if (Bd.BoxExtent.X < 10.f || Bd.BoxExtent.Y < 10.f) return;
+			const int32 Per = FMath::Clamp(Q.Per, 1, 12), Every = FMath::Max(1, Q.Every);
+			const float PLen = SlotLen / Per;
+			const uint16 Skip = FTFlag::Loop | FTFlag::Gap | FTFlag::Pipe | FTFlag::Twist | FTFlag::Kicker | FTFlag::Landing | FTFlag::HalfPipe | FTFlag::Coaster | FTFlag::Building;
+			FDrop& Rp = Report.FindOrAdd(FPaths::GetBaseFilename(Q.Mesh));
+			// One panel over the road from A0 to A1, on side Sd. Returns 0 = nothing to lay it on here (or the rule does
+			// not want it), 1 = laid, 2 = too bent for a flat panel this long, 3 = it would touch another part of the road.
+			auto LayOne = [&](float A0, float A1, int32 Sd, int32 Seed, float Lift, bool bWhole) -> int32
+			{
+				const float Ac = (A0 + A1) * 0.5f;
+				FVector Fa, Ta, Fc, Tc, Fb, Tb;
+				if (!CutAt(A0, Sd, Fa, Ta) || !CutAt(Ac, Sd, Fc, Tc) || !CutAt(A1, Sd, Fb, Tb)) return 0;
+				const FVector Run = Tc - Fc;
+				if (Run.Z < Run.Size2D() * 0.7f) return 0;                 // no cutting here (it climbs under 35 degrees, or not at all)
+				const float RunLen = Run.Size();
+				const FVector Yd = Run / RunLen;
+				// Where the panel starts. Under a steep bank the cutting's foot is the low barrier's top corner (less
+				// the bed's 45 cm). Under a gentle one the bed goes on down under the deck's outer corner, behind the
+				// barrier, where nothing is seen: the panel starts no lower than 30 cm under the barrier's top.
+				const FFTFrame G = Sample(Ac);
+				const float BarTop = (G.Pos + G.Right * (Sd * (FT::Edge + WallW)) + G.Up * (SurfaceH(Ac, Sd * FT::Edge) + FT::WallH)).Z;
+				const float Start = FMath::Max(Q.Foot * 100.f, (BarTop - 30.f - Fc.Z) / Yd.Z);
+				const float Usable = RunLen - Start - Q.Top * 100.f;
+				if (bWhole)
+				{
+					// the rule's own choice (which design, and its chance) is made once, for the whole panel: a half
+					// takes what its panel was given
+					if (Usable < FMath::Max(Q.RunMin * 100.f, 100.f) || Usable >= Q.RunMax * 100.f) return 0;
+					FRandomStream Rs(Seed * 7919 + Idx * 104729 + LevelIndex * 31 + 1543);
+					if (Rs.FRand() > Q.Chance) return 0;
+				}
+				else if (Usable < 100.f) return 0;
+				FVector Xd = (Fb + Tb) * 0.5f - (Fa + Ta) * 0.5f;
+				const float Chord = Xd.Size();
+				if (Chord < 50.f) return 0;
+				++Tried;
+				Xd = Xd / Chord * float(Sd);                               // turned round on the left, like every dressed piece
+				const FMatrix Rm = FRotationMatrix::MakeFromXY(Xd, Yd);
+				const FVector Zd = Rm.GetUnitAxis(EAxis::Z);
+				FVector O = Fc + Yd * (Start + Usable * 0.5f);
+				float Dv[4];
+				{
+					const FVector Ya = (Ta - Fa).GetSafeNormal(), Yb = (Tb - Fb).GetSafeNormal();
+					Dv[0] = FVector::DotProduct(Fa + Ya * Start - O, Zd); Dv[1] = FVector::DotProduct(Ta - Ya * (Q.Top * 100.f) - O, Zd);
+					Dv[2] = FVector::DotProduct(Fb + Yb * Start - O, Zd); Dv[3] = FVector::DotProduct(Tb - Yb * (Q.Top * 100.f) - O, Zd);
+				}
+				const float Half = (Dv[0] + Dv[1] + Dv[2] + Dv[3]) * 0.125f;
+				float Worst = FMath::Abs(Half);
+				for (const float V : Dv) Worst = FMath::Max(Worst, FMath::Abs(V - Half));
+				if (Worst > BankTol) return 2;
+				O += Zd * (Half + Lift);
+				const FVector Sc3(Chord * (1.f + BankLap) / (Bd.BoxExtent.X * 2.f), Usable / (Bd.BoxExtent.Y * 2.f), 1.f);
+				const FQuat Qr = Rm.ToQuat();
+				const FTransform T(Qr, O - Qr.RotateVector(FVector(Bd.Origin.X * Sc3.X, Bd.Origin.Y * Sc3.Y, 0.f)), Sc3);
+				if (KeptOut(O)) return 3;
+				if (CVarFTClear.GetValueOnAnyThread())
+				{
+					// the road's other parts (the route passing itself, a lap beside the last one). The panel's own road
+					// is the bed it lies on: 120 m of it either way is not asked.
+					const FBox Wb = Bd.GetBox().TransformBy(T);
+					const int32 Own = FMath::RoundToInt(Ac / Step);
+					if (RoadHitBox(Wb.GetCenter(), FQuat::Identity, Wb.GetExtent(), 150.f, Wb.Min.Z, Wb.Max.Z, Own - 60, Own + 60) != INDEX_NONE) { ++Rp.Dropped; return 3; }
+				}
+				if (C->GetInstanceCount() == 0) { C->SetCastShadow(false); DressOnly.Add(C); } // flat on a slope: no shadow worth a page
+				DressIn.Add(C);
+				C->AddInstance(T, false);
+				++Placed; ++BankPlaced; ++Rp.Kept; BankRun += Chord;
+				return 1;
+			};
+			for (int32 n = s0 * Per; n < (s1 + 1) * Per; ++n)
+			{
+				if (((n + Q.Phase) % Every) != 0) continue;
+				const float D0 = n * PLen, D1 = D0 + PLen, Dc = D0 + PLen * 0.5f;
+				if (D1 > Length() - Step) break;
+				if ((FlagsAt(D0) | FlagsAt(Dc) | FlagsAt(D1)) & Skip) continue;
+				if (LightAt >= 0.f && (Dc < LightAt - LightPropBack || Dc > LightAt + LightPropAhead)) continue;
+				const float Up0 = (n & 1) ? BankLift : 0.f;
+				for (int32 Side = -1; Side <= 1; Side += 2) // the low side has the cutting; the other side's "run" is the land, level
+				{
+					const int32 Res = LayOne(D0, D1, Side, n, Up0, true);
+					if (Res == 0) continue;
+					++BankFitted;
+					if (Res == 3) ++BankRoad;
+					if (Res != 2) continue;
+					const int32 Ra = LayOne(D0, Dc, Side, n, Up0, false), Rb = LayOne(Dc, D1, Side, n, Up0 + BankLift * 0.5f, false);
+					if (Ra == 1 || Rb == 1) ++BankHalved;
+					if (Ra != 1 || Rb != 1) ++BankBent;
+				}
+			}
+		};
 		for (const FFTDressZone& Z : Dr.Zones)
 		{
 			const int32 s0 = FMath::Max(1, FMath::CeilToInt(Z.FromKm * 100000.f / SlotLen)), s1 = FMath::Min(Slots - 1, FMath::FloorToInt(Z.ToKm * 100000.f / SlotLen));
 			for (const FFTDressRule& Q : Z.Rules)
 			{
 				++RuleIdx;
+				if (Q.Kind == EFTDress::Bank) { LayBank(Q, s0, s1, RuleIdx); continue; }
 				const bool bSite = Q.Kind == EFTDress::Site, bFar = Q.Kind == EFTDress::Far || Q.bFloor;
 				for (int32 s = s0; s <= s1; ++s)
 				{
@@ -2105,6 +2242,11 @@ void AFTTrack::BuildProps()
 		int32 InComps = 0, Casting = 0;
 		for (const UHierarchicalInstancedStaticMeshComponent* C : DressIn) { InComps += C->GetInstanceCount(); if (C->CastShadow) Casting += C->GetInstanceCount(); }
 		UE_LOG(LogFT, Display, TEXT("FTDRESS level=%d districts=%d sets=%d pieces placed=%d of %d tried shadows=%d of %d"), LevelIndex, Dr.Zones.Num(), Dr.Sets.Num(), Placed, Tried, Casting, InComps);
+		// the cut banks: panels laid, on how many 11 m lengths of cutting; how many of those lengths took two half
+		// panels; and the lengths left bare, wholly or by half, because the bank is too bent there for a flat piece or
+		// a panel would have touched another part of the road
+		UE_LOG(LogFT, Display, TEXT("FTBANK level=%d panels laid=%d on %d lengths of cutting (%d as two halves; left bare: too bent %d, at another part of the road %d) along %.0f m%s"),
+			LevelIndex, BankPlaced, BankFitted, BankHalved, BankBent, BankRoad, BankRun / 100.f, bBanks ? TEXT("") : TEXT(" (ft.DressBank 0)"));
 	}
 
 	// PlanAds already keeps every sign clear of the road, so the signs skip 2.7's road test

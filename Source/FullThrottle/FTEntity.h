@@ -35,13 +35,14 @@ public:
 	void Setup(EFTKind InKind, int32 InVariant, int32 Level);
 	void SetGlow(float Amount);   // rev lights, chain wind-up, brake flare
 	/** Speed = along the road (cm/s), Vx = across it (cm/s): the wheels spin and the body rides its springs. */
-	void Animate(float Dt, float Speed, float Vx = 0.f);
+	void Animate(float Dt, float Speed, float Vx = 0.f, float BikeWindup = 0.f);
+	void KickBike();
 	/** 3.3: give this actor the wheels listed for its mesh (Content/Data/wheels.json); false if it has none. */
 	bool SetupWheels(UStaticMesh* BodyMesh, bool bChrome);
 	/** 3.3 the Tesla truck: Charge 0..1 (glow, hum, spin), and up to 3 arcs from the coil's top to world points. */
 	void SetTesla(float InCharge, const TArray<FVector>& ArcTo);
 	/** 3.3: a henchman's rope runs from his raised hand up to this world point (the chopper's door). */
-	void SetRope(const FVector& WorldTop);
+	void SetRope(const FVector& WorldTop, float Progress, int32 Side);
 	/** 3.3 a chopper's rappel arm at its door (Side 0 left, 1 right), in the world. */
 	FVector RopeAnchor(int32 Side) const;
 	/** The KESTREL ghost in the highlight reel: its body and its four wheels. */
@@ -82,6 +83,9 @@ public:
 	virtual void SetActorHiddenInGame(bool bNewHidden) override;
 	bool bHostile = false;
 	float GlowOffT = 1.f, GlowOnT = 0.f;
+
+private:
+	float BikeHit = 0.f;
 };
 
 /** A dead vehicle: a real Chaos rigid body that tumbles down the road burning, then goes. */

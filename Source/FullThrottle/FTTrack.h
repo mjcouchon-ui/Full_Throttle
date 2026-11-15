@@ -233,6 +233,12 @@ protected:
 	float LightAt = -1.f;
 	double MeshCreateMs = 0.0, CookMs = 0.0, RegisterMs = 0.0;
 	float FloorZ = 0.f; // 3.1: the floor under the whole level, below its lowest land
+	/** 3.4: the bed's cuttings, kept for the dressing's Bank rule (FTDress.h). For each frame, where the bed's last
+	 *  straight run up to the land's inner edge starts: on the left (X across, Y up) and on the right (Z across, W up),
+	 *  in the land's own cross-section (cm from the frame's Ground along GRight, cm above it); and those two inner
+	 *  edges. Written by BuildMeshes from the very line the bed is drawn with; nothing of the track reads it. */
+	TArray<FVector4f> BedCut;
+	FVector2D BedInL = FVector2D::ZeroVector, BedInR = FVector2D::ZeroVector;
 	TArray<TArray<FVector2D>> BedProbe; // 3.6: each frame's bed line (x, z over the base path), only with -ftbedprobe
 
 	TArray<FFTFrame> Frames;

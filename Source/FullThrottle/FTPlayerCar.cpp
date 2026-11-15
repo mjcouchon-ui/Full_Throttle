@@ -386,7 +386,16 @@ void AFTPlayerCar::RestoreParts()
 	LooseParts.Reset();
 }
 
-void AFTPlayerCar::SetHenchmenVisible(bool bLeft, bool bRight)
+void AFTPlayerCar::SetHenchmenForLevel(int32 Level)
+{
+	if (Level <= 0 || !bHangModel) return;
+	if (UStaticMesh* Themed = Load<UStaticMesh>(FString::Printf(TEXT("/Game/Characters/Themed/L%d/SM_HenchmanHang"), Level)))
+	{
+		for (UStaticMeshComponent* Hm : Henchmen) Hm->SetStaticMesh(Themed);
+	}
+}
+
+void AFTPlayerCar::SetHenchmenVisible(bool bLeft, bool bRight, FVector2D Age, FVector2D UntilPunch)
 {
 	Henchmen[0]->SetVisibility(bLeft);
 	Henchmen[1]->SetVisibility(bRight);
@@ -396,12 +405,17 @@ void AFTPlayerCar::SetHenchmenVisible(bool bLeft, bool bRight)
 		const float T = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
 		for (int32 i = 0; i < 2; ++i)
 		{
+			if ((i == 0 && !bLeft) || (i == 1 && !bRight)) continue;
 			// the body swings out from the door (about 40 degrees, so his boots clear the road) and trails back in the
 			// wind. In his own frame he hangs on -Y; the right-hand one is turned round (yaw 180), so "back" flips.
-			const float Out = 40.f + 7.f * FMath::Sin(T * 5.3f + 1.7f * i);
-			const float Back = (22.f + 5.f * FMath::Sin(T * 7.f + i)) * (i == 0 ? 1.f : -1.f);
+			const float HangTime = Age[i];
+			const float Catch = FMath::Exp(-8.f * HangTime) * FMath::Cos(15.f * HangTime);
+			const float Windup = 1.f - FMath::SmoothStep(0.f, 0.24f, static_cast<float>(UntilPunch[i]));
+			const float Out = 40.f + 6.f * FMath::Sin(T * 5.3f + 1.7f * i) + 12.f * Catch - 7.f * Windup;
+			const float Back = (22.f + 5.f * FMath::Sin(T * 7.f + i) - 9.f * Catch + 5.f * Windup) * (i == 0 ? 1.f : -1.f);
 			const FQuat Local = FQuat(FVector::ForwardVector, FMath::DegreesToRadians(-Out)) * FQuat(FVector::RightVector, FMath::DegreesToRadians(Back));
-			Henchmen[i]->SetRelativeRotation(FQuat(FVector::UpVector, i == 0 ? 0.f : PI) * Local);
+			Henchmen[i]->SetRelativeTransform(FTransform(FQuat(FVector::UpVector, i == 0 ? 0.f : PI) * Local,
+				FVector(HangGrip.X, i == 0 ? -HangGrip.Y : HangGrip.Y, HangGrip.Z), FVector(1.f, 1.f, 1.f - 0.055f * FMath::Abs(Catch))));
 		}
 	}
 }

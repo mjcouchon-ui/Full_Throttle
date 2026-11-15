@@ -11,6 +11,7 @@ Makes (AFTBrawlFighter / AFTBrawlGameMode find them by path):
   /Game/Brawl/Sprites/<Who>/T_<who>_<frame>      Who = Nova, Dock, Punk, Biker, Sleaze, Bouncer, Earl, Props, Items
   /Game/Brawl/Backdrop/T_bg_bar, T_bg_games, T_bg_booths, T_floor
   /Game/Brawl/Materials/M_BrawlSprite    masked, lit, two-sided: Tex, Tint, Flash, SelfLit (casts real shadows)
+  /Game/Brawl/Materials/M_BrawlEnemy     combat sprite with ink separation and directional faction light
   /Game/Brawl/Materials/M_BrawlPaint     opaque, lit, painted backdrop: Tex, Tint, Glow, TileU, TileV
 """
 import os
@@ -21,13 +22,16 @@ MEL = unreal.MaterialEditingLibrary
 AT = unreal.AssetToolsHelpers.get_asset_tools()
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.normpath(os.path.join(HERE, '..', '..', 'ArtSource'))
+if not os.path.isdir(os.path.join(SRC, 'frames')):
+    SRC = os.path.normpath(os.path.join(HERE, '..', '..', '..', 'beat-em-up-unreal', 'ArtSource'))
 MATS = '/Game/Brawl/Materials'
 WHO = {'nova': 'Nova', 'dock': 'Dock', 'punk': 'Punk', 'biker': 'Biker', 'sleaze': 'Sleaze',
        'bouncer': 'Bouncer', 'earl': 'Earl', 'prop': 'Props', 'item': 'Items',
        'vinnie': 'Vinnie', 'guard': 'Guard',   # night 2, the Velvet Room (run 16961)
        'voss': 'Voss', 'car': 'Props',         # night 1's cutscenes (run 49531)
        'kip': 'Kip',                           # day 1's cutscene (run 73444)
-       'pitboss': 'Pitboss', 'dealer': 'Dealer'}   # night 3, the Lucky 7 (run 52616)
+       'pitboss': 'Pitboss', 'dealer': 'Dealer',   # night 3, the Lucky 7 (run 52616)
+       'frankie': 'Frankie', 'kingpin': 'Kingpin', 'sven': 'Sven', 'commodore': 'Commodore'}   # nights 4-7 (run 32365)
 
 
 def _dir(p):
@@ -118,21 +122,28 @@ def _done(m):
     AL.save_loaded_asset(m)
 
 
-def m_sprite():
+def m_sprite(enemy=False):
     """A painted sprite on a camera-facing quad: lit by the room's real lights, casts a real shadow.
     SelfLit keeps the painted colours (the art already has its own light and ink); Flash = the white hit flash."""
-    m = _mat('M_BrawlSprite')
+    m = _mat('M_BrawlEnemy' if enemy else 'M_BrawlSprite')
     m.set_editor_property('blend_mode', unreal.BlendMode.BLEND_MASKED)
     m.set_editor_property('two_sided', True)
     m.set_editor_property('opacity_mask_clip_value', 0.4)
-    tx = _e(m, unreal.MaterialExpressionTextureSampleParameter2D, -900, 0, parameter_name='Tex',
-            texture=AL.load_asset('/Game/Brawl/Sprites/Nova/T_nova_idle'))
+    default_frame = AL.load_asset('/Game/Brawl/Sprites/Nova/T_nova_idle')
+    frame = _e(m, unreal.MaterialExpressionTextureSampleParameter2D, -900, 0, parameter_name='Tex',
+               texture=default_frame)
+    if enemy:
+        color = _enemy_paint(m, default_frame)
+        color_output = ''
+    else:
+        color = frame
+        color_output = 'RGB'
     tint = _e(m, unreal.MaterialExpressionVectorParameter, -900, 300, parameter_name='Tint', default_value=unreal.LinearColor(1, 1, 1, 1))
     col = _e(m, unreal.MaterialExpressionMultiply, -600, 0)
-    MEL.connect_material_expressions(tx, 'RGB', col, 'A')
+    MEL.connect_material_expressions(color, color_output, col, 'A')
     MEL.connect_material_expressions(tint, '', col, 'B')
     MEL.connect_material_property(col, '', unreal.MaterialProperty.MP_BASE_COLOR)
-    MEL.connect_material_property(tx, 'A', unreal.MaterialProperty.MP_OPACITY_MASK)
+    MEL.connect_material_property(frame, 'A', unreal.MaterialProperty.MP_OPACITY_MASK)
     # emissive = colour * SelfLit + Flash
     sl = _e(m, unreal.MaterialExpressionScalarParameter, -600, 250, parameter_name='SelfLit', default_value=0.32)
     em = _e(m, unreal.MaterialExpressionMultiply, -400, 150)
@@ -152,6 +163,45 @@ def m_sprite():
     s = _e(m, unreal.MaterialExpressionConstant, -200, 550, r=0.15)
     MEL.connect_material_property(s, '', unreal.MaterialProperty.MP_SPECULAR)
     _done(m)
+    return m
+
+
+def _enemy_paint(m, default_frame):
+    tex = _e(m, unreal.MaterialExpressionTextureObjectParameter, -1700, 0, parameter_name='Tex', texture=default_frame)
+    uv = _e(m, unreal.MaterialExpressionTextureCoordinate, -1700, 160)
+    key = _e(m, unreal.MaterialExpressionVectorParameter, -1700, 300, parameter_name='EnemyKey',
+             default_value=unreal.LinearColor(0.25, 0.46, 0.75, 1))
+    rim = _e(m, unreal.MaterialExpressionScalarParameter, -1700, 460, parameter_name='EnemyRim', default_value=0.75)
+    paint = _e(m, unreal.MaterialExpressionCustom, -1400, 0,
+               description='Ink separation and colored edge light inside the painted alpha',
+               output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT3,
+               code="""
+float4 source = Texture2DSample(Frame, FrameSampler, UV);
+float lum = dot(source.rgb, float3(0.2126, 0.7152, 0.0722));
+float3 graded = max(lerp(lum.xxx, source.rgb, 1.1), 0.0);
+graded *= lerp(0.82, 1.04, smoothstep(0.045, 0.46, lum));
+float above = Texture2DSample(Frame, FrameSampler, UV + float2(-0.004, -0.007)).a;
+float side = Texture2DSample(Frame, FrameSampler, UV + float2(-0.006, 0.002)).a;
+float edge = saturate(source.a - min(above, side));
+float upperLight = lerp(1.0, 0.44, smoothstep(0.56, 0.98, UV.y));
+float3 illumination = Key.rgb * (0.16 * edge * upperLight * Strength);
+return graded + illumination;
+""")
+    inputs = (('Frame', tex), ('UV', uv), ('Key', key), ('Strength', rim))
+    custom_inputs = []
+    for name, _ in inputs:
+        item = unreal.CustomInput()
+        item.set_editor_property('input_name', name)
+        custom_inputs.append(item)
+    paint.set_editor_property('inputs', custom_inputs)
+    for name, source in inputs:
+        MEL.connect_material_expressions(source, '', paint, name)
+    return paint
+
+
+def m_enemy():
+    """Regenerate the combat-only material using the existing painted frame textures."""
+    return m_sprite(enemy=True)
 
 
 def m_paint():
@@ -190,9 +240,10 @@ def m_paint():
 def build():
     out = textures()
     m_sprite()
+    m_enemy()
     m_paint()
     AL.save_directory('/Game/Brawl')
-    unreal.log('BRAWL2D built %d textures + M_BrawlSprite, M_BrawlPaint' % len(out))
+    unreal.log('BRAWL2D built %d textures + sprite, enemy and backdrop materials' % len(out))
     return out
 
 

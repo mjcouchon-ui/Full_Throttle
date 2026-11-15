@@ -456,3 +456,17 @@ Zone(TEXT("Ground: vegas approach"), 22.f, 25.6f);
 	Far(TEXT("SM_ParkingLot"), 50.f, 52.f, 5, 3, 0.95f, 1.f, 0.03f, 0, 1.f, 4.f);
 	Far(TEXT("SM_ParkingLot"), 52.f, 56.f, 5, 4, 0.8f, 1.f, 0.03f, 0, 1.f, 4.f);
 	Far(TEXT("SM_ParkingLot"), 52.f, 56.f, 5, 2, 0.7f, 1.f, 0.03f, 0, 1.f, 4.f);
+
+// ---- THE CUT BANKS (15 Nov 2026, after the second pass). Inside a banked bend the track cuts the land down to the
+// road's low edge; that cutting was the land's one plain colour, a third of the frame from the rolled camera, and no
+// Scatter or Site piece can stand on it. Bank rules (FTDress.h) have the track lay panels on it itself, fitted to the
+// bank's own angle and grade: four to a 45 m slot (11.3 m of road each), tall designs where a panel's run up the
+// cutting is 5.5 m or more (bends banked 32 degrees and up), a low one on the shallower cuttings (down to 2.4 m: about
+// 20 degrees of bank). Every and phase count panels here. ft.DressBank 0 leaves them out, for a before and an after.
+// Nevada: the highway cut through the red rock. SM_CutStrata and SM_CutStrata2 (the same seven beds, so they meet
+// from panel to panel; the second has sage on its ledges and fallen blocks) take alternate panels of the two wall
+// bends of Red Rock Pass (5.2 and 5.8 km). SM_CutLedge on the shallow cuttings (4.3, 4.4, 7.8 and 8.0 km).
+Zone(TEXT("Cut banks"), 0.f, 99.f);
+	Bank(TEXT("SM_CutStrata"), 4, 2, 0, 1.f, 5.5f);
+	Bank(TEXT("SM_CutStrata2"), 4, 2, 1, 1.f, 5.5f);
+	Bank(TEXT("SM_CutLedge"), 4, 1, 0, 1.f, 2.4f, 5.5f);

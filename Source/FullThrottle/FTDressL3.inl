@@ -566,3 +566,19 @@ Zone(TEXT("The last ash"), 22.3f, 99.f);
 	Far(TEXT("SM_RidgeRim2"), 800, 1200, 6, 0, 1.f, 1.5f, 0.3f, 0, 25.f, 12.f);
 	Scatter(TEXT("SM_AshTip"), 96, 112, 4, 3, 0.9f, 1.f, 0.15f, 0, 180.f);
 	Scatter(TEXT("SM_AshRipples"), 26, 30, 1, 0, 0.8f, 1.f, 0.f, 0, 3.f);
+
+// ---- THE CUT BANKS (15 Nov 2026, after the second pass). Inside a banked bend the track cuts the land down to the
+// road's low edge; that cutting was the land's one plain colour, a third of the frame from the rolled camera, and no
+// Scatter or Site piece can stand on it. Bank rules (FTDress.h) have the track lay panels on it itself, fitted to the
+// bank's own angle and grade: four to a 45 m slot (11.3 m of road each), tall designs where a panel's run up the
+// cutting is 5.5 m or more (bends banked 32 degrees and up), a low one on the shallower cuttings (down to 2.4 m: about
+// 20 degrees of bank). Every and phase count panels here. ft.DressBank 0 leaves them out, for a before and an after.
+// Volcano: the road cut through old lava. SM_CutBasalt and SM_CutBasalt2 (basalt columns in three greys, ash on
+// their heads, ochre or sulphur run down between two) take alternate panels of the deep cuttings (1.7, 3.9 and
+// 6.9 km); SM_CutAsh (ash slumped down the bank) on the shallow ones. Unlit and flat: nothing here stands between the
+// road and the cone. The finale's bends are banked 14 degrees: too little cutting shows over the barrier there, and
+// nothing is laid.
+Zone(TEXT("Cut banks"), 0.f, 99.f);
+	Bank(TEXT("SM_CutBasalt"), 4, 2, 0, 1.f, 5.5f);
+	Bank(TEXT("SM_CutBasalt2"), 4, 2, 1, 1.f, 5.5f);
+	Bank(TEXT("SM_CutAsh"), 4, 1, 0, 1.f, 2.4f, 5.5f);
