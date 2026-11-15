@@ -378,6 +378,10 @@ AFTBrawlGameMode::FIn AFTBrawlGameMode::ReadInput()
 	// loop cycle 2: with a pad, A (the jump button) also works the cards and the K.O. / knocked-out screens; only Start did
 	if (!I.Enter && D(EKeys::Gamepad_FaceButton_Bottom) && (InCut() || P.Hp <= 0 || bWon)) I.Enter = true;
 	I.Grab = D(EKeys::L) || D(EKeys::C) || D(EKeys::Gamepad_FaceButton_Right);
+	// loop cycle 8: which device the player is on, for the controls line
+	if (FMath::Abs(SX) > 0.3f || FMath::Abs(SY) > 0.3f || D(EKeys::Gamepad_FaceButton_Bottom) || D(EKeys::Gamepad_FaceButton_Left) || D(EKeys::Gamepad_FaceButton_Top)
+		|| D(EKeys::Gamepad_FaceButton_Right) || D(EKeys::Gamepad_DPad_Left) || D(EKeys::Gamepad_DPad_Right) || D(EKeys::Gamepad_Special_Right)) bPadLast = true;
+	else if (D(EKeys::W) || D(EKeys::A) || D(EKeys::S) || D(EKeys::D) || D(EKeys::Up) || D(EKeys::Down) || D(EKeys::Left) || D(EKeys::Right) || D(EKeys::J) || D(EKeys::K) || D(EKeys::L) || D(EKeys::SpaceBar)) bPadLast = false;
 	return I;
 }
 

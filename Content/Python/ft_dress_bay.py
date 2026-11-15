@@ -7,6 +7,7 @@ Placed by Source/FullThrottle/FTDressL0.inl. See ft_dress.py for how a piece is 
 """
 import math
 import random
+import ft_art
 import ft_city
 from ft_desert import tilt_box
 from ft_city import PINK, HOTPINK, MINT, LAV, PEACH, CREAM, CORAL, TEAL, SKY, WHITE, YEL, NAVY, SAND, RED, LEAF, LEAF_D, TRUNK_D
@@ -94,8 +95,8 @@ def surf_rack(m):
 
 
 def volleyball(m):
-    m.box(WHITE, (0, 0, 2), (900, 1800, 4))
-    m.box(SAND, (0, 0, 4), (860, 1760, 4))
+    m.box(WHITE, (0, 0, 18), (900, 1800, 36))            # (second pass: the court lay under the sand; raised to stand out of it)
+    m.box(SAND, (0, 0, 19), (860, 1760, 38))
     for s in (-1, 1):
         m.cyl(WOOD_D, (s * 470, 0, -40), 9, 300, steps=6)
     m.box(WHITE, (0, 0, 205), (940, 4, 90))
@@ -176,15 +177,18 @@ def phone_booths(m):
     m.cyl(GREY, (-180, 10, 0), 28, 90, steps=8)
 
 
+FLAG_COLS = [HOTPINK, CORAL, TEAL, PEACH, LAV]      # one colour a flag and nowhere else on the piece: life() pins each to its own pole
+
+
 def flags(m):
-    """A row of five flagpoles (the flags are still: the living-world pass may set them fluttering)."""
-    cols = [HOTPINK, YEL, TEAL, CORAL, LAV]
+    """A row of five flagpoles. Each flag is four strips in a colour of its own, so life() can ripple it from its
+    pole (a flag made of one box can only swing like a door)."""
     for k in range(5):
         x = -600 + k * 300
         m.cyl(WHITE, (x, 0, -40), 7, 760, steps=6)
         m.sphere(YEL, (x, 0, 730), 14, steps=(4, 6))
-        m.box(cols[k], (x + 90, 0, 640), (170, 6, 110))
-        m.box(WHITE, (x + 90, -1, 640), (170, 6, 24))
+        for j in range(4):
+            m.box(FLAG_COLS[k], (x + 29 + j * 43, 0, 640), (43, 6, 110))
 
 
 # ------------------------------------------------------------------------------------------ the town side, middle
@@ -242,12 +246,13 @@ def motel(m):
 
 def pool(m):
     """A motel pool: seen best from above, where loops and jumps look down on the town."""
-    m.box(CREAM, (0, 0, 6), (1700, 1200, 12))
-    m.box(POOL, (0, 0, 10), (1300, 760, 12), glow=0.2)
-    m.box(WHITE, (0, 0, 12), (1340, 800, 6))
-    m.box(POOL, (0, 0, 15), (1280, 740, 6), glow=0.2)
+    # (second pass: raised 16 cm. The track sinks a piece 15 cm, which had the deck under the land and the rim level with it.)
+    m.box(CREAM, (0, 0, 14), (1700, 1200, 28))
+    m.box(POOL, (0, 0, 26), (1300, 760, 12), glow=0.2)
+    m.box(WHITE, (0, 0, 28), (1340, 800, 6))
+    m.box(POOL, (0, 0, 31), (1280, 740, 6), glow=0.2)
     for k in range(4):
-        m.box(WHITE, (-480 + k * 320, 0, 19), (10, 740, 2))
+        m.box(WHITE, (-480 + k * 320, 0, 35), (10, 740, 2))
     m.box(SKY, (520, -470, 60), (60, 200, 120))                                        # a slide
     m.box(WHITE, (520, -400, 130), (70, 260, 12), rot=(0, 0, 24))
     for x, y, c in ((-700, -480, HOTPINK), (-250, 500, TEAL), (700, 480, YEL)):
@@ -260,10 +265,10 @@ def pool(m):
 def car_park(m, seed=6):
     """A car park: painted bays, a few parked cars (well back from the road), two lamp masts."""
     r = random.Random(seed)
-    m.box('#6f6a88', (0, 0, 4), (3000, 1700, 8))
+    m.box('#6f6a88', (0, 0, 11), (3000, 1700, 22))        # (second pass: its top was 7 cm under the land; now 7 cm over it)
     for k in range(11):
         for y in (-520, 520):
-            m.box(WHITE, (-1350 + k * 270, y, 9), (10, 520, 2))
+            m.box(WHITE, (-1350 + k * 270, y, 23), (10, 520, 2))
     cols = [CORAL, MINT, YEL, WHITE, SKY, PINK, LAV, TEAL]
     for k in range(10):
         if r.random() < 0.6:
@@ -546,19 +551,25 @@ def market_stalls(m, seed=7):
 
 
 def towels(m, seed=1):
-    """A stretch of beach as people leave it: towels, bags, a cooler, a ball. Low and flat: it is for the views from
-    above (the loops and jumps look straight down on the sand). Long along the road, so it lies along the slope."""
+    """A stretch of beach as people leave it: towels, bags, a ball. Low and flat: it is for the views from above (the
+    loops and jumps look straight down on the sand).
+    Second pass. The towels lay at z = -6 to 8, and the track sinks a piece 15 cm: they were under the sand and only
+    the bags showed. And the piece was 28 m long ALONG the road, where the land rises and falls with the road's hills
+    (the track stands a piece level at its middle): on a hill half of it was buried and half in the air. It is now
+    10 m along the road and 22 m down the beach, and built on the beach's own fall (1.6 cm a metre)."""
     r = random.Random(seed)
     cols = [HOTPINK, TEAL, YEL, CORAL, MINT, LAV, SKY, WHITE]
     for k in range(14):
-        x, y = r.uniform(-1400, 1400), r.uniform(-330, 330)
+        x, y = r.uniform(-480, 480), r.uniform(-1050, 1050)
+        z = 15.0 - y * 0.016
         c = r.choice(cols)
         yaw = r.uniform(0, 180)
-        m.box(c, (x, y, 1), (200, 100, 14), rot=(0, yaw, 0))
-        m.box(WHITE, (x, y, 2), (200, 30, 14), rot=(0, yaw, 0))
+        m.box(c, (x, y, z - 1), (200, 100, 22), rot=(0, yaw, 0))
+        m.box(WHITE, (x, y, z), (200, 30, 22), rot=(0, yaw, 0))
         if r.random() < 0.4:
-            m.box(r.choice(cols), (x + 60, y + 90, 16), (46, 34, 44))
-    m.sphere(RED, (r.uniform(-600, 600), r.uniform(-250, 250), 22), 24, steps=(4, 6))
+            m.box(r.choice(cols), (x + 60, y + 90, z + 19), (46, 34, 44))
+    y = r.uniform(-800, 800)
+    m.sphere(RED, (r.uniform(-400, 400), y, 39.0 - y * 0.016), 24, steps=(4, 6))
 
 
 def dune_grass(m, seed=2):
@@ -717,6 +728,463 @@ def speedboat(m):
     m.box(WHITE, (-900, 0, 6), (900, 200, 12))
 
 
+# ------------------------------------------------------------------------------------------ the third round (art pass 2)
+# What the land's own material cannot be. From the jumps, the loops and the banked bends the land beside the road was
+# one plain colour with small things standing on it. So, on the town side: a mosaic promenade, hotel pool decks,
+# tennis courts, sun plazas. On the beach: lidos (canopies in rows), club decks with pools, boats drawn up in rows,
+# rock groynes down to the water, businesses on the boardwalk, a boatyard. And downtown's towers for the horizon.
+#
+# The track sinks a dressed piece 15 cm, so the land's surface is at z = LAND in a piece's own space: a slab whose top
+# is under that cannot be seen (the first round's towels, pool deck and car park were: put right above). Flat pieces
+# that may lie over one another each have a height of their own over the land (promenade 4 cm, the kit's streets 7,
+# courts and plaza 10, pool deck 12): the higher simply covers the lower, and nothing flickers.
+LAND = 15.0
+DEEP = 300.0       # how far down a pool deck, the courts, a plaza and a club deck go: on a gentle slope the table stands them
+                   # 0.9 m up, as terraces, and the land may fall another metre under the low end
+BANNER_COLS = [HOTPINK, YEL, TEAL, CORAL]
+BANNER_Y, BANNER_TOP = -950.0, 590.0          # the beach club's banners: life() ripples them downwards from here
+
+
+def _ccw(pts):
+    """The polygon counter-clockwise, whichever way it was written (an extrusion written clockwise is inside out)."""
+    a = 0.0
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:] + pts[:1]):
+        a += x0 * y1 - x1 * y0
+    return list(pts) if a >= 0 else list(reversed(pts))
+
+
+def _oval(rx, ry, n=14, cx=0.0, cy=0.0, a0=0.0):
+    return [(cx + math.cos(a0 + 2 * math.pi * k / n) * rx, cy + math.sin(a0 + 2 * math.pi * k / n) * ry) for k in range(n)]
+
+
+def _eight(hx, hy, c, cx=0.0, cy=0.0):
+    """A rectangle with its corners cut off: the outline of a pool."""
+    return [(cx - hx + c, cy - hy), (cx + hx - c, cy - hy), (cx + hx, cy - hy + c), (cx + hx, cy + hy - c),
+            (cx + hx - c, cy + hy), (cx - hx + c, cy + hy), (cx - hx, cy + hy - c), (cx - hx, cy - hy + c)]
+
+
+def _parasol(m, x, y, z, col, r=150.0, h=250.0):
+    m.cyl(WHITE, (x, y, z - 30), 6, h + 30, steps=6)
+    m.cyl(col, (x, y, z + h - 24), r, 46, steps=10, top_r=8)
+
+
+def _tub(m, x, y, z, seed=0):
+    """A square tub with a clipped bush and a few flowers."""
+    r = random.Random(seed)
+    m.box(CREAM, (x, y, z + 32), (190, 190, 64))
+    m.sphere(LEAF, (x, y, z + 104), 100, scale=(1, 1, 0.8), steps=(5, 8))
+    for j in range(3):
+        m.sphere([HOTPINK, YEL, CORAL][j], (x + r.uniform(-60, 60), y + r.uniform(-60, 60), z + 166 + r.uniform(0, 16)), 17, steps=(3, 5))
+
+
+def _bench(m, x, y, z, yaw=0.0):
+    """A bench facing -Y (the road) at yaw 0."""
+    a = math.radians(yaw)
+    m.box(TEAL, (x, y, z + 44), (200, 50, 10), rot=(0, yaw, 0))
+    m.box(TEAL, (x - 24 * math.sin(a), y + 24 * math.cos(a), z + 80), (200, 10, 60), rot=(0, yaw, 0))
+
+
+def promenade(m):
+    """34 m of the town's promenade, 8 m wide, round at the ends (34: on the inside of the tightest bend the slots are
+    34.6 m apart at 30 m out, and two pieces must not overlap): pale paving with two mosaic waves running along it,
+    kerbs, tubs, benches and four clipped trees towards the ends. The middle is left clear: at every fourth slot a side street crosses it
+    there, and lies over it (the street's top is 3 cm higher)."""
+    L, W, top = 2600.0, 800.0, LAND + 4.0
+    m.box(CREAM, (0, 0, (top - DEEP) / 2.0), (L, W, top + DEEP))
+    for s in (-1, 1):
+        m.cyl(CREAM, (s * L / 2.0, 0, -DEEP), W / 2.0, top + DEEP, steps=12)
+    n = 24
+    for col, ph, off, lift in ((TEAL, 0.0, 150.0, 2.0), (CORAL, math.pi, -150.0, 3.0)):
+        mid = [(-L / 2.0 + L * k / n, off + 150.0 * math.sin(2 * math.pi * 3 * k / n + ph)) for k in range(n + 1)]
+        m.plan(col, _ccw([(x, y + 55) for x, y in mid] + [(x, y - 55) for x, y in reversed(mid)]), top, top + lift)
+    for s in (-1, 1):
+        m.box(WHITE, (0, s * 385, top + 4), (L, 30, 12))
+        _tub(m, s * 900, 250, LAND, seed=3 + s)
+        _bench(m, s * 1050, -180, LAND)
+        for x in (620, 1180):                                             # clipped trees along the back: what shows from the road
+            m.cyl(TRUNK_D, (s * x, 290, LAND), 22, 270, steps=5)
+            m.sphere(LEAF, (s * x, 290, LAND + 420), 175, scale=(1, 1, 0.95), steps=(4, 7))
+        m.box(WHITE, (s * 1240, -250, LAND + 45), (30, 30, 90))          # a bollard at each end, road side
+        m.sphere(TEAL, (s * 1240, -250, LAND + 100), 24, steps=(4, 6))
+
+
+def resort_pool(m):
+    """A hotel's pool deck, 34 x 22 m: a lagoon pool with a thatched bar on an island in it, a slide, sunbeds in a row
+    under parasols along the front, a hedge round the back. Seen best from above; nothing in it stands over 3.5 m."""
+    L, W, top = 3400.0, 2200.0, LAND + 12.0
+
+    def kidney(n, grow=0.0):
+        pts = []
+        for i in range(n):
+            a = 2 * math.pi * i / n
+            d = math.atan2(math.sin(a - math.pi / 2), math.cos(a - math.pi / 2))
+            f = 1.0 - 0.3 * math.exp(-(d / 0.55) ** 2)
+            pts.append((math.cos(a) * (1150 + grow) * f - 150, math.sin(a) * (640 + grow) * f + 190))
+        return _ccw(pts)
+
+    m.box(CREAM, (0, 0, (top - DEEP) / 2.0), (L, W, top + DEEP))
+    m.plan(WHITE, kidney(20, 45), top, top + 4)
+    m.plan(POOL, kidney(20), top, top + 7, glow=0.2)
+    m.plan(TEAL, _oval(430, 250, 12, -700, 120), top + 7, top + 8)                      # the deep end
+    m.cyl(CREAM, (330, 60, top), 170, 44, steps=10)                                     # the island and its bar
+    m.cyl(WOOD_D, (330, 60, top + 44), 16, 200, steps=6)
+    m.cyl(STRAW_D, (330, 60, top + 230), 250, 14, steps=10)
+    m.cyl(STRAW, (330, 60, top + 244), 240, 100, steps=10, top_r=20)
+    m.box(CORAL, (1250, 930, top + 130), (130, 130, 260))                               # the slide's tower, the chute
+    tilt_box(m, SKY, (1250, 870, top + 250), (900, 560, top + 16), 90, 26)
+    m.box(WHITE, (-1320, 190, top + 50), (260, 50, 10))                                 # a diving board
+    m.box(WHITE, (-1420, 190, top + 25), (60, 60, 50))
+    cols = [HOTPINK, TEAL, YEL, CORAL]
+    for k in range(8):
+        x = -1330 + k * 380
+        m.box(WHITE, (x, -850, top + 22), (70, 190, 12))
+        m.box(cols[k % 4], (x, -790, top + 34), (64, 60, 12))
+        if k % 2 == 0:
+            _parasol(m, x + 190, -830, top, cols[(k // 2) % 4])
+    m.box(LEAF_D, (0, 1070, LAND + 60), (L, 60, 120))
+    for s in (-1, 1):
+        m.box(LEAF_D, (s * 1670, 560, LAND + 60), (60, 1000, 120))
+
+
+def courts(m):
+    """Two tennis courts, 36 x 28 m: green courts on a coral surround, their lines left white between the painted
+    panels, nets, umpires' chairs, a clipped hedge on three sides."""
+    L, W, top = 3600.0, 2800.0, LAND + 10.0
+    m.box(CORAL, (0, 0, (top - DEEP) / 2.0), (L, W, top + DEEP))
+    for cy in (-690, 690):
+        m.box(WHITE, (0, cy, top + 1), (2389, 1109, 2))
+        for sx in (-1, 1):
+            m.box(TEAL, (sx * 914, cy, top + 2.5), (536, 811, 3))                        # the back court
+            for sy in (-1, 1):
+                m.box(MINT, (sx * 320, cy + sy * 205.5, top + 2.5), (628, 400, 3))       # the service boxes
+                m.box(TEAL, (sx * 594, cy + sy * 480, top + 2.5), (1176, 125, 3))        # the tramlines
+        m.box(WHITE, (0, cy, top + 52), (10, 1190, 96))                                  # the net
+        m.box(WHITE, (0, cy - 640, top + 95), (60, 60, 190))                             # the umpire's chair
+        m.box(NAVY, (0, cy - 640, top + 196), (90, 90, 12))
+    m.box(LEAF_D, (0, 1370, LAND + 65), (L, 60, 130))
+    for s in (-1, 1):
+        m.box(LEAF_D, (s * 1770, 0, LAND + 65), (60, W, 130))
+        _bench(m, s * 1500, 0, top, yaw=-90.0 * s)
+
+
+def sun_plaza(m):
+    """A round plaza 26 m across: a sun laid in the paving (rays in two colours round a fountain), benches and tubs."""
+    R, top = 1300.0, LAND + 10.0
+    m.cyl(TEAL, (0, 0, -DEEP), R, top + DEEP, steps=20)
+    m.cyl(CREAM, (0, 0, top), R - 110, 1.5, steps=20)
+    for k in range(12):
+        a = 2 * math.pi * k / 12
+        pts = [(math.cos(a - 0.14) * 380, math.sin(a - 0.14) * 380), (math.cos(a + 0.14) * 380, math.sin(a + 0.14) * 380),
+               (math.cos(a) * 1140, math.sin(a) * 1140)]
+        m.plan(CORAL if k % 2 else TEAL, _ccw(pts), top + 1.5, top + 3.5)
+    m.cyl(CORAL, (0, 0, top + 1.5), 330, 3, steps=16)
+    m.cyl(WHITE, (0, 0, top), 240, 66, steps=12)
+    m.cyl(POOL, (0, 0, top + 44), 205, 18, steps=12, glow=0.2)
+    m.cyl(WHITE, (0, 0, top), 40, 200, steps=8)
+    m.sphere(WHITE, (0, 0, top + 222), 58, steps=(5, 8))
+    for k in range(4):
+        a = math.pi / 4 + k * math.pi / 2
+        _tub(m, math.cos(a) * 1060, math.sin(a) * 1060, top, seed=k)
+        b = k * math.pi / 2
+        _bench(m, math.cos(b) * 1000, math.sin(b) * 1000, top, yaw=math.degrees(b) - 90.0)
+
+
+def lido(m):
+    """A lido on the upper beach, 36 x 20 m: three rows of four shade canopies, a colour to a row, sunbeds under
+    them, plank walks between. Built on the beach's own fall (1.6 cm a metre, down from the road)."""
+    cols = [HOTPINK, TEAL, YEL]
+    for j in range(3):
+        y = -700 + j * 700
+        z = LAND - y * 0.016
+        for k in range(4):
+            x = -1350 + k * 900
+            m.box(cols[j], (x - 175, y, z + 240), (350, 300, 14))
+            m.box(WHITE, (x + 175, y, z + 240), (350, 300, 14))
+            for s in (-1, 1):
+                m.box(WHITE, (x + s * 300, y, z + 105), (12, 12, 270))
+            m.box(WHITE, (x, y - 20, z + 26), (620, 190, 12))
+            m.box(cols[j], (x, y + 50, z + 30), (620, 56, 14))
+    tilt_box(m, WOOD, (0, -1000, LAND + 22), (0, 1000, LAND - 10), 200, 16)
+    for j in range(2):
+        y = -350 + j * 700
+        m.box(WOOD_D, (0, y, LAND - y * 0.016 + 6), (3400, 110, 14))
+    m.box(WHITE, (-140, -1000, LAND + 140), (16, 16, 250))                               # the gate: two posts and a board
+    m.box(WHITE, (140, -1000, LAND + 140), (16, 16, 250))
+    m.box(TEAL, (0, -1000, LAND + 290), (340, 20, 70))
+
+
+def beach_club(m):
+    """A beach club's deck, 30 x 20 m, on boards down into the sand: a pool let into it, a thatched bar, day beds
+    and parasols, four banners hanging from yards along the front (life() ripples them)."""
+    L, W, top = 3000.0, 2000.0, LAND + 45.0
+    m.box(WOOD, (0, 0, top - 14), (L, W, 28))
+    m.box(WOOD_D, (0, 0, (top - 28 - DEEP) / 2.0), (L - 80, W - 80, top - 28 + DEEP))
+    m.plan(WHITE, _ccw(_eight(840, 420, 170, -480, 260)), top, top + 3)
+    m.plan(POOL, _ccw(_eight(800, 380, 160, -480, 260)), top, top + 6, glow=0.2)
+    m.box(CORAL, (950, 560, top + 125), (460, 360, 250))                                 # the bar
+    m.box(WHITE, (950, 360, top + 105), (520, 60, 12))
+    m.box(YEL, (950, 376, top + 200), (300, 8, 50), glow=0.6)
+    m.cyl(STRAW_D, (950, 560, top + 250), 400, 14, steps=8)
+    m.cyl(STRAW, (950, 560, top + 264), 385, 150, steps=8, top_r=30)
+    for k in range(4):
+        x = -1230 + k * 500
+        m.box(WHITE, (x, -560, top + 22), (210, 210, 44))                                # day beds
+        m.box(HOTPINK, (x, -480, top + 52), (190, 50, 22))
+    for x, y, c in ((-1300, 860, TEAL), (420, 860, CORAL), (500, -150, TEAL)):
+        _parasol(m, x, y, top, c)
+    for k in range(4):
+        x = -1350 + k * 900
+        m.cyl(WHITE, (x, BANNER_Y, top - 40), 7, BANNER_TOP + 50 - top, steps=6)
+        m.box(WHITE, (x + 45, BANNER_Y, BANNER_TOP + 2), (100, 10, 10))                  # the yard the banner hangs from
+        for j in range(4):
+            m.box(BANNER_COLS[k], (x + 50, BANNER_Y, BANNER_TOP - 44 - j * 82), (76, 6, 82))
+
+
+def boat_row(m):
+    """Six small boats drawn up on the sand side by side, two with their sails up; plank rails down the beach behind
+    them and a winch at the top."""
+    hull = [CORAL, WHITE, TEAL, YEL, WHITE, HOTPINK]
+    trim = [WHITE, TEAL, WHITE, NAVY, CORAL, WHITE]
+    for k in range(6):
+        x = -1250 + k * 500
+        # the hull's profile runs along Y (its bow away from the road): drawn along X and turned a quarter
+        m.side(hull[k], [(-260, 0), (190, 0), (300, 100), (-260, 100)], -90, 90, rot=(0, 90, 0), loc=(0, -x, LAND - 6))
+        m.box(trim[k], (x, 10, LAND + 100), (190, 540, 12))
+        m.box(WOOD_D, (x, -60, LAND + 110), (170, 30, 14))
+        if k in (1, 4):
+            m.cyl(GREY, (x, 40, LAND + 100), 8, 560, steps=6)
+            m.side(CREAM, [(x + 14, LAND + 190), (x + 14, LAND + 640), (x + 250, LAND + 190)], 36, 44)
+            m.side(trim[k], [(x - 14, LAND + 230), (x - 14, LAND + 560), (x - 170, LAND + 230)], 36, 44)
+    for s in (-1, 1):
+        tilt_box(m, WOOD_D, (s * 120, 330, LAND + 6), (s * 120, 1250, LAND - 10), 26, 18)
+    for j in range(4):
+        m.box(WOOD, (0, 450 + j * 230, LAND + 8 - (450 + j * 230) * 0.016), (330, 40, 16))
+    m.box(GREY_D, (0, -330, LAND + 45), (120, 100, 90))                                  # the winch
+    m.cyl(RED, (-36, -330, LAND + 70), 34, 72, steps=8, rot=(0, 0, 90))
+
+
+def groyne(m, seed=12):
+    """A rock groyne 170 m long, from the top of the lower beach down to the water's edge, built on the beach's own
+    fall for a place 205 m from the road (as SM_Pier is for 190 m: local z = 0 is the sand there): big pale rocks, a
+    concrete walk along the top, a striped beacon at the sea end. It runs along +Y, away from the road."""
+    r = random.Random(seed)
+
+    def sand(y):
+        x = 20500.0 + y
+        z = -220.0 - (x - 11000.0) / 11000.0 * 600.0 if x <= 22000.0 else -820.0 - (x - 22000.0) / 8000.0 * 530.0
+        return z + 738.2 + LAND
+
+    n = 20
+    for k in range(n):
+        y = -8300 + k * 16600.0 / (n - 1)
+        s = r.uniform(260, 340)
+        m.sphere(GREY if k % 3 else GREY_D, (r.uniform(-70, 70), y, sand(y) + 40), s, scale=(1.35, 1.1, 0.75), steps=(4, 6),
+                 rot=(r.uniform(-12, 12), r.uniform(0, 180), 0))
+    for y0, y1 in ((-8300, 1500), (1500, 8300)):
+        tilt_box(m, CREAM, (0, y0, sand(y0) + 264), (0, y1, sand(y1) + 264), 190, 40)
+    z = sand(8500)
+    m.cyl(RED, (0, 8500, z - 150), 46, 620, steps=8)
+    m.cyl(WHITE, (0, 8500, z + 200), 49, 110, steps=8)
+    m.sphere(YEL, (0, 8500, z + 500), 40, steps=(4, 6), glow=0.9)
+
+
+def board_shops(m):
+    """Three businesses on the boardwalk's seaward side, 30 m of them on piles over the sand: an ice-cream parlour, a
+    dive shop and a taco bar, each under a striped awning with its name in lights on the roof, a terrace in front
+    that meets the walk. (Names are our own; the letters are ft_city's.)"""
+    top = 48.0                                               # the boardwalk's own height
+    m.box(WOOD, (0, -165, top - 8), (3000, 1230, 16))
+    for k in range(6):
+        for y in (-640, 300):
+            m.box(WOOD_D, (-1350 + k * 540, y, top - 16 - 125), (30, 30, 250))
+    units = [(PINK, CORAL, 'ICES', HOTPINK, YEL), (SKY, TEAL, 'DIVE', YEL, SKY), (PEACH, HOTPINK, 'TACOS', CORAL, YEL)]
+    for k, (col, trim, word, neon, lit) in enumerate(units):
+        x = -1000 + k * 1000
+        h = 330.0 + (50.0 if k == 1 else 0.0)
+        m.box(col, (x, 60, top + h / 2.0), (900, 600, h))
+        m.box(WHITE, (x, 60, top + h + 10), (940, 640, 20))
+        m.box(NAVY, (x - 150, -242, top + 150), (460, 8, 190))                           # the counter, lit from inside
+        m.box(lit, (x - 150, -246, top + 150), (420, 4, 150), glow=0.45)
+        m.box(NAVY, (x + 280, -242, top + 115), (150, 8, 230))                           # the door
+        for j in range(4):
+            m.box(trim if j % 2 else WHITE, (x - 337 + j * 225, -330, top + 285), (225, 190, 12), rot=(0, 0, -16))
+        m.box(NAVY, (x, -200, top + h + 20 + 100), (860, 16, 200))                       # the sign board on the roof
+        wall = ft_city.Wall(m, None, (x + 430, -208, 0), (-1, 0, 0), (0, -1, 0), 860)
+        ft_city.text(wall, word, 430, top + h + 50, 140, neon, 0, 10, glow=GLOW)
+    # what each sells, huge, on a post behind its board: a cone, a life ring, a sun-yellow tortilla
+    m.box(WHITE, (-700, 180, top + 480), (16, 16, 300))
+    m.cyl('#e8b26a', (-700, 180, top + 600), 10, 170, steps=8, top_r=70)
+    m.sphere(PINK, (-700, 180, top + 820), 82, steps=(5, 8))
+    m.box(WHITE, (150, 180, top + 560), (16, 16, 320))
+    m.cyl(RED, (150, 195, top + 760), 90, 30, steps=10, rot=(90, 90, 0))
+    m.cyl(WHITE, (150, 199, top + 760), 48, 38, steps=10, rot=(90, 90, 0))
+    m.box(WHITE, (1300, 180, top + 480), (16, 16, 300))
+    m.cyl(YEL, (1300, 195, top + 730), 130, 30, steps=10, rot=(90, 90, 0))
+    for k, x in enumerate((-600, 400)):                                                  # two tables on the terrace
+        m.cyl(WHITE, (x, -560, top), 40, 70, steps=6)
+        m.box(WHITE, (x, -560, top + 110), (8, 8, 200))
+        m.cyl([HOTPINK, TEAL][k], (x, -560, top + 196), 130, 40, steps=8, top_r=8)
+
+
+def boatyard(m):
+    """A boatyard, 40 x 22 m: a hard standing with four boats chocked up out of the water, the blue travel-lift that
+    carries them, drums, and a boat shed with its trade on a board over the roof."""
+    L, W, top = 4000.0, 2200.0, LAND + 8.0
+    m.box(GREY, (0, 0, (top - 80) / 2.0), (L, W, top + 80))
+    sx = 1250.0
+    m.box(TEAL, (sx, 250, top + 300), (1300, 1300, 600))
+    m.side(WHITE, [(sx - 700, top + 600), (sx + 700, top + 600), (sx, top + 860)], -420, 920)
+    m.box(NAVY, (sx - 150, -404, top + 230), (620, 8, 460))
+    m.box(YEL, (sx + 430, -404, top + 250), (200, 6, 150), glow=0.4)
+    for s in (-1, 1):
+        m.box(GREY_D, (sx + s * 500, -310, top + 830), (30, 30, 560))
+    m.box(NAVY, (sx, -310, top + 1000), (1150, 16, 220))
+    wall = ft_city.Wall(m, None, (sx + 575, -318, 0), (-1, 0, 0), (0, -1, 0), 1150)
+    ft_city.text(wall, 'BOATS', 575, top + 925, 150, HOTPINK, 0, 10, glow=GLOW)
+    hulls = [(WHITE, CORAL), (CREAM, TEAL), (WHITE, NAVY), (SKY, WHITE)]
+    for k, (col, trim) in enumerate(hulls):
+        x = -1650 + k * 620
+        m.side(col, [(-420, 0), (300, 0), (480, 230), (-440, 230)], -130, 130, rot=(0, 90, 0), loc=(100, -x, top + 110))
+        for y in (-150, 330):
+            m.box(GREY_D, (x, y, top + 55), (300, 40, 110))
+        m.box(trim, (x, 120, top + 346), (270, 900, 20))
+        m.box(WHITE, (x, 20, top + 410), (180, 300, 110))
+        m.box(NAVY, (x, 20, top + 420), (186, 240, 44))
+    lx = -1650 + 2 * 620                                                                 # the travel-lift stands over the third boat
+    for s in (-1, 1):
+        for t in (-1, 1):
+            m.box(SKY, (lx + s * 240, 100 + t * 400, top + 340), (50, 50, 680))
+        m.box(SKY, (lx + s * 240, 100, top + 700), (64, 900, 64))
+        m.box(SKY, (lx, 100 + s * 400, top + 700), (540, 64, 64))
+    for k, c in enumerate((CORAL, YEL, TEAL)):
+        m.cyl(c, (-1820 + k * 110, -880, top), 46, 112, steps=8)
+
+
+def downtown(m):
+    """Downtown's towers for the horizon, 280 m of them and up to 230 m high: a stepped tower with a spire, a pair of
+    slabs, a round tower under a saucer, a wedge-topped tower and the blocks between. Solid masses with their lit
+    floors in bands: it is never nearer than 400 m. A Far piece: it stands from z = 0 up."""
+    def bands(x, y, w, d, z0, z1, n, lit):
+        for k in range(n):
+            z = z0 + (z1 - z0) * (k + 0.5) / n
+            m.box(lit if k % 2 else NAVY, (x, y, z), (w + 30, d + 30, (z1 - z0) / n * 0.34), glow=0.5 if k % 2 else 0.0)
+
+    m.box(LAV, (-9000, 0, 6500), (3600, 3600, 13000))                                    # the stepped tower
+    bands(-9000, 0, 3600, 3600, 1500, 12500, 8, YEL)
+    m.box(LAV, (-9000, 0, 15000), (2700, 2700, 4000))
+    bands(-9000, 0, 2700, 2700, 13300, 16700, 3, YEL)
+    m.box(HOTPINK, (-9000, 0, 17100), (2760, 2760, 170), glow=GLOW)
+    m.box(WHITE, (-9000, 0, 18300), (1800, 1800, 2400))
+    m.cyl(WHITE, (-9000, 0, 19500), 170, 3500, steps=6, top_r=20)
+    m.sphere(RED, (-9000, 0, 23050), 110, steps=(4, 6), glow=1.2)
+    for s, col in ((-1, MINT), (1, PEACH)):                                              # the pair of slabs
+        h = 16000.0 + s * 2400.0
+        m.box(col, (-3600 + s * 1100, 400, h / 2.0), (1700, 2800, h))
+        bands(-3600 + s * 1100, 400, 1700, 2800, 1200, h - 800, 8, SKY)
+    m.box(WHITE, (-3600, 400, 9000), (700, 1200, 500))
+    m.cyl(CREAM, (2600, -200, 0), 1500, 17000, steps=12)                                 # the round tower
+    for k in range(5):
+        m.cyl(YEL if k % 2 else NAVY, (2600, -200, 2200 + k * 3000), 1520, 800, steps=12, glow=0.5 if k % 2 else 0.0)
+    m.cyl(TEAL, (2600, -200, 17000), 1500, 500, steps=12, top_r=2600)
+    m.cyl(SKY, (2600, -200, 17500), 2600, 300, steps=12, glow=0.5)
+    m.cyl(TEAL, (2600, -200, 17800), 2600, 500, steps=12, top_r=300)
+    m.cyl(WHITE, (2600, -200, 18300), 60, 2600, steps=6)
+    m.sphere(RED, (2600, -200, 20950), 90, steps=(4, 6), glow=1.2)
+    m.side(CORAL, [(7400, 0), (10400, 0), (10400, 14500), (7400, 20500)], -1400, 1400)   # the wedge
+    bands(8900, 0, 3000, 2800, 1200, 13800, 7, YEL)
+    tilt_box(m, HOTPINK, (7400, -1420, 20500), (10400, -1420, 14500), 30, 170, glow=GLOW)
+    for x, y, w, d, h, col, lit in ((-6200, -300, 2200, 2000, 7000, PINK, YEL), (-600, -600, 2400, 2000, 9000, CREAM, SKY),
+                                    (5300, 300, 2000, 2200, 8200, LAV, YEL), (12600, 0, 2600, 2200, 6000, MINT, SKY),
+                                    (-12600, 200, 2400, 2000, 5200, PEACH, YEL)):
+        m.box(col, (x, y, h / 2.0), (w, d, h))
+        bands(x, y, w, d, 800, h - 500, max(2, int(h / 1800)), lit)
+
+
+def park_block(m):
+    """A garden the size of a town block, 60 x 44 m, for the land among the hotels (160 m out and more, where it is
+    only ever seen from above: from a loop, a jump, a hill's crest): lawn inside a pavement, two paths crossing at a
+    round flower bed, a pond, clipped trees. The first green in a pink town."""
+    L, W, top = 6000.0, 4400.0, LAND + 10.0
+    m.box(CREAM, (0, 0, (top - 90) / 2.0), (L, W, top + 90))
+    m.box(LEAF, (0, 0, top + 1.5), (L - 420, W - 420, 3))
+    for yaw in (30.0, -30.0):
+        m.box(CREAM, (0, 0, top + 3.5), (L * 1.04, 240, 2), rot=(0, yaw, 0))
+    m.cyl(CREAM, (0, 0, top + 3), 620, 3, steps=14)
+    m.cyl(HOTPINK, (0, 0, top + 6), 380, 26, steps=12)
+    m.cyl(YEL, (0, 0, top + 32), 170, 20, steps=10)
+    m.plan(WHITE, _ccw(_oval(880, 520, 14, -1750, 1150)), top + 3, top + 6)
+    m.plan(POOL, _ccw(_oval(820, 460, 14, -1750, 1150)), top + 3, top + 9, glow=0.2)
+    for x, y in ((-2550, -1750), (-900, -1800), (900, -1800), (2550, -1750), (2550, 1750), (1300, 1800), (-2600, 250), (2600, 0)):
+        m.cyl(TRUNK_D, (x, y, top), 28, 250, steps=5)
+        m.sphere(LEAF_D, (x, y, top + 420), 230, scale=(1, 1, 0.9), steps=(4, 7))
+
+
+# The banks of the banked bends. A bend banked 40 to 57 degrees sinks the road's inner edge 8 to 11.5 m; the track cuts
+# the land down to it, and from the road that cut bank (FTTrack's "bed": one straight slope from 45 cm under the low
+# barrier's top to the land's inner edge 16 m out, 56.8 to 61.3 degrees steep) fills a third of the frame, bare. This
+# piece lies ON it: 24 m of mosaic in a kerb, the promenade's two waves and a row of suns, built already tilted and
+# already bent to the bend (three 8 m lengths on a 112 m radius: turned round on the left, the same piece fits the
+# inside of a left bend and of a right one). The table stands it with a set whose "up" is negative and scales it to the
+# bank (FTDressL0.inl, "the banked bends"). Its top edge stays 1.75 m below the road's centre line: lower than the
+# road's own depth, so the track's clearance test does not count it as standing beside the road. No arrows, no lights.
+BANK_DEG = 58.5
+BANK_R = 11200.0
+
+
+def bank_waves(m):
+    """24 x 11 m of mosaic lying on the cut bank inside a banked bend (see above). In its own frame x runs along the
+    road, y up the slope, z out of it; z = 0 is the bank's surface at the piece's middle."""
+    for k in (-1, 0, 1):
+        xc = k * 800.0
+        m.base = ft_art._xf((xc, xc * xc / (2.0 * BANK_R), 0.0), (0.0, math.degrees(xc / BANK_R), -BANK_DEG))
+        try:
+            m.box(CREAM, (0, 0, -24), (806, 1100, 72))
+            for s in (-1, 1):
+                m.box(WHITE, (0, s * 520, 17), (806, 60, 10))
+            n = 10
+            for col, off, ph in ((TEAL, 250.0, 0.0), (CORAL, -250.0, math.pi)):
+                mid = [(-403.0 + 806.0 * i / n, off + 110.0 * math.sin(2 * math.pi * i / n + ph)) for i in range(n + 1)]
+                m.plan(col, _ccw([(x, y + 60) for x, y in mid] + [(x, y - 60) for x, y in reversed(mid)]), 12, 18)
+            for i in range(2):
+                m.cyl(YEL, (-200.0 + i * 400.0, 0, 12), 80, 6, steps=10)
+        finally:
+            m.base = None
+
+
+def life():
+    """What moves (art pass 2). ft_life.animate() puts M_Life on a piece's slots and saves it in place; an export puts
+    the plain palette back, so run this again after every export of a piece named here:
+        import ft_dress, ft_dress_bay; ft_dress.run(['bayshore']); ft_dress_bay.life()
+    Nothing near the road moves much: flags and banners ripple, signs and beacons blink, pool water glints."""
+    import ft_life
+    A = ft_life.animate
+    D = '/Game/Maps/Bayshore/Dress/'
+    for k, col in enumerate(FLAG_COLS):                                                  # each flag from its own pole
+        x = -600.0 + k * 300.0
+        A(D + 'SM_Flags', 'Flutter', [col + '-'], FlutterPin=(x + 7.0, 0.0, 640.0), FlutterAxis=(1.0, 0.0, 0.0), FlutterDir=(0.0, 1.0, 0.0),
+          FlutterSpan=172.0, FlutterLen=240.0, FlutterRate=7.0, FlutterAmp=13.0, MaskMin=(x + 5.0, -60.0, 570.0), MaskMax=(x + 200.0, 60.0, 710.0))
+    A(D + 'SM_BeachClub', 'Flutter', [c + '-' for c in BANNER_COLS], FlutterPin=(0.0, BANNER_Y, BANNER_TOP), FlutterAxis=(0.0, 0.0, -1.0),
+      FlutterDir=(0.0, 1.0, 0.0), FlutterSpan=330.0, FlutterLen=280.0, FlutterRate=6.0, FlutterAmp=11.0,
+      MaskMin=(-1.0e6, BANNER_Y - 40.0, BANNER_TOP - 340.0), MaskMax=(1.0e6, BANNER_Y + 40.0, BANNER_TOP + 1.0))
+    water = dict(LightHash=0.35, LightCell=90.0, LightRate=1.6, LightMin=0.55, LightRand=1.0)
+    for name in ('SM_Pool', 'SM_ResortPool', 'SM_BeachClub', 'SM_SunPlaza', 'SM_ParkBlock'):   # pool water glints, cell by cell
+        A(D + name, 'Light', [POOL + '*'], **water)
+    spin = dict(SpinRate=0.5, SpinRand=1.0)                                              # the carousel turns, its bulbs twinkle
+    A(D + 'SM_Carousel', ('Spin', 'Light'), [YEL + '*'], LightHash=0.3, LightCell=60.0, LightRate=2.0, LightMin=0.35, **spin)
+    A(D + 'SM_Carousel', 'Spin', lambda slot, colour, glow: not (colour == YEL[1:] and glow > 0), **spin)
+    A(D + 'SM_Coaster', 'Light', ['glow'], **ft_life._chase((1.0, 0.0, 0.0), 1500.0, rate=0.6, low=0.3))
+    A(D + 'SM_Motel', 'Light', lambda slot, colour, glow: glow > 0.7, **ft_life._chase((0.0, 0.0, -1.0), 240.0, rate=1.2, low=0.25))
+    for name in ('SM_Kiosk', 'SM_KioskDrinks', 'SM_Boatyard'):
+        A(D + name, 'Light', [HOTPINK + '*'], **ft_life.PULSE)
+    A(D + 'SM_BoardShops', 'Light', lambda slot, colour, glow: abs(glow - GLOW) < 0.011, **ft_life._chase((1.0, 0.0, 0.0), 3000.0, rate=0.4, duty=0.7, low=0.35))
+    A(D + 'SM_TikiBar', 'Light', lambda slot, colour, glow: glow > 0.85, LightRate=3.0, LightDuty=0.7, LightSoft=0.4, LightMin=0.55, LightRand=1.0)
+    for name in ('SM_WaterTower', 'SM_RadioMast', 'SM_Downtown'):                        # beacons
+        A(D + name, 'Light', [RED + '*'], **ft_life.BLINK)
+    A(D + 'SM_Groyne', 'Light', [YEL + '*'], **dict(ft_life.BLINK, LightRate=0.5))
+    A(D + 'SM_Downtown', 'Light', [HOTPINK + '*'], **ft_life.PULSE)
+    A(D + 'SM_Downtown', 'Light', [YEL + '*', SKY + '*'], **ft_life._windows(900.0, rate=0.1, off=0.2, low=0.3))
+
+
 JOBS = [
     ('SM_Boardwalk', boardwalk), ('SM_BeachPath', beach_path), ('SM_Cabanas', cabanas), ('SM_Sunbeds', sunbeds),
     ('SM_SurfRack', surf_rack), ('SM_Volleyball', volleyball), ('SM_Breakwater', breakwater),
@@ -738,4 +1206,9 @@ JOBS = [
     ('SM_HotelSky', lambda m: ft_city.hotel(m, 1600, 1000, 6, SKY, WHITE, CORAL, True, YEL, name='MARINA', blade='MOTEL')),
     ('SM_HotelCoral', lambda m: ft_city.hotel(m, 2000, 1100, 10, CORAL, CREAM, TEAL, False, SKY, name='SUNSET', blade='HOTEL', balcony=True)),
     ('SM_LinerPink', lambda m: ft_city.liner(m, 1700, 1000, 4, PINK, CREAM, TEAL, YEL, name='OCEAN')),
+    # art pass 2: the ground plane (see "the third round"), the boardwalk's businesses, the boatyard, downtown
+    ('SM_Promenade', promenade), ('SM_ResortPool', resort_pool), ('SM_Courts', courts), ('SM_SunPlaza', sun_plaza),
+    ('SM_LidoBlock', lido), ('SM_BeachClub', beach_club), ('SM_BoatRow', boat_row), ('SM_Groyne', groyne),
+    ('SM_BoardShops', board_shops), ('SM_Boatyard', boatyard), ('SM_Downtown', downtown), ('SM_ParkBlock', park_block),
+    ('SM_BankWaves', bank_waves),
 ]

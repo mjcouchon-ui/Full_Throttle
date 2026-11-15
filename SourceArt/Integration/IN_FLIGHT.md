@@ -15,10 +15,13 @@ Please do not snapshot or merge a `claude/*` branch or those two checkouts' unco
 | Audit fixes (`AUDIT.md`, ten items; fifteen harness checks pass) | `FTGameMode.*`, `FTProgress.cpp`, `FTGameInstance.cpp`, `FTPlayerController.*`, `FTHUD.cpp` | on `main` |
 | Dressing shadows: a piece casts only where its shadow reaches the road | `FTTrack.cpp`, the dressing's `Put` only | on `main` |
 | Attack presentation: the telegraph fixes from the review | `FTEntity.cpp`, drawing code in `FTGameMode.cpp` | on `main` |
-| The land's own surface, level by level (a material: slabs, ripples, cracked ground) | `FTTrack.cpp` (which material the land wears), `Content/Python/ft_world.py`, `Content/Maps/*/Materials/MI_Land`, `Content/Maps/Land` | in flight |
-| Dressing, second pass, all eight levels | `FTDressL0.inl` to `FTDressL7.inl`, `Content/Python/ft_dress_*.py`, `Content/Maps/*/Dress` | in flight, branch `claude/art-pass-2` (four workers in `K:\Full Throttle\VisualAssetsWorktree`) |
-| Packaged build and its eight-level run | none (a build) | in flight |
-| Frame-time and load-time measurements | none | left to the 3.4 performance loop; findings for it are in `AUDIT.md` ("Scenery and rendering cost") |
+| The land's own surface, level by level | `FTTrack.cpp` (which material the land wears), `Content/Python/ft_world.py`, `Content/Maps/*/Materials/MI_Land`, `Content/Maps/Land` | on `main` |
+| Dressing, second pass, all eight levels (`WORLD_PASS_2.md`) | `FTDressL0.inl` to `FTDressL7.inl`, `Content/Python/ft_dress_*.py`, `Content/Maps/*/Dress`, new instances in `Content/Core/Life/Instances` | on `main` |
+| The per-level release check and the packaged build (`AUDIT.md`) | `SourceArt/Jam/unreal/jam_verify.ps1`, `jam_package.ps1`; one log line in `FTTrack.cpp` (`FTTRACKSUM`) | on `main` |
+| Frame-time and load-time measurements | none | left to the 3.4 performance loop; findings for it are in `AUDIT.md` |
+
+Nothing of this session's is in flight at the time of the last push. The next things it would take up are listed
+in `WORLD_PASS_2.md` ("Still weak" and "What the workers asked of the shared files").
 
 Not this session's: the track and its collision (locked), gameplay values, the skill tree, missions, the Canvas HUD's
 layout, vehicle rigs and wheels, `M_PP_Cel`.

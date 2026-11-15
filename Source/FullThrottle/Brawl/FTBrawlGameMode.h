@@ -96,6 +96,7 @@ public:
 	float StT = 0, Time = 0, Go = 0, KoT = 0, WinT = 0, BossIntro = 0, BannerT = -1, Shake = 0;
 	FString Banner, BannerSub;
 	bool bWon = false, bBossOut = false;
+	bool bPadLast = false;   // loop cycle 8: the last input came from a pad (the controls line names pad buttons)
 	int32 BossIdx() const;
 	FVector World(float X, float Y, float Z) const;
 	// the venue: night 1 The Rusty Anchor (boss Big Earl), night 2 The Velvet Room (boss Vinnie Velour; run 16961),

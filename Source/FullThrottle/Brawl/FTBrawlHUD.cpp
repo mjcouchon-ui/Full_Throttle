@@ -112,7 +112,8 @@ void AFTBrawlHUD::DrawHUD()
 	if (P.St == TEXT("held") && int32(G->StT * 6) % 2) Txt(TEXT("MASH J / K TO BREAK FREE"), W / 2, 120, Hx(TEXT("ff4f6e")), 1.4f, 1);
 	if (G->Go > 0 && int32(G->StT * 4) % 2) Txt(TEXT("GO →"), W - 80, H / 2 - 30, Hx(TEXT("ffd23f")), 3.0f, 2);
 	if ((P.St == TEXT("lift") || P.St == TEXT("carry")) && int32(G->StT * 6) % 2) Txt(TEXT("L / J / K: THROW HIM (STEER TO AIM)"), W / 2, 120, Hx(TEXT("ffd23f")), 1.4f, 1);   // grab and throw (run 42137)
-	Txt(TEXT("WASD MOVE · J PUNCH / PICK UP / SWING · K KICK / THROW WEAPON · L GRAB & THROW · SPACE JUMP · J AT THE BAR: A DRINK" FT_BRAWL_MUTE_HINT " · ESC QUIT"), W / 2, H - 26, FLinearColor(1, 1, 1, 0.75f), 0.8f, 1);
+	if (G->bPadLast) Txt(TEXT("STICK MOVE · X PUNCH / PICK UP / SWING · Y KICK / THROW WEAPON · B GRAB & THROW · A JUMP · X AT THE BAR: A DRINK"), W / 2, H - 26, FLinearColor(1, 1, 1, 0.75f), 0.8f, 1);
+	else Txt(TEXT("WASD MOVE · J PUNCH / PICK UP / SWING · K KICK / THROW WEAPON · L GRAB & THROW · SPACE JUMP · J AT THE BAR: A DRINK" FT_BRAWL_MUTE_HINT " · ESC QUIT"), W / 2, H - 26, FLinearColor(1, 1, 1, 0.75f), 0.8f, 1);
 	if (G->BannerT >= 0)
 	{
 		const float Bt = G->BannerT, A = FMath::Clamp(FMath::Min3(1.f, Bt * 4, (2.4f - Bt) * 3), 0.f, 1.f);

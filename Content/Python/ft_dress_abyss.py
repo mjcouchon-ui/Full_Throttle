@@ -491,6 +491,137 @@ def far_reef(m, seed=26):
     m.sphere(ROCK_D, (0, 0, 0), 8200, scale=(1.0, 0.16, 0.14), steps=(4, 8))
 
 
+# ------------------------------------------------------------------------------------------ the third round (art pass 2)
+# The seabed itself. From a glass tunnel's roof, a loop or a banked bend the camera looks down on the sand, and the
+# sand between the reefs was bare. So: flat pieces, all under 1.2 m but the whale's ribs, which may lie right up to the
+# verge: reef pavement (plates of rock, brain and plate corals, starfish), a service cable in a trench running out
+# from the road, a landing apron for the station's submarines, a whale's bones.
+# The track sinks a dressed piece 15 cm: the sand's surface is at z = LAND in a piece's own space.
+LAND = 15.0
+BONE = '#f4efe0'
+
+
+def _ccw(pts):
+    """The polygon counter-clockwise, whichever way it was written (an extrusion written clockwise is inside out)."""
+    a = 0.0
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:] + pts[:1]):
+        a += x0 * y1 - x1 * y0
+    return list(pts) if a >= 0 else list(reversed(pts))
+
+
+def _oval(rx, ry, n=10, cx=0.0, cy=0.0, a0=0.0):
+    return [(cx + math.cos(a0 + 2 * math.pi * k / n) * rx, cy + math.sin(a0 + 2 * math.pi * k / n) * ry) for k in range(n)]
+
+
+def _star(r0, r1, cx, cy, a0=0.0):
+    return [(cx + math.cos(a0 + math.pi * k / 5.0) * (r0 if k % 2 == 0 else r1), cy + math.sin(a0 + math.pi * k / 5.0) * (r0 if k % 2 == 0 else r1))
+            for k in range(10)]
+
+
+def reef_floor(m, seed=41):
+    """A patch of reef pavement 16 x 10 m, nothing in it over a metre: flat plates of rock, brain corals, plate corals
+    on short stems, giant starfish, a few tube sponges. For the sand between the reefs: it is seen from above."""
+    r = random.Random(seed)
+    for k in range(5):
+        x, y = r.uniform(-560, 560), r.uniform(-320, 320)
+        m.plan(ROCK_L if k % 2 else ROCK, _oval(r.uniform(170, 300), r.uniform(120, 220), 8, x, y, r.uniform(0, 1)), -40, LAND + r.uniform(18, 40))
+    for k in range(3):
+        x, y = r.uniform(-600, 600), r.uniform(-360, 360)
+        s = r.uniform(60, 100)
+        m.sphere([CORAL2, LAV, CORAL][k], (x, y, LAND + s * 0.2), s, scale=(1.2, 1.0, 0.6), steps=(4, 7))
+    for k in range(4):
+        x, y = r.uniform(-640, 640), r.uniform(-380, 380)
+        m.cyl(ROCK_D, (x, y, LAND - 10), 16, 60, steps=5)
+        m.cyl([MAG, CORAL, CORAL2, LAV][k], (x, y, LAND + 46), r.uniform(70, 120), 14, steps=8)
+    for k in range(3):
+        x, y = r.uniform(-700, 700), r.uniform(-420, 420)
+        m.plan([CORAL, MAG, CORAL2][k], _ccw(_star(110, 44, x, y, r.uniform(0, 1))), LAND - 4, LAND + 14)
+    for k in range(3):
+        x, y = r.uniform(-500, 500), r.uniform(-300, 300)
+        m.cyl(SUB, (x, y, LAND - 10), 14, r.uniform(50, 90), steps=6, top_r=19)
+
+
+def cable_trench(m, seed=43):
+    """A service cable in a trench, 60 m of it, running out from the road (along +Y): the sand thrown up in a bank on
+    each side, the cable on yellow saddles between, a junction box with a ring of light at the far end. Under a
+    metre high, so it may start at the verge."""
+    r = random.Random(seed)
+    L = 6000.0
+    for s in (-1, 1):
+        for k in range(6):
+            y = -L / 2.0 + 500 + k * 1000
+            m.sphere(SAND_D, (s * 150 + r.uniform(-15, 15), y, LAND - 10), 520, scale=(0.22, 1.05, 0.11), steps=(3, 6))
+    rod(m, STATION_D, (0, -L / 2.0, LAND + 14), (0, L / 2.0 - 250, LAND + 14), 22, steps=6)
+    for k in range(6):
+        m.box(SUB, (0, -L / 2.0 + 400 + k * 1000, LAND + 8), (90, 60, 34))
+    m.box(STATION, (0, L / 2.0 - 150, LAND + 40), (220, 220, 80))
+    m.cyl(STATION_D, (0, L / 2.0 - 150, LAND + 80), 60, 26, steps=8)
+    m.cyl(CYAN, (0, L / 2.0 - 150, LAND + 106), 46, 12, steps=8, glow=1.2)
+
+
+def sub_pad(m):
+    """A landing apron for the station's submarines, 22 m across: an eight-sided plate, a painted ring and cross,
+    short marker posts with small lamps round it, cargo waiting at the back. Flat: the posts are a metre."""
+    R, top = 1100.0, LAND + 14.0
+    m.cyl(STATION_D, (0, 0, -40), R, top + 40, steps=8)
+    m.cyl(SUB, (0, 0, top), R - 170, 2, steps=16)
+    m.cyl(STATION_D, (0, 0, top), R - 290, 3, steps=16)
+    m.box(MAG, (0, 0, top + 4), (1100, 150, 2))
+    m.box(MAG, (0, 0, top + 4), (150, 1100, 2))
+    for k in range(8):
+        a = k * math.pi / 4
+        x, y = math.cos(a) * (R - 135), math.sin(a) * (R - 135)
+        m.cyl(STATION, (x, y, top), 22, 96, steps=6)
+        m.sphere(CYAN, (x, y, top + 104), 20, steps=(3, 5), glow=1.0)
+    m.box(RUST, (-480, 700, top + 65), (300, 200, 130))
+    m.box(SUB, (-170, 730, top + 50), (160, 160, 100))
+    m.cyl(HULL, (260, 720, top), 60, 120, steps=8)
+
+
+def whale_bones(m, seed=44):
+    """A whale's skeleton on the sand, 20 m of it: the skull with its jaws apart, the spine, eight pairs of ribs
+    standing like an arcade (2.6 m at the tallest), the last bones of the tail."""
+    r = random.Random(seed)
+    m.sphere(SAND_D, (100, 0, -20), 1100, scale=(1.1, 0.45, 0.1), steps=(4, 8))
+    rod(m, BONE, (-800, 0, LAND + 60), (540, 0, LAND + 90), 34, steps=6)
+    for k in range(8):
+        x = -420 + k * 125
+        h = 260.0 * math.sin(math.pi * (k + 1.2) / 9.5)
+        for s in (-1, 1):
+            top = (x + 10, s * (90 + h * 0.5), LAND + 60 + h)
+            tilt_box(m, BONE, (x, 0, LAND + 80), top, 30, 22)
+            tilt_box(m, BONE, top, (x + 16, s * (140 + h * 0.35), LAND - 6), 26, 20)
+    m.side(BONE, [(520, LAND + 10), (980, LAND + 30), (1230, LAND + 40), (980, LAND + 150), (560, LAND + 190)], -110, 110)
+    for y0, y1 in ((-150, -118), (118, 150)):
+        m.side(BONE, [(600, LAND - 4), (1210, LAND + 4), (1190, LAND + 26), (600, LAND + 22)], y0, y1)
+    for k in range(5):
+        m.sphere(BONE, (-860 - k * 110, r.uniform(-20, 20), LAND + 26), 40 - k * 4, scale=(1.3, 1, 0.8), steps=(3, 5))
+
+
+def life():
+    """What moves (art pass 2). ft_life.animate() puts M_Life on a piece's slots and saves it in place; an export puts
+    the finish pass's materials back, so run this again after every export of a piece named here:
+        import ft_dress, ft_dress_abyss; ft_dress.run(['abyss']); ft_dress_abyss.life()
+    The water moves everything slowly: weed and grass sway, jellyfish rise and sink, lamps and rings pulse. Nothing on
+    the verge blinks (a light that comes and goes beside the road reads as a pickup)."""
+    import ft_life
+    A = ft_life.animate
+    D = '/Game/Maps/Abyss/Dress/'
+    A(D + 'SM_KelpForest', 'Sway', SwayAmp=85.0, SwayHeight=2000.0, SwayPow=1.5, SwayRate=0.5, SwayLean=0.3, Wind=(1.0, 0.3, 0.0))
+    A(D + 'SM_KelpForest2', 'Sway', SwayAmp=110.0, SwayHeight=2600.0, SwayPow=1.5, SwayRate=0.45, SwayLean=0.3, Wind=(1.0, 0.3, 0.0))
+    for name in ('SM_SeaGrass', 'SM_SeaGrass2'):
+        A(D + name, 'Sway', SwayAmp=12.0, SwayHeight=140.0, SwayPow=1.4, SwayRate=0.8, SwayLean=0.2, Wind=(1.0, 0.3, 0.0))
+    for name in ('SM_Jellyfish', 'SM_Jellyfish2'):          # each bell on its own beat: the phase runs across the swarm
+        A(D + name, 'Bob', BobAmp=55.0, BobRate=0.11, BobRand=1.0, BobPhase=(0.0009, 0.0006, 0.0), BobDrift=12.0)
+    A(D + 'SM_StationHub', 'Light', [CYAN + '*', MAG + '*'], **ft_life._chase((0.0, 0.0, 1.0), 1300.0, rate=0.35, low=0.35, rand=1.0))
+    A(D + 'SM_TubeRun', 'Light', [MAG + '*'], **ft_life._chase((1.0, 0.0, 0.0), 940.0, rate=0.5, low=0.4))
+    A(D + 'SM_WatchTower', 'Light', ['#ff3355*'], **dict(ft_life.BLINK, LightRate=0.45, LightDuty=0.6))
+    A(D + 'SM_WatchTower', 'Light', [MAG + '*'], **ft_life.PULSE)
+    A(D + 'SM_VentField', 'Light', [EMBER + '*'], LightRate=2.4, LightDuty=0.7, LightSoft=0.45, LightMin=0.5, LightRand=1.0)
+    A(D + 'SM_DomeHabitat', 'Light', ['#fff1c0*'], **dict(ft_life.PULSE, LightRate=0.2, LightMin=0.7))
+    A(D + 'SM_SubPad', 'Light', [CYAN + '*'], **dict(ft_life.PULSE, LightRate=0.4, LightMin=0.35))
+
+
 JOBS = [
     ('SM_ReefLow', reef_low), ('SM_ReefLow2', lambda m: reef_low(m, seed=12)), ('SM_Anemones', anemones), ('SM_Pipeline', pipeline),
     ('SM_MarkerPost', marker_post), ('SM_Crates', crates),
@@ -503,4 +634,7 @@ JOBS = [
     ('SM_CoralGarden', coral_garden), ('SM_CoralGarden2', lambda m: coral_garden(m, seed=33)), ('SM_Jellyfish', jellyfish),
     ('SM_Jellyfish2', lambda m: jellyfish(m, seed=34)), ('SM_VentField', vent_field), ('SM_DomeHabitat', dome_habitat),
     ('SM_TubeRun', tube_run), ('SM_WatchTower', watch_tower), ('SM_Galleon', galleon), ('SM_FarReef', far_reef),
+    # art pass 2: the seabed itself (see "the third round")
+    ('SM_ReefFloor', reef_floor), ('SM_ReefFloor2', lambda m: reef_floor(m, seed=47)), ('SM_CableTrench', cable_trench),
+    ('SM_SubPad', sub_pad), ('SM_WhaleBones', whale_bones),
 ]
