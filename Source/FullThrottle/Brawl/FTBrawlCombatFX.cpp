@@ -24,6 +24,7 @@ namespace
 
 void AFTBrawlGameMode::InitCombatPresentation()
 {
+	InitAccents();
 	static_assert(UE_ARRAY_COUNT(CueNames) == static_cast<int32>(ECombatCue::Count));
 	static_assert(UE_ARRAY_COUNT(CueSizes) == UE_ARRAY_COUNT(CueNames));
 	for (const TCHAR* Name : CueNames)
@@ -56,17 +57,18 @@ void AFTBrawlGameMode::InitCombatPresentation()
 	}
 }
 
-void AFTBrawlGameMode::CombatCue(ECombatCue Cue, const FVector& At, float Direction)
+void AFTBrawlGameMode::CombatCue(ECombatCue Cue, const FVector& At, float Direction, bool bSound)
 {
 	const int32 Index = static_cast<int32>(Cue);
 	bool bMuted = false;
 #if __has_include("FTGameInstance.h")
 	if (const UFTGameInstance* Settings = GetGameInstance<UFTGameInstance>()) bMuted = Settings->bMuted;
 #endif
-	if (!bMuted && CombatSounds.IsValidIndex(Index) && CombatSounds[Index] && CueCooldowns[Index] <= 0.f)
+	if (bSound && !bMuted && CombatSounds.IsValidIndex(Index) && CombatSounds[Index] && CueCooldowns[Index] <= 0.f)
 	{
 		CueCooldowns[Index] = 0.035f;
-		UGameplayStatics::PlaySound2D(this, CombatSounds[Index], CueVolume[Index]);
+		const float Pitch = 0.96f + float((SoundVariation++ * 5) % 7) * 0.014f;
+		UGameplayStatics::PlaySoundAtLocation(this, CombatSounds[Index], At, CueVolume[Index], Pitch, 0.f, CombatAttenuation, CombatConcurrency);
 	}
 	if (CombatQuads.IsEmpty() || !CombatTextures.IsValidIndex(Index) || !CombatTextures[Index]) return;
 
@@ -86,6 +88,7 @@ void AFTBrawlGameMode::CombatCue(ECombatCue Cue, const FVector& At, float Direct
 
 void AFTBrawlGameMode::TickCombatPresentation(float Dt)
 {
+	TickAccents(Dt);
 	for (float& Cooldown : CueCooldowns) Cooldown = FMath::Max(0.f, Cooldown - Dt);
 	for (int32 Index = 0; Index < CombatQuads.Num(); ++Index)
 	{

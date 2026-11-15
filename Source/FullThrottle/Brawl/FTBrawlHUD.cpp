@@ -10,8 +10,8 @@
 #define FT_BRAWL_SKIP "TAB / BACK"
 #else
 #define FT_BRAWL_MUTE_HINT ""
-#define FT_BRAWL_ENTER "ENTER"
-#define FT_BRAWL_SKIP "TAB"
+#define FT_BRAWL_ENTER "ENTER / A"
+#define FT_BRAWL_SKIP "TAB / BACK"
 #endif
 
 namespace
@@ -37,6 +37,24 @@ namespace
 	{
 		return Game.BannerT >= 0.f && Game.bBossOut && Game.BossIntro <= 0.f && !Game.bWon
 			&& !Game.BannerSub.IsEmpty() && Game.Banner != Game.VenueName && Game.Banner != TEXT("FIGHT!");
+	}
+
+	bool IsCompactBanner(const AFTBrawlGameMode& Game)
+	{
+		return IsFightTutorial(Game) || (Game.BannerT >= 0.f && !Game.bDay && !Game.bWon
+			&& Game.P.Hp > 0.f && Game.BossIntro <= 0.f
+			&& Game.Foes.ContainsByPredicate([](const FFTBrawlBody& Foe) { return Foe.Hp > 0.f; }));
+	}
+
+	struct FBannerBounds { float X, Y, W, H; };
+	FBannerBounds CompactBannerBounds(const AFTBrawlGameMode& Game, float ScreenWidth)
+	{
+		const float Mid = ScreenWidth * 0.5f, Left = FMath::Max(0.f, (ScreenWidth - 1280.f) * 0.5f) + Safe;
+		const float HeaderGap = 2.f * FMath::Min(Mid - (Left + 334.f), (ScreenWidth - Left - 312.f) - Mid);
+		const bool bFitsTop = HeaderGap >= 230.f;
+		const int32 Rows = int32(Game.Held >= 0) + int32(Game.PowerT > 0) + int32(Game.ToughT > 0) + int32(Game.BuzzT > 0);
+		const float Width = bFitsTop ? FMath::Min(510.f, HeaderGap) : FMath::Min(510.f, ScreenWidth - 2.f * Safe);
+		return { Mid - 0.5f * Width, bFitsTop ? 31.f : 141.f + 21.f * Rows, Width, Game.BannerSub.IsEmpty() ? 35.f : 57.f };
 	}
 }
 
@@ -119,6 +137,17 @@ void AFTBrawlHUD::Meter(float X, float Y, float W, float H, float Frac, const FL
 	}
 }
 
+void AFTBrawlHUD::DamageMeter(float X, float Y, float W, float H, float Frac, float Trail, const FLinearColor& C, int32 Segments)
+{
+	Meter(X, Y, W, H, Trail, Al(Amber, 0.55f), Segments);
+	const float Pitch = (W + 3.f) / Segments, Sw = Pitch - 3.f;
+	for (int32 Segment = 0; Segment < Segments; ++Segment)
+	{
+		const float Fill = FMath::Clamp(Frac * Segments - Segment, 0.f, 1.f);
+		if (Fill > 0.f) Rect(X + Segment * Pitch, Y, Sw * Fill, H, C);
+	}
+}
+
 // a one-line plate (the races' ACTION! / shout slate): accent-coloured Orbitron on ink, centred on Cx
 void AFTBrawlHUD::Callout(const FString& Str, float Cx, float Y, const FLinearColor& Accent, float Height, float A)
 {
@@ -130,10 +159,11 @@ void AFTBrawlHUD::Callout(const FString& Str, float Cx, float Y, const FLinearCo
 // the races' title card (FTHUD::DrawCut): a wide plate, the title in Orbitron in the accent, the line under it in Rajdhani, keys in yellow
 void AFTBrawlHUD::Card(const FString& Title, const FString& Sub, const FString& Keys, const FLinearColor& Accent, float A)
 {
-	const float W = Canvas->ClipX / S, Cw = TitleWidth, Cx = W / 2, Y = TitleY;
+	const float W = Canvas->ClipX / S, Cw = FMath::Min(TitleWidth, W - 2.f * Safe), Cx = W / 2;
+	const float Reveal = bReducedMotion ? 1.f : FMath::SmoothStep(0.f, 1.f, A), Y = TitleY + 16.f * (1.f - Reveal);
 	const float Ch = TitleHeight + (Keys.IsEmpty() ? 0.f : 30.f);
 	Plate(Cx - Cw / 2, Y, Cw, Ch, Accent, A);
-	Rect(Cx - Cw / 2, Y + Ch - 4.f, Cw - Corner, 3.f, Al(Accent, A));
+	Rect(Cx - Cw / 2, Y + Ch - 4.f, (Cw - Corner) * Reveal, 3.f, Al(Accent, A));
 	Txt(Title, Cx, Y + 9.f, Al(Accent, A), Readout, 1, true, Cw - 40.f);
 	Txt(Sub, Cx, Y + 66.f, Al(White, A), Strong, 1, false, Cw - 44.f);
 	if (!Keys.IsEmpty()) Txt(Keys, Cx, Y + 96.f, Al(Yellow, A), Label, 1, true, Cw - 44.f);
@@ -165,6 +195,7 @@ void AFTBrawlHUD::DrawItemCues(const AFTBrawlGameMode& Game)
 		const bool bDrink = Data.Kind == EFTBrawlItemCue::Drink;
 		const bool bFood = Data.Kind == EFTBrawlItemCue::Food;
 		const bool bPower = Data.Kind == EFTBrawlItemCue::Power;
+		const bool bWeapon = Data.Kind == EFTBrawlItemCue::Weapon;
 		const FLinearColor Accent = bDrink ? Amber : bFood ? Green : bPower ? Cyan : Yellow;
 		const float Strength = bFocus ? 1.f : Data.Strength;
 		// A short ink-backed mark under every usable sprite stays readable through fighters and shadows.
@@ -173,6 +204,8 @@ void AFTBrawlHUD::DrawItemCues(const AFTBrawlGameMode& Game)
 		const FVector2D Left(X - Half, Base), Right(X + Half, Base);
 		Line(Left, Right, Al(Deep, 0.9f * Strength), bFocus ? 7.f : 5.f);
 		Line(Left, Right, Al(Accent, 0.9f * Strength), bFocus ? 3.f : 1.5f);
+		if (bFocus && bWeapon)
+			Line(FVector2D(X - Half, Base + 5.f), FVector2D(X - Half + 2.f * Half * Data.Durability, Base + 5.f), Data.bLastUse ? Red : White, 1.5f);
 		if (bFood)
 		{
 			Line(FVector2D(X, Base - 4.f), FVector2D(X, Base + 4.f), Deep, 5.f);
@@ -194,15 +227,23 @@ void AFTBrawlHUD::DrawItemCues(const AFTBrawlGameMode& Game)
 		const FVector Top = Canvas->Project(Data.Top);
 		if (Top.Z <= 0) return;
 		const float KeyWidth = bManual ? 32.f : 0.f;
-		constexpr float CardHeight = 43.f, Margin = 12.f;
+		constexpr float Margin = 12.f;
+		const float CardHeight = bWeapon ? 59.f : 43.f;
 		const float CardWidth = FMath::Min(Width - 2.f * Margin,
-			FMath::Clamp(FMath::Max(TextW(Verb, 12.f, true), TextW(Name, 16.f, false)) + KeyWidth + 28.f, 118.f, 244.f));
+			FMath::Clamp(FMath::Max(TextW(Verb, 12.f, true), TextW(Name, 16.f, false)) + KeyWidth + 28.f, bWeapon ? 194.f : 118.f, 244.f));
 		if (CardWidth < 80.f) return;
 		const float CardX = FMath::Clamp(float(Top.X / S) - CardWidth * 0.5f, Margin, Width - CardWidth - Margin);
 		float CardY = FMath::Clamp(float(Top.Y / S) - CardHeight - 5.f, 18.f, 630.f);
-		const bool bOverTitle = Game.BannerT >= 0.f && !IsFightTutorial(Game) && CardY + CardHeight > TitleY - 6.f && CardY < TitleY + TitleHeight + 6.f
+		const bool bOverTitle = Game.BannerT >= 0.f && !IsCompactBanner(Game) && CardY + CardHeight > TitleY - 6.f && CardY < TitleY + TitleHeight + 6.f
 			&& CardX + CardWidth > (Width - TitleWidth) * 0.5f - 6.f && CardX < (Width + TitleWidth) * 0.5f + 6.f;
 		if (bOverTitle) CardY = TitleY - CardHeight - 8.f;
+		if (IsCompactBanner(Game))
+		{
+			const FBannerBounds Toast = CompactBannerBounds(Game, Width);
+			if (CardY + CardHeight > Toast.Y - 6.f && CardY < Toast.Y + Toast.H + 6.f
+				&& CardX + CardWidth > Toast.X - 6.f && CardX < Toast.X + Toast.W + 6.f)
+				CardY = Toast.Y + Toast.H + 8.f;
+		}
 		const float CardPin = FMath::Clamp(X, CardX + 12.f, CardX + CardWidth - 14.f);
 		const FVector2D Pin(CardPin, CardY + CardHeight), Tip(float(Top.X / S), float(Top.Y / S) - 2.f);
 		Line(Pin, Tip, Deep, 4.f);
@@ -216,6 +257,12 @@ void AFTBrawlHUD::DrawItemCues(const AFTBrawlGameMode& Game)
 		}
 		Txt(Verb, TextX, CardY + 5.f, Accent, 12.f, 0, true, CardWidth - KeyWidth - 22.f);
 		Txt(Name, TextX, CardY + 20.f, White, 16.f, 0, false, CardWidth - KeyWidth - 22.f);
+		if (bWeapon)
+		{
+			const FLinearColor Wear = Data.bLastUse ? Red : Grey;
+			Txt(Data.bLastUse ? TEXT("LAST HIT") : TEXT("DURABILITY"), TextX, CardY + 39.f, Wear, 10.f, 0, true);
+			Meter(CardX + CardWidth - 42.f, CardY + 42.f, 30.f, 4.f, Data.Durability, Wear, 3);
+		}
 	};
 	for (int32 Index = 0; Index < Game.Items.Num(); ++Index)
 	{
@@ -230,6 +277,7 @@ void AFTBrawlHUD::DrawHUD()
 	AFTBrawlGameMode* G = GetWorld() ? GetWorld()->GetAuthGameMode<AFTBrawlGameMode>() : nullptr;
 	if (!G || !Canvas) return;
 	S = Canvas->ClipY / 720.f;   // the races' 720-high screen
+	bReducedMotion = G->ReducedPresentationMotion();
 	if (!bFonts)
 	{
 		bFonts = true;
@@ -244,6 +292,19 @@ void AFTBrawlHUD::DrawHUD()
 	const float W = Canvas->ClipX / S, H = 720.f;
 	const float L = FMath::Max(0.f, (W - 1280.f) / 2) + Safe, R = W - L, Mid = W / 2, Top = 25.f;
 	const FFTBrawlBody& P = G->P;
+	const float Dt = FMath::Clamp(GetWorld()->GetDeltaSeconds(), 0.f, 0.05f);
+	const float Health = FMath::Clamp(P.Hp / FMath::Max(1.f, P.Max), 0.f, 1.f);
+	if (LastGameTime < 0.f || G->StT < LastGameTime)
+	{
+		LastHealth = P.Hp; HealthChip = Health; HealthHold = 0.f;
+		LastBossId = INDEX_NONE; LastBossHealth = -1.f; BossHold = 0.f; LastChain = 0;
+	}
+	if (P.Hp < LastHealth) HealthHold = 0.30f;
+	HealthHold = FMath::Max(0.f, HealthHold - Dt);
+	HealthChip = FMath::Max(Health, HealthHold > 0 ? HealthChip : FMath::FInterpConstantTo(HealthChip, Health, Dt, 0.75f));
+	if (G->Chain > LastChain) ComboPulse = 0.18f;
+	ComboPulse = FMath::Max(0.f, ComboPulse - Dt);
+	LastHealth = P.Hp; LastChain = G->Chain; LastGameTime = G->StT;
 	const bool bBlink = int32(G->StT * 6) % 2 != 0;
 	DrawItemCues(*G);
 	// the "!" tells and the hurt bars over heads, the hit words where they landed
@@ -271,7 +332,8 @@ void AFTBrawlHUD::DrawHUD()
 	{
 		struct FRow { FString N, V; FLinearColor C; };
 		TArray<FRow> Rows;
-		if (G->Held >= 0) Rows.Add({ AFTBrawlGameMode::ItemName(G->Held), FString::Printf(TEXT("×%d"), FMath::Max(0, G->HeldUses)), White });
+		if (G->Held >= 0) Rows.Add({ AFTBrawlGameMode::ItemName(G->Held), G->HeldUses == 1 ? FString(TEXT("LAST HIT"))
+			: FString::Printf(TEXT("×%d"), FMath::Max(0, G->HeldUses)), G->HeldUses <= 1 ? Amber : White });
 		auto Timer = [&](const TCHAR* N, float T, const FLinearColor& C) { if (T > 0) Rows.Add({ N, FString::Printf(TEXT("%d"), FMath::CeilToInt(T)), Al(C, T < 3 && bBlink ? 0.4f : 1.f) }); };
 		Timer(TEXT("POWER"), G->PowerT, Yellow);
 		Timer(TEXT("TOUGH"), G->ToughT, Cyan);
@@ -283,7 +345,7 @@ void AFTBrawlHUD::DrawHUD()
 		Txt(TEXT("NOVA KANE / STUNT DOUBLE"), X + 14, Top + 9, Grey, Label);
 		Txt(TEXT("HEALTH"), X + 14, Top + 30, White, Body);
 		Txt(FString::Printf(TEXT("%d / %d"), FMath::Max(0, FMath::RoundToInt(P.Hp)), FMath::RoundToInt(P.Max)), X + Pw - 14, Top + 28, Hc, Strong, 2, false);
-		Meter(X + 14, Top + 54, Pw - 28, 8, Frac, Hc, 12);
+		DamageMeter(X + 14, Top + 54, Pw - 28, 8, Frac, HealthChip, Hc, 12);
 		Rect(X + 14, Top + 72, Pw - 28, 1, Rule);
 		Txt(TEXT("K.O."), X + 14, Top + 81, Grey, Label);
 		Txt(FString::Printf(TEXT("%d"), G->Kos), X + Pw - 14, Top + 76, Yellow, Strong, 2);
@@ -295,7 +357,11 @@ void AFTBrawlHUD::DrawHUD()
 			Ry += 21;
 		}
 		// the combo: the races' COMBO plate, under Nova's
-		if (G->Chain >= 2) Callout(FString::Printf(TEXT("%d HITS"), G->Chain), X + 90, Top + Ph + 8, Pink, Heading);
+		if (G->Chain >= 2)
+		{
+			const float Pop = bReducedMotion ? 0.f : FMath::Sin(FMath::Clamp(ComboPulse / 0.18f, 0.f, 1.f) * PI);
+			Callout(FString::Printf(TEXT("%d HITS"), G->Chain), X + 90, Top + Ph + 8, Pink, Heading + Pop * 4.f);
+		}
 	}
 	// THE VENUE: the races' ledger plate (top right) in the night's neon, WAVE n / 3 and a meter of the waves and the boss
 	{
@@ -312,15 +378,22 @@ void AFTBrawlHUD::DrawHUD()
 	if (Bi != INDEX_NONE && G->Foes[Bi].St != TEXT("dead"))
 	{
 		const FFTBrawlBody& B = G->Foes[Bi];
+		const float HealthFraction = FMath::Clamp(B.Hp / FMath::Max(1.f, B.Max), 0.f, 1.f);
+		if (LastBossId != B.Id) { BossChip = HealthFraction; LastBossHealth = B.Hp; BossHold = 0.f; LastBossId = B.Id; }
+		if (B.Hp < LastBossHealth) BossHold = 0.22f;
+		BossHold = FMath::Max(0.f, BossHold - Dt);
+		BossChip = FMath::Max(HealthFraction, BossHold > 0 ? BossChip : FMath::FInterpConstantTo(BossChip, HealthFraction, Dt, 0.52f));
+		LastBossHealth = B.Hp;
 		const float Pw = 540.f, Ph = 56.f, X = Mid - Pw / 2, Y = H - 44 - Ph;
 		Plate(X, Y, Pw, Ph, Red);
 		Txt(G->BossName, X + 14, Y + 8, White, Body, 0, true, Pw - 120);
-		Txt(TEXT("BOSS"), X + Pw - 14, Y + 10, Red, Label, 2);
-		Meter(X + 14, Y + 35, Pw - 28, 9, B.Hp / FMath::Max(1.f, B.Max), Red, 8);
+		Txt(B.bCalled ? TEXT("ENRAGED") : TEXT("BOSS"), X + Pw - 14, Y + 10, B.bCalled ? Amber : Red, Label, 2);
+		DamageMeter(X + 14, Y + 35, Pw - 28, 9, HealthFraction, BossChip, Red, 8);
 	}
-	if (P.St == TEXT("held")) Callout(TEXT("MASH J / K TO BREAK FREE"), Mid, 150, Red, Strong, bBlink ? 1.f : 0.55f);
-	if (G->Go > 0 && int32(G->StT * 4) % 2) Callout(TEXT("GO →"), R - 70, H / 2 - 40, Yellow, Heading);
-	if (P.St == TEXT("lift") || P.St == TEXT("carry")) Callout(TEXT("L / J / K: THROW HIM (STEER TO AIM)"), Mid, 150, Yellow, Strong, bBlink ? 1.f : 0.55f);   // grab and throw (run 42137)
+	const float HintPulse = bReducedMotion ? 1.f : 0.82f + 0.18f * FMath::Sin(G->StT * 5.f);
+	if (P.St == TEXT("held")) Callout(G->bPadLast ? TEXT("MASH X / Y TO BREAK FREE") : TEXT("MASH J / K TO BREAK FREE"), Mid, 150, Red, Strong, HintPulse);
+	if (G->Go > 0) Callout(TEXT("GO →"), R - 70 + (bReducedMotion ? 0.f : 5.f * FMath::Sin(G->StT * 4.f)), H / 2 - 40, Yellow, Heading, HintPulse);
+	if (P.St == TEXT("lift") || P.St == TEXT("carry")) Callout(G->bPadLast ? TEXT("B / X / Y: THROW HIM (STICK TO AIM)") : TEXT("L / J / K: THROW HIM (STEER TO AIM)"), Mid, 150, Yellow, Strong, HintPulse);
 	if (G->Foes.Num() && Bi != INDEX_NONE && G->Foes[Bi].St == TEXT("dizzy")) Callout(TEXT("DIZZY! HIT HIM!"), Mid, 196, Yellow, Strong, bBlink ? 1.f : 0.55f);
 	// the key strip: the races' (ink bar, grey Rajdhani, " / " between)
 	{
@@ -334,20 +407,17 @@ void AFTBrawlHUD::DrawHUD()
 	if (G->BannerT >= 0)
 	{
 		const float Bt = G->BannerT, A = FMath::Clamp(FMath::Min3(1.f, Bt * 4, (2.4f - Bt) * 3), 0.f, 1.f);
-		if (IsFightTutorial(*G))
+		if (IsCompactBanner(*G))
 		{
-			const float HeaderGap = 2.f * FMath::Min(Mid - (L + 334.f), (R - 312.f) - Mid);
-			const bool bFitsTop = HeaderGap >= 230.f;
-			const int32 HudRows = int32(G->Held >= 0) + int32(G->PowerT > 0) + int32(G->ToughT > 0) + int32(G->BuzzT > 0);
-			const float Width = bFitsTop ? FMath::Min(510.f, HeaderGap) : FMath::Min(510.f, W - 2.f * Safe);
-			const float Y = bFitsTop ? Top + 6.f : Top + 116.f + 21.f * HudRows;
-			Plate(Mid - 0.5f * Width, Y, Width, 57.f, Red, A);
-			Txt(G->Banner, Mid, Y + 7.f, Al(Yellow, A), Strong, 1, true, Width - 26.f);
-			Txt(G->BannerSub, Mid, Y + 33.f, Al(White, A), Body, 1, false, Width - 28.f);
+			const FBannerBounds Toast = CompactBannerBounds(*G, W);
+			Plate(Toast.X, Toast.Y, Toast.W, Toast.H, IsFightTutorial(*G) ? Red : G->Neon, A);
+			Txt(G->Banner, Mid, Toast.Y + 7.f, Al(Yellow, A), Strong, 1, true, Toast.W - 26.f);
+			if (!G->BannerSub.IsEmpty()) Txt(G->BannerSub, Mid, Toast.Y + 33.f, Al(White, A), Body, 1, false, Toast.W - 28.f);
 		}
 		else Card(G->Banner, G->BannerSub, FString(), G->Neon, A);
 	}
-	if (G->BossIntro > 0) Card(G->BossName, G->BossTitle, FString(), Red);
+	if (G->BossIntro > 0) Card(G->BossName, G->BossTitle, FString(), Red,
+		FMath::Clamp(FMath::Min((2.2f - G->BossIntro) * 5.f, G->BossIntro * 5.f), 0.f, 1.f));
 	// the boss's last call, from the story (after the K.O.): the races' DIRECTOR line plate, under the card
 	auto LastCall = [&](const TCHAR* Who, const TCHAR* Line, const FLinearColor& C)
 	{
@@ -359,11 +429,11 @@ void AFTBrawlHUD::DrawHUD()
 	};
 	if (G->bWon && G->IsVelvet() && G->WinT > 1.2f) LastCall(TEXT("VINNIE"), TEXT("\"MY FLOOR... MY BEAUTIFUL FLOOR...\""), Pink);
 	if (G->bWon && G->IsLucky() && G->WinT > 1.2f) LastCall(TEXT("THE PIT BOSS FOLDED"), TEXT("NOVA: \"THE HOUSE ALWAYS WINS? NOT TONIGHT.\""), Yellow);   // the story's last call
-	if (P.Hp <= 0 && G->KoT > 1) Card(TEXT("KNOCKED OUT"), TEXT("NOVA HIT THE FLOOR. THIS WAVE AGAIN."), TEXT(FT_BRAWL_ENTER "   GET BACK UP"), Red);
+	if (P.Hp <= 0 && G->KoT > 1) Card(TEXT("KNOCKED OUT"), TEXT("NOVA HIT THE FLOOR. THIS WAVE AGAIN."), TEXT(FT_BRAWL_ENTER "   GET BACK UP"), Red, FMath::Clamp((G->KoT - 1.f) * 4.f, 0.f, 1.f));
 	if (G->bWon)
 	{
 		const FString Keys = G->WinT > 2.6f ? (G->NextLabel().IsEmpty() ? FString(TEXT(FT_BRAWL_ENTER "   AGAIN")) : FString(TEXT(FT_BRAWL_ENTER "   ON TO ")) + G->NextLabel()) : FString();
-		Card(TEXT("K.O.!"), FString::Printf(TEXT("%s IS DOWN  /  %d KNOCKED OUT  /  BEST COMBO %d"), *G->BossName, G->Kos, G->Best), Keys, Yellow);
+		Card(TEXT("K.O.!"), FString::Printf(TEXT("%s IS DOWN  /  %d KNOCKED OUT  /  BEST COMBO %d"), *G->BossName, G->Kos, G->Best), Keys, Yellow, FMath::Clamp(G->WinT * 4.f, 0.f, 1.f));
 	}
 }
 
@@ -389,7 +459,7 @@ void AFTBrawlHUD::DrawCut(AFTBrawlGameMode* G)
 	const float W = Canvas->ClipX / S, H = 720.f, Mid = W / 2;
 	const float L = FMath::Max(0.f, (W - 1280.f) / 2) + Safe, R = W - L;
 	const float Bar = 74.f * G->CutBars;
-	if (G->CutFlash > 0) Rect(0, 0, W, H, FLinearColor(1, 1, 1, FMath::Min(1.f, G->CutFlash * 0.9f)));
+	if (!bReducedMotion && G->CutFlash > 0) Rect(0, 0, W, H, FLinearColor(1, 1, 1, FMath::Min(1.f, G->CutFlash * 0.9f)));
 	if (G->CutFade > 0) Rect(0, 0, W, H, FLinearColor(0, 0, 0, FMath::Clamp(G->CutFade, 0.f, 1.f)));
 	Rect(0, 0, W, Bar, FLinearColor(Deep.R, Deep.G, Deep.B, 1)); Rect(0, H - Bar, W, Bar, FLinearColor(Deep.R, Deep.G, Deep.B, 1));
 	if (Bar > 2) { Rect(0, Bar - 1, W, 1, Rule); Rect(0, H - Bar, W, 1, Rule); }

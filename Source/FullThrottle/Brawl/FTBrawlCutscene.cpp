@@ -653,7 +653,7 @@ void AFTBrawlGameMode::SyncCut(float Dt)
 		Limo->SetActorLocation(LimoAt + FVector(0, 0, Limo->GetActorLocation().Z - LimoAt.Z));
 		if (TailL) { TailL->SetActorLocation(LimoAt + FVector(-380, 30, 90)); }
 	}
-	if (FlashL) FlashL->PointLightComponent->SetIntensity(CutFlash * 90000.f);
+	if (FlashL) FlashL->PointLightComponent->SetIntensity(ReducedPresentationMotion() ? 0.f : CutFlash * 90000.f);
 	if (FFTCutActor* Ph = CutCast.Find(TEXT("photo"))) if (FlashL) FlashL->SetActorLocation(Ph->Pos + FVector(-40, 60, 170));
 	// blood / spray in flight
 	if (DropIsm && GlassIsm)
@@ -670,7 +670,7 @@ void AFTBrawlGameMode::SyncCut(float Dt)
 	if (CamActor)
 	{
 		float Sx = 0, Sz = 0;
-		if (Shake > 0) { const float Tr = Shake * Shake * 14.f; Sx = FMath::Sin(StT * 61) * Tr; Sz = FMath::Cos(StT * 53) * Tr; }
+		if (Shake > 0 && !ReducedPresentationMotion()) { const float Tr = Shake * Shake * 14.f; Sx = FMath::Sin(StT * 61) * Tr; Sz = FMath::Cos(StT * 53) * Tr; }
 		CamActor->SetActorLocation(CutCamLoc + FVector(Sx, 0, Sz));
 		CamActor->SetActorRotation(FRotator(CutPitch, -90.f, 0));
 		CamActor->GetCameraComponent()->SetFieldOfView(CutFov);

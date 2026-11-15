@@ -9,6 +9,9 @@
 #include "Engine/Texture.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
+#include "FTBrawlStudioAssets.inl"
+#include "FTBrawlStudioFrames.inl"
+#include "FTBrawlBossFrames.inl"
 
 // colour slots: 0 skin, 1 shirt, 2 pants, 3 hair
 AFTBrawlFighter::AFTBrawlFighter()
@@ -201,6 +204,7 @@ namespace
 		TEXT("point"), TEXT("give"), TEXT("laugh"), TEXT("smoke"), TEXT("away"),   // Harlan Voss, night 1's cutscenes (run 49531)
 		TEXT("mega"), TEXT("shout"), TEXT("frame"), TEXT("order"),           // Voss on set with his megaphone (day 1, run 73444)
 		TEXT("wave"), TEXT("me"), TEXT("nervous"), TEXT("ask"), TEXT("smirk"),   // Kip Lorenzo (day 1, run 73444)
+		TEXT("mad"), TEXT("talk"), TEXT("gasp"), TEXT("cheer"),             // Rosa, Gail and Dee Dee, career day scenes
 		TEXT("draw"), TEXT("aim"), TEXT("fire"),                           // the Pit Boss's revolver (run 52616)
 		// nights 4-7 (run 32365): Flambe Frankie's fire breath, the Kingpin's bowling, Big Sven's bear hug, the Commodore's
 		// anchor; sad = the boss beaten, in the LAST CALL cutscene
@@ -226,6 +230,32 @@ bool AFTBrawlFighter::SetSprite(const FString& Who, float HeightCm, const FLinea
 		const FString A = FString::Printf(TEXT("/Game/Brawl/Sprites/%s/T_%s_%s.T_%s_%s"), *Who, *Lo, N, *Lo, N);
 		if (UTexture* Tx = LoadObject<UTexture>(nullptr, *A, nullptr, LOAD_Quiet | LOAD_NoWarn)) Frames.Add(FName(N), Tx);
 	}
+	SpriteWho = Who;
+	auto LoadStudioFrames = [&](const TCHAR* const* Names, int32 Count) {
+		int32 Loaded = 0;
+		for (int32 Index = 0; Index < Count; ++Index)
+		{
+			const TCHAR* Name = Names[Index];
+			const FString Asset = FString::Printf(TEXT("/Game/Brawl/Sprites/%s/T_%s_%s.T_%s_%s"), *Who, *Lo, Name, *Lo, Name);
+			if (UTexture* Texture = LoadObject<UTexture>(nullptr, *Asset, nullptr, LOAD_Quiet | LOAD_NoWarn))
+			{
+				Frames.Add(FName(Name), Texture);
+				++Loaded;
+			}
+		}
+#if !UE_BUILD_SHIPPING
+		if (FParse::Param(FCommandLine::Get(), TEXT("brawlpolishqa")))
+		{
+			UE_LOG(LogTemp, Display, TEXT("FTBRAWL studio_assets who=%s expected=%d loaded=%d"), *Who, Count, Loaded);
+			if (Loaded != Count) UE_LOG(LogTemp, Error, TEXT("FTBRAWL missing studio drawings who=%s missing=%d"), *Who, Count - Loaded);
+		}
+#endif
+	};
+	if (Who == TEXT("Nova")) LoadStudioFrames(FTBrawlStudio::NovaFrameNames, UE_ARRAY_COUNT(FTBrawlStudio::NovaFrameNames));
+	else if (Who == TEXT("Punk") || Who == TEXT("Biker") || Who == TEXT("Sleaze") || Who == TEXT("Bouncer") || Who == TEXT("Guard") || Who == TEXT("Dealer"))
+		LoadStudioFrames(FTBrawlStudio::StreetFrameNames, UE_ARRAY_COUNT(FTBrawlStudio::StreetFrameNames));
+	else if (Who == TEXT("Earl") || Who == TEXT("Vinnie") || Who == TEXT("Pitboss") || Who == TEXT("Frankie") || Who == TEXT("Kingpin") || Who == TEXT("Sven") || Who == TEXT("Commodore"))
+		LoadStudioFrames(FTBrawlStudio::BossFrameNames, UE_ARRAY_COUNT(FTBrawlStudio::BossFrameNames));
 	if (!Frames.Contains(TEXT("idle"))) { Frames.Reset(); return false; }
 	bCardDealerSprite = Who == TEXT("Dealer");
 	Sprite = NewObject<UStaticMeshComponent>(this, TEXT("Sprite"));
@@ -309,6 +339,11 @@ FName AFTBrawlFighter::CurrentSpriteFrame() const
 	return CurFrame ? CurFrame->GetFName() : NAME_None;
 }
 
+bool AFTBrawlFighter::CurrentSpriteGrip(FVector2D& Out) const
+{
+	return SpriteWho == TEXT("Nova") && CurFrame && FTBrawlStudio::FindGripForFrame(CurFrame->GetFName(), Out);
+}
+
 bool AFTBrawlFighter::SpritePixelToWorld(const FVector2D& Pixel, FVector& Point) const
 {
 	if (!Sprite || !Body) return false;
@@ -322,13 +357,14 @@ void AFTBrawlFighter::PoseSprite(FName St, float T, float Walk, int32 Combo, flo
 {
 	SetActorHiddenInGame(!bVisible);
 	const FString S = St.ToString();
-	if (St != LastSpriteState || T < SpriteStateStarted)
+	if (St != LastSpriteState || T + 0.001f < LastSpriteTime)
 	{
 		PreviousSpriteState = LastSpriteState;
 		LastSpriteState = St;
 		SpriteStateStarted = T;
 		TurnStarted = -1.f;
 	}
+	LastSpriteTime = T;
 	const float StateAge = T - SpriteStateStarted;
 	const bool bFacesRight = GetActorForwardVector().X >= 0.f;
 	if (bFacesRight != bSpriteFacesRight && S == TEXT("walk")) TurnStarted = T;
@@ -460,7 +496,7 @@ void AFTBrawlFighter::PoseSprite(FName St, float T, float Walk, int32 Combo, flo
 	}
 	else if (S == TEXT("down") || S == TEXT("dead")) Tx = Frame({ TEXT("down") });
 	else if (S == TEXT("getup")) Tx = Frame({ TEXT("getup"), TEXT("down") });
-	else if (S == TEXT("cheer")) Tx = Frame({ TEXT("win"), TEXT("taunt"), TEXT("idle") });
+	else if (S == TEXT("cheer")) Tx = Frame({ TEXT("cheer"), TEXT("win"), TEXT("taunt"), TEXT("idle") });
 	else if (const TObjectPtr<UTexture>* Named = Frames.Find(St)) Tx = *Named;   // cutscenes: any frame by its name (taunt, give, smoke...)
 	else { Tx = Frame({ TEXT("idle") }); Squash = 1.f + FMath::Sin(T * 5.f) * 0.012f; }   // idle: a breath
 	if (bEnemySprite)
@@ -490,6 +526,15 @@ void AFTBrawlFighter::PoseSprite(FName St, float T, float Walk, int32 Combo, flo
 			EnemyRim = Rim;
 		}
 	}
+	// Authored studio drawings extend the legacy keys without changing the
+	// simulation's contact windows or adding runtime interpolation.
+	if (UTexture* Studio = FTBrawlStudio::SelectPlayerStreetFrame(SpriteWho, S, T, Walk, Combo,
+		StateAge, PreviousSpriteState, TurnStarted >= 0.f ? T - TurnStarted : -1.f, Frames))
+	{
+		Tx = Studio;
+		if (!bEnemySprite) Squash = 1.f;
+	}
+	if (UTexture* Boss = FTBrawlStudio::SelectBossFrame(SpriteWho, S, T, Walk, Combo, Frames)) Tx = Boss;
 	if (Tx && Tx != CurFrame)
 	{
 		SpriteMid->SetTextureParameterValue(TEXT("Tex"), Tx);

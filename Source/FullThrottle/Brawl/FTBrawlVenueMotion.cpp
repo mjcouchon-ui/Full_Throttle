@@ -1,4 +1,5 @@
 #include "FTBrawlGameMode.h"
+#include "FTBrawlVenueDetails.h"
 
 #include "Camera/CameraActor.h"
 #include "Components/PointLightComponent.h"
@@ -55,6 +56,10 @@ bool IsSignatureRelease(FName State)
 
 void AFTBrawlGameMode::BuildVenueAmbience(float StartX, float EndX, float BackWallY)
 {
+	UFTBrawlVenueDetails* Details = NewObject<UFTBrawlVenueDetails>(this);
+	AddInstanceComponent(Details);
+	Details->RegisterComponent();
+	Details->Build(Night, StartX, EndX, BackWallY);
 	const FVenueMotion& Art = Venues[FMath::Clamp(Night - 1, 0, 6)];
 	UStaticMesh* Plane = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Plane.Plane"));
 	UMaterialInterface* Glow = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Brawl/Materials/M_BrawlGlow.M_BrawlGlow"));
@@ -122,7 +127,7 @@ void AFTBrawlGameMode::BuildVenueAmbience(float StartX, float EndX, float BackWa
 
 void AFTBrawlGameMode::TickVenueAmbience(float RealDt)
 {
-	if (VenueAmbience.IsEmpty()) return;
+	if (VenueAmbience.IsEmpty() || ReducedPresentationMotion()) return;
 	VenueAmbienceTime += FMath::Min(RealDt, 0.1f);
 	const FVenueMotion& Art = Venues[FMath::Clamp(Night - 1, 0, 6)];
 	const float CameraX = CamActor ? CamActor->GetActorLocation().X : 0.f;
@@ -163,9 +168,15 @@ void AFTBrawlGameMode::StyleBossPose(FName& Pose, float& PoseTime) const
 
 float AFTBrawlGameMode::BossEntranceCameraOffset() const
 {
-	if (!bBossOut || bWon) return 0.f;
+	if (!bBossOut || bWon || ReducedPresentationMotion()) return 0.f;
 	const float Age = StT - BossEntranceAt;
-	return 145.f * FMath::SmoothStep(0.f, 0.42f, Age) * (1.f - FMath::SmoothStep(2.07f, 2.82f, Age));
+	const int32 Index = BossIdx();
+	if (Index == INDEX_NONE) return 0.f;
+	// The introduction freezes the boss for 2.2 s. Returning solely by elapsed
+	// time could pan away before his walk-in reached the arena's safe boundary.
+	const float WalkIn = FMath::SmoothStep(LockX + 890.f, LockX + 1040.f, Foes[Index].X);
+	const float Intro = 1.f - FMath::SmoothStep(2.07f, 2.82f, Age);
+	return 145.f * FMath::SmoothStep(0.f, 0.42f, Age) * FMath::Max(Intro, WalkIn);
 }
 
 void AFTBrawlGameMode::SyncBossAccent()
@@ -186,7 +197,7 @@ void AFTBrawlGameMode::SyncBossAccent()
 			const float Stage = bRelease ? 0.25f + 0.75f * FMath::Exp(-Boss->T * 7.f)
 				: bDefeat ? FMath::Exp(-WinT * 4.f) : bEntrance ? 0.60f : 0.24f + FMath::Min(0.44f, Boss->T);
 			BossAccent->SetActorLocation(World(Boss->X, Boss->Y, Boss->Z) + FVector(Boss->Dir * 44.f, 95.f, 170.f));
-			Light->SetIntensity(16000.f * Stage);
+			Light->SetIntensity(16000.f * (ReducedPresentationMotion() ? 0.45f : Stage));
 		}
 	}
 	if (SlamAccent)
@@ -197,7 +208,8 @@ void AFTBrawlGameMode::SyncBossAccent()
 		{
 			SlamAccent->SetActorLocation(World(Boss->X, Boss->Y, 0.f) + FVector(0.f, 0.f, 3.f));
 			if (UMaterialInstanceDynamic* Material = Cast<UMaterialInstanceDynamic>(SlamAccent->GetStaticMeshComponent()->GetMaterial(0)))
-				Material->SetScalarParameterValue(TEXT("Glow"), bTell ? 0.8f + 2.1f * Boss->T : 3.0f * FMath::Exp(-Boss->T * 8.f));
+				Material->SetScalarParameterValue(TEXT("Glow"), ReducedPresentationMotion() ? 1.4f
+					: bTell ? 0.8f + 2.1f * Boss->T : 3.0f * FMath::Exp(-Boss->T * 8.f));
 		}
 	}
 }

@@ -23,7 +23,11 @@ private:
 	UPROPERTY() TObjectPtr<UFont> FOrb;   // /Game/UI/Fonts/F_Orbitron (the races' display face); engine font if missing
 	UPROPERTY() TObjectPtr<UFont> FRaj;   // /Game/UI/Fonts/F_Rajdhani (the races' body face)
 	bool bFonts = false;
+	bool bReducedMotion = false;
 	float OrbH = 1.f, RajH = 1.f;          // each font's line height at scale 1 (px)
+	float LastGameTime = -1.f, LastHealth = -1.f, HealthChip = 1.f, HealthHold = 0.f;
+	float LastBossHealth = -1.f, BossChip = 1.f, BossHold = 0.f, ComboPulse = 0.f;
+	int32 LastBossId = INDEX_NONE, LastChain = 0;
 	UFont* Face(bool bDisplay) const;
 	float TextW(const FString& Str, float Height, bool bDisplay);
 	// Height in the races' units (FTHUDStyle: Label 15, Body 18, Strong 21, Heading 33, Readout 46); Align 0 left, 1 centre, 2 right;
@@ -32,6 +36,7 @@ private:
 	void Rect(float X, float Y, float W, float H, const FLinearColor& C);
 	void Plate(float X, float Y, float W, float H, const FLinearColor& Accent, float A = 1.f);
 	void Meter(float X, float Y, float W, float H, float Frac, const FLinearColor& C, int32 Segments = 1, float A = 1.f);
+	void DamageMeter(float X, float Y, float W, float H, float Frac, float Trail, const FLinearColor& C, int32 Segments);
 	void Callout(const FString& Str, float Cx, float Y, const FLinearColor& Accent, float Height, float A = 1.f);
 	void Card(const FString& Title, const FString& Sub, const FString& Keys, const FLinearColor& Accent, float A = 1.f);
 	void DrawCut(class AFTBrawlGameMode* G);   // night 1's cutscenes: letterbox, dialogue box, title cards, flash, the end card

@@ -42,7 +42,8 @@ struct FFTBrawlBody
 	float SigX = 0;                                                   // nights 4-7 (run 32365): where the flame / lunge starts
 	// rusher / grappler / thrower
 	bool bStruck = false; float Hold = 0; int32 Mash = 0;
-	bool bIn = false; bool bSeen = false;   // has walked onto the locked screen: from then on he stays on it (KeepOnScreen)
+	bool bIn = false;                     // entered the gameplay boundary (KeepOnScreen)
+	bool bSeen = false;                   // entered the actual camera view; retain in presentation framing (also without QA)
 	UPROPERTY() TObjectPtr<AFTBrawlFighter> Actor = nullptr;
 };
 
@@ -87,6 +88,8 @@ struct FFTBrawlItemPresentation
 	FVector Feet = FVector::ZeroVector, Top = FVector::ZeroVector;
 	EFTBrawlItemCue Kind = EFTBrawlItemCue::Weapon;
 	float Strength = 1.f;
+	float Durability = 1.f;
+	bool bLastUse = false;
 };
 
 UCLASS()
@@ -162,6 +165,7 @@ public:
 	int32 ItemAt() const;   // the item J would grab right now (a weapon at his feet or a beer on the bar), INDEX_NONE if none
 	int32 NearbyWalkPickup() const;
 	bool DescribeItem(const FFTBrawlItem& Item, FFTBrawlItemPresentation& Out) const;
+	bool ReducedPresentationMotion() const;
 
 private:
 	struct FIn { float Steer = 0, Throttle = 0; bool Fire = false, Kick = false, Jump = false, Enter = false, Grab = false; };
@@ -176,7 +180,7 @@ private:
 	enum class ECombatCue : uint8 { Jab, Finish, Weapon, Throw, Hurt, Clear, Count };
 	struct FCombatEffect { FVector At; float Age = 0.f, Size = 0.f, Dir = 1.f; };
 	void InitCombatPresentation();
-	void CombatCue(ECombatCue Cue, const FVector& At, float Direction);
+	void CombatCue(ECombatCue Cue, const FVector& At, float Direction, bool bSound = true);
 	void TickCombatPresentation(float Dt);
 	UPROPERTY() TArray<TObjectPtr<class USoundBase>> CombatSounds;
 	UPROPERTY() TArray<TObjectPtr<class UTexture>> CombatTextures;
@@ -184,10 +188,27 @@ private:
 	TArray<FCombatEffect> CombatEffects;
 	float CueCooldowns[static_cast<int32>(ECombatCue::Count)] = {};
 	int32 NextCombatQuad = 0;
+	// Visual-only authored cards; this pool never consumes the combat random stream.
+	enum class EAccent : uint8 { Dust, Land, Slash, Pickup, Glass, Wood, Smoke, Flame, Count };
+	struct FAccentEffect { FVector At, Velocity; float Age = 0, Life = 0, Size = 0, Dir = 1; EAccent Kind = EAccent::Dust; };
+	void Accent(EAccent Kind, const FVector& At, float Size, float Direction = 1.f, bool bSound = true);
+	void TickAccents(float Dt);
+	void InitAccents();
+	UPROPERTY() TArray<TObjectPtr<class UTexture>> AccentTextures;
+	UPROPERTY() TArray<TObjectPtr<class USoundBase>> AccentSounds;
+	UPROPERTY() TArray<TObjectPtr<class AStaticMeshActor>> AccentQuads;
+	UPROPERTY() TObjectPtr<class USoundAttenuation> CombatAttenuation;
+	UPROPERTY() TObjectPtr<class USoundConcurrency> CombatConcurrency;
+	TArray<FAccentEffect> AccentEffects;
+	int32 NextAccentQuad = 0, SoundVariation = 0;
+	float AccentSoundCooldown = 0.f, MotionAccentTime = 0.f, BossAccentTime = 0.f;
+	float LastPresentationT = -1.f;
+	FName LastPresentationState;
+	int32 LastPresentationCombo = 0;
 	void Step(float Dt, const FIn& In);
 	void UpdatePlayer(float Dt, const FIn& In);
 	void UpdateFoes(float Dt);
-	void HitFoe(FFTBrawlBody& F, float Dmg, bool bDown);
+	void HitFoe(FFTBrawlBody& F, float Dmg, bool bDown, bool bSound = true);
 	void HurtPlayer(float Dmg, bool bDown, const FFTBrawlBody& From);
 	void SpawnWave(int32 I);
 	void SpawnBoss();
@@ -229,13 +250,15 @@ private:
 	bool CanWalkPickup() const;
 	bool UseGroundItem();
 	void BreakHeld();
-	void BreakItem(int32 Kind, float X, float Y, float Z, float Dir);
+	void BreakItem(int32 Kind, float X, float Y, float Z, float Dir, bool bSound = true);
 	void ClearItems();
 	class AStaticMeshActor* ItemActor(int32 Kind);
 	void PlaceItem(AActor* A, int32 Kind, const FVector& Anchor, float Px, float Py, float RotDeg, bool bFlip, float Glow);
 	UPROPERTY() TObjectPtr<class AStaticMeshActor> HeldA;
 	UPROPERTY() TObjectPtr<class AStaticMeshActor> MugA;
 	bool bWpnHit = false;
+	bool bHeldPickupPresentation = false;
+	FTransform HeldPickupTransform;
 	AFTBrawlFighter* SpawnFighter(const FFTBrawlKind& K, const FFTBrawlLook& L);
 	void BuildVenue();
 	void BuildVenueAmbience(float StartX, float EndX, float BackWallY);

@@ -40,6 +40,8 @@ public:
 	bool HasSprite() const { return Sprite != nullptr; }
 	bool HasFrame(FName N) const { return Frames.Contains(N); }   // cutscenes: pick a pose the sheet has (run 32365)
 	FName CurrentSpriteFrame() const;
+	// Authored hand anchors for studio-pass poses, in the same 1024px canvas.
+	bool CurrentSpriteGrip(FVector2D& Out) const;
 	bool SpritePixelToWorld(const FVector2D& Pixel, FVector& Point) const;
 	void SetTint(const FLinearColor& C);   // multiplies the paint (power-up glow)
 	void SetEnemyPresentation(const FString& Who, FName FighterRole);
@@ -69,11 +71,13 @@ private:
 	UPROPERTY() TObjectPtr<UMaterialInstanceDynamic> SpriteMid;
 	UPROPERTY() TMap<FName, TObjectPtr<UTexture>> Frames;
 	UPROPERTY() TObjectPtr<UTexture> CurFrame;
+	FString SpriteWho;
 	bool bEnemySprite = false;
 	bool bCardDealerSprite = false;
 	float EnemyRim = -1.f;
 	FName LastSpriteState, PreviousSpriteState;
 	float SpriteStateStarted = 0.f;
+	float LastSpriteTime = 0.f;
 	float TurnStarted = -1.f;
 	bool bSpriteFacesRight = true;
 	UTexture* Frame(std::initializer_list<const TCHAR*> Names) const;
