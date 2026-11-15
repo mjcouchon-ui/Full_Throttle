@@ -174,6 +174,18 @@ public:
 
 	static constexpr float Step = 200.f; // cm between samples
 
+	// ---- tools: the same queries for editor scripts (capture cameras that stand where the chase camera does,
+	// scenery checks). Nothing in the game calls these.
+	UFUNCTION(BlueprintCallable, Category = "Track|Tools") float ToolLength() const { return Length(); }
+	/** The road's frame at distance D (cm): location = road centre, X = forward, Z = the road's own up (banked). */
+	UFUNCTION(BlueprintCallable, Category = "Track|Tools") FTransform ToolFrame(float D) const;
+	/** The land beside the road at D (ignores loops, pipes and twists). */
+	UFUNCTION(BlueprintCallable, Category = "Track|Tools") FVector ToolGround(float D) const { return Sample(D).Ground; }
+	UFUNCTION(BlueprintCallable, Category = "Track|Tools") int32 ToolFlags(float D) const { return FlagsAt(D); }
+	UFUNCTION(BlueprintCallable, Category = "Track|Tools") float ToolBank(float D) const { return Sample(D).Bank; }
+	/** 3.1: the height of the floor under the whole level (Bayshore: its sea level), in the track's own space. */
+	UFUNCTION(BlueprintCallable, Category = "Track|Tools") float ToolFloorZ() const { return FloorZ; }
+
 	void Rebuild();
 	bool IsBuilt() const { return Frames.Num() > 1; }
 	/** 3.0 attract mode: the track was built light around this distance (cm): collision only near it, small
@@ -216,7 +228,8 @@ protected:
 	TMap<FIntPoint, TArray<int32>> RoadCells;
 	float MaxRoadW = 0.f;
 	float LightAt = -1.f;
-	double MeshCreateMs = 0.0;
+	double MeshCreateMs = 0.0, CookMs = 0.0, RegisterMs = 0.0;
+	float FloorZ = 0.f; // 3.1: the floor under the whole level, below its lowest land
 
 	TArray<FFTFrame> Frames;
 	TArray<float> SectionStart; // cm
@@ -226,4 +239,6 @@ protected:
 	UPROPERTY(Transient) TArray<TObjectPtr<UProceduralMeshComponent>> Chunks;
 	UPROPERTY(Transient) TArray<TObjectPtr<UHierarchicalInstancedStaticMeshComponent>> PropComps;
 	UPROPERTY(Transient) TObjectPtr<UHierarchicalInstancedStaticMeshComponent> Pillars;
+	/** 3.1: single scenery pieces that need their own component (the volcano's eruptions). */
+	UPROPERTY(Transient) TArray<TObjectPtr<class UStaticMeshComponent>> LifeComps;
 };

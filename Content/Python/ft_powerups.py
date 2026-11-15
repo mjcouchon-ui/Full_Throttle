@@ -43,9 +43,17 @@ def bevel_box(m, color, center, size, bevel=3, glow=0.0):
     unreal.GeometryScript_MeshEdits.append_buffers_to_mesh(m._mesh(color, glow), buffers)
 
 
+def rim_trim(m, color, half_x, half_y, z):
+    """Thin emissive lengths on all four sides, set in from the guarded corners."""
+    for side in (-1, 1):
+        m.box(color, (half_x * side, 0, z), (2.5, 2 * (half_y - 9), 3.6), glow=1.0)
+        m.box(color, (0, half_y * side, z), (2 * (half_x - 9), 2.5, 3.6), glow=1.0)
+
+
 def crate(m):
     """M2: three pointed missiles, broad orange carrier, open dark guard handles."""
     bevel_box(m, INK, (0, 0, 9), (86, 148, 18), 4)
+    rim_trim(m, AMBER, 43, 74, 13)
     bevel_box(m, ORANGE, (0, 0, 29), (76, 138, 30), 5)
     bevel_box(m, INK, (0, 0, 46), (78, 134, 8), 2)
     for x in (-34, 34):
@@ -77,6 +85,7 @@ def wrench(m):
     bevel_box(m, GREEN, (0, 0, 42), (80, 132, 60), 7)
     bevel_box(m, INK, (0, 0, 72), (83, 135, 7), 2)
     bevel_box(m, GREEN, (0, 0, 84), (80, 132, 23), 8)
+    rim_trim(m, MINT, 40, 66, 87)
     for x in (-36, 36):
         for y in (-59, 59):
             bevel_box(m, INK, (x, y, 18), (18, 24, 30), 3)
@@ -105,8 +114,8 @@ def glow_master():
     """Isolated, opaque unlit HDR trim. No change to M_Paint or the shared cel pass."""
     m = ft_mats.new_material(MATERIALS, 'M_PickupGlow', shading=unreal.MaterialShadingModel.MSM_UNLIT)
     color = ft_mats.vparam(m, 'Color', (1, 0.4, 0.02, 1), y=-100)
-    gain = ft_mats.sparam(m, 'Gain', 3.0, y=0)
-    pulse = ft_mats.sparam(m, 'Pulse', 0.12, y=100)
+    gain = ft_mats.sparam(m, 'Gain', 2.6, y=0)
+    pulse = ft_mats.sparam(m, 'Pulse', 0.07, y=100)
     time = ft_mats.expr(m, unreal.MaterialExpressionTime, y=200)
     em = ft_mats.custom(m, 'return Color * Gain * (1.0 + Pulse * sin(Time * 4.2));',
                        [('Color', color, ''), ('Gain', gain, ''), ('Pulse', pulse, ''), ('Time', time, '')], desc='Pickup HDR pulse')
@@ -119,7 +128,7 @@ def material(color, glow, glow_parent):
     r, g, b = ft_art.hex_lin(color)
     if glow:
         return ft_mats.mi(glow_parent, MATERIALS, 'MI_Pickup_' + name,
-                          {'Color': (r, g, b, 1)}, {'Gain': 3.0, 'Pulse': 0.12})
+                          {'Color': (r, g, b, 1)}, {'Gain': 2.6, 'Pulse': 0.07})
     return ft_mats.mi(AL.load_asset('/Game/Core/Materials/M_Paint'), MATERIALS, 'MI_Pickup_' + name,
                       {'Color': (r, g, b, 1)}, {'Glow': 0.0, 'Metal': 0.18 if color == IVORY else 0.0,
                                               'Rough': 0.48 if color == IVORY else 0.65, 'Soot': 0.0, 'Alert': 0.0})

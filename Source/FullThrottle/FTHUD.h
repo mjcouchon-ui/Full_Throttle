@@ -23,6 +23,19 @@ public:
 
 private:
 	float S = 1.f, W = 1280.f, H = 720.f, T = 0.f;
+	float Left = 0.f, Right = 1280.f;
+	float OrbitHeight = 1.f, RajHeight = 1.f;
+	bool bReducedMotion = false;
+	enum class EMenuView : uint8 { None, Title, Department, Pause, Controls, Reel };
+	EMenuView MotionView = EMenuView::None;
+	int32 MotionPage = INDEX_NONE, MotionSelection = INDEX_NONE;
+	float ViewEnteredAt = 0.f, SelectionChangedAt = 0.f;
+	void UpdateMenuMotion(const AFTGameMode& G);
+	float MenuAge(EMenuView View, bool bSelection = false) const;
+	void AccentSweep(const FBox2D& Lane, float Age, const FLinearColor& Accent, float Duration);
+	void FocusAccent(const FBox2D& Button, float Age, const FLinearColor& Accent);
+	float LastArmor = -1.f, ArmorChanged = -10.f, MissileChanged = -10.f, AmmoChanged = -10.f;
+	int32 LastMissiles = -1, LastAmmoLoad = -1, LastAmmoRounds = -1;
 	UPROPERTY(Transient) TObjectPtr<UFont> FD = nullptr;
 	UPROPERTY(Transient) TObjectPtr<UFont> FB = nullptr;
 	// 3.0 title: Orbitron Black and Rajdhani Bold (both SIL Open Font License 1.1, see Content/UI/Fonts/OFL-*.txt)
@@ -31,34 +44,37 @@ private:
 	UPROPERTY(Transient) TObjectPtr<UFont> FRaj = nullptr;
 	UPROPERTY(Transient) TObjectPtr<class UTexture2D> TLogo = nullptr;
 	bool bTitleAssets = false;
-	void TxtF(UFont* F, const FString& Str, float X, float Y, const FLinearColor& C, float Scale, int32 Align = 0, bool bShadow = true, const FLinearColor& Glow = FLinearColor::Transparent);
 	FVector2D MeasureF(UFont* F, const FString& Str, float Scale);
 	/** A gradient rectangle (A at the top/left, B at the bottom/right). */
 	void Grad(float X, float Y, float Wd, float Ht, const FLinearColor& A, const FLinearColor& B, bool bHorizontal);
 	void DrawAttractWipe(AFTGameMode* G);
 	void DrawAttractOsd(AFTGameMode* G);
-	FBox2D TitleButton(float X, float Y, float Wd, float Ht, const FString& Label, const FString& Sub, bool bHot);
-	void Txt(const FString& Str, float X, float Y, const FLinearColor& C, float Scale, int32 Align = 0, bool bDisplay = false, bool bShadow = true);
-	FVector2D Measure(const FString& Str, float Scale, bool bDisplay);
+	enum class EIcon : uint8 { Repair, Missile, Ammo, Turbo, Record, Warning, Play };
+	enum class EControl : uint8 { Idle, Hover, Focus, Pressed, Disabled };
+	FBox2D Rect(float X, float Y, float Wd, float Ht) const;
+	void Stroke(FVector2D A, FVector2D B, const FLinearColor& Color, float Thickness = 1.f);
+	void Icon(EIcon Shape, float X, float Y, float Size, const FLinearColor& Color);
+	void Plate(const FBox2D& R, const FLinearColor& Accent, const FLinearColor& Fill);
+	void Meter(const FBox2D& R, float Fraction, const FLinearColor& Accent, int32 Segments = 1);
+	void Print(const FString& Str, float X, float Y, const FLinearColor& Color, float Height, int32 Align = 0, bool bDisplay = false, float MaxWidth = 0.f);
+	FVector2D TextSize(const FString& Str, float Height, bool bDisplay = false);
+	FBox2D Control(const FBox2D& R, const FString& Label, const FString& Hint, EControl State, const FLinearColor& Accent);
+	EControl ControlState(const FBox2D& R, bool bFocus = false, bool bEnabled = true) const;
 	void Box(float X, float Y, float Wd, float Ht, const FLinearColor& C);
 	void Frame(float X, float Y, float Wd, float Ht, const FLinearColor& C, float Th = 2.f);
-	void Panel(float X, float Y, float Wd, float Ht);
 	void DrawTitle(AFTGameMode* G);
 	void DrawCard(AFTGameMode* G);
 	void DrawPlay(AFTGameMode* G);
+	void DrawPickupMarkers(const AFTGameMode& Game);
 	void DrawCut(AFTGameMode* G);
 	void DrawReel(AFTGameMode* G);
 	void DrawRating(AFTGameMode* G);
 	void DrawPaycheck(AFTGameMode* G);
 	void DrawPreProduction(AFTGameMode* G);
 	void DrawFx(AFTGameMode* G);
-	void Ring(float Cx, float Cy, float Rad, float Frac, const FLinearColor& C, float Th);
 	void DrawReelContinue(AFTGameMode* G);
-	/** A neon button: returns its rect (for the mouse). bArmed false = drawn dim; bHot = selected or hovered. */
-	FBox2D Button(float Cx, float Cy, float Wd, float Ht, const FString& Label, const FString& Sub, bool bArmed, bool bHot);
-	TArray<FString> WrapText(const FString& Str, float MaxW, float Scale);
+	TArray<FString> WrapText(const FString& Text, float MaxWidth, float FontHeight, bool bDisplay = false);
 	void DrawPause(AFTGameMode* G);
 	void DrawControls(AFTGameMode* G);
 	void DrawOptions(AFTGameMode* G);
-	void DrawSlate(float Cx, float Cy, float Sc, float Clap, const TArray<FString>& Lines);
 };

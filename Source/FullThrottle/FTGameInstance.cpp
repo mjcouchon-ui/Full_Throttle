@@ -23,6 +23,8 @@
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonWriter.h"
 #include "Serialization/JsonSerializer.h"
+#include "Engine/AssetManager.h"
+#include "AssetRegistry/IAssetRegistry.h"
 
 const TCHAR* UFTGameInstance::ActionName(int32 A)
 {
@@ -32,7 +34,7 @@ const TCHAR* UFTGameInstance::ActionName(int32 A)
 
 bool UFTGameInstance::IsReserved(const FKey& K)
 {
-	return K == EKeys::Escape || K == EKeys::P || K == EKeys::M || K == EKeys::Enter || K == EKeys::Tab || K == EKeys::BackSpace
+	return K == EKeys::AnyKey || K == EKeys::Escape || K == EKeys::P || K == EKeys::M || K == EKeys::Enter || K == EKeys::Tab || K == EKeys::BackSpace
 		|| K == EKeys::Delete || K == EKeys::F1 || K == EKeys::O || K.IsMouseButton() || K.IsGamepadKey() || K.IsAxis1D() || K.IsAxis2D();
 }
 
@@ -314,6 +316,10 @@ void UFTGameInstance::ApplyQuality(int32 Q, bool bSave)
 		if (IConsoleVariable* AQ = IConsoleManager::Get().FindConsoleVariable(TEXT("sg.AntiAliasingQuality")))
 			if (AQ->GetInt() <= 1 && !FParse::Param(FCommandLine::Get(), TEXT("fttsr"))) Aa = 2;
 		if (IConsoleVariable* V = IConsoleManager::Get().FindConsoleVariable(TEXT("r.AntiAliasingMethod"))) V->Set(Aa, ECVF_SetByCode);
+		// 3.4: Lumen reflections (EPIC only) trace only glossy surfaces (glass, chrome, wet paint); rougher ones take the
+		// radiance cache. Metro's EPIC frame -0.5 ms, same look side by side (full-throttle-tests/v340/look). Not a
+		// scalability variable (the .ini can't set it), so it is set here; below EPIC Lumen reflections are off anyway.
+		if (IConsoleVariable* V = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Lumen.Reflections.MaxRoughnessToTrace"))) V->Set(0.15f, ECVF_SetByCode);
 		UE_LOG(LogFT, Display, TEXT("FTQUALITY applied=%d overall=%d dynres=%d aa=%s"), Q, S->GetOverallScalabilityLevel(), bDyn ? 1 : 0, Aa == 4 ? TEXT("TSR") : TEXT("TAA"));
 		if (AppleCap > 0.f)
 		{
@@ -463,4 +469,32 @@ bool UFTGameInstance::TickExec(float Dt)
 	UE_LOG(LogFT, Display, TEXT("FT EXEC done"));
 	bExecScript = false;
 	return false;
+}
+
+// --------------------------------------------------------------------------------------------- loop cycle 1: warm the gameplay assets
+void UFTGameInstance::WarmGameplayAssets()
+{
+	if (bWarmStarted || !UAssetManager::IsInitialized()) return;
+	bWarmStarted = true;
+	IAssetRegistry& AR = UAssetManager::Get().GetAssetRegistry();
+	TArray<FSoftObjectPath> Paths;
+	const auto AddDir = [&](const TCHAR* Dir, bool bRecursive)
+	{
+		TArray<FAssetData> Found;
+		AR.GetAssetsByPath(FName(Dir), Found, bRecursive, true);
+		for (const FAssetData& A : Found) Paths.Add(A.GetSoftObjectPath());
+	};
+	AddDir(TEXT("/Game/Audio/SFX"), true);
+	AddDir(TEXT("/Game/FX"), true);
+	AddDir(TEXT("/Game/Characters"), true);
+	const double T0 = FPlatformTime::Seconds();
+	const int32 Count = Paths.Num();
+	if (Count == 0) { UE_LOG(LogFT, Warning, TEXT("FT WARM no assets found (asset registry empty?)")); return; }
+	TSharedPtr<FStreamableHandle> H = UAssetManager::GetStreamableManager().RequestAsyncLoad(MoveTemp(Paths),
+		FStreamableDelegate::CreateWeakLambda(this, [T0, Count]()
+		{
+			UE_LOG(LogFT, Display, TEXT("FT WARM done assets=%d seconds=%.2f"), Count, FPlatformTime::Seconds() - T0);
+		}), FStreamableManager::AsyncLoadHighPriority, true);
+	if (H.IsValid()) WarmHandles.Add(H);
+	UE_LOG(LogFT, Display, TEXT("FT WARM start assets=%d"), Count);
 }

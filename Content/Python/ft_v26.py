@@ -1,53 +1,33 @@
 """FULL THROTTLE 2.6: the SFX DEPT's recoloured effects (spec v6, 07 wave 1).
 
 The stock Niagara systems are stateless (lightweight) emitters with no user parameters, so each colour is a
-copy of the stock system with its ScaleColor gradient recoloured (by reflection through UFTEditorTools, as
-ft_fx does). Same spawn counts, sizes, lifetimes and timing as stock: looks only (07 §1). The game swaps the
+stock emitter configuration with its ScaleColor gradient recoloured (by reflection through ft_fx). Same spawn counts, sizes, lifetimes and timing as stock: looks only (07 §1). The game swaps the
 asset for the worn item (FTFlow.cpp ApplyCosmetics / Explode).
 Run over the Unreal MCP connector:  import ft_v26; ft_v26.make_tints()
 """
 import colorsys
-import unreal
+from copy import deepcopy
 import ft_fx
 
-AL = unreal.EditorAssetLibrary
-T = unreal.FTEditorTools
 FX = '/Game/FX/'
-E = ft_fx.E
 
 
 def lin(hexs):
-    c = unreal.LinearColor()
     h = hexs.lstrip('#')
     r, g, b = (int(h[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
     f = lambda v: v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
     return (f(r), f(g), f(b))
 
 
-def _scale_color_index(s):
-    i = 0
-    while True:
-        v = T.get_path(s, E + 'Modules[%d]' % i)
-        if v.startswith('ERROR'):
-            raise RuntimeError('no ScaleColor')
-        if 'ScaleColor' in v.split("'")[0]:
-            return i
-        i += 1
-
-
 def tint(base, name, keys, material=None):
-    path = FX + name
-    if AL.does_asset_exist(path):
-        AL.delete_asset(path)
-    s = AL.duplicate_asset(FX + base, path)
-    idx = _scale_color_index(s)
-    ft_fx._set(s, 'Modules[%d].ScaleDistribution' % idx, ft_fx.colors(*keys))
+    # Apply the base settings on every run so the cosmetics inherit its shape and timing.
+    source = next(cfg for leaf, _, cfg in ft_fx.definitions() if leaf == base)
+    cfg = deepcopy(source)
+    cfg['modules']['ScaleColor']['ScaleDistribution'] = ft_fx.colors(*keys)
     if material:
-        ft_fx._set(s, 'RendererProperties[0].Material', ft_fx.mat(material))
-    T.compile_niagara(s)
-    AL.save_loaded_asset(s)
+        cfg['renderer']['Material'] = ft_fx.mat(material)
+    ft_fx.make(name, FX + base, cfg)
     return name
-
 
 def flame(c, core=None):
     core = core or tuple(0.55 + 0.45 * x for x in c)

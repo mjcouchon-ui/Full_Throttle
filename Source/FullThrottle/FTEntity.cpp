@@ -1,4 +1,5 @@
 #include "FTEntity.h"
+#include "FTFx.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Engine/StaticMesh.h"
@@ -7,6 +8,7 @@
 #include "NiagaraFunctionLibrary.h"
 #include "HAL/IConsoleManager.h"
 #include "Materials/MaterialInterface.h"
+#include "Materials/Material.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
@@ -182,6 +184,7 @@ UStaticMesh* AFTEntityActor::MeshFor(EFTKind Kind, int32 Variant, int32 Level)
 	// 2.5: the boss's bullets look like the boss: fish from the shark, fireballs from the fire truck, the limo's heavy tracers
 	case EFTKind::Bullet:
 		P = Variant == 1 ? TEXT("/Game/Characters/Projectiles/SM_Swordfish") : (Variant == 2 ? TEXT("/Game/Characters/Projectiles/SM_Fireball") : (Variant == 3 ? TEXT("/Game/Characters/Projectiles/SM_BigTracer") : TEXT("/Game/FX/SM_Tracer")));
+		if (Variant == 4) P = TEXT("/Game/FX/SM_Pie");   // 3.1: MR. CHUCKLES throws pies (ft_attackfx.py); no pie, a tracer as before
 		break;
 	case EFTKind::Missile: P = TEXT("/Game/Characters/Kestrel/SM_Missile"); break;
 	default: return nullptr;
@@ -236,6 +239,21 @@ AFTEntityActor::AFTEntityActor()
 	Light->SetCastShadows(false);
 	Light->SetVisibility(false);
 	Light->SetIntensityUnits(ELightUnits::Candelas);
+	// 3.1: a second trail layer, and the road mark under something about to land (it stays on the road: absolute)
+	Trail2 = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Trail2"));
+	Trail2->SetupAttachment(Mesh);
+	Trail2->SetAutoActivate(false);
+	Mark = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mark"));
+	Mark->SetupAttachment(RootComponent);
+	Mark->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Mark->SetGenerateOverlapEvents(false);
+	Mark->SetCastShadow(false);
+	Mark->SetUsingAbsoluteLocation(true); Mark->SetUsingAbsoluteRotation(true); Mark->SetUsingAbsoluteScale(true);
+	Mark->bAffectDistanceFieldLighting = false;
+	Mark->bAffectDynamicIndirectLighting = false;
+	Mark->SetVisibility(false);
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> MarkMesh(TEXT("/Engine/BasicShapes/Plane.Plane"));
+	Mark->SetStaticMesh(MarkMesh.Object);
 }
 
 void AFTEntityActor::Setup(EFTKind InKind, int32 InVariant, int32 Level)
@@ -251,6 +269,11 @@ void AFTEntityActor::Setup(EFTKind InKind, int32 InVariant, int32 Level)
 	Extra->SetRelativeTransform(FTransform::Identity);
 	Charge = 0.f; YetiPhase = 0.f;
 	Trail->Deactivate();
+	Trail->SetRelativeLocation(FVector::ZeroVector);
+	Trail2->Deactivate();
+	Trail2->SetRelativeLocation(FVector::ZeroVector);
+	Mark->SetVisibility(false);
+	bHostile = false; GlowOffT = 1.f; GlowOnT = 0.f;
 	Light->SetVisibility(false);
 	Light->SetRelativeLocation(FVector::ZeroVector);
 	SetActorHiddenInGame(false);
@@ -330,8 +353,13 @@ void AFTEntityActor::Setup(EFTKind InKind, int32 InVariant, int32 Level)
 	}
 	else if (Kind == EFTKind::Missile)
 	{
-		Trail->SetAsset(Load<UNiagaraSystem>(TEXT("/Game/FX/NS_MissileTrail")));
+		// 3.1: smoke straight back from the tail and a flame in it (the flame is the Extra layer: not at Low)
+		Trail->SetAsset(FTFx::System(TEXT("NS_MissileTrail")));
+		Trail->SetRelativeLocation(FVector(-70.f, 0.f, 0.f));
 		if (Trail->GetAsset()) Trail->Activate(true);
+		Trail2->SetAsset(FTFx::Shows(this, FTFx::Extra) ? FTFx::System(TEXT("NS_MissileFlame")) : nullptr);
+		Trail2->SetRelativeLocation(FVector(-62.f, 0.f, 0.f));
+		if (Trail2->GetAsset()) Trail2->Activate(true);
 		Light->SetLightColor(FLinearColor(1.f, 0.55f, 0.2f));
 		Light->SetIntensity(400.f); Light->SetAttenuationRadius(900.f);
 		Light->SetVisibility(true);
@@ -346,6 +374,22 @@ void AFTEntityActor::Setup(EFTKind InKind, int32 InVariant, int32 Level)
 			Light->SetRelativeLocation(FVector::ZeroVector);
 			Light->SetVisibility(true);
 		}
+	}
+	else if (Kind == EFTKind::Barrel)
+	{
+		// 3.1: a barrel had nothing that said "do not touch". Every barrel carries a red warning light now (pulsed in
+		// Animate), and Mount Kaldera's are alight, as the fire engine's "burning barrels" always claimed to be.
+		// The barrel itself, its box and its blast are what they were
+		if (Level == 3)
+		{
+			Trail->SetAsset(FTFx::System(TEXT("NS_BarrelFire")));
+			Trail->SetRelativeLocation(FVector(0.f, 0.f, 95.f));
+			if (Trail->GetAsset()) Trail->Activate(true);
+		}
+		Light->SetLightColor(Level == 3 ? FLinearColor(1.f, 0.5f, 0.15f) : FLinearColor(1.f, 0.16f, 0.1f));
+		Light->SetIntensity(240.f); Light->SetAttenuationRadius(650.f);
+		Light->SetRelativeLocation(FVector(0.f, 0.f, 130.f));
+		Light->SetVisibility(!FTFx::IsLow());
 	}
 	else if (Kind == EFTKind::Crate || Kind == EFTKind::Wrench)
 	{
@@ -371,8 +415,88 @@ void AFTEntityActor::SetGlow(float Amount)
 	// 3.3 perf: the game mode asks every frame for rammers, hogs and bosses; only touch the materials on a change
 	// (each call walks every slot and pushes new parameter data to the render thread)
 	if (FMath::IsNearlyEqual(Amount, LastGlow, 0.01f)) return;
-	LastGlow = Amount;
 	Mesh->SetScalarParameterValueOnMaterials(TEXT("Alert"), Amount);
+	// 3.1: the wind-up also shows as a flare when it starts and as a red light while it lasts. Both follow the same
+	// Glow the attack's own timers drive, so neither can start before the warning or outstay it
+	const bool bOn = Amount > 0.5f, bWas = LastGlow > 0.5f;
+	LastGlow = Amount;
+	if (Kind != EFTKind::Rammer && Kind != EFTKind::Hog && Kind != EFTKind::Boss) return;
+	if (bOn && !bWas && GlowOffT > 0.35f)
+	{
+		// where it comes from: a rammer and a boss drop back at you tail first, a Snake Eyes swings from the saddle
+		const FVector At = Kind == EFTKind::Hog ? FVector(0.f, 0.f, 140.f) : (Kind == EFTKind::Boss ? FVector(-620.f, 0.f, 220.f) : FVector(-230.f, 0.f, 110.f));
+		FTFx::Attach(TEXT("NS_AlertFlare"), Mesh, At, FRotator::ZeroRotator, Kind == EFTKind::Boss ? 2.2f : 1.f, FTFx::Main, true);
+		if (Kind == EFTKind::Rammer) FTFx::Attach(TEXT("NS_RevSmoke"), Mesh, FVector(-200.f, 0.f, 20.f), FRotator::ZeroRotator, 1.f, FTFx::Extra, true);
+	}
+	if (Kind == EFTKind::Boss) Light->SetIntensity(1500.f + 1800.f * FMath::Clamp(Amount, 0.f, 1.f));
+	else
+	{
+		Light->SetLightColor(FLinearColor(1.f, 0.12f, 0.1f));
+		Light->SetIntensity(520.f * FMath::Clamp(Amount, 0.f, 1.f)); Light->SetAttenuationRadius(900.f);
+		Light->SetRelativeLocation(FVector(Kind == EFTKind::Hog ? 0.f : -230.f, 0.f, 130.f));
+		Light->SetVisibility(bOn && !FTFx::IsLow());
+	}
+}
+
+void AFTEntityActor::SetHostile(int32 InVariant)
+{
+	bHostile = true;
+	static const FLinearColor Theirs(1.f, 0.07f, 0.26f);
+	const TCHAR* TrailName = TEXT("NS_EnemyTrail");
+	int32 Layer = FTFx::Main;
+	float Back = 40.f;
+	if (InVariant == 0)
+	{
+		// the stock tracer is the KESTREL's own yellow, so a foe's shot and yours looked the same: theirs is theirs
+		Mesh->SetVectorParameterValueOnMaterials(TEXT("Color"), FVector(Theirs.R, Theirs.G, Theirs.B));
+		Mesh->SetVectorParameterValueOnMaterials(TEXT("Tint"), FVector(Theirs.R, Theirs.G, Theirs.B));
+		bTracerColoured = true;
+	}
+	else if (InVariant == 1) { TrailName = TEXT("NS_FishTrail"); Layer = FTFx::Extra; Back = 110.f; }
+	else if (InVariant == 2) { TrailName = TEXT("NS_FireballTrail"); Back = 70.f; }
+	else if (InVariant == 3) { TrailName = TEXT("NS_BigTracerTrail"); Back = 110.f; }
+	else if (InVariant == 4) { TrailName = TEXT("NS_PieTrail"); Layer = FTFx::Extra; Back = 30.f; }
+	Trail->SetAsset(FTFx::Shows(this, Layer) ? FTFx::System(TrailName) : nullptr);
+	Trail->SetRelativeLocation(FVector(-Back, 0.f, 0.f));
+	if (Trail->GetAsset()) Trail->Activate(true);
+	// no light on a hostile round: on this road a light is a wide banded pool, and a magenta pool sliding along the
+	// tarmac reads as a place that hurts (first captures). The streak, the muzzle star and the hit burst carry the colour
+}
+
+void AFTEntityActor::SetLandingMark(const FTransform& WorldT, float HalfAlong, float HalfAcross, float Progress)
+{
+	UMaterialInterface* M0 = Mark->GetMaterial(0);
+	if (!M0 || !M0->GetBaseMaterial() || !M0->GetBaseMaterial()->GetName().Contains(TEXT("Hazard")))
+	{
+		if (UMaterialInterface* M = Load<UMaterialInterface>(TEXT("/Game/FX/MI_Hazard"))) Mark->SetMaterial(0, M);
+	}
+	// the engine's plane is 100 cm square: scaled to the real box the landing hits
+	Mark->SetWorldTransform(FTransform(WorldT.GetRotation(), WorldT.GetLocation(), FVector(HalfAlong / 50.f, HalfAcross / 50.f, 1.f)));
+	const float P = FMath::Clamp(Progress, 0.f, 1.f);
+	Mark->SetVectorParameterValueOnMaterials(TEXT("Color"), FVector(1.f, 0.3f, 0.2f));
+	Mark->SetScalarParameterValueOnMaterials(TEXT("Intensity"), FMath::Lerp(0.85f, 1.9f, P) + 0.32f * FMath::Sin(AnimT * 23.f));
+	Mark->SetScalarParameterValueOnMaterials(TEXT("Style"), 2.f);
+	Mark->SetScalarParameterValueOnMaterials(TEXT("Progress"), P);
+	Mark->SetScalarParameterValueOnMaterials(TEXT("Live"), 0.f);
+	Mark->SetScalarParameterValueOnMaterials(TEXT("Mark"), 1.f);
+	Mark->SetVectorParameterValueOnMaterials(TEXT("Size"), FVector(HalfAlong * 2.f, HalfAcross * 2.f, 0.f));
+	Mark->SetVisibility(true);
+}
+
+void AFTEntityActor::HideLandingMark()
+{
+	Mark->SetVisibility(false);
+}
+
+void AFTEntityActor::SetActorHiddenInGame(bool bNewHidden)
+{
+	Super::SetActorHiddenInGame(bNewHidden);
+	// back to the pool: nothing of the last life may show on the next
+	if (bNewHidden)
+	{
+		if (Trail2) Trail2->Deactivate();
+		if (Mark) Mark->SetVisibility(false);
+	}
 }
 
 const TArray<AFTEntityActor::FWheelDef>* AFTEntityActor::WheelsFor(const UStaticMesh* M)
@@ -562,6 +686,21 @@ void AFTEntityActor::Animate(float Dt, float Speed, float Vx)
 		for (int32 i = 0; i < WheelSpec.Num() && i < Wheels.Num(); ++i)
 			Wheels[i]->SetRelativeRotation(FRotator(-FMath::RadiansToDegrees(WheelSpin / FMath::Max(WheelSpec[i].R, 1.f)), 0.f, 0.f));
 	}
+	// 3.1: how long the wind-up glow has been on or off (SetGlow reads these)
+	if (LastGlow > 0.5f) { GlowOnT += Dt; GlowOffT = 0.f; } else { GlowOffT += Dt; GlowOnT = 0.f; }
+	if (Kind == EFTKind::Rammer)
+	{
+		// the charge is a steady glow (the rev before it blinks): the rammer throws dust for as long as it lasts
+		const bool bCharge = GlowOnT > 0.2f;
+		if (bCharge && !Trail->IsActive())
+		{
+			Trail->SetAsset(FTFx::Shows(this, FTFx::Extra) ? FTFx::System(TEXT("NS_ChargeTrail")) : nullptr);
+			Trail->SetRelativeLocation(FVector(-200.f, 0.f, 15.f));
+			if (Trail->GetAsset()) Trail->Activate(true);
+		}
+		else if (!bCharge && Trail->IsActive()) Trail->Deactivate();
+	}
+	if (Kind == EFTKind::Barrel && Light->IsVisible()) Light->SetIntensity(Lvl == 3 ? 260.f + 90.f * FMath::Sin(AnimT * 11.f) : 150.f + 130.f * FMath::Max(0.f, FMath::Sin(AnimT * 7.f)));
 	if (Kind == EFTKind::Crate || Kind == EFTKind::Wrench)
 	{
 		// Visual component only: logical track position, hitbox, spawn schedule and RNG stay untouched.
@@ -592,6 +731,8 @@ void AFTEntityActor::Animate(float Dt, float Speed, float Vx)
 	}
 	// fish wiggle on their way in
 	if (Kind == EFTKind::Bullet && Variant == 1) Mesh->SetRelativeRotation(FRotator(0.f, 18.f * FMath::Sin(AnimT * 18.f), 0.f));
+	// 3.1: and a pie spins face first
+	if (Kind == EFTKind::Bullet && Variant == 4) Mesh->SetRelativeRotation(FRotator(0.f, 0.f, 540.f * AnimT));
 }
 
 // ------------------------------------------------------------------------------------------ wreck
@@ -611,6 +752,9 @@ AFTWreck::AFTWreck()
 	Fire = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Fire"));
 	Fire->SetupAttachment(Mesh);
 	Fire->SetAutoActivate(false);
+	Smoke = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Smoke"));
+	Smoke->SetupAttachment(Mesh);
+	Smoke->SetAutoActivate(false);
 	InitialLifeSpan = 9.f;
 }
 
@@ -641,8 +785,15 @@ void AFTWreck::Launch(UStaticMesh* InMesh, const FTransform& At, const FVector& 
 			Wheels.Add(W);
 		}
 	}
-	Fire->SetAsset(Cast<UNiagaraSystem>(StaticLoadObject(UNiagaraSystem::StaticClass(), nullptr, TEXT("/Game/FX/NS_Fire"), nullptr, LOAD_NoWarn | LOAD_Quiet)));
+	Fire->SetAsset(FTFx::System(TEXT("NS_Fire")));
 	if (Fire->GetAsset()) { Fire->SetVariableFloat(TEXT("User.Size"), 1.4f); Fire->Activate(true); }
+	// 3.1: and it smokes (the Extra layer: not at Low)
+	if (FTFx::Shows(this, FTFx::Extra))
+	{
+		Smoke->SetAsset(FTFx::System(TEXT("NS_WreckSmoke")));
+		Smoke->SetRelativeLocation(FVector(0.f, 0.f, 80.f));
+		if (Smoke->GetAsset()) Smoke->Activate(true);
+	}
 }
 
 void AFTWreck::Tick(float Dt)
@@ -650,26 +801,36 @@ void AFTWreck::Tick(float Dt)
 	Super::Tick(Dt);
 	Age += Dt;
 	if (Age > 6.f && Fire->IsActive()) Fire->Deactivate();
+	if (Age > 7.5f && Smoke->IsActive()) Smoke->Deactivate();
 }
 
 // ------------------------------------------------------------------------------------------ hazard
 AFTHazard::AFTHazard()
 {
 	PrimaryActorTick.bCanEverTick = false;
+	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("HazardRoot"));
 	Plane = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Plane"));
-	RootComponent = Plane;
+	Plane->SetupAttachment(RootComponent);
 	Plane->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	Plane->SetCastShadow(false);
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> PlaneMesh(TEXT("/Engine/BasicShapes/Plane.Plane"));
 	Plane->SetStaticMesh(PlaneMesh.Object);
+	RightPlane = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("RightPlane"));
+	RightPlane->SetupAttachment(RootComponent);
+	RightPlane->SetStaticMesh(PlaneMesh.Object);
+	RightPlane->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	RightPlane->SetCastShadow(false);
+	RightPlane->SetVisibility(false);
+	RightPlane->bAffectDistanceFieldLighting = false;
+	RightPlane->bAffectDynamicIndirectLighting = false;
 	Light = CreateDefaultSubobject<UPointLightComponent>(TEXT("Light"));
-	Light->SetupAttachment(Plane);
+	Light->SetupAttachment(RootComponent);
 	Light->SetCastShadows(false);
 	Light->SetIntensityUnits(ELightUnits::Candelas);
 	Light->SetAttenuationRadius(1600.f);
 	Light->SetRelativeLocation(FVector(0, 0, 150.f));
 	Thing = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Thing"));
-	Thing->SetupAttachment(Plane);
+	Thing->SetupAttachment(RootComponent);
 	Thing->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	Thing->SetUsingAbsoluteLocation(true); Thing->SetUsingAbsoluteRotation(true); Thing->SetUsingAbsoluteScale(true);
 	Thing->SetVisibility(false);
@@ -677,34 +838,98 @@ AFTHazard::AFTHazard()
 	Thing->bAffectDynamicIndirectLighting = false;
 	Plane->bAffectDistanceFieldLighting = false;
 	Plane->bAffectDynamicIndirectLighting = false;
+	// 3.1: the trail of whatever is flying in; it is placed in the world each frame (SetThing)
+	ThingTrail = CreateDefaultSubobject<UNiagaraComponent>(TEXT("ThingTrail"));
+	ThingTrail->SetupAttachment(RootComponent);
+	ThingTrail->SetUsingAbsoluteLocation(true); ThingTrail->SetUsingAbsoluteRotation(true); ThingTrail->SetUsingAbsoluteScale(true);
+	ThingTrail->SetAutoActivate(false);
 }
 
 void AFTHazard::SetThing(UStaticMesh* M, const FTransform& WorldT)
 {
 	if (!M) { HideThing(); return; }
+	const bool bNew = Thing->GetStaticMesh() != M || !Thing->IsVisible();
 	if (Thing->GetStaticMesh() != M) Thing->SetStaticMesh(M);
 	Thing->SetWorldTransform(WorldT);
 	Thing->SetVisibility(true);
+	// 3.1: its trail. The mark rides with the car, so the thing's flight as the player sees it is its movement
+	// relative to the mark: the emitter (which throws along its own -X) is turned to face along that
+	const FVector Rel = WorldT.GetLocation() - GetActorLocation();
+	if (bNew)
+	{
+		const FString N = M->GetName();
+		const bool bMain = N.Contains(TEXT("Fireball")) || N.Contains(TEXT("Missile"));
+		const TCHAR* TrailName = N.Contains(TEXT("Bomb")) ? TEXT("NS_FuseTrail") : (N.Contains(TEXT("Snow")) ? TEXT("NS_SnowTrail") : (N.Contains(TEXT("Fireball")) ? TEXT("NS_FireballTrail")
+			: (N.Contains(TEXT("Fish")) ? TEXT("NS_FishTrail") : (N.Contains(TEXT("Missile")) ? TEXT("NS_MissileTrail") : nullptr))));
+		ThingTrail->SetAsset(TrailName && FTFx::Shows(this, bMain ? FTFx::Main : FTFx::Extra) ? FTFx::System(TrailName) : nullptr);
+		if (ThingTrail->GetAsset()) ThingTrail->Activate(true); else ThingTrail->Deactivate();
+		LastThingAt = Rel;
+	}
+	ThingTrail->SetWorldLocation(WorldT.GetLocation());
+	const FVector Move = Rel - LastThingAt;
+	if (Move.SizeSquared() > 1.f) ThingTrail->SetWorldRotation(Move.Rotation());
+	LastThingAt = Rel;
 }
 
-void AFTHazard::HideThing() { Thing->SetVisibility(false); }
+void AFTHazard::HideThing()
+{
+	Thing->SetVisibility(false);
+	if (ThingTrail) ThingTrail->Deactivate();
+}
 
 void AFTHazard::SetActorHiddenInGame(bool bNewHidden)
 {
 	Super::SetActorHiddenInGame(bNewHidden);
 	if (bNewHidden && Thing) Thing->SetVisibility(false);
+	if (bNewHidden && ThingTrail) ThingTrail->Deactivate();
+}
+
+void AFTHazard::SetStyle(int32 Style, int32 Type, float Progress, bool bLive)
+{
+	// the marker's material (ft_mats.py, M_Hazard) draws in real centimetres: tell it how big each plane is now
+	const FVector S = GetActorScale3D() * 100.f;
+	for (UStaticMeshComponent* Marker : { Plane.Get(), RightPlane.Get() })
+	{
+		if (!Marker->IsVisible()) continue;
+		Marker->SetScalarParameterValueOnMaterials(TEXT("Style"), (float)FMath::Clamp(Style, 0, 3));
+		Marker->SetScalarParameterValueOnMaterials(TEXT("Progress"), FMath::Clamp(Progress, 0.f, 1.f));
+		Marker->SetScalarParameterValueOnMaterials(TEXT("Live"), bLive ? 1.f : 0.f);
+		Marker->SetScalarParameterValueOnMaterials(TEXT("Mark"), (Type == 1 || Type == 5) ? 1.f : 0.f);
+		const FVector R = Marker->GetRelativeScale3D();
+		Marker->SetVectorParameterValueOnMaterials(TEXT("Size"), FVector(S.X * R.X, S.Y * R.Y, 0.f));
+	}
+}
+
+void AFTHazard::SetSafeGap(float Center, float HalfWidth)
+{
+	// Local Y runs across the road. Each source plane is 100 cm wide.
+	const auto Span = [](UStaticMeshComponent* Marker, float Lo, float Hi)
+	{
+		Marker->SetVisibility(Hi - Lo > KINDA_SMALL_NUMBER);
+		Marker->SetRelativeLocation(FVector(0.f, 25.f * (Lo + Hi), 0.f));
+		Marker->SetRelativeScale3D(FVector(1.f, FMath::Max((Hi - Lo) * 0.5f, 0.001f), 1.f));
+	};
+	Span(Plane, -1.f, HalfWidth > 0.f ? FMath::Clamp(Center - HalfWidth, -1.f, 1.f) : 1.f);
+	Span(RightPlane, HalfWidth > 0.f ? FMath::Clamp(Center + HalfWidth, -1.f, 1.f) : 1.f, 1.f);
 }
 
 void AFTHazard::SetLook(const FLinearColor& Colour, float Intensity)
 {
-	if (Plane->GetMaterial(0) == nullptr || !Plane->GetMaterial(0)->GetName().Contains(TEXT("Hazard")))
+	for (UStaticMeshComponent* Marker : { Plane.Get(), RightPlane.Get() })
 	{
-		if (UMaterialInterface* M = Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, TEXT("/Game/FX/MI_Hazard"), nullptr, LOAD_NoWarn | LOAD_Quiet))) Plane->SetMaterial(0, M);
+		if (!Marker->IsVisible()) continue;
+		// 3.1: by its base material. Setting a parameter swaps the slot to a dynamic instance, whose own name never
+		// said "Hazard": the marker material was reloaded, and a new instance made, on every frame of every hazard
+		UMaterialInterface* M0 = Marker->GetMaterial(0);
+		if (M0 == nullptr || !M0->GetBaseMaterial() || !M0->GetBaseMaterial()->GetName().Contains(TEXT("Hazard")))
+		{
+			if (UMaterialInterface* M = Load<UMaterialInterface>(TEXT("/Game/FX/MI_Hazard"))) Marker->SetMaterial(0, M);
+		}
+		Marker->SetVectorParameterValueOnMaterials(TEXT("Color"), FVector(Colour.R, Colour.G, Colour.B));
+		Marker->SetScalarParameterValueOnMaterials(TEXT("Intensity"), Intensity);
 	}
-	Plane->SetVectorParameterValueOnMaterials(TEXT("Color"), FVector(Colour.R, Colour.G, Colour.B));
-	Plane->SetScalarParameterValueOnMaterials(TEXT("Intensity"), Intensity);
 	Light->SetLightColor(Colour);
-	Light->SetIntensity(Intensity * 300.f);
+	Light->SetIntensity(Intensity * 230.f);
 }
 
 void AFTEntityActor::SetTracer(const FLinearColor& Colour, float Width, bool bSpecial)

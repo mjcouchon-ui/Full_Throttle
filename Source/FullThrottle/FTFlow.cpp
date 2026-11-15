@@ -6,9 +6,11 @@
 #include "FTTrack.h"
 #include "FTPlayerCar.h"
 #include "FTEntity.h"
+#include "FTFx.h"
 #include "FTPlayerController.h"
 #include "FTGameInstance.h"
 #include "FTProgress.h"
+#include "FTNightFlow.h"
 #include "Engine/World.h"
 #include "Engine/Engine.h"
 #include "TimerManager.h"
@@ -156,6 +158,26 @@ void AFTGameMode::BulletHit(FFTEnt& B, FFTEnt& O)
 	else if (Stats.Has(TEXT("DEM2")) && (++HeavyCount % 4) == 0) Dmg = 2.f;  // Heavy Rounds: every 4th standard round
 	const float Bd = O.D, Bx = O.X;
 	const bool bLight = Cls == 0;
+	// 3.1: what the round did, by its load and by what it hit. On the target (it is doing 100 mph too), at its tail,
+	// in the round's own lane; +X is the round's way. Looks only, before the damage (a wreck lets its proxy go)
+	if (USceneComponent* On = O.Proxy.IsValid() ? O.Proxy->GetRootComponent() : nullptr)
+	{
+		const FTransform At = Track->TransformAt(O.D - O.L * 0.5f, FMath::Clamp(B.X, O.X - O.W * 0.5f, O.X + O.W * 0.5f), O.bAir ? O.H : 110.f);
+		if (Cls == 2 && B.Load != 1)
+		{
+			// armour shrugs a standard or HE round off: sparks come back off the plate, nothing goes in
+			FTFx::Attach(TEXT("NS_ImpactArmor"), On, At.GetLocation(), At.Rotator());
+			FTFx::Attach(TEXT("NS_ImpactRing"), On, At.GetLocation(), At.Rotator(), 1.f, FTFx::Extra);
+		}
+		else
+		{
+			static const TCHAR* Star[3] = { TEXT("NS_ImpactStar"), TEXT("NS_ImpactStarAP"), TEXT("NS_ImpactStarHE") };
+			FTFx::Attach(Star[FMath::Clamp(B.Load, 0, 2)], On, At.GetLocation(), At.Rotator());
+			// AP goes on through (further through armour, which is what it is for); the others throw sparks
+			if (B.Load == 1) FTFx::Attach(TEXT("NS_ImpactPierce"), On, At.GetLocation(), At.Rotator(), Cls == 2 ? 1.3f : 1.f);
+			else FTFx::Attach(TEXT("NS_Impact"), On, At.GetLocation(), At.Rotator(), 1.f, FTFx::Extra);
+		}
+	}
 	O.Load = B.Load;
 	HitLoad = B.Load;
 	HurtEnt(O, Dmg, 0);
@@ -171,8 +193,13 @@ void AFTGameMode::HeBlast(const FFTEnt& Direct, float D, float X)
 	const float Rr = Stats.HeRadius, Dmg = Stats.HeDamage;
 	if (Rr <= 0.f) return;
 	// the burst: a small explosion whose ring is the blast's real radius
-	if (UNiagaraSystem* S = Load<UNiagaraSystem>(TEXT("/Game/FX/NS_ExplosionSparks")))
-		UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, S, Track->ToWorld(D, X, 110.f), FRotator::ZeroRotator, FVector(0.35f * Rr / 24.f), true, true, ENCPoolMethod::AutoRelease);
+	{
+		// 3.1: its own blast: an orange burst and a ring that ends at the blast's real reach, then the sparks as before
+		const FVector At = Track->ToWorld(D, X, 110.f);
+		FTFx::Burst(this, TEXT("NS_HeBurst"), At, FRotator::ZeroRotator, FMath::Max(0.8f, Rr / 24.f));
+		FTFx::Burst(this, TEXT("NS_BlastRing"), At, FRotator::ZeroRotator, Rr * XU / 100.f);
+		FTFx::Burst(this, TEXT("NS_ExplosionSparks"), At, FRotator::ZeroRotator, 0.35f * Rr / 24.f, FTFx::Extra);
+	}
 	Sfx(TEXT("Explode"), 0.35f, 1.4f);
 	const int32 DirectId = Direct.Id;
 	for (FFTEnt& E : Ents)
@@ -189,6 +216,12 @@ void AFTGameMode::ChainBlast(const FFTEnt& E)
 {
 	// Chain Reaction (DEM4): 4 to everything within 60 px (box), the barrel's player rule
 	const float Ex = E.X, Ed = E.D; const int32 Id = E.Id;
+	{
+		// 3.1: Chain Reaction had no look of its own: a gold star and a gold ring out to its real reach (60 px)
+		const FVector At = Track->ToWorld(Ed, Ex, 110.f);
+		FTFx::Burst(this, TEXT("NS_ChainBurst"), At, FRotator::ZeroRotator, 1.f, FTFx::Flash);
+		FTFx::Burst(this, TEXT("NS_BlastRingGold"), At, FRotator::ZeroRotator, 60.f * XU / 100.f);
+	}
 	for (FFTEnt& O : Ents)
 	{
 		if (O.bDead || O.Id == Id || O.Kind == EFTKind::Bullet || O.Kind == EFTKind::Missile || O.Kind == EFTKind::Crate || O.Kind == EFTKind::Wrench || O.Kind == EFTKind::Ramp || O.Kind == EFTKind::Henchman) continue;
@@ -324,6 +357,7 @@ void AFTGameMode::CommitLevel()
 void AFTGameMode::EnterPaycheck()
 {
 	Phase = EFTPhase::Paycheck; PhaseT = 0.f;
+	ResultsContinueRect = FBox2D(ForceInit);
 	UE_LOG(LogFT, Display, TEXT("FT SCREEN name=Paycheck lines=%d"), bPayValid ? Pay.Pay.Lines.Num() : 0);
 	Sfx(TEXT("Sting"), 0.5f);
 }
@@ -338,11 +372,12 @@ void AFTGameMode::TickPaycheck(float RDt)
 	auto Next = [this](int32 Kind)
 	{
 		const int32 To = Kind == 2 ? -2 : (Kind == 1 ? Level : Level + 1);
+		if (Kind == 0 && UFTNightFlow::GoToNight(this, Level, To)) return;   // the night between the races (FTNightFlow)
 		EnterPreProduction(To, false);
 	};
 	if (PC->Hit(EKeys::R)) { PayNext = 1; Next(1); return; }
 	if (PC->MenuBack()) { PayNext = 2; Next(2); return; }
-	if (PC->Hit(EKeys::Enter) || PC->Hit(EKeys::SpaceBar) || PC->Hit(EKeys::Gamepad_FaceButton_Bottom) || PC->Hit(EKeys::Gamepad_Special_Right)) Next(PayNext);
+	if (PC->MenuOk() || PC->Clicked(ResultsContinueRect)) Next(PayNext);
 }
 
 // ============================================================================================== PRE-PRODUCTION (10 §4)
@@ -364,6 +399,8 @@ void AFTGameMode::EnterPreProduction(int32 NextLevel, bool bFromTitle)
 	if (Music) Music->SetVolumeMultiplier(0.12f);
 	if (UFTGameInstance* GT = GI()) GT->SetTitleMusicVolume(0.12f);   // 3.0: from the title the title song plays on, low
 	BuyHoldT = 0.f; bBuyHoldDone = false;
+	TabRects.Reset(); TileRects.Reset();
+	ReadyRect = BuyRect = UndoRect = FBox2D(ForceInit);
 	if (CS) { CS->C.PendingLevel = NextLevel; CS->C.bPendingFromTitle = bFromTitle; CS->Save(TEXT("PreProduction")); }
 	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->SetMenuMouse(true);
 	if (CS && CS->SPLeft() > 0) Tab = EFTTab::Skills;
@@ -571,8 +608,8 @@ void AFTGameMode::TickPreProduction(float RDt)
 	int32 TabDir = 0;
 	if (PC->Hit(EKeys::Tab) || PC->Hit(EKeys::E) || PC->Hit(EKeys::Gamepad_RightShoulder)) TabDir = 1;
 	if (PC->Hit(EKeys::Q) || PC->Hit(EKeys::Gamepad_LeftShoulder)) TabDir = -1;
-	for (int32 i = 0; i < TabRects.Num(); ++i) if (PC->Clicked(TabRects[i])) { Tab = (EFTTab)i; BuildTiles(); UE_LOG(LogFT, Display, TEXT("FT SCREEN name=PreProduction tab=%d"), i); return; }
-	if (TabDir != 0) { Tab = (EFTTab)((((int32)Tab + TabDir) % NT + NT) % NT); BuildTiles(); UE_LOG(LogFT, Display, TEXT("FT SCREEN name=PreProduction tab=%d"), (int32)Tab); return; }
+	for (int32 i = 0; i < TabRects.Num(); ++i) if (PC->Clicked(TabRects[i])) { Tab = (EFTTab)i; BuyHoldT = 0.f; BuildTiles(); UE_LOG(LogFT, Display, TEXT("FT SCREEN name=PreProduction tab=%d"), i); return; }
+	if (TabDir != 0) { Tab = (EFTTab)((((int32)Tab + TabDir) % NT + NT) % NT); BuyHoldT = 0.f; BuildTiles(); UE_LOG(LogFT, Display, TEXT("FT SCREEN name=PreProduction tab=%d"), (int32)Tab); return; }
 	// move between tiles (grid: column / row)
 	if (Tiles.Num())
 	{
@@ -595,7 +632,18 @@ void AFTGameMode::TickPreProduction(float RDt)
 		if (PC->MenuUp()) Find(0, -1); if (PC->MenuDown()) Find(0, 1);
 		const FVector2D M = PC->MousePos();
 		if (M != PPMouse) { PPMouse = M; for (int32 i = 0; i < TileRects.Num() && i < Tiles.Num(); ++i) if (PC->MouseIn(TileRects[i])) { if (Sel != i) BuyHoldT = 0.f; Sel = i; } }
-		for (int32 i = 0; i < TileRects.Num() && i < Tiles.Num(); ++i) if (PC->Clicked(TileRects[i])) { Sel = i; if (!Tiles[i].bCash || Tiles[i].State == EFTTile::Owned || Tiles[i].State == EFTTile::Equipped) PPActivate(i, false); }
+		for (int32 i = 0; i < TileRects.Num() && i < Tiles.Num(); ++i)
+		{
+			if (!PC->Clicked(TileRects[i])) continue;
+			if (Sel != i) BuyHoldT = 0.f;
+			Sel = i;
+			if (!Tiles[i].bCash || Tiles[i].State == EFTTile::Owned || Tiles[i].State == EFTTile::Equipped)
+			{
+				PPActivate(i, false);
+				return;
+			}
+			break;
+		}
 	}
 	// READY: Space, pad Start, or the button (Esc too when this came from the title)
 	if (PC->Hit(EKeys::SpaceBar) || PC->Hit(EKeys::Gamepad_Special_Right) || PC->Clicked(ReadyRect) || (bPPFromTitle && PC->Hit(EKeys::Escape))) { LeavePreProduction(); return; }
@@ -604,14 +652,18 @@ void AFTGameMode::TickPreProduction(float RDt)
 	{
 		const FName Id = (Tab == EFTTab::Skills && Tiles.IsValidIndex(Sel) && Tiles[Sel].State == EFTTile::Pending) ? FName(*Tiles[Sel].Id) : NAME_None;
 		if (CS->UndoSkill(Id)) PPSay(TEXT("UNDONE · SKILL POINTS BACK"), false); else PPSay(TEXT("NOTHING PENDING TO UNDO"), true);
+		return;
 	}
 	// BUY: Enter / pad A (cash: hold 0.5 s), or hold the mouse on the BUY button
 	if (Tiles.IsValidIndex(Sel))
 	{
 		const bool bCashTile = Tiles[Sel].bCash && Tiles[Sel].State == EFTTile::Available;
 		const bool bDownKey = PC->IsInputKeyDown(EKeys::Enter) || PC->IsInputKeyDown(EKeys::Gamepad_FaceButton_Bottom);
-		const bool bDownMouse = PC->IsInputKeyDown(EKeys::LeftMouseButton) && PC->MouseIn(BuyRect);
+		const bool bMouseHeld = PC->IsInputKeyDown(EKeys::LeftMouseButton);
+		const bool bDownMouse = bMouseHeld && PC->MouseIn(BuyRect);
 		const bool bPress = PC->Hit(EKeys::Enter) || PC->Hit(EKeys::Gamepad_FaceButton_Bottom) || PC->Clicked(BuyRect);
+		if (!bDownKey && !bMouseHeld) bBuyHoldDone = false;
+		if (bBuyHoldDone) return;
 		if (bCashTile)
 		{
 			if (bDownKey || bDownMouse)
@@ -619,9 +671,9 @@ void AFTGameMode::TickPreProduction(float RDt)
 				BuyHoldT += RDt;
 				if (!bBuyHoldDone && BuyHoldT >= FFTProgressData::Get().T(TEXT("HoldToBuy"), 0.5f)) { bBuyHoldDone = true; PPActivate(Sel, true); }
 			}
-			else { BuyHoldT = 0.f; bBuyHoldDone = false; }
+			else BuyHoldT = 0.f;
 		}
-		else { BuyHoldT = 0.f; bBuyHoldDone = false; if (bPress) PPActivate(Sel, false); }
+		else { BuyHoldT = 0.f; if (bPress) PPActivate(Sel, false); }
 	}
 }
 
@@ -1013,7 +1065,15 @@ void AFTGameMode::HarnessCmd(const FString& Cmd, const TArray<FString>& A)
 	else if (Cmd == TEXT("FTSlowMo")) Slowmo(FCString::Atof(*Arg(A, 0, TEXT("2"))), 0.3f);
 	else if (Cmd == TEXT("FTCrash") && Phase == EFTPhase::Play) { Invuln = 0.f; Hp = 0.f; }
 	else if (Cmd == TEXT("FTDamagePlayer")) { Hp = FMath::Max(0.f, Hp - FCString::Atof(*Arg(A, 0, TEXT("10")))); }
-	else if (Cmd == TEXT("FTPickup")) { FFTEnt& E = Spawn(Arg(A, 0) == TEXT("Wrench") ? EFTKind::Wrench : EFTKind::Crate, 0.f, Car->X); E.Sp = Car->Speed; E.D = Car->D; Flush(); }
+	else if (Cmd == TEXT("FTPickup"))
+	{
+		const EFTKind Kind = Arg(A, 0) == TEXT("Wrench") ? EFTKind::Wrench : EFTKind::Crate;
+		const float Ahead = FCString::Atof(*KeyVal(A, TEXT("ahead"), TEXT("0")));
+		const float X = Car->X + FCString::Atof(*KeyVal(A, TEXT("offset"), TEXT("0")));
+		FFTEnt& E = Spawn(Kind, Ahead, X);
+		E.Sp = Ahead > 0.f ? 0.f : Car->Speed;
+		Flush();
+	}
 	else if (Cmd == TEXT("FTRam"))
 	{
 		Flush();

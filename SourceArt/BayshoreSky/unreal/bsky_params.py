@@ -18,12 +18,12 @@ def srgb(hexstr):
 SUN_AZ, SUN_EL = 30.0, 6.0
 SCALARS = [
     ("BandCount", 3.0), ("BandSoftness", 0.4), ("BandGradient", 1.0), ("CloudDriftSpeed", 600.0),
-    ("OutlineWidth", 0.0), ("Haze", 0.3), ("CloudCardsShown", 48.0), ("SunDiscSize", 0.9),
-    ("SunHaloSize", 22.0), ("SunRayStrength", 0.0), ("FlareStrength", 0.2), ("GradientMidPoint", 0.12),
+    ("OutlineWidth", 0.0), ("Haze", 0.3), ("CloudCardsShown", 0.0), ("SunDiscSize", 1.05),
+    ("SunHaloSize", 12.0), ("SunRayStrength", 0.0), ("FlareStrength", 0.0), ("GradientMidPoint", 0.14),
     ("PanoramaExposure", 0.7), ("PanoramaStylize", 0.9), ("CloudRimStrength", 0.8), ("SeaGlitterStrength", 1.0),
     ("LowQuality", 0.0), ("CloudEdgeSoftness", 3.0), ("SkyBrightness", 0.9), ("BlimpSpeed", 0.012),
     ("BlimpRadius", 250000.0), ("BlimpOutlineWidth", 0.0), ("HazeDistance", 2500000.0),
-    ("CloudAmbientGradient", 0.7), ("SunDistance", 4000000.0), ("GullFlapSpeed", 7.0), ("SunIntensity", 20.0), ("SeaEnabled", 1.0),
+    ("CloudAmbientGradient", 0.7), ("SunDistance", 4000000.0), ("GullFlapSpeed", 7.0), ("SunIntensity", 9.0), ("SeaEnabled", 1.0),
     # photoreal clouds and HDR (MPC only, see MPC_ONLY): exposure of the Cycles-baked deck, cirrus and cards (each its
     # own, layers_meta.json / cumulus3_meta.json recommendations), the optical depth scale of the phase-function blend,
     # the cumulus sky-light normalisation, and the share of the sky the deck and cirrus fields cover (1 = everywhere)
@@ -33,16 +33,19 @@ SCALARS = [
     ("AltoCoverage", 1.0), ("CirrusCoverage", 1.0),
     # the baked hills ring drawn at this share of its height: Miami is flat, R7 shows a thin far shore across the bay
     ("HillsHeight", 0.35),
+    # the game-jam restyle (14 Nov, late): the photoreal layers off (0; 1 brings them back), the stylized clouds are
+    # meshes in the level (ft_world.py in the game). HorizonWarmth scales the golden band under the sun (1 = the old look)
+    ("CloudLayers", 0.0), ("HorizonWarmth", 0.5),
 ]
 COLORS = {
     # gradient measured on R7 (14 Nov, away from the sun): ~#8C8CA9-#B0909D at the horizon, #6E87B3 ~10 deg up,
     # #4E72A8 ~20 deg up; the chase camera sees 0-25 deg, so the blue arrives low (GradientMidPoint 0.12 = 11 deg)
-    "ZenithColor": "#44659F", "MidColor": "#6E87B6", "HorizonColor": "#9A96B4", "HazeColor": "#DDA0A6",
+    "ZenithColor": "#4A6CB4", "MidColor": "#7F8FCB", "HorizonColor": "#B9A8D2", "HazeColor": "#F4B8B2",
     # CloudRimColor is the sun's tint on every photoreal cloud (layers and cards): salmon, as R7's lit cumulus are
     # (linear G/R 0.47, B/R 0.59; the layers review found #FFB88C could not reach it)
-    "SunColor": "#FFC98A", "SunHaloColor": "#FF7E4C", "CloudLitColor": "#F09DB0", "CloudShadowColor": "#8784BA",
+    "SunColor": "#FFD9A6", "SunHaloColor": "#FF9C78", "CloudLitColor": "#F09DB0", "CloudShadowColor": "#8784BA",
     "CloudRimColor": "#FFA28E", "OutlineColor": "#6A4E7C", "HillNearColor": "#5F6280", "HillFarColor": "#9C90AE",
-    "SkylineColor": "#E7CFC6", "SeaDeepColor": "#1B2D3A", "SeaHorizonColor": "#4A5566", "GlitterColor": "#FFD7A8",
+    "SkylineColor": "#E7CFC6", "SeaDeepColor": "#2C97AA", "SeaHorizonColor": "#8CCFD0", "GlitterColor": "#FFD7A8",
     "BlimpBodyColor": "#F2EFF2", "BlimpAccentColor": "#E8456B", "BlimpLetterColor": "#1E3F8A", "GullColor": "#FBF6F2",
 }
 _a, _e = math.radians(SUN_AZ), math.radians(SUN_EL)
@@ -61,5 +64,5 @@ PRESET_EXTRA_VALUES = {
 # scalars written by the Blueprint itself (options and scalability), and MPC-only values, not stored in presets: adding an
 # MPC-only scalar needs 30_materials.py (which builds the MPC) but no Blueprint or preset rebuild
 MPC_ONLY = ("CloudExposure", "CirrusExposure", "CardExposure", "CloudTauScale", "CumulusSkyNorm", "AltoCoverage", "CirrusCoverage",
-            "HillsHeight")
+            "HillsHeight", "CloudLayers", "HorizonWarmth")
 NOT_IN_PRESET = ("SeaEnabled", "LowQuality") + MPC_ONLY

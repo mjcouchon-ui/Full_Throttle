@@ -2,6 +2,7 @@
 #include "HAL/IConsoleManager.h"
 #include "ProceduralMeshComponent.h"
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInterface.h"
 #include "UObject/ConstructorHelpers.h"
@@ -10,6 +11,9 @@
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "FTGameInstance.h"
+#include "FTLife.h"
+#include "FTDress.h"
+#include "Misc/Crc.h"
 #include "HAL/PlatformTime.h"
 
 static TAutoConsoleVariable<int32> CVarFTAds(TEXT("ft.Ads"), 1, TEXT("FULL THROTTLE: printed roadside billboards, 1 = on, 0 = off (read when the track builds; for before/after benches, or -ftads=0)"));
@@ -45,6 +49,53 @@ namespace
 			if (FVector::DotProduct(X, Nrm) < 0.f) { I.Append({ a0, b0, a1, a1, b0, b1 }); }
 			else { I.Append({ a0, a1, b0, a1, b1, b0 }); }
 		}
+		/** One triangle, wound to face Nrm. */
+		void Tri(int32 a, int32 b, int32 c, const FVector& Nrm)
+		{
+			const FVector X = FVector::CrossProduct(V[b] - V[a], V[c] - V[a]);
+			if (FVector::DotProduct(X, Nrm) < 0.f) { I.Append({ a, b, c }); }
+			else { I.Append({ a, c, b }); }
+		}
+	};
+
+	// 3.1: the bed (the land under and right beside the road) and the floor under the whole level
+	constexpr float BedClear = 45.f;    // the bed stays this far under every part of the road
+	constexpr float BedSlope = 1.6f;    // how steeply a cut's sides may climb back to the land (rise per run)
+	constexpr float SkirtOut = 6000.f, SkirtDrop = 6000.f; // the land's outer edge runs on, down to the floor
+	constexpr float FloorHalf = 8000000.f; // the floor reaches 80 km past the track: further than any sky dome
+
+	/** One frame's road in the land's own cross-section (x across, z above the land's base path), already lowered by BedClear. */
+	struct FBedSec
+	{
+		TArray<FVector2D> P;
+		TArray<int32> Start; // chains: P[Start[c]] up to the next chain's start
+		void Begin() { Start.Add(P.Num()); }
+		float Lowest() const
+		{
+			float M = TNumericLimits<float>::Max();
+			for (const FVector2D& Q : P) M = FMath::Min(M, (float)Q.Y);
+			return M;
+		}
+		/** The highest the land may stand at x: under every part of the road over x, and under a slope from each of its corners. */
+		float Limit(float X, float Slope) const
+		{
+			float M = TNumericLimits<float>::Max();
+			for (int32 c = 0; c < Start.Num(); ++c)
+			{
+				const int32 a = Start[c], b = c + 1 < Start.Num() ? Start[c + 1] : P.Num();
+				for (int32 k = a; k < b; ++k)
+				{
+					M = FMath::Min(M, (float)P[k].Y + Slope * FMath::Abs(X - (float)P[k].X));
+					if (k + 1 < b)
+					{
+						const float X0 = P[k].X, X1 = P[k + 1].X;
+						if ((X - X0) * (X - X1) <= 0.f && FMath::Abs(X1 - X0) > 0.01f)
+							M = FMath::Min(M, (float)FMath::Lerp(P[k].Y, P[k + 1].Y, (X - X0) / (X1 - X0)));
+					}
+				}
+			}
+			return M;
+		}
 	};
 }
 
@@ -65,6 +116,9 @@ void AFTTrack::BeginPlay()
 {
 	Super::BeginPlay();
 	if (!IsBuilt() || Chunks.Num() == 0) Rebuild();
+	// 3.1: the air round the camera (dust, snow, embers, bubbles...), one per race
+	if (UWorld* W = GetWorld(); W && W->IsGameWorld())
+		if (AFTAmbient* Amb = W->SpawnActor<AFTAmbient>()) Amb->Setup(this, LevelIndex);
 }
 
 void AFTTrack::Rebuild()
@@ -78,18 +132,20 @@ void AFTTrack::Rebuild()
 	const double T1 = FPlatformTime::Seconds();
 	BuildRoadGrid();
 	const double T2 = FPlatformTime::Seconds();
-	MeshCreateMs = 0.0;
+	MeshCreateMs = 0.0; CookMs = 0.0; RegisterMs = 0.0;
 	BuildMeshes();
 	const double T3 = FPlatformTime::Seconds();
 	BuildProps();
 	const double T4 = FPlatformTime::Seconds();
-	UE_LOG(LogFT, Display, TEXT("FTBUILD level=%d light=%.0f integrate=%.0fms grid=%.0fms meshes=%.0fms (sections+collision %.0fms) props=%.0fms total=%.0fms"),
-		LevelIndex, LightAt, (T1 - T0) * 1000.0, (T2 - T1) * 1000.0, (T3 - T2) * 1000.0, MeshCreateMs, (T4 - T3) * 1000.0, (T4 - T0) * 1000.0);
+	UE_LOG(LogFT, Display, TEXT("FTBUILD level=%d light=%.0f integrate=%.0fms grid=%.0fms meshes=%.0fms (sections+collision %.0fms: cook %.0fms register %.0fms) props=%.0fms total=%.0fms"),
+		LevelIndex, LightAt, (T1 - T0) * 1000.0, (T2 - T1) * 1000.0, (T3 - T2) * 1000.0, MeshCreateMs, CookMs, RegisterMs, (T4 - T3) * 1000.0, (T4 - T0) * 1000.0);
 }
 
 // ------------------------------------------------------------------------------------------ 2.7 road clearance
 static TAutoConsoleVariable<int32> CVarFTClear(TEXT("ft.ClearScenery"), 1,
 	TEXT("2.7: keep props, pillars, backdrops and the land off the road (0 = place them as 2.6 did; for before/after checks). Takes effect when a track is rebuilt."));
+static TAutoConsoleVariable<int32> CVarFTDress(TEXT("ft.Dress"), 1,
+	TEXT("3.2: 0 = build tracks without the dressing (districts, sets round landmarks, the horizon), for before/after checks. Takes effect when a track is rebuilt."));
 namespace { constexpr float RoadCell = 3000.f; inline FIntPoint CellOf(float X, float Y) { return FIntPoint(FMath::FloorToInt(X / RoadCell), FMath::FloorToInt(Y / RoadCell)); } }
 
 void AFTTrack::BuildRoadGrid()
@@ -381,6 +437,11 @@ FTransform AFTTrack::TransformAt(float D, float X, float H, float YawOffsetDeg) 
 	if (YawOffsetDeg != 0.f) Fwd = Fwd.RotateAngleAxis(YawOffsetDeg, F.Up);
 	const FRotator R = FRotationMatrix::MakeFromXZ(Fwd, F.Up).Rotator();
 	return FTransform(R, F.Pos + F.Right * X + F.Up * H) * GetActorTransform();
+}
+
+FTransform AFTTrack::ToolFrame(float D) const
+{
+	return Frames.Num() > 1 ? TransformAt(D, 0.f, 0.f) : GetActorTransform();
 }
 
 float AFTTrack::Locate(const FVector& WorldP, float HintD, float& OutX, float& OutH) const
@@ -710,12 +771,129 @@ void AFTTrack::BuildMeshes()
 	}
 	UE_LOG(LogFT, Display, TEXT("FTCLEAR level=%d land: %d of %d frame sides cut short of another part of the road"), LevelIndex, LandClipped, Frames.Num() * 2);
 
+	// ---- 3.1: the bed. The land left the strip the road sits in open (32 m: a pipe's width). A banked turn rolls
+	// the road about its centre line, so its low edge sinks 11 m under the land, and the chase camera, rolled with it,
+	// looked over the sunken barrier and down through that strip: nothing was there, so the sky's below-the-horizon
+	// painting filled half the screen ("the sky comes through the ground on turns"). The bed closes the strip: land
+	// level where the road stands above the land, cut down under the road (and a pipe's tube) where it does not,
+	// with the cut's sides climbing back to the land. It is looks only (no collision), in the land's material.
+	int32 kIn = 0; // GP[kIn], GP[kIn + 1]: the land's inner edges, left and right of the road
+	for (int32 k = 0; k + 1 < GP.Num(); ++k) if (GP[k].X < 0.f && GP[k + 1].X > 0.f) { kIn = k; break; }
+	const FVector2D InL = GP[kIn], InR = GP[kIn + 1];
+	TArray<FBedSec> Secs;
+	Secs.SetNum(Frames.Num());
+	float LandLow = TNumericLimits<float>::Max();
+	for (const FVector2D& Q : GP) LandLow = FMath::Min(LandLow, (float)Q.Y);
+	float MinZ = TNumericLimits<float>::Max(); // the lowest land anywhere (the floor goes under it)
+	FBox2D Footprint(ForceInit);
+	for (int32 j = 0; j < Frames.Num(); ++j)
+	{
+		const FFTFrame& Fr = Frames[j];
+		FBedSec& S = Secs[j];
+		Footprint += FVector2D(Fr.Ground.X, Fr.Ground.Y);
+		MinZ = FMath::Min(MinZ, (float)Fr.Ground.Z + LandLow);
+		if (Fr.Flags & FTFlag::Gap) continue; // no road over a jump's gap
+		const float Dj = j * Step;
+		auto Put = [&Fr, &S](float X, float H)
+		{
+			const FVector R = Fr.Pos + Fr.Right * X + Fr.Up * H - Fr.Ground;
+			S.P.Add(FVector2D(FVector::DotProduct(R, Fr.GRight), R.Z - BedClear));
+		};
+		if (Fr.Flags & FTFlag::Coaster)
+		{
+			const FFTRails R = RailsAt(Dj);
+			for (int32 s = 0; s < FFTRails::Num; ++s)   // 3.3: three rails (the PR's bed was written for two)
+			{
+				const float Xc = R.X[s], Hc = R.H[s], W = FFTRails::HalfW;
+				S.Begin();
+				Put(Xc - W, Hc + GuardH); Put(Xc - W - GuardW, Hc + GuardH); Put(Xc - W - GuardW, Hc - DeckDepth);
+				Put(Xc + W + GuardW, Hc - DeckDepth); Put(Xc + W + GuardW, Hc + GuardH); Put(Xc + W, Hc + GuardH);
+			}
+		}
+		else
+		{
+			// the barrier's top, its outer face, the deck's underside column by column, and the other barrier
+			const float E = FT::Edge, HL = SurfaceH(Dj, -E), HR = SurfaceH(Dj, E);
+			S.Begin();
+			Put(-E, HL + FT::WallH); Put(-E - WallW, HL + FT::WallH); Put(-E - WallW, HL - DeckDepth);
+			for (int32 k = 0; k <= 12; ++k) { const float X = -E + 2.f * E * k / 12.f; Put(X, SurfaceH(Dj, X) - DeckDepth); }
+			Put(E + WallW, HR - DeckDepth); Put(E + WallW, HR + FT::WallH); Put(E, HR + FT::WallH);
+		}
+		if (Fr.Flags & FTFlag::Pipe)
+		{
+			// the lower half of the glass tube
+			const FVector Uz = FVector::CrossProduct(Fr.Fwd, Fr.GRight).GetSafeNormal();
+			S.Begin();
+			for (int32 k = 0; k <= 16; ++k)
+			{
+				const float a = PI + PI * k / 16.f;
+				const FVector R = Uz * PipeAxis + (Fr.GRight * FMath::Cos(a) + Uz * FMath::Sin(a)) * (PipeR + 12.f);
+				S.P.Add(FVector2D(FVector::DotProduct(R, Fr.GRight), R.Z - BedClear));
+			}
+		}
+		MinZ = FMath::Min(MinZ, (float)Fr.Ground.Z + S.Lowest());
+	}
+	// the bed's line across at frame i, left edge of the land to right edge: (x, z above the base path)
+	auto BedLine = [&](int32 i, TArray<FVector2D>& Out)
+	{
+		Out.Reset();
+		TArray<float> Xs;
+		for (const FVector2D& Q : Secs[i].P) if (Q.X > InL.X + 6.f && Q.X < InR.X - 6.f) Xs.Add(Q.X);
+		Xs.Sort();
+		const int32 j0 = FMath::Max(i - 1, 0), j1 = FMath::Min(i + 1, Frames.Num() - 1);
+		Out.Add(InL);
+		for (const float X : Xs)
+		{
+			if (X - Out.Last().X < 6.f) continue;
+			float Z = FMath::Lerp(InL.Y, InR.Y, (X - InL.X) / (InR.X - InL.X));
+			// this frame's road and its neighbours' (a pitched, banked frame leans a little along the road)
+			for (int32 j = j0; j <= j1; ++j) Z = FMath::Min(Z, Secs[j].Limit(X, BedSlope));
+			Out.Add(FVector2D(X, Z));
+		}
+		Out.Add(InR);
+		// points on a straight run add nothing (a level road's bed is four points)
+		for (int32 k = 1; k + 1 < Out.Num(); )
+		{
+			const FVector2D& A = Out[k - 1]; const FVector2D& B = Out[k + 1];
+			const double Zc = FMath::Lerp(A.Y, B.Y, (Out[k].X - A.X) / (B.X - A.X));
+			if (Out[k].Y >= Zc - 0.05 && Out[k].Y <= Zc + 1.0) Out.RemoveAt(k); else ++k;
+		}
+	};
+	// the floor: one sheet under the whole level, below its lowest land (made after the chunks, below)
+	FloorZ = MinZ - 150.f;
+	int32 BedTris = 0;
+	// 3.2: the track is locked. A fingerprint of the route (every frame's place and attitude) and of everything solid
+	// (the four sections with collision), logged as FTTRACK, so a scenery change can be shown to have left both alone.
+	uint32 RouteCrc = 0, SolidCrc = 0; int32 SolidTris = 0;
+	for (const FFTFrame& Fr : Frames)
+	{
+		const double Pk[] = { Fr.Pos.X, Fr.Pos.Y, Fr.Pos.Z, Fr.Fwd.X, Fr.Fwd.Y, Fr.Fwd.Z, Fr.Right.X, Fr.Right.Y, Fr.Right.Z, Fr.Up.X, Fr.Up.Y, Fr.Up.Z, Fr.Ground.X, Fr.Ground.Y, Fr.Ground.Z, (double)Fr.Flags };
+		RouteCrc = FCrc::MemCrc32(Pk, sizeof(Pk), RouteCrc);
+	}
+
 	const int32 ChunkLen = 200;
 	const FLinearColor Neon = L.Rail;
+	// 3.4 load time: cooking the road's collision was 0.8 s of every level's build, on the game thread, chunk after chunk.
+	// Only the chunks round where this race starts (scene 0, or the scene a test or the career asked for) cook there and
+	// then; the rest cook on worker threads and are solid well before the car gets to them (a chunk is 400 m, the window
+	// runs 1.2 km past the start, and all of them are done in a fraction of a second). Retakes start later, after it.
+	float StartD = 0.f;
+	bool bAsyncOk = false;
+	if (UWorld* W = GetWorld(); W && W->IsGameWorld() && LightAt < 0.f && !FParse::Param(FCommandLine::Get(), TEXT("ftsynccook")))
+	{
+		bAsyncOk = true;
+		int32 Sc = 0;
+		if (const UFTGameInstance* G = Cast<UFTGameInstance>(W->GetGameInstance())) Sc = FMath::Max(0, G->PendingScene);
+		const FFTLevelDef& Def = FTData::Level(LevelIndex);
+		if (Def.Scenes.Num()) StartD = Def.Scenes[FMath::Clamp(Sc, 0, Def.Scenes.Num() - 1)].D * FT::DU;
+	}
+	const float SyncFrom = StartD - 2.f * ChunkLen * Step, SyncTo = StartD + 3.f * ChunkLen * Step;
+	int32 AsyncChunks = 0;
 	for (int32 c0 = 0; c0 < Frames.Num() - 1; c0 += ChunkLen)
 	{
 		const int32 c1 = FMath::Min(c0 + ChunkLen, Frames.Num() - 1);
-		FBuf Deck, Wall, NeonB, Fence, Glass, Rib, Ground, Water, Bldg, Lobby, Lava;
+		FBuf Deck, Wall, NeonB, Fence, Glass, Rib, Ground, Water, Bldg, Lobby, Lava, Bed;
+		TArray<int32> PrevBed, PrevSkirt; TArray<float> PrevBedX; // 3.1: the bed's last ring, and the land's skirts
 		TArray<FVector2D> DeckFlags; // UV1 = (warning stripes, kicker paint)
 		TArray<int32> Prev[10];
 		TArray<TArray<int32>> PrevRings;
@@ -1057,6 +1235,70 @@ void AFTTrack::BuildMeshes()
 				}
 				Prev[5] = Gr;
 				(void)GUp;
+				// 3.1: the land's outer edges run on, down to the floor: a shore into Bayshore's sea, a slope elsewhere.
+				// Not where the land was cut short of another part of the road, and not across one.
+				// They go with the bed (looks only), so the land's collision is what it always was.
+				{
+					TArray<int32> Sk; // left: the land's edge, the skirt's foot; right: the same
+					for (int32 sd = 0; sd < 2; ++sd)
+					{
+						const int32 ko = sd == 0 ? 0 : GP.Num() - 1;
+						const float Sg = sd == 0 ? -1.f : 1.f;
+						const float Xo = FMath::Clamp((float)GP[ko].X, -ReachL[i], ReachR[i]);
+						const float Zo = Xo == (float)GP[ko].X ? (float)GP[ko].Y : HAt(Xo);
+						float Xs = Xo, Zs = Zo;
+						if (Xo == (float)GP[ko].X)
+						{
+							Xs = Xo + Sg * SkirtOut;
+							Zs = FMath::Max(FloorZ - 100.f - (float)F.Ground.Z, Zo - SkirtDrop);
+							for (int32 t = 1; t <= 3 && CVarFTClear.GetValueOnAnyThread(); ++t)
+							{
+								const float u = t / 3.f;
+								if (GroundHitsRoad(F.Ground + F.GRight * FMath::Lerp(Xo, Xs, u) + FVector(0, 0, FMath::Lerp(Zo, Zs, u)), i - 30, i + 30)) { Xs = Xo; Zs = Zo; break; }
+							}
+						}
+						const FVector Nrm = Xs == Xo ? FVector::UpVector : (FVector::UpVector - F.GRight * ((Zs - Zo) / (Xs - Xo))).GetSafeNormal();
+						Sk.Add(Bed.Add(F.Ground + F.GRight * Xo + FVector::UpVector * Zo, Nrm, FVector2D(Xo / 2000.f, V), GC[ko]));
+						Sk.Add(Bed.Add(F.Ground + F.GRight * Xs + FVector::UpVector * Zs, Nrm, FVector2D(Xs / 2000.f, V), GC[ko]));
+					}
+					if (i > c0 && PrevSkirt.Num() == 4)
+					{
+						Bed.Quad(PrevSkirt[1], PrevSkirt[0], Sk[1], Sk[0], FVector::UpVector);
+						Bed.Quad(PrevSkirt[2], PrevSkirt[3], Sk[2], Sk[3], FVector::UpVector);
+						BedTris += 4;
+					}
+					PrevSkirt = Sk;
+				}
+				// 3.1: the bed, under and right beside the road (see BedLine above)
+				{
+					TArray<FVector2D> Line;
+					BedLine(i, Line);
+					TArray<int32> Bd; TArray<float> BdX;
+					for (int32 k = 0; k < Line.Num(); ++k)
+					{
+						const FVector2D& Q = Line[k];
+						const float t = FMath::Clamp((float)((Q.X - InL.X) / (InR.X - InL.X)), 0.f, 1.f);
+						// a cut's sides get their own slope's normal: they catch the light as banks, and the cel pass inks
+						// the lip where a bank meets the level land
+						const FVector2D& Q0 = Line[FMath::Max(k - 1, 0)]; const FVector2D& Q1 = Line[FMath::Min(k + 1, Line.Num() - 1)];
+						const FVector Nrm = (FVector::UpVector - F.GRight * ((Q1.Y - Q0.Y) / FMath::Max(Q1.X - Q0.X, 1.0))).GetSafeNormal();
+						Bd.Add(Bed.Add(F.Ground + F.GRight * Q.X + FVector::UpVector * Q.Y, Nrm, FVector2D(Q.X / 2000.f, V), FMath::Lerp(GC[kIn], GC[kIn + 1], t)));
+						BdX.Add((float)Q.X);
+					}
+					if (i > c0 && PrevBed.Num() > 1)
+					{
+						// the two rings rarely have the same number of points: zip them, left to right
+						int32 a = 0, b = 0;
+						while (a + 1 < PrevBed.Num() || b + 1 < Bd.Num())
+						{
+							const bool bA = b + 1 >= Bd.Num() || (a + 1 < PrevBed.Num() && PrevBedX[a + 1] <= BdX[b + 1]);
+							if (bA) { Bed.Tri(PrevBed[a], PrevBed[a + 1], Bd[b], FVector::UpVector); ++a; }
+							else { Bed.Tri(PrevBed[a], Bd[b + 1], Bd[b], FVector::UpVector); ++b; }
+							++BedTris;
+						}
+					}
+					PrevBed = Bd; PrevBedX = BdX;
+				}
 				if (WaterX != 0.f && MWater)
 				{
 					TArray<int32> Wa;
@@ -1076,39 +1318,118 @@ void AFTTrack::BuildMeshes()
 		const double TC0 = FPlatformTime::Seconds();
 		UProceduralMeshComponent* PM = NewObject<UProceduralMeshComponent>(this, NAME_None, RF_Transient);
 		PM->SetupAttachment(RootComponent);
-		PM->bUseAsyncCooking = false; // the road must be solid before the car drops onto it
+		// the road under the start must be solid before the car drops onto it; the rest cooks in the background (above)
+		PM->bUseAsyncCooking = bAsyncOk && !(c1 * Step >= SyncFrom && c0 * Step <= SyncTo);
+		AsyncChunks += PM->bUseAsyncCooking ? 1 : 0;
 		PM->bUseComplexAsSimpleCollision = true;
 		PM->SetCollisionProfileName(TEXT("BlockAll"));
 		PM->SetMobility(EComponentMobility::Static);
 		PM->SetCanEverAffectNavigation(false); // no AI navigation here; the race runs in track space
-		PM->RegisterComponent();
+		// 3.4 perf: registered only once its twelve sections are in (below). Registered first, every CreateMeshSection
+		// rebuilt the chunk's render proxy and physics state again.
 		const TArray<FProcMeshTangent> NoT;
 		DeckFlags.SetNumZeroed(Deck.V.Num());
 		const TArray<FVector2D> NoUV;
-		// 3.3 perf: every CreateMeshSection re-cooks the component's whole collision (synchronously), so eleven calls
-		// cooked the deck up to four times per chunk (~5.6 s of every level load). The looks-only sections go first, the
-		// deck, walls and fence go in without collision and are switched on in place, and the ground's call cooks all
-		// four once.
+		for (const FBuf* Sb : { &Deck, &Wall, &Fence, &Ground })
+		{
+			SolidCrc = FCrc::MemCrc32(Sb->V.GetData(), Sb->V.Num() * sizeof(FVector), SolidCrc);
+			SolidCrc = FCrc::MemCrc32(Sb->I.GetData(), Sb->I.Num() * sizeof(int32), SolidCrc);
+			SolidTris += Sb->I.Num() / 3;
+		}
+		// 3.1 (sherpa-man) / 3.3: the engine re-cooks a component's whole collision on every CreateMeshSection call (twelve times a
+		// chunk here, synchronously). The sections are made without it; the four that are solid get it switched on
+		// afterwards and it is cooked once (below). Same collision, a fraction of the level's build time.
+		PM->CreateMeshSection_LinearColor(0, Deck.V, Deck.I, Deck.N, Deck.UV, DeckFlags, NoUV, NoUV, Deck.C, NoT, false);
+		PM->CreateMeshSection_LinearColor(1, Wall.V, Wall.I, Wall.N, Wall.UV, Wall.C, NoT, false);
 		PM->CreateMeshSection_LinearColor(2, NeonB.V, NeonB.I, NeonB.N, NeonB.UV, NeonB.C, NoT, false);
+		PM->CreateMeshSection_LinearColor(3, Fence.V, Fence.I, Fence.N, Fence.UV, Fence.C, NoT, false);
+		PM->SetMeshSectionVisible(3, false);
 		PM->CreateMeshSection_LinearColor(4, Glass.V, Glass.I, Glass.N, Glass.UV, Glass.C, NoT, false);
 		PM->CreateMeshSection_LinearColor(5, Rib.V, Rib.I, Rib.N, Rib.UV, Rib.C, NoT, false);
+		PM->CreateMeshSection_LinearColor(6, Ground.V, Ground.I, Ground.N, Ground.UV, Ground.C, NoT, false);
 		PM->CreateMeshSection_LinearColor(7, Water.V, Water.I, Water.N, Water.UV, Water.C, NoT, false);
 		PM->CreateMeshSection_LinearColor(8, Bldg.V, Bldg.I, Bldg.N, Bldg.UV, Bldg.C, NoT, false);
 		PM->CreateMeshSection_LinearColor(9, Lobby.V, Lobby.I, Lobby.N, Lobby.UV, Lobby.C, NoT, false);
 		PM->CreateMeshSection_LinearColor(10, Lava.V, Lava.I, Lava.N, Lava.UV, Lava.C, NoT, false);
-		PM->CreateMeshSection_LinearColor(0, Deck.V, Deck.I, Deck.N, Deck.UV, DeckFlags, NoUV, NoUV, Deck.C, NoT, false);
-		PM->CreateMeshSection_LinearColor(1, Wall.V, Wall.I, Wall.N, Wall.UV, Wall.C, NoT, false);
-		PM->CreateMeshSection_LinearColor(3, Fence.V, Fence.I, Fence.N, Fence.UV, Fence.C, NoT, false);
-		PM->SetMeshSectionVisible(3, false);
-		for (int32 Sc : { 0, 1, 3 }) if (FProcMeshSection* Sec = PM->GetProcMeshSection(Sc)) Sec->bEnableCollision = bColl;
-		PM->CreateMeshSection_LinearColor(6, Ground.V, Ground.I, Ground.N, Ground.UV, Ground.C, NoT, bColl);
+		PM->CreateMeshSection_LinearColor(11, Bed.V, Bed.I, Bed.N, Bed.UV, Bed.C, NoT, false); // 3.1: looks only
+		PM->SetMaterial(11, MGround);
 		PM->SetMaterial(0, MRoad); PM->SetMaterial(1, MWall); PM->SetMaterial(2, MNeon);
 		PM->SetMaterial(4, MGlass); PM->SetMaterial(5, MRib); PM->SetMaterial(6, MGround); PM->SetMaterial(7, MWater);
 		PM->SetMaterial(8, MBldg); PM->SetMaterial(9, MWall); PM->SetMaterial(10, MLava);
 		PM->SetCastShadow(false); // the road and land only receive shadows (keeps Virtual Shadow Map work low)
-		if (!bColl) PM->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		const double TCook = FPlatformTime::Seconds();
+		if (bColl)
+		{
+			for (const int32 Solid : { 0, 1, 3, 6 }) if (FProcMeshSection* Sec = PM->GetProcMeshSection(Solid)) Sec->bEnableCollision = true;
+			PM->ClearCollisionConvexMeshes(); // there are none: this is the component's one public way to cook its collision
+		}
+		else PM->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		const double TReg = FPlatformTime::Seconds();
+		CookMs += (TReg - TCook) * 1000.0;
+		PM->RegisterComponent();
+		RegisterMs += (FPlatformTime::Seconds() - TReg) * 1000.0;
 		Chunks.Add(PM);
 		MeshCreateMs += (FPlatformTime::Seconds() - TC0) * 1000.0;
+	}
+	UE_LOG(LogFT, Display, TEXT("FTCOOK chunks=%d async=%d start=%.0fm window=%.0f..%.0fm"), Chunks.Num(), AsyncChunks, StartD / 100.f, SyncFrom / 100.f, SyncTo / 100.f);
+
+	// ---- 3.1: the floor. Past the land's edges (and wherever the land is cut short of another part of the road)
+	// there was no ground at all: below the horizon you saw the sky dome. One sheet under the whole level, below its
+	// lowest land, out past where any sky begins, so that everything under the horizon is the world. Bayshore's is
+	// its sea (MI_BaySea, made by ft_world.py); the others take the colour of their land's outer edge.
+	{
+		UMaterialInterface* MFloor = nullptr;
+		if (LevelIndex == 0) MFloor = Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, TEXT("/Game/Maps/Bayshore/Materials/MI_BaySea.MI_BaySea"), nullptr, LOAD_NoWarn | LOAD_Quiet));
+		const bool bSea = MFloor != nullptr;
+		if (!MFloor) MFloor = MGround;
+		const FVector2D Cn = Footprint.GetCenter(), Ex = Footprint.GetExtent() + FVector2D(FloorHalf, FloorHalf);
+		const FLinearColor Col = bSea ? FLinearColor::White : FMath::Lerp(GC[0], GC.Last(), 0.5f);
+		FBuf Fl;
+		const int32 A = Fl.Add(FVector(Cn.X - Ex.X, Cn.Y - Ex.Y, FloorZ), FVector::UpVector, FVector2D(0, 0), Col);
+		const int32 B = Fl.Add(FVector(Cn.X + Ex.X, Cn.Y - Ex.Y, FloorZ), FVector::UpVector, FVector2D(1, 0), Col);
+		const int32 C = Fl.Add(FVector(Cn.X - Ex.X, Cn.Y + Ex.Y, FloorZ), FVector::UpVector, FVector2D(0, 1), Col);
+		const int32 D = Fl.Add(FVector(Cn.X + Ex.X, Cn.Y + Ex.Y, FloorZ), FVector::UpVector, FVector2D(1, 1), Col);
+		Fl.Quad(A, B, C, D, FVector::UpVector);
+		UProceduralMeshComponent* PM = NewObject<UProceduralMeshComponent>(this, NAME_None, RF_Transient);
+		PM->SetupAttachment(RootComponent);
+		PM->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		PM->SetMobility(EComponentMobility::Static);
+		PM->SetCanEverAffectNavigation(false);
+		PM->RegisterComponent();
+		PM->CreateMeshSection_LinearColor(0, Fl.V, Fl.I, Fl.N, Fl.UV, Fl.C, TArray<FProcMeshTangent>(), false);
+		PM->SetMaterial(0, MFloor);
+		PM->SetCastShadow(false);
+		PM->bAffectDistanceFieldLighting = false;
+		PM->bAffectDynamicIndirectLighting = false;
+		Chunks.Add(PM);
+		UE_LOG(LogFT, Display, TEXT("FTBED level=%d bed=%d triangles floor z=%.0f (lowest land %.0f) %s"), LevelIndex, BedTris, FloorZ, MinZ, bSea ? TEXT("sea") : TEXT("land colour"));
+		UE_LOG(LogFT, Display, TEXT("FTTRACK level=%d frames=%d route=%08x solid=%08x solidTriangles=%d"), LevelIndex, Frames.Num(), RouteCrc, SolidCrc, SolidTris);
+
+		// Under the Sea: the surface, seen from below, well above the highest road (MI_AbyssSurface, ft_world.py). Looks only.
+		if (UMaterialInterface* MTop = LevelIndex == 6 ? Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, TEXT("/Game/Maps/Abyss/Materials/MI_AbyssSurface.MI_AbyssSurface"), nullptr, LOAD_NoWarn | LOAD_Quiet)) : nullptr)
+		{
+			float MaxZ = -TNumericLimits<float>::Max();
+			for (const FFTFrame& Fr : Frames) MaxZ = FMath::Max(MaxZ, (float)Fr.Pos.Z);
+			const float TopZ = MaxZ + 7000.f;
+			FBuf Tp;
+			const int32 A2 = Tp.Add(FVector(Cn.X - Ex.X, Cn.Y - Ex.Y, TopZ), -FVector::UpVector, FVector2D(0, 0));
+			const int32 B2 = Tp.Add(FVector(Cn.X + Ex.X, Cn.Y - Ex.Y, TopZ), -FVector::UpVector, FVector2D(1, 0));
+			const int32 C2 = Tp.Add(FVector(Cn.X - Ex.X, Cn.Y + Ex.Y, TopZ), -FVector::UpVector, FVector2D(0, 1));
+			const int32 D2 = Tp.Add(FVector(Cn.X + Ex.X, Cn.Y + Ex.Y, TopZ), -FVector::UpVector, FVector2D(1, 1));
+			Tp.Quad(A2, B2, C2, D2, -FVector::UpVector);
+			UProceduralMeshComponent* PT = NewObject<UProceduralMeshComponent>(this, NAME_None, RF_Transient);
+			PT->SetupAttachment(RootComponent);
+			PT->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			PT->SetMobility(EComponentMobility::Static);
+			PT->SetCanEverAffectNavigation(false);
+			PT->RegisterComponent();
+			PT->CreateMeshSection_LinearColor(0, Tp.V, Tp.I, Tp.N, Tp.UV, Tp.C, TArray<FProcMeshTangent>(), false);
+			PT->SetMaterial(0, MTop);
+			PT->SetCastShadow(false);
+			PT->bAffectDistanceFieldLighting = false;
+			PT->bAffectDynamicIndirectLighting = false;
+			Chunks.Add(PT);
+		}
 	}
 }
 
@@ -1213,6 +1534,18 @@ static TArray<FFTPropRule> DefaultProps(int32 Level)
 		P(D + TEXT("SM_Wreck"), -2600, -2600, 17, 5, 1.f);
 		P(D + TEXT("SM_Dome"), 2400, 3600, 6, 3, 0.9f, false, 1, 1.f, 0.3f);
 		P(D + TEXT("SM_SeaRock"), -4600, -2400, 3, 0, 0.85f, false, 0, 1.f, 0.4f, true);
+		// 3.1, the living sea (ft_world.py; looks only, all of it): schools that swim their rounds beside the road,
+		// a whale and a ray far out, shafts of light coming down, strings of bubbles by the barrier, and the wreck
+		// brought near the road every so often with the light on it. After the level's own rules, which keep their places.
+		const FString L = TEXT("/Game/Maps/Abyss/Life/");
+		P(L + TEXT("SM_FishSchoolA"), 300, 900, 2, 0, 0.75f, false, 0, 1.f, 0.3f, true);
+		P(L + TEXT("SM_FishSchoolB"), 500, 1400, 3, 1, 0.7f, false, 0, 1.f, 0.3f, true);
+		P(L + TEXT("SM_Whale"), 1300, 1900, 19, 7, 1.f, false, 0, 1.4f, 0.15f);
+		P(L + TEXT("SM_Manta"), -1400, -800, 11, 3, 1.f, false, 0, 1.f, 0.2f);
+		P(L + TEXT("SM_LightShaft"), 330, 1400, 2, 1, 0.65f, false, 0, 1.f, 0.35f, true);
+		P(L + TEXT("SM_Bubbles"), 180, 300, 3, 2, 0.8f, false, 0, 1.f, 0.25f, true);
+		P(D + TEXT("SM_Wreck"), -1150, -1150, 17, 13, 1.f, false, 0, 1.5f);
+		P(L + TEXT("SM_LightShaftBig"), -1150, -1150, 17, 13, 1.f);
 	}
 	else if (Level == 7)
 	{
@@ -1244,6 +1577,7 @@ static TArray<FFTPropRule> DefaultProps(int32 Level)
 		P(D + TEXT("SM_Pylon"), 420, 420, 9, 4, 1.f, false, 1);
 		P(D + TEXT("SM_Butte"), -4200, -2600, 3, 0, 0.8f, false, 0, 1.f, 0.4f, true);
 	}
+	FTLife::ExtraProps(Level, R); // 3.1: the living world's additions, after the level's own rules
 	return R;
 }
 
@@ -1448,6 +1782,8 @@ void AFTTrack::PlanAds(const TArray<FFTPropRule>& Rules, const TArray<FFTAdRule>
 void AFTTrack::BuildProps()
 {
 	for (UHierarchicalInstancedStaticMeshComponent* C : PropComps) if (C) C->DestroyComponent();
+	for (UStaticMeshComponent* C : LifeComps) if (C) C->DestroyComponent();
+	LifeComps.Reset();
 	PropComps.Reset();
 	if (Pillars) { Pillars->DestroyComponent(); Pillars = nullptr; }
 	LampSpots.Reset();
@@ -1470,6 +1806,10 @@ void AFTTrack::BuildProps()
 		const float R = M->GetBounds().SphereRadius * MaxScale;
 		const float CullEnd = R > 4000.f ? 0.f : FMath::Clamp(R * 120.f, 60000.f, 400000.f);
 		C->SetCullDistances(CullEnd * 0.85f, CullEnd);
+		// 3.1: scenery that moves by its material (ft_life.py, ft_world.py: swaying fronds, turning wheels, swimming
+		// fish) keeps its cached shadow: the shadow stays where the mesh was built, which nobody can tell at speed,
+		// instead of every moving prop redrawing its shadow pages each frame
+		C->ShadowCacheInvalidationBehavior = EShadowCacheInvalidationBehavior::Static;
 		C->RegisterComponent();
 		PropComps.Add(C);
 		ByMesh.Add(Path, C);
@@ -1479,7 +1819,11 @@ void AFTTrack::BuildProps()
 	// beside (its own barrier) it is pushed out; if it lands on some other part of the road it is left out.
 	struct FDrop { int32 Kept = 0, Moved = 0, Dropped = 0; };
 	TMap<FString, FDrop> Report;
-	auto Clear = [&](UStaticMesh* M, FVector& Pos, const FRotator& Rot, float Sc, const FVector& Out, int32 Own, bool bOnRoad, FDrop& Rp) -> bool
+	// 3.2, Sight (dressed pieces only): the sight line. Whatever stands more than 2 m over a road keeps Sight cm from
+	// that road's edge as well, pushed out or left out by the same rules. With 24 m from the centre line, the inside of
+	// the tightest bend (128 m radius) still shows 150 m of road ahead past the scenery: a chord that long bulges
+	// 21 m inside the centre line. Low things (fences, hedges, parked cars) may stand right behind the barrier.
+	auto Clear = [&](UStaticMesh* M, FVector& Pos, const FRotator& Rot, float Sc, const FVector& Out, int32 Own, bool bOnRoad, FDrop& Rp, float Sight = 0.f) -> bool
 	{
 		if (!M) return false;
 		if (!CVarFTClear.GetValueOnAnyThread()) { ++Rp.Kept; return true; }
@@ -1493,7 +1837,9 @@ void AFTTrack::BuildProps()
 			// lamps on the barrier hang over their own road: only other roads count for them
 			const int32 SkipLo = bOnRoad ? Own - 30 : INDEX_NONE, SkipHi = bOnRoad ? Own + 30 : INDEX_NONE;
 			float Depth = 0.f;
-			const int32 Hit = RoadHitBox(Ctr, Q, Bd.BoxExtent * Sc, 150.f, Wb.Min.Z, Wb.Max.Z, SkipLo, SkipHi, &Depth);
+			int32 Hit = RoadHitBox(Ctr, Q, Bd.BoxExtent * Sc, 150.f, Wb.Min.Z, Wb.Max.Z, SkipLo, SkipHi, &Depth);
+			// the top is lowered by 2 m and the deck's depth, so a road counts only if the piece stands 2 m over it
+			if (Hit == INDEX_NONE && Sight > 0.f) Hit = RoadHitBox(Ctr, Q, Bd.BoxExtent * Sc, Sight, Wb.Min.Z, Wb.Max.Z - 200.f - DeckDepth - 60.f, SkipLo, SkipHi, &Depth);
 			if (Hit == INDEX_NONE) { if (Try) ++Rp.Moved; ++Rp.Kept; return true; }
 			if (bOnRoad || FMath::Abs(Hit - Own) > 40 || Out.IsNearlyZero()) break;
 			Pos += Out * (Depth + 150.f);
@@ -1555,7 +1901,10 @@ void AFTTrack::BuildProps()
 				}
 				else
 				{
-					Pos = G.Ground + G.GRight * X + FVector(0, 0, -60.f);
+					// 3.1: where the land falls away from the road (a beach running down to the sea) the prop goes down
+					// with it: it used to keep the roadside height and stand in the air. Where the land rises it stays as
+					// it was (the crags and ridges were composed half buried).
+					Pos = G.Ground + G.GRight * X + FVector(0, 0, FMath::Min(-60.f, GroundZ(X) + 10.f));
 					Rot = FVector(G.Fwd.X, G.Fwd.Y, 0.f).GetSafeNormal().Rotation();
 					Rot.Yaw += Q.bFaceRoad ? 0.f : Rs.FRandRange(0.f, 360.f);
 					if (KeptOut(Pos)) continue;           // clear of the printed billboards
@@ -1570,6 +1919,97 @@ void AFTTrack::BuildProps()
 				if (Q.Light) LampSpots.Add(Q.bOnRoad ? (G.Pos + G.Right * (X * 0.8f) + G.Up * 780.f) : (Pos + FVector(0, 0, 600.f)));
 			}
 		}
+	}
+
+	// ---- 3.2: the dressing (FTDress.h): districts along the route, sets of pieces round landmarks, and the horizon.
+	// After the level's own props, so those keep their places. Every piece goes through the same clearance test.
+	// ft.Dress 0, or -ftnodress on the command line, leaves it out: the same build gives a before and an after.
+	if (CVarFTDress.GetValueOnAnyThread() != 0 && !FParse::Param(FCommandLine::Get(), TEXT("ftnodress")))
+	{
+		FFTDress Dr;
+		FTDress::Build(LevelIndex, Dr);
+		TMap<FString, const FFTDressSet*> SetBy;
+		for (const FFTDressSet& S : Dr.Sets) SetBy.Add(S.Name, &S);
+		int32 Placed = 0, Tried = 0, RuleIdx = 0;
+		const float SightClear = 2400.f - (FT::Edge + WallW); // tall pieces: 24 m from the centre line of an ordinary road
+		auto Put = [&](const FString& Mesh, FVector Pos, float YawDeg, float Sc, const FVector& OutDir, float Dj, bool bFar, bool bLight) -> bool
+		{
+			++Tried;
+			UHierarchicalInstancedStaticMeshComponent* C = Comp(Mesh, Sc * 1.3f);
+			if (!C) return false;
+			if (LightAt >= 0.f && (Dj < LightAt - LightPropBack || Dj > LightAt + LightPropAhead) && C->GetStaticMesh()->GetBounds().SphereRadius * Sc <= 4000.f) return false;
+			if (!bFar && KeptOut(Pos)) return false;
+			if (bFar && C->GetInstanceCount() == 0) C->SetCastShadow(false); // the horizon throws no shadow on the road
+			const FRotator Rot(0.f, YawDeg, 0.f);
+			if (!Clear(C->GetStaticMesh(), Pos, Rot, Sc, OutDir, FMath::RoundToInt(Dj / Step), false, Report.FindOrAdd(FPaths::GetBaseFilename(Mesh)), SightClear)) return false;
+			C->AddInstance(FTransform(Rot, Pos, FVector(Sc)), false);
+			if (bLight) LampSpots.Add(Pos + FVector(0, 0, 600.f));
+			++Placed;
+			return true;
+		};
+		// a dressed piece stands on the land where it is put, sunk a hand's breadth: up the trench walls and the snow slopes,
+		// down the beach (the level's own props keep their old rule: never above the roadside's height)
+		auto LandAt = [this](float Xcm) { return GroundZ(Xcm) - 15.f; };
+		for (const FFTDressZone& Z : Dr.Zones)
+		{
+			const int32 s0 = FMath::Max(1, FMath::CeilToInt(Z.FromKm * 100000.f / SlotLen)), s1 = FMath::Min(Slots - 1, FMath::FloorToInt(Z.ToKm * 100000.f / SlotLen));
+			for (const FFTDressRule& Q : Z.Rules)
+			{
+				++RuleIdx;
+				const bool bSite = Q.Kind == EFTDress::Site, bFar = Q.Kind == EFTDress::Far || Q.bFloor;
+				for (int32 s = s0; s <= s1; ++s)
+				{
+					if (((s + Q.Phase) % FMath::Max(1, Q.Every)) != 0) continue;
+					FRandomStream Rs(s * 7919 + RuleIdx * 104729 + LevelIndex * 31 + 977);
+					if (Rs.FRand() > Q.Chance) continue;
+					const int32 Copies = (!bSite && Q.Side == 0) ? 2 : 1;
+					for (int32 c = 0; c < Copies; ++c)
+					{
+						const float Sd = Q.Side != 0 ? float(Q.Side) : (bSite ? (((s / FMath::Max(1, Q.Every)) % 2) ? 1.f : -1.f) : (c == 0 ? 1.f : -1.f));
+						const float Dj = s * SlotLen + (bSite ? 0.f : (Rs.FRand() - 0.5f) * SlotLen * 0.5f);
+						const FFTFrame G = Sample(Dj);
+						// near things keep out of set pieces; the horizon stays wherever the road goes
+						if (!bFar && (G.Flags & (FTFlag::Loop | FTFlag::Gap | FTFlag::Pipe | FTFlag::Twist))) continue;
+						const FVector Fw = FVector(G.Fwd.X, G.Fwd.Y, 0.f).GetSafeNormal();
+						if (Fw.IsNearlyZero()) continue;
+						const FVector OutDir = G.GRight * Sd;
+						const float Heading = Fw.Rotation().Yaw + (Sd < 0.f ? 180.f : 0.f); // turned round on the left: the front faces the road
+						const float Xm = FMath::Lerp(Q.XMin, Q.XMax, Rs.FRand());
+						const float Sc = Q.Scale * (1.f + (Rs.FRand() - 0.5f) * 2.f * Q.Jitter);
+						const float Yj = (Rs.FRand() - 0.5f) * 2.f * Q.YawJitter;
+						auto NearOk = [&G](float Xc)
+						{
+							if ((G.Flags & FTFlag::Building) && FMath::Abs(Xc) < FT::Edge + 2200.f) return false; // inside a tower block
+							if ((G.Flags & (FTFlag::Kicker | FTFlag::Landing)) && FMath::Abs(Xc) < 4000.f) return false; // a jump's run-up and landing stay open
+							return true;
+						};
+						if (bSite)
+						{
+							const FFTDressSet* const* Sp = SetBy.Find(Q.Mesh);
+							if (!Sp) continue;
+							const FVector Lx = Fw * Sd; // the set's own +x
+							for (const FFTDressPart& Pt : (*Sp)->Parts)
+							{
+								const float Xc = (Xm + Pt.Out * Sc) * 100.f * Sd;
+								if (!Q.bFloor && !NearOk(Xc)) continue;
+								FVector Pos = G.Ground + G.GRight * Xc + Lx * (Pt.Along * Sc * 100.f) + FVector(0, 0, LandAt(Xc) + Pt.Up * Sc * 100.f);
+								if (Q.bFloor) Pos.Z = FloorZ + Pt.Up * Sc * 100.f; // afloat: the floor is the level's own height, wherever the road is
+								Put(Pt.Mesh, Pos, Heading + Pt.Yaw, Sc * Pt.Scale, OutDir, Dj, Q.bFloor, false);
+							}
+						}
+						else
+						{
+							const float Xc = Xm * 100.f * Sd;
+							if (!bFar && !NearOk(Xc)) continue;
+							FVector Pos = G.Ground + G.GRight * Xc + FVector(0, 0, bFar ? -Q.Drop * 100.f : LandAt(Xc));
+							if (Q.bFloor) Pos.Z = FloorZ + Q.Drop * 100.f;
+							Put(Q.Mesh, Pos, Heading + Yj, Sc, OutDir, Dj, bFar, Q.bLight);
+						}
+					}
+				}
+			}
+		}
+		UE_LOG(LogFT, Display, TEXT("FTDRESS level=%d districts=%d sets=%d pieces placed=%d of %d tried"), LevelIndex, Dr.Zones.Num(), Dr.Sets.Num(), Placed, Tried);
 	}
 
 	// PlanAds already keeps every sign clear of the road, so the signs skip 2.7's road test
@@ -1589,6 +2029,7 @@ void AFTTrack::BuildProps()
 			// itself runs through it there: then it is tried further out and a little to either side (scaled up with
 			// the distance, so it looks the same size), and left out if nowhere is clear
 			FDrop& Rp = Report.FindOrAdd(FPaths::GetBaseFilename(LD.Backdrop));
+			TArray<FTransform> BackdropAt; // where each one went (the volcano's eruption stands on the same spots)
 			auto Place = [&](const FFTFrame& At, float Dist, float Scale, float Drop)
 			{
 				const FVector Fw = FVector(At.Fwd.X, At.Fwd.Y, 0.f).GetSafeNormal();
@@ -1607,6 +2048,7 @@ void AFTTrack::BuildProps()
 						if (!CVarFTClear.GetValueOnAnyThread() || RoadHitBox(T.TransformPosition(Bd.Origin), Qr, Bd.BoxExtent * Sc, 3000.f, Wb.Min.Z, Wb.Max.Z, INDEX_NONE, INDEX_NONE) == INDEX_NONE)
 						{
 							V->AddInstance(T, false);
+							BackdropAt.Add(T);
 							++Rp.Kept; if (M != 1.f || A != 0.f) ++Rp.Moved;
 							return;
 						}
@@ -1616,7 +2058,29 @@ void AFTTrack::BuildProps()
 			Place(FrameAt(Frames.Num() - 1), 60000.f, LD.BackdropScale, -200.f);
 			Place(Sample(LD.FinaleD * FT::DU), 90000.f, LD.BackdropScale * 1.5f, -200.f);
 			// and one a third of the way in, so it is on the horizon early (the new levels)
+			const int32 NumEarly = BackdropAt.Num();
 			if (LevelIndex >= 3) Place(Sample(LD.FinaleD * FT::DU * 0.35f), 110000.f, LD.BackdropScale * 1.8f, -400.f);
+			// 3.1: Mount Kaldera erupts. The eruption is its own mesh over each cone (SM_Eruption, ft_world.py) and its
+			// material plays it on a cycle: a rumble, the blast, the plume and the fountains, the aftermath. Each cone has
+			// its own second in the cycle (custom primitive data 0); the one beside the early road goes first, as the
+			// player comes up to it. Looks only.
+			if (LevelIndex == 3)
+				if (UStaticMesh* Er = Cast<UStaticMesh>(StaticLoadObject(UStaticMesh::StaticClass(), nullptr, TEXT("/Game/Maps/Volcano/Life/SM_Eruption.SM_Eruption"), nullptr, LOAD_NoWarn | LOAD_Quiet)))
+					for (int32 k = 0; k < BackdropAt.Num(); ++k)
+					{
+						UStaticMeshComponent* E = NewObject<UStaticMeshComponent>(this, NAME_None, RF_Transient);
+						E->SetupAttachment(RootComponent);
+						E->SetStaticMesh(Er);
+						E->SetMobility(EComponentMobility::Static);
+						E->SetRelativeTransform(BackdropAt[k]);
+						E->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+						E->SetCastShadow(false);
+						E->bAffectDistanceFieldLighting = false;
+						E->bAffectDynamicIndirectLighting = false;
+						E->SetCustomPrimitiveDataFloat(0, k >= NumEarly ? 42.f : (k == 0 ? 30.f : 9.f));
+						E->RegisterComponent();
+						LifeComps.Add(E);
+					}
 		}
 	}
 

@@ -187,8 +187,15 @@ public:
 	float Progress = 0.f;
 	float SpeedMph = 0.f;
 	bool bShowKeys = true;
+	int32 HitchCount = 0;
 	int32 OptionsRow = 0, ControlsRow = 0, ControlsCol = 0; bool bControlsWaiting = false;
 	int32 PauseRow = 0;
+	EFTOverlay DrawnOverlay = EFTOverlay::None;
+	TArray<FBox2D> OverlayRects;
+	FString OverlayFeedback;
+	float OverlayFeedbackT = -10.f;
+	bool bOverlayFeedbackError = false;
+	FBox2D ResultsContinueRect = FBox2D(ForceInit);
 	FString ReelLabel, ReelCamName; int32 ReelShot = 0, ReelShots = 0; bool bReelSlow = false; float ReelTitleT = 0.f;
 	// 2.3: the reel plays (and loops) until the dedicated CONTINUE button; the HUD writes its rect here for the mouse
 	int32 ReelLoop = 0; float ReelLoopT = -10.f;
@@ -234,8 +241,9 @@ public:
 	float LastMenuInputT = -10.f;
 	TArray<FBox2D> TitleRowRects;    // the HUD writes the level rows and the buttons here for the mouse
 	TArray<FBox2D> TitleBtnRects;    // ROLL CAMERA, PRE-PRODUCTION, CONTROLS, OPTIONS, QUIT
+	int32 TitleActionFocus = INDEX_NONE;
+	float LastMenuSoundT = -10.f;
 	FVector2D TitleMouse = FVector2D(-1, -1);
-	int32 TitleHotBtn = -1;
 	// highlight reel (10 §2): hold to skip mid-reel, CONTINUE once it has played
 	float ReelHoldT = 0.f; bool bReelDone = false;
 	// THE DAILIES + PAYCHECK
@@ -272,6 +280,7 @@ public:
 
 	AFTPlayerCar* GetCar() const { return Car; }
 	AFTTrack* GetTrack() const { return Track; }
+	TConstArrayView<FFTEnt> GetActiveEntities() const { return Ents; }
 	UFTGameInstance* GI() const;
 	const FFTLevelDef& Def() const { return FTData::Level(Level); }
 	float PlayerD() const;
@@ -295,6 +304,7 @@ protected:
 	int32 AttractScene = 0, AttractSpawn = 0;
 	bool bAttractPaused = false;
 	void TickOverlay(float RDt);
+	void MenuCue(const TCHAR* Name, float Pitch = 1.f);
 	void TickPlay(float Dt, float RDt);
 	void TickPlayer(float Dt);
 	void TickEnts(float Dt);
@@ -353,7 +363,8 @@ protected:
 	void Kill(FFTEnt& E, int32 Cause); // 0 gun, 1 missile, 2 ram, 3 other (not the player), 4 splash (missile splash, HE blast), 5 chain/barrel blast, 6 the wrap
 	void HurtEnt(FFTEnt& E, float Dmg, int32 Cause);
 	void HurtPlayer(float Dmg, const TCHAR* Line = nullptr, float PushX = 0.f);
-	void Explode(const FVector& At, float Size, bool bPlayerWreck = false);
+	/** Look (3.1): what the blast is made of. 0 fire, 1 ice and snow, 2 water, 3 electricity. Looks only. */
+	void Explode(const FVector& At, float Size, bool bPlayerWreck = false, int32 Look = 0);
 	void WreckExtras(FName Fx, const FVector& At, float Size);
 	void Release(FFTEnt& E);
 	void ClearEnts();
@@ -488,7 +499,6 @@ protected:
 	UPROPERTY(Transient) TArray<TObjectPtr<AFTEntityActor>> Ghosts;
 	TMap<int32, int32> GhostOf;
 	TMap<int32, int32> ProxyKind;
-	FTransform ReelCar;
 	int32 LastCam = -1;
 	float SceneStartClock = 0.f;
 };

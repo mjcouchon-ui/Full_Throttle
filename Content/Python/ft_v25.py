@@ -799,7 +799,8 @@ def export():
     save_mesh(model(lambda m: bolt(m)).meshes, P + 'SM_Bolt', 'prop', nanite=False)
     save_mesh(model(fire_truck).meshes, C + 'Bosses/SM_FireTruck', 'car', (-625, 0, 0), collision='box')
     save_mesh(model(clown_car).meshes, C + 'Bosses/SM_ClownCar', 'car', (-625, 0, 0), collision='box')
-    save_mesh(model(yeti).meshes, C + 'Bosses/SM_Yeti', 'car', (-625, 0, 0), collision='box')
+    import ft_v28
+    ft_v28.export_yeti()
     save_mesh(model(shark_car).meshes, C + 'Bosses/SM_SharkCar', 'car', (-625, 0, 0), collision='box')
     save_mesh(model(limo).meshes, C + 'Bosses/SM_Limo', 'car', (-625, 0, 0), collision='box')
     groups = {
@@ -835,13 +836,16 @@ def export():
 
 # =============================================================================================== materials
 LAVA_HLSL = """
-float2 p = WP.xy / 900.0;
-float t = Time * 0.35;
-float n = sin(p.x * 1.7 + t) * sin(p.y * 1.3 - t * 0.8) + 0.5 * sin(p.x * 3.1 - p.y * 2.3 + t * 1.6);
-n = n * 0.5 + 0.5;
-float b = n > 0.72 ? 1.0 : (n > 0.45 ? 0.62 : 0.34);
-float3 c = b > 0.9 ? float3(1.0, 0.85, 0.3) : (b > 0.5 ? float3(1.0, 0.42, 0.06) : float3(0.55, 0.08, 0.04));
-return c * Gain;
+float2 p = WP.xy / 970.0;
+float t = Time * 0.23;
+float2 w = p + float2(sin(p.y*0.73 + t), sin(p.x*0.49 - t))*0.55;
+float vein = abs(sin(w.x*1.14 + cos(w.y*1.51 - t) + sin(w.x*0.61 + w.y*0.42)));
+float pulse = 0.5 + 0.5*sin(w.y*3.8 - w.x*1.10 - t*6.3);
+float edge = 1.0 - smoothstep(0.21,0.64,vein);
+float core = 1.0 - smoothstep(0.015,0.19,vein);
+float3 crust = lerp(float3(0.09,0.018,0.029),float3(0.35,0.044,0.021),pulse*0.55);
+float3 flame = lerp(float3(0.84,0.14,0.018),float3(1.0,0.50,0.081),pulse);
+return (lerp(crust,flame,edge) + core*float3(0.34,0.22,0.06))*Gain;
 """
 
 

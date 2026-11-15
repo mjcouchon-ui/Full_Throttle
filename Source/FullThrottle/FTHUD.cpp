@@ -1,7 +1,9 @@
 #include "FTHUD.h"
+#include "FTHUDStyle.h"
 #include "FTGameMode.h"
 #include "FTGameInstance.h"
 #include "FTPlayerCar.h"
+#include "FTEntity.h"
 #include "FTPlayerController.h"
 #include "FTProgress.h"
 #include "Engine/Canvas.h"
@@ -10,38 +12,24 @@
 #include "CanvasItem.h"
 #include "Engine/Texture2D.h"
 
+using namespace FTHUDStyle;
+
 namespace
 {
-	const FLinearColor Ink(0.02f, 0.01f, 0.05f, 0.78f), Yellow(1.f, 0.82f, 0.25f), Pink(1.f, 0.24f, 0.65f), Cyan(0.21f, 0.95f, 1.f), Red(1.f, 0.2f, 0.25f), Green(0.35f, 1.f, 0.45f), White(1.f, 0.97f, 0.92f), Grey(0.65f, 0.62f, 0.75f), Amber(1.f, 0.62f, 0.18f);
-	FString Money(int64 V);
 	FString Num(int64 V)
 	{
-		FString R = FString::Printf(TEXT("%lld"), FMath::Abs(V));
-		for (int32 i = R.Len() - 3; i > 0; i -= 3) R.InsertAt(i, TEXT(","));
-		return (V < 0 ? TEXT("-") : TEXT("")) + R;
+		FString R = FString::Printf(TEXT("%lld"), V);
+		for (int32 i = R.Len() - 3; i > (V < 0 ? 1 : 0); i -= 3) R.InsertAt(i, TEXT(","));
+		return R;
 	}
-	FString Money(int64 V) { return (V < 0 ? TEXT("-$") : TEXT("$")) + Num(FMath::Abs(V)); }
-}
+	FString Money(int64 V) { return V < 0 ? TEXT("-$") + Num(V).RightChop(1) : TEXT("$") + Num(V); }
 
-void AFTHUD::Txt(const FString& Str, float X, float Y, const FLinearColor& C, float Scale, int32 Align, bool bDisplay, bool bShadow)
-{
-	UFont* F = bDisplay ? FD : FB;
-	FCanvasTextItem It(FVector2D(X, Y), FText::FromString(Str), F, C);
-	It.Scale = FVector2D(Scale * S);
-	if (bShadow) { It.EnableShadow(FLinearColor(0, 0, 0, 0.85f), FVector2D(2.f * S, 2.f * S)); }
-	if (Align != 0)
+	FString Binding(const UFTGameInstance* GI, EFTAction Action)
 	{
-		const FVector2D M = Measure(Str, Scale, bDisplay);
-		It.Position.X -= Align == 1 ? M.X * 0.5f : M.X;
+		if (!GI) return TEXT("UNBOUND");
+		const FKey& Key = GI->Binds[static_cast<int32>(Action)][GI->Layout];
+		return Key.IsValid() ? Key.GetDisplayName().ToString().ToUpper() : FString(TEXT("UNBOUND"));
 	}
-	Canvas->DrawItem(It);
-}
-
-FVector2D AFTHUD::Measure(const FString& Str, float Scale, bool bDisplay)
-{
-	float Xl = 0, Yl = 0;
-	Canvas->StrLen(bDisplay ? FD : FB, Str, Xl, Yl);
-	return FVector2D(Xl, Yl) * Scale * S;
 }
 
 void AFTHUD::Box(float X, float Y, float Wd, float Ht, const FLinearColor& C)
@@ -57,10 +45,228 @@ void AFTHUD::Frame(float X, float Y, float Wd, float Ht, const FLinearColor& C, 
 	Box(X, Y, Wd, Th, C); Box(X, Y + Ht - Th, Wd, Th, C); Box(X, Y, Th, Ht, C); Box(X + Wd - Th, Y, Th, Ht, C);
 }
 
-void AFTHUD::Panel(float X, float Y, float Wd, float Ht)
+FBox2D AFTHUD::Rect(float X, float Y, float Wd, float Ht) const
 {
-	Box(X, Y, Wd, Ht, Ink);
-	Frame(X, Y, Wd, Ht, FLinearColor(1.f, 0.31f, 0.72f, 0.55f), 1.5f);
+	return FBox2D(FVector2D(X, Y), FVector2D(X + Wd, Y + Ht));
+}
+
+void AFTHUD::Stroke(FVector2D A, FVector2D B, const FLinearColor& Color, float Thickness)
+{
+	FCanvasLineItem Line(A, B);
+	Line.SetColor(Color);
+	Line.LineThickness = Thickness * S;
+	Canvas->DrawItem(Line);
+}
+
+void AFTHUD::Plate(const FBox2D& R, const FLinearColor& Accent, const FLinearColor& Fill)
+{
+	const FVector2D Size = R.GetSize();
+	const float X = R.Min.X, Y = R.Min.Y, Wd = Size.X, Ht = Size.Y;
+	const float Clipped = FMath::Min(Corner * S, Ht * 0.3f);
+	Box(X, Y, Wd, Ht - Clipped, Fill);
+	Box(X, Y + Ht - Clipped, Wd - Clipped, Clipped, Fill);
+	FCanvasTriangleItem Cut(FVector2D(R.Max.X - Clipped, R.Max.Y - Clipped),
+		FVector2D(R.Max.X, R.Max.Y - Clipped), FVector2D(R.Max.X - Clipped, R.Max.Y), GWhiteTexture);
+	Cut.SetColor(Fill);
+	Cut.BlendMode = SE_BLEND_Translucent;
+	Canvas->DrawItem(Cut);
+	Box(X, Y, Wd, S, Rule);
+	Box(X, R.Max.Y - S, Wd - Clipped, S, Rule);
+	Box(X, Y, S, Ht, Rule);
+	Box(R.Max.X - S, Y, S, Ht - Clipped, Rule);
+	Stroke(FVector2D(R.Max.X - Clipped, R.Max.Y), FVector2D(R.Max.X, R.Max.Y - Clipped), Rule);
+	Box(X, Y, FMath::Min(Wd * 0.34f, 72 * S), 2 * S, Accent);
+}
+
+FVector2D AFTHUD::TextSize(const FString& Str, float Height, bool bDisplay)
+{
+	return MeasureF(bDisplay ? (FOrb ? FOrb.Get() : FD.Get()) : (FRaj ? FRaj.Get() : FB.Get()),
+		Str, Height / (bDisplay ? OrbitHeight : RajHeight));
+}
+
+void AFTHUD::Print(const FString& Str, float X, float Y, const FLinearColor& Color, float Height, int32 Align, bool bDisplay, float MaxWidth)
+{
+	if (Str.IsEmpty()) return;
+	UFont* Font = bDisplay ? (FOrb ? FOrb.Get() : FD.Get()) : (FRaj ? FRaj.Get() : FB.Get());
+	float Scale = Height / (bDisplay ? OrbitHeight : RajHeight);
+	float Measured = Align != 0 || MaxWidth > 0.f ? MeasureF(Font, Str, Scale).X : 0.f;
+	if (MaxWidth > 0.f && Measured > MaxWidth)
+	{
+		Scale *= MaxWidth / Measured;
+		Measured = MaxWidth;
+	}
+	if (Align != 0) X -= Align == 1 ? Measured * .5f : Measured;
+	FCanvasTextItem Item(FVector2D(X, Y), FText::FromString(Str), Font, Color);
+	Item.Scale = FVector2D(Scale * S);
+	Canvas->DrawItem(Item);
+}
+
+void AFTHUD::Meter(const FBox2D& R, float Fraction, const FLinearColor& Accent, int32 Segments)
+{
+	const float GapPx = Segments > 1 ? 3.f * S : 0.f;
+	const float Pitch = (R.GetSize().X + GapPx) / Segments;
+	const float Wd = Pitch - GapPx;
+	const float Filled = FMath::Clamp(Fraction, 0.f, 1.f) * Segments;
+	for (int32 Index = 0; Index < Segments; ++Index)
+	{
+		const float X = R.Min.X + Index * Pitch;
+		const float Ht = R.GetSize().Y;
+		Box(X, R.Min.Y, Wd, Ht, Track);
+		const float Value = FMath::Clamp(Filled - Index, 0.f, 1.f);
+		if (Value > 0.f) Box(X, R.Min.Y, Wd * Value, Ht, Accent);
+	}
+}
+
+void AFTHUD::Icon(EIcon Shape, float X, float Y, float Size, const FLinearColor& Color)
+{
+	const auto Dot = [&](float U, float V) { return FVector2D(X + U * Size, Y + V * Size); };
+	const auto Line = [&](float A, float B, float C, float D) { Stroke(Dot(A, B), Dot(C, D), Color, 1.6f); };
+	switch (Shape)
+	{
+	case EIcon::Repair:
+		Frame(X + Size * 0.05f, Y + Size * 0.36f, Size * 0.9f, Size * 0.59f, Color, 1.5f);
+		Line(0.32f, .36f, .32f, .13f); Line(.32f, .13f, .68f, .13f); Line(.68f, .13f, .68f, .36f);
+		Line(.30f, .81f, .67f, .50f); Line(.58f, .50f, .73f, .50f); Line(.73f, .50f, .71f, .65f);
+		break;
+	case EIcon::Missile:
+		Line(.08f, .87f, .32f, .63f); Line(.32f, .63f, .43f, .30f); Line(.43f, .30f, .93f, .07f);
+		Line(.93f, .07f, .70f, .57f); Line(.70f, .57f, .37f, .68f); Line(.37f, .68f, .13f, .92f);
+		break;
+	case EIcon::Ammo:
+		for (int32 I = 0; I < 3; ++I)
+		{
+			const float U = .14f + I * .29f;
+			Line(U, .82f, U, .38f); Line(U, .38f, U + .09f, .15f); Line(U + .09f, .15f, U + .18f, .38f);
+			Line(U + .18f, .38f, U + .18f, .82f); Line(U, .82f, U + .18f, .82f);
+		}
+		break;
+	case EIcon::Turbo:
+		Line(.52f, .08f, .16f, .56f); Line(.16f, .56f, .51f, .56f);
+		Line(.51f, .56f, .41f, .93f); Line(.41f, .93f, .83f, .39f); Line(.83f, .39f, .49f, .39f);
+		break;
+	case EIcon::Record:
+	{
+		FCanvasNGonItem Light(Dot(.5f, .5f), FVector2D(Size * .28f), 12, Color);
+		Canvas->DrawItem(Light);
+		break;
+	}
+	case EIcon::Warning:
+		Line(.5f, .06f, .95f, .87f); Line(.95f, .87f, .05f, .87f); Line(.05f, .87f, .5f, .06f);
+		Line(.5f, .38f, .5f, .59f); Line(.5f, .70f, .5f, .74f);
+		break;
+	case EIcon::Play:
+		Line(.28f, .14f, .82f, .5f); Line(.82f, .5f, .28f, .86f); Line(.28f, .86f, .28f, .14f);
+		break;
+	}
+}
+
+AFTHUD::EControl AFTHUD::ControlState(const FBox2D& R, bool bFocus, bool bEnabled) const
+{
+	if (!bEnabled) return EControl::Disabled;
+	const AFTPlayerController* PC = Cast<AFTPlayerController>(GetOwningPlayerController());
+	if (PC && PC->bMenuMouse && !PC->UsesGamepadPrompts() && PC->MouseIn(R))
+		return PC->IsInputKeyDown(EKeys::LeftMouseButton) ? EControl::Pressed : EControl::Hover;
+	return bFocus ? EControl::Focus : EControl::Idle;
+}
+
+FBox2D AFTHUD::Control(const FBox2D& R, const FString& Label, const FString& Hint, EControl State, const FLinearColor& Accent)
+{
+	const bool bEnabled = State != EControl::Disabled;
+	const bool bHot = State == EControl::Hover || State == EControl::Focus || State == EControl::Pressed;
+	const FLinearColor Fill = State == EControl::Pressed ? Deep : bHot ? Active : Steel;
+	const FLinearColor Edge = State == EControl::Hover ? White : bHot ? Accent : Rule;
+	const FVector2D Size = R.GetSize();
+	Box(R.Min.X, R.Min.Y, Size.X, Size.Y, bEnabled ? Fill : Ink);
+	Frame(R.Min.X, R.Min.Y, Size.X, Size.Y, Edge, bHot ? 1.5f : 1.f);
+	if (bHot)
+	{
+		Box(R.Min.X + 3 * S, R.Min.Y + 4 * S, 3 * S, Size.Y - 8 * S, Edge);
+		Stroke(FVector2D(R.Max.X - 14 * S, R.Min.Y + S), FVector2D(R.Max.X - S, R.Min.Y + 14 * S), Edge);
+	}
+	const float Mid = R.GetCenter().X;
+	const float Shift = State == EControl::Pressed ? S : 0.f;
+	Print(Label, Mid, R.Min.Y + (Hint.IsEmpty() ? Size.Y * .24f : 5 * S) + Shift, bEnabled ? White : Grey,
+		Strong, 1, true, Size.X - 20 * S);
+	Print(Hint, Mid, R.Min.Y + Size.Y - 19 * S + Shift, bHot ? Accent : Grey, LabelSize, 1, false, Size.X - 20 * S);
+	return R;
+}
+
+void AFTHUD::UpdateMenuMotion(const AFTGameMode& G)
+{
+	EMenuView View = EMenuView::None;
+	int32 Page = INDEX_NONE, Selection = INDEX_NONE;
+	if (!bReducedMotion)
+	{
+		switch (G.Overlay)
+		{
+		case EFTOverlay::Pause:
+			View = EMenuView::Pause;
+			Selection = G.PauseRow;
+			break;
+		case EFTOverlay::Controls:
+			View = EMenuView::Controls;
+			Selection = (G.ControlsRow * 2 + G.ControlsCol) * 2 + int32(G.bControlsWaiting);
+			break;
+		case EFTOverlay::Options:
+			break;
+		case EFTOverlay::None:
+			if (G.bAttract || G.Phase == EFTPhase::Title)
+			{
+				View = EMenuView::Title;
+				Page = int32(G.TitleActionFocus != INDEX_NONE);
+				Selection = Page ? G.TitleActionFocus : G.TitleSel;
+			}
+			else if (G.Phase == EFTPhase::PreProduction && G.Tab != EFTTab::Skills)
+			{
+				View = EMenuView::Department;
+				Page = static_cast<int32>(G.Tab);
+				Selection = G.SelIndex();
+			}
+			else if (G.Phase == EFTPhase::Reel)
+			{
+				View = EMenuView::Reel;
+				Selection = G.bReelDone ? INDEX_NONE : G.ReelShot;
+			}
+			break;
+		}
+	}
+	const bool bOpened = View != MotionView || Page != MotionPage;
+	if (bOpened) ViewEnteredAt = T;
+	if (bOpened || Selection != MotionSelection) SelectionChangedAt = T;
+	MotionView = View;
+	MotionPage = Page;
+	MotionSelection = Selection;
+}
+
+float AFTHUD::MenuAge(EMenuView View, bool bSelection) const
+{
+	return MotionView == View ? T - (bSelection ? SelectionChangedAt : ViewEnteredAt) : -1.f;
+}
+
+void AFTHUD::AccentSweep(const FBox2D& Lane, float Age, const FLinearColor& Accent, float Duration)
+{
+	if (bReducedMotion || Age < 0.f || Age >= Duration) return;
+
+	// Move a short light along an edge. The clip stays inside the panel and never changes its hit box.
+	const float Travel = Lane.GetSize().X;
+	const float Length = FMath::Min(Travel * .42f, 115.f * S);
+	const float Progress = FMath::InterpEaseOut(0.f, 1.f, Age / Duration, 1.6f);
+	const float Head = Lane.Min.X + (Travel + Length) * Progress;
+	const float Start = FMath::Max(Lane.Min.X, Head - Length);
+	const float End = FMath::Min(Lane.Max.X, Head);
+	if (End <= Start) return;
+
+	const float Opacity = 1.f - Age / Duration;
+	const float Height = Lane.GetSize().Y;
+	Box(Start, Lane.Min.Y, End - Start, Height, Alpha(Accent, .6f * Opacity));
+	const float Tip = FMath::Min(7.f * S, End - Start);
+	Box(End - Tip, Lane.Min.Y, Tip, Height, Alpha(White, .72f * Opacity));
+}
+
+void AFTHUD::FocusAccent(const FBox2D& Button, float Age, const FLinearColor& Accent)
+{
+	AccentSweep(Rect(Button.Min.X + 5 * S, Button.Max.Y - 4 * S, Button.GetSize().X - 10 * S, 3 * S),
+		Age, Accent, FocusSweep);
 }
 
 void AFTHUD::DrawHUD()
@@ -68,19 +274,24 @@ void AFTHUD::DrawHUD()
 	Super::DrawHUD();
 	AFTGameMode* G = GetWorld() ? GetWorld()->GetAuthGameMode<AFTGameMode>() : nullptr;
 	if (!G || !Canvas) return;
-	W = Canvas->SizeX; H = Canvas->SizeY; S = H / 720.f;
+	W = Canvas->SizeX; H = Canvas->SizeY;
+	if (W <= 0.f || H <= 0.f) return;
+	S = FMath::Min(W / FTHUDStyle::Width, H / CanvasHeight);
+	Left = (W - FTHUDStyle::Width * S) * .5f;
+	Right = W - Left;
 	T = GetWorld()->GetRealTimeSeconds();
-	if (!FD) FD = DisplayFont ? DisplayFont.Get() : Cast<UFont>(StaticLoadObject(UFont::StaticClass(), nullptr, TEXT("/Game/UI/Fonts/F_Display"), nullptr, LOAD_NoWarn | LOAD_Quiet));
-	if (!FB) FB = BodyFont ? BodyFont.Get() : Cast<UFont>(StaticLoadObject(UFont::StaticClass(), nullptr, TEXT("/Game/UI/Fonts/F_Body"), nullptr, LOAD_NoWarn | LOAD_Quiet));
-	if (!FD) FD = GEngine->GetLargeFont();
-	if (!FB) FB = GEngine->GetMediumFont();
-
+	bReducedMotion = G->GI() && G->GI()->bReducedMotion;
+	UpdateMenuMotion(*G);
 	if (!bTitleAssets)
 	{
 		bTitleAssets = true;
+		FD = DisplayFont ? DisplayFont.Get() : GEngine->GetLargeFont();
+		FB = BodyFont ? BodyFont.Get() : GEngine->GetMediumFont();
 		FOrb = Cast<UFont>(StaticLoadObject(UFont::StaticClass(), nullptr, TEXT("/Game/UI/Fonts/F_Orbitron"), nullptr, LOAD_NoWarn | LOAD_Quiet));
 		FRaj = Cast<UFont>(StaticLoadObject(UFont::StaticClass(), nullptr, TEXT("/Game/UI/Fonts/F_Rajdhani"), nullptr, LOAD_NoWarn | LOAD_Quiet));
 		TLogo = Cast<UTexture2D>(StaticLoadObject(UTexture2D::StaticClass(), nullptr, TEXT("/Game/UI/Title/T_TitleLogo"), nullptr, LOAD_NoWarn | LOAD_Quiet));
+		OrbitHeight = FMath::Max(1.f, float(MeasureF(FOrb ? FOrb.Get() : FD.Get(), TEXT("Hg"), 1.f).Y / S));
+		RajHeight = FMath::Max(1.f, float(MeasureF(FRaj ? FRaj.Get() : FB.Get(), TEXT("Hg"), 1.f).Y / S));
 		UE_LOG(LogFT, Display, TEXT("FT TITLE assets orbitron=%d rajdhani=%d logo=%d"), FOrb ? 1 : 0, FRaj ? 1 : 0, TLogo ? 1 : 0);
 	}
 	// 3.0 attract mode: the game runs underneath (no race HUD), the wipe, then the title on top
@@ -93,7 +304,7 @@ void AFTHUD::DrawHUD()
 	{
 	case EFTPhase::Title: DrawTitle(G); break;
 	case EFTPhase::Card: DrawCard(G); break;
-	case EFTPhase::Play: DrawPlay(G); break;
+	case EFTPhase::Play: if (G->Overlay == EFTOverlay::None) { DrawPickupMarkers(*G); } DrawPlay(G); break;   // braces: clang -Werror,-Wmisleading-indentation (Mac)
 	case EFTPhase::Wreck: case EFTPhase::Wrap: DrawPlay(G); DrawCut(G); break;
 	case EFTPhase::Reel: DrawReel(G); break;
 	case EFTPhase::Rating: DrawRating(G); break;
@@ -101,6 +312,8 @@ void AFTHUD::DrawHUD()
 	case EFTPhase::PreProduction: DrawPreProduction(G); break;
 	}
 	if (!G->bAttract) DrawFx(G);
+	G->DrawnOverlay = G->Overlay;
+	G->OverlayRects.Reset();
 	switch (G->Overlay)
 	{
 	case EFTOverlay::Pause: DrawPause(G); break;
@@ -110,37 +323,9 @@ void AFTHUD::DrawHUD()
 	}
 	if (const UFTGameInstance* GI = G->GI())
 	{
-		if (GI->bShowFps) Txt(FString::Printf(TEXT("%.0f FPS  %.1f ms"), G->FpsSmoothed, 1000.f / FMath::Max(1.f, G->FpsSmoothed)), W - 12 * S, H - 26 * S, Green, 0.9f, 2);
-		if (GI->bMuted) Txt(TEXT("MUTED (M)"), 12 * S, H - 26 * S, Grey, 0.8f);
+		if (GI->bShowFps) Print(FString::Printf(TEXT("%.0f FPS  %.1f ms"), G->FpsSmoothed, 1000.f / FMath::Max(1.f, G->FpsSmoothed)), W - 12 * S, H - 22 * S, Green, LabelSize, 2);
+		if (GI->bMuted) Print(TEXT("MUTED / M"), 12 * S, H - 22 * S, Grey, LabelSize);
 	}
-}
-
-// ---------------------------------------------------------------------------------------------- title
-// 3.0: text in a given font (the title's Orbitron / Rajdhani), with an optional neon glow around it
-void AFTHUD::TxtF(UFont* F, const FString& Str, float X, float Y, const FLinearColor& C, float Scale, int32 Align, bool bShadow, const FLinearColor& Glow)
-{
-	if (!F) F = FB;
-	if (Align != 0)
-	{
-		const FVector2D M = MeasureF(F, Str, Scale);
-		X -= Align == 1 ? M.X * 0.5f : M.X;
-	}
-	if (Glow.A > 0.f)
-	{
-		// a cheap neon halo: the text eight times, offset, faint
-		static const FVector2D Off[8] = { {1, 0}, {-1, 0}, {0, 1}, {0, -1}, {0.7f, 0.7f}, {-0.7f, 0.7f}, {0.7f, -0.7f}, {-0.7f, -0.7f} };
-		for (const FVector2D& O : Off)
-		{
-			FCanvasTextItem Gl(FVector2D(X, Y) + O * 2.5f * S, FText::FromString(Str), F, Glow);
-			Gl.Scale = FVector2D(Scale * S);
-			Gl.BlendMode = SE_BLEND_Translucent;
-			Canvas->DrawItem(Gl);
-		}
-	}
-	FCanvasTextItem It(FVector2D(X, Y), FText::FromString(Str), F, C);
-	It.Scale = FVector2D(Scale * S);
-	if (bShadow) It.EnableShadow(FLinearColor(0.02f, 0.f, 0.06f, 0.9f), FVector2D(2.f * S, 2.f * S));
-	Canvas->DrawItem(It);
 }
 
 FVector2D AFTHUD::MeasureF(UFont* F, const FString& Str, float Scale)
@@ -164,854 +349,1056 @@ void AFTHUD::Grad(float X, float Y, float Wd, float Ht, const FLinearColor& A, c
 	Canvas->DrawItem(It);
 }
 
-FBox2D AFTHUD::TitleButton(float X, float Y, float Wd, float Ht, const FString& Label, const FString& Sub, bool bHot)
-{
-	const float Pulse = 0.5f + 0.5f * FMath::Sin(T * 4.f);
-	if (bHot) Grad(X, Y, Wd, Ht, FLinearColor(1.f, 0.18f, 0.62f, 0.9f), FLinearColor(0.45f, 0.06f, 0.55f, 0.9f), true);
-	else Box(X, Y, Wd, Ht, FLinearColor(0.06f, 0.01f, 0.12f, 0.78f));
-	Frame(X, Y, Wd, Ht, bHot ? Yellow : FLinearColor(0.21f, 0.95f, 1.f, 0.45f + 0.25f * Pulse), bHot ? 2.5f : 1.5f);
-	TxtF(FOrb, Label, X + Wd * 0.5f, Y + Ht * 0.14f, bHot ? FLinearColor(1.f, 1.f, 0.9f) : White, 0.34f, 1);
-	TxtF(FRaj, Sub, X + Wd * 0.5f, Y + Ht * 0.56f, bHot ? Yellow : FLinearColor(0.75f, 0.9f, 1.f, 0.85f), 0.38f, 1, false);
-	return FBox2D(FVector2D(X, Y), FVector2D(X + Wd, Y + Ht));
-}
-
 void AFTHUD::DrawTitle(AFTGameMode* G)
 {
-	UFont* FO = FOrb ? FOrb.Get() : FD.Get();
-	UFont* FR = FRaj ? FRaj.Get() : FB.Get();
 	const UFTGameInstance* GI = G->GI();
-	const bool bAtt = G->bAttract;
-	const FLinearColor Night(0.02f, 0.f, 0.06f, 0.f);
-	auto WithA = [](FLinearColor C, float A) { C.A = A; return C; };
+	const bool bInteractive = G->Overlay == EFTOverlay::None;
+	const float X = Left + Safe * S, Y = (H - CanvasHeight * S) * .5f;
+	const float BoardW = 442 * S, ActionY = H - 88 * S;
+	const FLinearColor Night = Alpha(Deep, 0.f);
 
-	// shade where the title sits, so it reads over the racing (the static title, attract off, keeps its full veil)
-	if (!bAtt) Box(0, 0, W, H, FLinearColor(0.02f, 0.f, 0.06f, 0.45f));
-	Grad(0, 0, W, H * 0.34f, WithA(Night, 0.78f), WithA(Night, 0.f), false);
-	Grad(0, 0, W * 0.47f, H, WithA(Night, 0.80f), WithA(Night, 0.f), true);
-	Grad(0, H * 0.78f, W, H * 0.22f, WithA(Night, 0.f), WithA(Night, 0.88f), false);
+	if (!G->bAttract) Box(0, 0, W, H, Alpha(Deep, .46f));
+	Grad(0, 0, X + BoardW + 160 * S, H, Deep, Night, true);
+	Grad(0, H - 135 * S, W, 135 * S, Night, Deep, false);
+	Plate(Rect(X, Y + 25 * S, BoardW, ActionY - Y - 41 * S), Pink, Ink);
 
-	// the logo: a quick zoom in the first time the title opens (not on an attract cut)
-	const float In = FMath::Clamp(G->TitleT / 0.7f, 0.f, 1.f);
-	const float Ease = 1.f - FMath::Pow(1.f - In, 3.f);
-	const float LogoH = 158.f * S * (1.f + 0.25f * (1.f - Ease)), LogoW = LogoH * 1600.f / 608.f;
-	const float LogoY = 6.f * S;
-	if (TLogo)
+	const float Entry = bInteractive ? G->TitleT : -1.f;
+	AccentSweep(Rect(X + 1 * S, Y + 26 * S, BoardW - 2 * S, 4 * S), Entry, Pink, MenuEntrance);
+	const float In = bReducedMotion || !bInteractive ? 1.f : EaseOut(Entry, MenuEntrance);
+	const float LogoW = 395 * S;
+	if (TLogo && TLogo->GetResource())
 	{
-		FCanvasTileItem Lg(FVector2D(W * 0.5f - LogoW * 0.5f, LogoY), TLogo->GetResource(), FVector2D(LogoW, LogoH), FLinearColor(1.f, 1.f, 1.f, Ease));
-		Lg.BlendMode = SE_BLEND_Translucent;
-		Canvas->DrawItem(Lg);
+		const float LogoH = LogoW * TLogo->GetSizeY() / FMath::Max(1, TLogo->GetSizeX());
+		FCanvasTileItem Logo(FVector2D(X + (BoardW - LogoW) * .5f, Y + (47.f + 12.f * (1.f - In)) * S),
+			TLogo->GetResource(), FVector2D(LogoW, LogoH), Alpha(FLinearColor::White, .74f + .26f * In));
+		Logo.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(Logo);
 	}
-	else
-	{
-		TxtF(FO, TEXT("FULL THROTTLE"), W * 0.5f, LogoY + 40 * S, Cyan, 1.6f, 1, true, FLinearColor(1.f, 0.2f, 0.65f, 0.25f));
-	}
-	const float TagY = LogoY + 158.f * S;
-	TxtF(FR, TEXT("AN 80s SPY CAR CHASE  ·  STARRING YOU AS AGENT NOVA KANE"), W * 0.5f, TagY, Yellow, 0.50f, 1);
-	if (const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(G))
-		TxtF(FR, FString::Printf(TEXT("DRIVER LV %d   ·   %s   ·   %d SKILL POINT%s TO SPEND"), CS->C.Level, *Money(CS->C.Cash), CS->SPLeft(), CS->SPLeft() == 1 ? TEXT("") : TEXT("S")),
-			W * 0.5f, TagY + 19 * S, FLinearColor(1.f, 0.45f, 0.8f), 0.42f, 1);
+	else Print(TEXT("FULL THROTTLE"), X + BoardW * .5f, Y + 89 * S, White, Heading, 1, true, BoardW - 30 * S);
 
-	// the eight levels, one list down the left
-	const int32 NL = FTData::NumLevels();
-	const float Lx = 28 * S, Lw = 450 * S, Rh = 38 * S, Gap = 4 * S, Ly0 = H * 0.335f;
-	TxtF(FO, TEXT("SELECT YOUR SHOOT"), Lx + 4 * S, Ly0 - 20 * S, Cyan, 0.32f, 0, true, FLinearColor(0.2f, 0.9f, 1.f, 0.12f));
-	G->TitleRowRects.SetNum(NL);
-	for (int32 i = 0; i < NL; ++i)
+	Print(TEXT("AN 80s SPY CAR CHASE"), X + 16 * S, Y + 183 * S, Grey, Body);
+	Box(X + 16 * S, Y + 211 * S, BoardW - 32 * S, S, Rule);
+	Print(TEXT("SELECT YOUR SHOOT"), X + 16 * S, Y + 222 * S, White, Strong, 0, true);
+	Print(TEXT("1–8  /  UP-DOWN  /  D-PAD"), X + BoardW - 16 * S, Y + 224 * S, Grey, LabelSize, 2);
+	const int32 Count = FTData::NumLevels();
+	G->TitleRowRects.SetNum(Count);
+	const int32 Selection = FMath::Clamp(G->TitleSel, 0, Count - 1);
+	const float RowH = FMath::Min(39.f, 312.f / Count) * S;
+	for (int32 I = 0; I < Count; ++I)
 	{
-		const FFTLevelDef& L = FTData::Level(i);
-		const bool bSel = G->TitleSel == i;
-		const float Y = Ly0 + i * (Rh + Gap);
-		const float X = Lx + (bSel ? 10.f * S : 0.f);
-		if (bSel) Grad(X, Y, Lw, Rh, FLinearColor(1.f, 0.18f, 0.62f, 0.88f), FLinearColor(0.3f, 0.04f, 0.45f, 0.35f), true);
-		else Box(X, Y, Lw, Rh, FLinearColor(0.05f, 0.01f, 0.1f, 0.58f));
-		Box(X, Y, 4 * S, Rh, bSel ? Yellow : FLinearColor(1.f, 0.31f, 0.72f, 0.55f));
-		if (bSel) Frame(X, Y, Lw, Rh, FLinearColor(1.f, 0.85f, 0.3f, 0.9f), 1.5f);
-		// the number in a neon square
-		const float Nx = X + 12 * S, Ny = Y + 5 * S, Ns = Rh - 10 * S;
-		Box(Nx, Ny, Ns, Ns, bSel ? FLinearColor(0.05f, 0.f, 0.1f, 0.9f) : FLinearColor(0.f, 0.f, 0.f, 0.4f));
-		Frame(Nx, Ny, Ns, Ns, bSel ? Yellow : FLinearColor(0.21f, 0.95f, 1.f, 0.7f), 1.5f);
-		TxtF(FO, FString::FromInt(i + 1), Nx + Ns * 0.5f, Ny + Ns * 0.16f, bSel ? Yellow : Cyan, 0.38f, 1, false);
-		TxtF(FO, L.Zone, Nx + Ns + 12 * S, Y + 3 * S, bSel ? FLinearColor(1.f, 1.f, 0.95f) : FLinearColor(0.92f, 0.9f, 1.f, 0.9f), 0.37f, 0, true);
-		FString Sub = L.Title;
-		if (GI && i < UFTGameInstance::MaxLevels && GI->BestScore[i] > 0) Sub += FString::Printf(TEXT("   ·   BEST %s  %s"), *Num(GI->BestScore[i]), *GI->BestTitle[i]);
-		TxtF(FR, Sub, Nx + Ns + 12 * S, Y + 20 * S, bSel ? Yellow : FLinearColor(1.f, 0.55f, 0.85f, 0.9f), 0.42f, 0, true);
-		// the level the demo is showing right now
-		if (bAtt && G->Level == i && G->AttractOutT < 0.f)
+		const FFTLevelDef& Level = FTData::Level(I);
+		const FBox2D Row = Rect(X + 14 * S, Y + 252 * S + I * RowH, BoardW - 28 * S, RowH - 3 * S);
+		const bool bFocus = Selection == I;
+		const EControl State = bInteractive ? ControlState(Row, bFocus) : (bFocus ? EControl::Focus : EControl::Idle);
+		const bool bHover = State == EControl::Hover || State == EControl::Pressed;
+		const FLinearColor Accent = bFocus ? Cyan : bHover ? White : Rule;
+		Box(Row.Min.X, Row.Min.Y, Row.GetSize().X, Row.GetSize().Y, State == EControl::Pressed ? Deep : bFocus ? Active : Steel);
+		Box(Row.Min.X, Row.Min.Y, (bFocus ? 4 : 1) * S, Row.GetSize().Y, Accent);
+		if (bFocus || bHover) Frame(Row.Min.X, Row.Min.Y, Row.GetSize().X, Row.GetSize().Y, Accent, 1.f);
+		const float RowEntry = Entry - .075f - I * RowStagger;
+		if (bFocus && G->TitleActionFocus == INDEX_NONE && Entry >= MenuEntrance)
+			FocusAccent(Row, MenuAge(EMenuView::Title, true), Cyan);
+		else
+			AccentSweep(Rect(Row.Min.X + 5 * S, Row.Min.Y + S, Row.GetSize().X - 10 * S, 2 * S),
+				RowEntry, bFocus ? Cyan : Pink, FocusSweep);
+		Print(FString::Printf(TEXT("%02d"), I + 1), Row.Min.X + 22 * S, Row.Min.Y + 9 * S, bFocus ? Cyan : Grey, LabelSize, 1, true);
+		Print(Level.Zone, Row.Min.X + 45 * S, Row.Min.Y + 2 * S, White, Body, 0, true, 232 * S);
+		Print(Level.Title, Row.Min.X + 45 * S, Row.Min.Y + 18 * S, Grey, LabelSize, 0, false, 232 * S);
+		const bool bOnAir = G->bAttract && G->Level == I && G->AttractOutT < 0.f;
+		const bool bHasBest = GI && I < UFTGameInstance::MaxLevels && GI->BestScore[I] > 0;
+		if (bOnAir)
 		{
-			const bool bBlink = FMath::Fmod(T, 1.f) < 0.6f;
-			Box(X + Lw - 78 * S, Y + Rh * 0.5f - 4 * S, 8 * S, 8 * S, FLinearColor(1.f, 0.15f, 0.2f, bBlink ? 1.f : 0.35f));
-			TxtF(FR, TEXT("ON AIR"), X + Lw - 8 * S, Y + Rh * 0.5f - 7 * S, FLinearColor(1.f, 0.4f, 0.4f), 0.4f, 2, false);
+			Icon(EIcon::Record, Row.Max.X - (bHasBest ? 131 : 73) * S, Row.Min.Y + 9 * S, 16 * S, Pink);
+			if (!bHasBest) Print(TEXT("ON AIR"), Row.Max.X - 10 * S, Row.Min.Y + 9 * S, Pink, LabelSize, 2);
 		}
-		G->TitleRowRects[i] = FBox2D(FVector2D(Lx, Y), FVector2D(Lx + Lw + 10 * S, Y + Rh));
+		if (bHasBest)
+		{
+			Print(FString::Printf(TEXT("BEST %s"), *Num(GI->BestScore[I])), Row.Max.X - 10 * S, Row.Min.Y + 2 * S, Yellow, LabelSize, 2, false, 120 * S);
+			Print(GI->BestTitle[I], Row.Max.X - 10 * S, Row.Min.Y + 17 * S, Grey, LabelSize, 2, false, 120 * S);
+		}
+		G->TitleRowRects[I] = Row;
 	}
+	if (const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(G))
+		Print(FString::Printf(TEXT("DRIVER LV %d   /   %s   /   %d SKILL POINTS"), CS->C.Level, *Money(CS->C.Cash), CS->SPLeft()),
+			X + 16 * S, Y + 573 * S, Yellow, Body, 0, false, BoardW - 32 * S);
 
-	// roll camera, then the buttons (each also has its key and pad button)
-	const float PromptY = H * 0.818f;
-	if (FMath::Fmod(T, 1.1f) < 0.75f)
-		TxtF(FO, TEXT("PRESS ENTER (A) TO ROLL CAMERA"), W * 0.5f, PromptY, White, 0.48f, 1, true, FLinearColor(1.f, 0.2f, 0.65f, 0.22f));
-	static const TCHAR* BL[5] = { TEXT("ROLL CAMERA"), TEXT("PRE-PRODUCTION"), TEXT("CONTROLS"), TEXT("OPTIONS"), TEXT("QUIT") };
-	static const TCHAR* BS[5] = { TEXT("ENTER  ·  PAD A"), TEXT("G  ·  PAD BACK"), TEXT("C  ·  PAD Y"), TEXT("O"), TEXT("ESC") };
-	const float Bw = 190 * S, Bh = 40 * S, Bg = 12 * S, Bx0 = W * 0.5f - (Bw * 5 + Bg * 4) * 0.5f, By = H * 0.874f;
-	G->TitleBtnRects.SetNum(5);
-	for (int32 i = 0; i < 5; ++i) G->TitleBtnRects[i] = TitleButton(Bx0 + i * (Bw + Bg), By, Bw, Bh, BL[i], BS[i], G->TitleHotBtn == i);
-
-	// one help line at the bottom, taking turns
-	if (GI)
+	static const TCHAR* Actions[] = { TEXT("ROLL CAMERA"), TEXT("PRE-PRODUCTION"), TEXT("CONTROLS"), TEXT("OPTIONS"), TEXT("QUIT") };
+	static const TCHAR* Hints[] = { TEXT("ENTER / A"), TEXT("G / PAD BACK"), TEXT("C / Y"), TEXT("O"), TEXT("ESC") };
+	const AFTPlayerController* PC = Cast<AFTPlayerController>(GetOwningPlayerController());
+	const float BarW = Right - X - Safe * S, LeadW = 272 * S;
+	const float OtherW = (BarW - LeadW - 4 * Gap * S) * .25f;
+	G->TitleBtnRects.SetNum(UE_ARRAY_COUNT(Actions));
+	float Bx = X;
+	for (int32 I = 0; I < UE_ARRAY_COUNT(Actions); ++I)
 	{
-		const FString Lay = GI->Layout == 0 ? TEXT("WASD steer  ·  hold SHIFT + steer to drift  ·  SPACE turbo  ·  J guns  ·  K missile  ·  L ammo")
-			: TEXT("ARROWS steer  ·  hold SHIFT + steer to drift  ·  SPACE turbo  ·  Z guns  ·  X missile  ·  C ammo");
-		const int32 Turn = (int32)(T / 5.f) % 3;
-		const FString Help = Turn == 0 ? Lay : (Turn == 1 ? FString(TEXT("Mouse: hold left = guns, right click = missile   ·   Gamepad: stick, A/RB drift, X guns, B missile, LB/RT turbo"))
-			: FString(TEXT("UP / DOWN or 1-8 pick the level   ·   M mute   ·   F1 frame rate   ·   Unreal Engine 5.9")));
-		TxtF(FR, Help, W * 0.5f, H * 0.955f, FLinearColor(0.7f, 0.95f, 1.f, 0.9f), 0.44f, 1, true);
+		const float Bw = I == 0 ? LeadW : OtherW;
+		const FBox2D ButtonRect = Rect(Bx, ActionY, Bw, 50 * S);
+		const bool bEnabled = I != 4 || G->TitleT > 1.f;
+		const bool bFocus = I == (G->TitleActionFocus == INDEX_NONE ? 0 : G->TitleActionFocus);
+		EControl State = bInteractive ? ControlState(ButtonRect, bFocus, bEnabled) : EControl::Idle;
+		if (bFocus && bInteractive && PC && (PC->IsInputKeyDown(EKeys::Enter) || PC->IsInputKeyDown(EKeys::Gamepad_FaceButton_Bottom)))
+			State = EControl::Pressed;
+		G->TitleBtnRects[I] = Control(ButtonRect, Actions[I], Hints[I], State, I == 0 ? Cyan : Pink);
+		if (bFocus && bEnabled && G->TitleActionFocus != INDEX_NONE)
+			FocusAccent(ButtonRect, MenuAge(EMenuView::Title, true), I == 0 ? Cyan : Pink);
+		Bx += Bw + Gap * S;
 	}
+	Print(G->TitleActionFocus == INDEX_NONE ? TEXT("TAB / RB   ACTIONS") : TEXT("LEFT-RIGHT / D-PAD   ACTIONS     TAB / RB   SHOOTS"),
+		W * .5f, ActionY + 58 * S, Grey, LabelSize, 1);
+
+	if (G->bAttract) DrawAttractOsd(G);
 	if (GI && !GI->TitleBanner.IsEmpty() && G->TitleT < 8.f)
 	{
-		const float A = FMath::Clamp(8.f - G->TitleT, 0.f, 1.f);
-		Box(W * 0.47f, H * 0.42f, W * 0.53f, 70 * S, FLinearColor(0, 0, 0, 0.6f * A));
-		TxtF(FO, GI->TitleBanner, W * 0.735f, H * 0.43f, FLinearColor(1.f, 0.82f, 0.25f, A), 0.85f, 1, true, FLinearColor(1.f, 0.4f, 0.1f, 0.2f * A));
+		const float Center = (X + BoardW + Right) * .5f;
+		const FBox2D Banner = Rect(Center - 230 * S, Y + 227 * S, 460 * S, 68 * S);
+		Plate(Banner, Yellow, Ink);
+		Print(GI->TitleBanner, Center, Banner.Min.Y + 13 * S, Yellow, Heading, 1, true, 420 * S);
 	}
-	if (bAtt) DrawAttractOsd(G);
 }
 
-// 3.0: the VHS-style on-screen display in the top right of the attract mode
 void AFTHUD::DrawAttractOsd(AFTGameMode* G)
 {
-	UFont* FO = FOrb ? FOrb.Get() : FD.Get();
-	UFont* FR = FRaj ? FRaj.Get() : FB.Get();
 	const bool bOut = G->AttractOutT >= 0.f;
-	const int32 Lv = bOut ? G->AttractNextLevel() : G->Level;
-	const FFTLevelDef& L = FTData::Level(Lv);
-	const FLinearColor Osd(0.55f, 1.f, 0.7f, 0.95f);
-	const float Rx = W - 26 * S, Y = 18 * S;
-	const FString Ch = FString::Printf(TEXT("CH %02d"), Lv + 1);
-	const FVector2D Cm = MeasureF(FO, Ch, 0.48f);
-	TxtF(FO, Ch, Rx, Y, Osd, 0.48f, 2, true);
-	const FString Pl = bOut ? TEXT("TUNING") : TEXT("PLAY");
-	const FVector2D Pm = MeasureF(FO, Pl, 0.48f);
-	const float Px = Rx - Cm.X - 22 * S - Pm.X;
-	TxtF(FO, Pl, Px, Y, Osd, 0.48f, 0, true);
-	if (!bOut && FMath::Fmod(T, 1.f) < 0.7f)
-	{
-		// the play triangle
-		const float Tx = Px - 20 * S, Ty = Y + Pm.Y * 0.5f;
-		FCanvasTriangleItem Tri(FVector2D(Tx, Ty - 9 * S), FVector2D(Tx + 15 * S, Ty), FVector2D(Tx, Ty + 9 * S), GWhiteTexture);
-		Tri.SetColor(Osd);
-		Canvas->DrawItem(Tri);
-	}
-	TxtF(FR, FString::Printf(TEXT("LEVEL %d  ·  %s  ·  %s"), Lv + 1, *L.Zone, *L.Title), Rx, Y + Cm.Y + 1 * S, FLinearColor(1.f, 1.f, 1.f, 0.92f), 0.44f, 2, true);
-	TxtF(FR, TEXT("DEMO  ·  THE AUTOPILOT IS DRIVING"), Rx, Y + Cm.Y + 18 * S, FLinearColor(1.f, 0.6f, 0.85f, 0.85f), 0.38f, 2, true);
+	const int32 Index = bOut ? G->AttractNextLevel() : G->Level;
+	const FFTLevelDef& Level = FTData::Level(Index);
+	const float X = Right - (Safe + 306.f) * S, Y = 28 * S;
+	const FBox2D Monitor = Rect(X, Y, 306 * S, 67 * S);
+	Plate(Monitor, Pink, Ink);
+	if (G->Overlay == EFTOverlay::None)
+		AccentSweep(Rect(X + 7 * S, Monitor.Max.Y - 6 * S, 284 * S, 3 * S), G->TitleT - .085f, Pink, MenuEntrance);
+	Icon(EIcon::Record, X + 12 * S, Y + 10 * S, 18 * S, Pink);
+	Print(bOut ? TEXT("CHANGING FEED") : TEXT("ATTRACT FEED"), X + 36 * S, Y + 10 * S, Pink, LabelSize, 0, true);
+	Print(FString::Printf(TEXT("CH %02d"), Index + 1), Monitor.Max.X - 14 * S, Y + 10 * S, Grey, LabelSize, 2, true);
+	Print(Level.Zone + TEXT(" / ") + Level.Title, X + 15 * S, Y + 34 * S, White, Strong, 0, false, 276 * S);
+
+	const float R = Right - Safe * S, Bottom = H - 121 * S;
+	Stroke(FVector2D(R - 40 * S, Bottom), FVector2D(R, Bottom), Rule, 2.f);
+	Stroke(FVector2D(R, Bottom), FVector2D(R, Bottom - 28 * S), Rule, 2.f);
 }
 
-// 3.0: the channel-change wipe between the attract mode's levels. Neon-edged bands slide in from alternate sides,
-// the covered screen shows a test card (a striped synthwave sun, the channel and the level), then the bands slide
-// away. The title stays drawn on top of all of it; the next map loads while the card is up.
+void AFTHUD::DrawPickupMarkers(const AFTGameMode& Game)
+{
+	const AFTPlayerCar* Car = Game.GetCar();
+	const APlayerController* View = GetOwningPlayerController();
+	if (!Car || !View) return;
+
+	constexpr float MaxAhead = 10500.f;
+	constexpr int32 MaxMarkers = 4;
+	TArray<const FFTEnt*, TInlineAllocator<8>> Pickups;
+	for (const FFTEnt& Entity : Game.GetActiveEntities())
+	{
+		const float Ahead = Entity.D - Car->D;
+		if (!Entity.bDead && (Entity.Kind == EFTKind::Crate || Entity.Kind == EFTKind::Wrench) && Ahead > 220.f && Ahead < MaxAhead)
+			Pickups.Add(&Entity);
+	}
+	if (Pickups.IsEmpty()) return;
+	Pickups.Sort([](const FFTEnt& Left, const FFTEnt& Right) { return Left.D < Right.D; });
+
+	FVector Eye;
+	FRotator EyeRotation;
+	View->GetPlayerViewPoint(Eye, EyeRotation);
+	FCollisionQueryParams Visibility(SCENE_QUERY_STAT(FTPickupMarker), true, Car);
+	TArray<FBox2D, TInlineAllocator<MaxMarkers>> Drawn;
+	const float LabelHeight = 16.f;
+	const float Margin = 12.f * S;
+	const float Stem = 8.f * S;
+	static const FString Missiles(TEXT("MISSILES")), Repair(TEXT("REPAIR"));
+	for (const FFTEnt* Pickup : Pickups)
+	{
+		const AFTEntityActor* Actor = Pickup->Proxy.Get();
+		if (!Actor || Actor->IsHidden()) continue;
+		const FVector Anchor = Actor->GetActorLocation() + Actor->GetActorUpVector() * 175.f;
+		const FVector Screen = Canvas->Project(Anchor);
+		if (Screen.Z <= 0.f || Screen.ContainsNaN()) continue;
+
+		const bool bRepair = Pickup->Kind == EFTKind::Wrench;
+		const FString& Label = bRepair ? Repair : Missiles;
+		const FVector2D MarkerTextSize = TextSize(Label, LabelHeight);
+		const FVector2D Size(MarkerTextSize.X + 18.f * S, MarkerTextSize.Y + 8.f * S);
+		const FVector2D TopLeft(Screen.X - Size.X * 0.5, Screen.Y - Stem - Size.Y);
+		const FBox2D Bounds(TopLeft, TopLeft + Size + FVector2D(0.f, Stem));
+		if (Bounds.Min.X < Margin || Bounds.Max.X > W - Margin || Bounds.Min.Y < (Game.bBossOn ? 133 : 114) * S || Bounds.Max.Y > H - Margin) continue;
+		if (Drawn.ContainsByPredicate([&](const FBox2D& Other) { return Bounds.Intersect(Other); })) continue;
+
+		const FVector Target = Actor->GetActorLocation() + Actor->GetActorUpVector() * 78.f;
+		if (GetWorld()->LineTraceTestByChannel(Eye, Target, ECC_Visibility, Visibility)) continue;
+
+		const float Ahead = Pickup->D - Car->D;
+		const float Alpha = FMath::SmoothStep(220.f, 630.f, Ahead) * (1.f - FMath::SmoothStep(8700.f, MaxAhead, Ahead));
+		FLinearColor Accent = bRepair ? Green : Amber;
+		Accent.A = Alpha;
+		Box(TopLeft.X, TopLeft.Y, Size.X, Size.Y, FLinearColor(0.014f, 0.009f, 0.032f, 0.94f * Alpha));
+		Frame(TopLeft.X, TopLeft.Y, Size.X, Size.Y, Accent, 1.5f);
+		Box(Screen.X - S, Screen.Y - Stem, 2.f * S, Stem, Accent);
+		Print(Label, Screen.X, TopLeft.Y + 3.5f * S, FLinearColor(White.R, White.G, White.B, Alpha), LabelHeight, 1);
+		Drawn.Add(Bounds);
+		if (Drawn.Num() == MaxMarkers) break;
+	}
+}
+
+void AFTHUD::DrawPlay(AFTGameMode* G)
+{
+	const FFTLevelDef& Level = G->Def();
+	const UFTGameInstance* GI = G->GI();
+	const FFTProgressData& ProgressData = FFTProgressData::Get();
+	const AFTPlayerController* PC = Cast<AFTPlayerController>(GetOwningPlayerController());
+	const bool bPad = PC && PC->UsesGamepadPrompts();
+	const auto Hint = [&](EFTAction Action, const TCHAR* Pad) { return bPad ? FString(Pad) : Binding(GI, Action); };
+	const float Now = G->RealClockNow();
+	const float X = Left + Safe * S, R = Right - Safe * S, Center = W * .5f;
+	const float Top = 25 * S, Base = H - 47 * S;
+	const float Hp = G->HpPct(), TurboFrac = G->Turbo / FMath::Max(1.f, G->Stats.TurboTank);
+	const int32 Load = FMath::Clamp(G->AmmoLoad, 0, 2), Rounds = Load > 0 ? G->Run.Rounds[Load - 1] : 0;
+	if (LastArmor >= 0.f && !FMath::IsNearlyEqual(LastArmor, G->Hp)) ArmorChanged = Now;
+	if (LastMissiles >= 0 && LastMissiles != G->Missiles) MissileChanged = Now;
+	if (LastAmmoLoad >= 0 && (LastAmmoLoad != Load || LastAmmoRounds != Rounds)) AmmoChanged = Now;
+	LastArmor = G->Hp;
+	LastMissiles = G->Missiles;
+	LastAmmoLoad = Load;
+	LastAmmoRounds = Rounds;
+	const auto Emphasis = [&](float Changed, const FLinearColor& Normal)
+	{
+		const float Amount = bReducedMotion ? 0.f : 1.f - EaseOut(Now - Changed, Feedback);
+		return FMath::Lerp(Normal, White, Amount * .65f);
+	};
+
+	// Primary instruments sit on either side of the car and stay within the center 16:9 area.
+	const float DriverW = 322 * S, DriverY = Base - 171 * S;
+	Plate(Rect(X, DriverY, DriverW, 171 * S), Cyan, Ink);
+	Print(TEXT("KESTREL-88 / AGENT N. KANE"), X + 14 * S, DriverY + 9 * S, Grey, LabelSize, 0, true);
+	Print(FString::FromInt(FMath::RoundToInt(G->SpeedMph)), X + 14 * S, DriverY + 28 * S, White, Readout, 0, true, 109 * S);
+	Print(TEXT("MPH"), X + 132 * S, DriverY + 50 * S, Grey, LabelSize, 0, true);
+	const float SpeedFrac = FMath::Clamp(G->SpeedMph / (900.f * .31f), 0.f, 1.f);
+	for (int32 I = 0; I < 12; ++I)
+	{
+		const float Px = X + (184 + I * 10) * S, He = (5.f + .7f * I) * S;
+		Stroke(FVector2D(Px, DriverY + 64 * S), FVector2D(Px + 4 * S, DriverY + 64 * S - He),
+			(I + 1) / 12.f <= SpeedFrac ? (I > 9 ? Pink : Cyan) : Track, 3.f);
+	}
+	Box(X + 14 * S, DriverY + 76 * S, 294 * S, S, Rule);
+
+	const FLinearColor ArmorColor = Hp > 60.f ? Green : Hp > 30.f ? Amber : Red;
+	const TCHAR* Damage = Hp > 79.f ? TEXT("NOMINAL") : Hp > 59.f ? TEXT("BODYWORK DAMAGED") : Hp > 39.f ? TEXT("WINDSHIELD CRACKED") : Hp > 24.f ? TEXT("ENGINE SMOKING") : TEXT("CRITICAL / ON FIRE");
+	Icon(Hp <= 25.f ? EIcon::Warning : EIcon::Repair, X + 14 * S, DriverY + 84 * S, IconSize * S, ArmorColor);
+	Print(TEXT("ARMOR"), X + 39 * S, DriverY + 84 * S, White, Body, 0, true);
+	Print(FString::Printf(TEXT("%d%%   %.0f / %.0f"), FMath::RoundToInt(Hp), G->Hp, G->MaxHp()),
+		X + 307 * S, DriverY + 84 * S, Emphasis(ArmorChanged, ArmorColor), Strong, 2, false, 190 * S);
+	Meter(Rect(X + 14 * S, DriverY + 107 * S, 294 * S, 8 * S), Hp / 100.f, ArmorColor, 12);
+	Print(Damage, X + 14 * S, DriverY + 117 * S, ArmorColor, LabelSize);
+
+	const TCHAR* Turbo = G->bTurboOn ? TEXT("BURN") : G->BoostT > 0.f ? TEXT("BOOST") : G->bTurboLock ? TEXT("RECHARGING") : TurboFrac >= .99f ? TEXT("READY") : TEXT("CHARGING");
+	const FLinearColor TurboColor = G->bTurboOn ? Pink : Cyan;
+	Icon(EIcon::Turbo, X + 14 * S, DriverY + 135 * S, 16 * S, TurboColor);
+	Print(FString::Printf(TEXT("TURBO  [%s]"), *Hint(EFTAction::Turbo, TEXT("LB/RT"))), X + 37 * S, DriverY + 134 * S, White, LabelSize, 0, false, 154 * S);
+	Print(G->bDraft ? FString(Turbo) + TEXT(" / DRAFT") : FString(Turbo), X + 307 * S, DriverY + 134 * S, TurboColor, LabelSize, 2);
+	Meter(Rect(X + 14 * S, DriverY + 153 * S, 294 * S, 7 * S), TurboFrac, TurboColor, 8);
+
+	const float WeaponW = 300 * S, WX = R - WeaponW, WY = Base - 163 * S;
+	Plate(Rect(WX, WY, WeaponW, 163 * S), Amber, Ink);
+	Print(TEXT("ORDNANCE"), WX + 14 * S, WY + 8 * S, Grey, LabelSize, 0, true);
+	Icon(EIcon::Missile, WX + 14 * S, WY + 29 * S, IconSize * S, Amber);
+	Print(FString::Printf(TEXT("MISSILES  [%s]"), *Hint(EFTAction::Missile, TEXT("B"))), WX + 39 * S, WY + 29 * S, White, Body, 0, false, 160 * S);
+	const int32 Capacity = G->MissileCap();
+	Print(FString::Printf(TEXT("%d / %d"), G->Missiles, Capacity), R - 14 * S, WY + 26 * S,
+		Emphasis(MissileChanged, G->Missiles > 0 ? Amber : Grey), Strong, 2, true, 82 * S);
+	Meter(Rect(WX + 14 * S, WY + 54 * S, 272 * S, 6 * S), float(G->Missiles) / FMath::Max(1, Capacity), Amber, FMath::Clamp(Capacity, 1, 16));
+
+	Icon(EIcon::Ammo, WX + 14 * S, WY + 68 * S, IconSize * S, Cyan);
+	Print(FString::Printf(TEXT("AMMO  [%s]"), *Hint(EFTAction::Ammo, TEXT("Y"))), WX + 39 * S, WY + 67 * S, White, Body, 0, false, 150 * S);
+	if (Load > 0) Print(Num(Rounds), R - 14 * S, WY + 65 * S, Emphasis(AmmoChanged, Cyan), Strong, 2, true, 94 * S);
+	static const TCHAR* LoadNames[] = { TEXT("STD"), TEXT("AP"), TEXT("HE") };
+	static const FLinearColor LoadColors[] = { Yellow, Cyan, Amber };
+	for (int32 I = 0; I < UE_ARRAY_COUNT(LoadNames); ++I)
+	{
+		const float Px = WX + (14 + I * 92) * S;
+		const bool bOwned = I == 0 || (I == 1 ? G->Stats.ApRank > 0 : G->Stats.HeRank > 0);
+		Box(Px, WY + 92 * S, 86 * S, 23 * S, I == Load ? Active : bOwned ? Steel : Deep);
+		if (I == Load) Box(Px, WY + 113 * S, 86 * S, 2 * S, LoadColors[I]);
+		Print(LoadNames[I], Px + 43 * S, WY + 94 * S, I == Load ? LoadColors[I] : bOwned ? White : Grey,
+			LabelSize, 1, true);
+	}
+	const TCHAR* Drift = G->BoostT > 0.f ? TEXT("BOOST!") : !G->bDrifting ? TEXT("HOLD + STEER")
+		: G->DriftLevel == 0 ? TEXT("SLIDING") : G->DriftLevel == 1 ? TEXT("BLUE") : G->DriftLevel == 2 ? TEXT("ORANGE") : TEXT("PINK!");
+	const FLinearColor DriftColor = G->DriftLevel >= 3 ? Pink : G->DriftLevel == 2 ? Amber : Cyan;
+	Print(FString::Printf(TEXT("DRIFT  [%s]"), *Hint(EFTAction::Drift, TEXT("A/RB"))), WX + 14 * S, WY + 120 * S, Grey, LabelSize, 0, false, 136 * S);
+	Print(Drift, R - 14 * S, WY + 120 * S, G->bDrifting || G->BoostT > 0.f ? DriftColor : Grey, LabelSize, 2);
+	Meter(Rect(WX + 14 * S, WY + 141 * S, 272 * S, 5 * S), G->DriftLevel / 3.f, DriftColor, 3);
+
+	// Secondary information stays near the top edge. Temporary cards share the same lane.
+	const float ObjectiveW = 362 * S, OX = Center - ObjectiveW * .5f;
+	Plate(Rect(OX, Top, ObjectiveW, 51 * S), Cyan, Ink);
+	Print(FString::Printf(TEXT("SCENE %d/%d  /  TAKE %d"), G->Scene + 1, G->NumScenes(), G->Take), OX + 12 * S, Top + 7 * S, White, LabelSize, 0, true);
+	Print(TEXT("FINALE"), OX + ObjectiveW - 12 * S, Top + 7 * S, Pink, LabelSize, 2, true);
+	const float ProgressW = ObjectiveW - 24 * S;
+	Meter(Rect(OX + 12 * S, Top + 31 * S, ProgressW, 7 * S), G->Progress, Cyan);
+	for (const FFTScene& Scene : Level.Scenes)
+		Box(OX + 12 * S + ProgressW * FMath::Clamp(Scene.D / FMath::Max(1.f, Level.FinaleD), 0.f, 1.f) * .85f, Top + 28 * S, S, 12 * S, Grey);
+	Box(OX + 12 * S + ProgressW * .85f, Top + 27 * S, 2 * S, 14 * S, Pink);
+	float NoticeY = Top + 58 * S;
+	if (G->bBossOn)
+	{
+		Plate(Rect(OX, NoticeY, ObjectiveW, 66 * S), Red, Ink);
+		Icon(EIcon::Warning, OX + 12 * S, NoticeY + 8 * S, 16 * S, Red);
+		Print(G->BossLabel, OX + 36 * S, NoticeY + 7 * S, White, Body, 0, true, 206 * S);
+		const FString GapLabel = G->bLastChance ? TEXT("LAST CHANCE!") : G->BossRate < 1.f
+			? FString::Printf(TEXT("GAP ×%.2f"), G->BossRate) : FString(TEXT("GAP"));
+		Print(GapLabel, OX + ObjectiveW - 12 * S, NoticeY + 8 * S, G->bLastChance ? Red : Yellow, Body, 2, false, 120 * S);
+		Meter(Rect(OX + 12 * S, NoticeY + 33 * S, ProgressW, 8 * S), G->BossHpFrac, Red, 8);
+		Meter(Rect(OX + 12 * S, NoticeY + 48 * S, ProgressW, 5 * S), G->BossClock / FMath::Max(1.f, G->BossEscapeT), G->bLastChance ? Red : Yellow);
+		NoticeY += 73 * S;
+	}
+	if (Now >= G->CaptionT && Now - G->CaptionT < 3.f)
+	{
+		Plate(Rect(OX, NoticeY, ObjectiveW, 31 * S), Red, Ink);
+		Print(G->Caption, Center, NoticeY + 5 * S, Red, Strong, 1, true, ObjectiveW - 24 * S);
+		NoticeY += 37 * S;
+	}
+	if (!G->Line.IsEmpty() && Now - G->LineT < G->LineHold + 1.2f)
+	{
+		const FLinearColor Accent = G->LinePri >= 3 ? Yellow : G->LinePri >= 2 ? Pink : Cyan;
+		const float LineW = 480 * S, LineX = Center - LineW * .5f;
+		const float Offset = bReducedMotion ? 0.f : (1.f - EaseOut(Now - G->LineT)) * 6 * S;
+		const float Y = NoticeY - Offset;
+		Plate(Rect(LineX, Y, LineW, 36 * S), Accent, Ink);
+		Print(TEXT("DIRECTOR"), LineX + 12 * S, Y + 10 * S, Accent, LabelSize, 0, true);
+		Print(G->Line, LineX + 108 * S, Y + 7 * S, White, Body, 0, false, LineW - 122 * S);
+		NoticeY += 43 * S;
+	}
+	const bool bAction = Now >= G->ActionT && Now - G->ActionT < 1.f;
+	if (bAction || Now - G->ShoutT < 1.f || Now - G->SceneSlateT < 2.8f)
+	{
+		const FString Text = bAction ? TEXT("ACTION!") : Now - G->ShoutT < 1.f ? G->ShoutWord
+			: Level.Scenes.IsValidIndex(G->Scene) ? Level.Scenes[G->Scene].Name : FString();
+		Plate(Rect(Center - 148 * S, NoticeY, 296 * S, 34 * S), Yellow, Ink);
+		Print(Text, Center, NoticeY + 5 * S, Yellow, Strong, 1, true, 272 * S);
+	}
+
+	// The recording ledger and the latest three rewards stay out of the driving corridor.
+	const float LedgerW = 255 * S, LX = R - LedgerW;
+	Plate(Rect(LX, Top, LedgerW, 173 * S), Pink, Ink);
+	Icon(EIcon::Record, LX + 10 * S, Top + 7 * S, 18 * S, Pink);
+	Print(TEXT("NOW FILMING"), LX + 33 * S, Top + 8 * S, White, LabelSize, 0, true);
+	const int32 Tc = FMath::FloorToInt(G->Timecode);
+	const int32 FrameNo = FMath::FloorToInt(FMath::Fmod(G->Timecode, 1.f) * 24.f);
+	Print(FString::Printf(TEXT("%02d:%02d:%02d"), Tc / 60, Tc % 60, FrameNo), R - 12 * S, Top + 8 * S, Grey, LabelSize, 2);
+	Print(TEXT("BOX OFFICE"), LX + 12 * S, Top + 30 * S, Grey, LabelSize);
+	Print(Money(G->Score), LX + 12 * S, Top + 46 * S, Yellow, Heading, 0, true, 228 * S);
+	const FString Counts = G->Combo > 1 ? FString::Printf(TEXT("COMBO ×%d"), G->Combo)
+		: FString::Printf(TEXT("KILLS %d    NEAR MISSES %d"), G->Kills, G->NearMisses);
+	Print(Counts, LX + 12 * S, Top + 83 * S, G->Combo > 1 ? Pink : White, Body, 0, false, 227 * S);
+	if (G->Combo > 1) Meter(Rect(LX + 135 * S, Top + 91 * S, 107 * S, 4 * S), G->ComboT / 3.f, Pink);
+	Print(FString::Printf(TEXT("STUNTS %d   /   COLLATERAL %d"), G->StuntCount, G->Collateral), LX + 12 * S, Top + 104 * S, Grey, LabelSize, 0, false, 227 * S);
+	const int32 Time = FMath::FloorToInt(G->LevelClock), Par = ProgressData.Levels.IsValidIndex(G->Level) ? ProgressData.Levels[G->Level].Par : 0;
+	Print(FString::Printf(TEXT("CARNAGE %d%%  /  %d:%02d  PAR %d:%02d"),
+		FMath::RoundToInt(100.f * G->Run.Wrecked / FMath::Max(1, G->ScriptTotal)), Time / 60, Time % 60, Par / 60, Par % 60),
+		LX + 12 * S, Top + 123 * S, Grey, LabelSize, 0, false, 227 * S);
+	Print(FString::Printf(TEXT("FILM  %d/%d"), FMath::Max(0, G->Stats.Reels - G->Retakes), G->Stats.Reels), LX + 12 * S, Top + 145 * S, White, LabelSize);
+	Meter(Rect(LX + 112 * S, Top + 152 * S, 130 * S, 6 * S), float(G->Stats.Reels - G->Retakes) / FMath::Max(1, G->Stats.Reels), Yellow, FMath::Clamp(G->Stats.Reels, 1, 10));
+
+	for (int32 I = FMath::Max(0, G->Popups.Num() - 3); I < G->Popups.Num(); ++I)
+	{
+		const FFTPopup& Popup = G->Popups[I];
+		const float Opacity = bReducedMotion ? 1.f : FMath::Clamp((1.6f - Popup.T) * 3.f, 0.f, 1.f);
+		const float Py = Top + (182 + (G->Popups.Num() - 1 - I) * 32) * S;
+		const bool bRepair = Popup.Text.StartsWith(TEXT("+")) && Popup.Text.EndsWith(TEXT(" ARMOR"));
+		const bool bMissile = Popup.Text.StartsWith(TEXT("+")) && Popup.Text.EndsWith(TEXT(" MISSILES"));
+		const FLinearColor Color = Alpha(bRepair ? Green : bMissile ? Amber : Popup.Col, Opacity);
+		Box(LX, Py, LedgerW, 27 * S, Alpha(Ink, Opacity));
+		Box(LX, Py, 3 * S, 27 * S, Color);
+		if (bRepair || bMissile) Icon(bRepair ? EIcon::Repair : EIcon::Missile, LX + 10 * S, Py + 4 * S, 17 * S, Color);
+		Print(Popup.Text, LX + (bRepair || bMissile ? 35 : 12) * S, Py + 4 * S, Color, Body, 0, false, 207 * S);
+	}
+	if (G->bShowKeys && GI)
+	{
+		const FString Keys = FString::Printf(TEXT("DRIFT %s   /   TURBO %s   /   FIRE %s   /   MISSILE %s   /   AMMO %s   /   %s PAUSE"),
+			*Hint(EFTAction::Drift, TEXT("A/RB")), *Hint(EFTAction::Turbo, TEXT("LB/RT")), *Hint(EFTAction::Fire, TEXT("X")),
+			*Hint(EFTAction::Missile, TEXT("B")), *Hint(EFTAction::Ammo, TEXT("Y")), bPad ? TEXT("START") : TEXT("P"));
+		Box(Center - 306 * S, H - 32 * S, 612 * S, 22 * S, Ink);
+		Print(Keys, Center, H - 31 * S, Grey, LabelSize, 1, false, 588 * S);
+	}
+}
+
 void AFTHUD::DrawAttractWipe(AFTGameMode* G)
 {
-	const float Cv = G->AttractCover();
-	if (Cv <= 0.f) return;
+	const float Cover = G->AttractCover();
+	if (Cover <= 0.f) return;
+	if (bReducedMotion)
+	{
+		Box(0, 0, W, H, Alpha(Deep, Cover));
+		return;
+	}
 	const bool bOut = G->AttractOutT >= 0.f;
-	UFont* FO = FOrb ? FOrb.Get() : FD.Get();
-	UFont* FR = FRaj ? FRaj.Get() : FB.Get();
-	const int32 N = 10;
-	const float Bh = H / N;
-	static const FLinearColor Edge[4] = { FLinearColor(1.f, 0.18f, 0.66f), FLinearColor(0.21f, 0.95f, 1.f), FLinearColor(1.f, 0.55f, 0.2f), FLinearColor(1.f, 0.85f, 0.3f) };
-	for (int32 i = 0; i < N; ++i)
+	for (int32 I = 0; I < 5; ++I)
 	{
-		const float P = FMath::Clamp(Cv * 1.6f - i * 0.06f, 0.f, 1.f);
-		const float E = P * P * (3.f - 2.f * P);
-		if (E <= 0.f) continue;
-		const float Wd = W * E;
-		const bool bFromLeft = ((i % 2) == 0) == bOut;   // going out they come in from one side; coming in they leave the other way
-		const float X = bFromLeft ? 0.f : W - Wd;
-		const float Y = i * Bh;
-		Box(X, Y, Wd, Bh + 1.f, FLinearColor(0.07f, 0.01f, 0.15f, 1.f));
-		Box(X, Y + Bh * 0.42f, Wd, Bh * 0.08f, FLinearColor(0.25f, 0.04f, 0.35f, 1.f));
-		const float Ex = bFromLeft ? X + Wd - 5 * S : X;
-		if (E < 0.999f) { Box(Ex, Y, 5 * S, Bh, Edge[i % 4]); Box(bFromLeft ? Ex - 18 * S : Ex + 5 * S, Y, 18 * S, Bh, FLinearColor(Edge[i % 4].R, Edge[i % 4].G, Edge[i % 4].B, 0.25f)); }
+		const float U = EaseOut(Cover * 1.08f - .02f * I, 1.f);
+		if (U <= 0.f) continue;
+		const bool bLeft = (I % 2 == 0) == bOut;
+		const float X = bLeft ? 0.f : W * (1.f - U), Y = I * H * .2f;
+		Box(X, Y, W * U, H * .2f + 1.f, Deep);
+		Box(bLeft ? X + W * U - 3 * S : X, Y, 3 * S, H * .2f, I % 2 ? Cyan : Pink);
 	}
-	if (Cv < 0.985f) return;
-	// the test card
-	const int32 Lv = bOut ? G->AttractNextLevel() : G->Level;
-	const FFTLevelDef& L = FTData::Level(Lv);
-	const float Cx = W * 0.72f, Cy = H * 0.60f, R = 120.f * S;
-	for (float Dy = -R; Dy < 0.f; Dy += 3.f * S)
-	{
-		const float U = (Dy + R) / R;   // 0 at the top .. 1 at the horizon
-		const float Half = FMath::Sqrt(FMath::Max(0.f, R * R - Dy * Dy));
-		// the sunset stripes: gaps that widen toward the horizon
-		if (U > 0.45f && FMath::Fmod((Dy + R) / S, 14.f) < 2.f + 8.f * (U - 0.45f)) continue;
-		Box(Cx - Half, Cy + Dy, Half * 2.f, 3.f * S + 0.5f, FLinearColor(1.f, FMath::Lerp(0.85f, 0.2f, U), FMath::Lerp(0.3f, 0.6f, U), 1.f));
-	}
-	// the grid floor
-	for (int32 k = 0; k < 7; ++k)
-	{
-		const float Gy = Cy + 4 * S + FMath::Pow(k / 6.f, 1.8f) * H * 0.3f;
-		Box(W * 0.47f, Gy, W * 0.53f, 2 * S, FLinearColor(1.f, 0.2f, 0.7f, 0.75f));
-	}
-	for (int32 k = -6; k <= 6; ++k)
-	{
-		FCanvasLineItem Ln(FVector2D(Cx + k * 30 * S, Cy + 4 * S), FVector2D(Cx + k * 200 * S, H));
-		Ln.SetColor(FLinearColor(1.f, 0.2f, 0.7f, 0.6f)); Ln.LineThickness = 2.f * S;
-		Canvas->DrawItem(Ln);
-	}
-	TxtF(FO, FString::Printf(TEXT("CH %02d"), Lv + 1), Cx, Cy - R - 70 * S, FLinearColor(0.55f, 1.f, 0.7f), 0.9f, 1, true, FLinearColor(0.3f, 1.f, 0.5f, 0.18f));
-	TxtF(FO, L.Zone, Cx, Cy + 22 * S, White, 0.62f, 1, true, FLinearColor(1.f, 0.2f, 0.65f, 0.25f));
-	TxtF(FR, FString::Printf(TEXT("LEVEL %d  ·  %s"), Lv + 1, *L.Title), Cx, Cy + 52 * S, Yellow, 0.52f, 1, true);
-	// scan lines and a little snow
-	for (float Y = 0.f; Y < H; Y += 4.f * S) Box(0, Y, W, 1.2f * S, FLinearColor(0.f, 0.f, 0.f, 0.22f));
-	FRandomStream Rs((int32)(T * 30.f));
-	for (int32 k = 0; k < 90; ++k) Box(Rs.FRand() * W, Rs.FRand() * H, (2.f + Rs.FRand() * 10.f) * S, 2.f * S, FLinearColor(1.f, 1.f, 1.f, 0.25f + 0.4f * Rs.FRand()));
-}
-
-// ---------------------------------------------------------------------------------------------- slate
-void AFTHUD::DrawSlate(float Cx, float Cy, float Sc, float Clap, const TArray<FString>& Lines)
-{
-	const float Wd = 420 * S * Sc, Ht = 250 * S * Sc;
-	const float X = Cx - Wd / 2, Y = Cy - Ht / 2;
-	Box(X, Y, Wd, Ht, FLinearColor(0.05f, 0.05f, 0.07f, 0.95f));
-	Frame(X, Y, Wd, Ht, White, 2.f);
-	// the clapper sticks, striped, hinged at the left
-	const float Sh = 34 * S * Sc;
-	for (int32 k = 0; k < 2; ++k)
-	{
-		// two striped sticks sit on top of the board; the top one lifts while the clapper is open
-		const float Yy = Y - Sh * (k == 0 ? 2.f : 1.f) - (k == 0 ? Clap * 40 * S * Sc : 0.f);
-		Box(X, Yy, Wd, Sh * 0.95f, FLinearColor(0.08f, 0.08f, 0.1f, 1.f));
-		for (int32 i = 0; i < 7; ++i)
-		{
-			FCanvasTriangleItem Tri(FVector2D(X + (i * 2) * Wd / 14, Yy + 0.f), FVector2D(X + (i * 2 + 1) * Wd / 14, Yy + 0.f), FVector2D(X + (i * 2 + 1.6f) * Wd / 14, Yy + 0.f + Sh * 0.95f), GWhiteTexture);
-			Tri.SetColor(White);
-			Canvas->DrawItem(Tri);
-		}
-	}
-	for (int32 i = 0; i < Lines.Num(); ++i) Txt(Lines[i], X + 18 * S * Sc, Y + (18 + i * 44) * S * Sc, i == 0 ? Yellow : White, (i == 0 ? 0.9f : 1.25f) * Sc, 0, i > 0);
 }
 
 void AFTHUD::DrawCard(AFTGameMode* G)
 {
-	const float P = G->PhaseT;
-	Box(0, 0, W, H, FLinearColor(0, 0, 0, P > 2.9f ? FMath::Clamp((P - 2.9f) / 0.3f, 0.f, 1.f) : 0.55f));
-	const float In = FMath::Clamp(P / 0.45f, 0.f, 1.f);
-	const float Clap = P < 1.0f ? 1.f : 0.f;
-	const int32 Run = G->GI() ? G->GI()->RunCounter : 1;
-	DrawSlate(W * 0.5f, H * 0.42f - (1.f - In) * H * 0.6f, 1.f, Clap,
-		{ TEXT("PROD. FULL THROTTLE"), FString::Printf(TEXT("SCENE %d   TAKE %d"), G->Scene + 1, G->Take), TEXT("STARRING YOU"), FString::Printf(TEXT("ROLL A-%d"), 40 + Run) });
-	const FFTLevelDef& L = G->Def();
-	if (G->Take > 1)
+	const float Time = G->PhaseT;
+	const float Mid = W * .5f;
+	const float X = Mid - 320 * S, Y = H * .5f - 144 * S;
+	Box(0, 0, W, H, Alpha(Deep, FMath::Lerp(.68f, .96f, FMath::Clamp((Time - 2.9f) / .3f, 0.f, 1.f))));
+	Plate(Rect(X, Y, 640 * S, 310 * S), Cyan, Ink);
+	const float Closed = bReducedMotion ? 1.f : EaseOut(Time - ClapperClose, ClapperTravel);
+	const float StickY = Y - (13.f + (1.f - Closed) * 22.f) * S;
+	Box(X, StickY, 640 * S, 28 * S, Steel);
+	for (int32 I = 0; I < 10; ++I)
 	{
-		Txt(FString::Printf(TEXT("CUT! AGAIN. SCENE %d, TAKE %d"), G->Scene + 1, G->Take), W * 0.5f, H * 0.74f, Red, 1.3f, 1, true);
-		Txt(TEXT("RESET THE CARS. FRESH PAINT ON THE KESTREL. ROLLING..."), W * 0.5f, H * 0.82f, White, 0.95f, 1);
+		const float Px = X + (I * 64 + 7) * S;
+		Stroke(FVector2D(Px, StickY + 23 * S), FVector2D(Px + 27 * S, StickY + 4 * S), I < 2 ? Cyan : White, 6.f);
 	}
-	else
-	{
-		Txt(FString::Printf(TEXT("SCENE %d OF %d  ·  %s"), G->Scene + 1, G->NumScenes(), *L.Scenes[G->Scene].Name), W * 0.5f, H * 0.74f, Yellow, 1.25f, 1, true);
-		Txt(FString::Printf(TEXT("LEVEL %d: %s  ·  %s"), L.Index + 1, *L.Title, *L.Place), W * 0.5f, H * 0.82f, White, 0.95f, 1);
-	}
-	if (P > 1.2f) Txt(TEXT("ENTER TO SKIP"), W - 16 * S, H - 30 * S, Grey, 0.7f, 2);
-}
-
-// ---------------------------------------------------------------------------------------------- play
-void AFTHUD::DrawPlay(AFTGameMode* G)
-{
-	const FFTLevelDef& L = G->Def();
-	const float Now = T;
-	// viewfinder brackets
-	const float Bk = 40 * S, Th = 2.f;
-	const FLinearColor BC(1, 1, 1, 0.35f);
-	for (int32 c = 0; c < 4; ++c)
-	{
-		const float X = (c % 2 == 0) ? 20 * S : W - 20 * S - Bk;
-		const float Y = (c < 2) ? 20 * S : H - 20 * S - Bk;
-		Box(c % 2 == 0 ? X : X + Bk - Th * S, Y, Th * S, Bk, BC);
-		Box(X, c < 2 ? Y : Y + Bk - Th * S, Bk, Th * S, BC);
-	}
-	// film-strip progress
-	const float Pw = 300 * S, Px = W * 0.5f - Pw * 0.5f, Py = 22 * S;
-	Box(Px - 6 * S, Py - 6 * S, Pw + 12 * S, 30 * S, Ink);
-	for (int32 i = 0; i < 30; ++i) { Box(Px + i * Pw / 30 + 2 * S, Py - 4 * S, 5 * S, 3 * S, FLinearColor(1, 1, 1, 0.3f)); Box(Px + i * Pw / 30 + 2 * S, Py + 19 * S, 5 * S, 3 * S, FLinearColor(1, 1, 1, 0.3f)); }
-	Box(Px, Py + 2 * S, Pw * G->Progress, 14 * S, Yellow);
-	for (const FFTScene& Sc : L.Scenes) Box(Px + Pw * FMath::Clamp(Sc.D / L.FinaleD, 0.f, 1.f) * 0.85f, Py, 1.5f * S, 18 * S, FLinearColor(1, 1, 1, 0.5f));
-	Box(Px + Pw * 0.85f, Py - 2 * S, 3 * S, 22 * S, Pink);
-	Txt(FString::Printf(TEXT("SCENE %d/%d"), G->Scene + 1, G->NumScenes()), Px - 12 * S, Py, White, 0.75f, 2);
-	Txt(TEXT("★ FINALE"), Px + Pw + 12 * S, Py, Pink, 0.75f);
-	if (G->bBossOn)
-	{
-		Txt(G->BossLabel, W * 0.5f, Py + 30 * S, Red, 1.f, 1, true);
-		Box(Px, Py + 58 * S, Pw, 9 * S, Ink);
-		Box(Px, Py + 58 * S, Pw * G->BossHpFrac, 9 * S, Red);
-		// the GAP bar (05 §3): fills as his escape clock runs, pulses while the clock runs slow
-		const float Gf = FMath::Clamp(G->BossClock / FMath::Max(1.f, G->BossEscapeT), 0.f, 1.f);
-		const float Pulse = G->BossRate < 1.f ? 0.55f + 0.45f * FMath::Sin(T * 9.f) : 1.f;
-		Box(Px, Py + 70 * S, Pw, 6 * S, Ink);
-		Box(Px, Py + 70 * S, Pw * Gf, 6 * S, G->bLastChance ? FLinearColor(1.f, 0.2f, 0.2f, Pulse) : FLinearColor(1.f, 0.82f, 0.25f, Pulse));
-		Txt(G->bLastChance ? TEXT("LAST CHANCE!") : (G->BossRate < 1.f ? FString::Printf(TEXT("GAP  x%.2f"), G->BossRate) : FString(TEXT("GAP"))), Px + Pw + 10 * S, Py + 64 * S, G->bLastChance ? Red : Yellow, 0.6f);
-	}
-	// director's megaphone bar
-	if (!G->Line.IsEmpty() && Now - G->LineT < G->LineHold + 1.2f)
-	{
-		const int32 Chars = FMath::Min(G->Line.Len(), FMath::FloorToInt((Now - G->LineT) * 70.f));
-		const FLinearColor Acc = G->LinePri >= 3 ? Yellow : (G->LinePri >= 2 ? Pink : Cyan);
-		const float By = (G->bBossOn ? 114 : 72) * S;
-		const FVector2D M = Measure(G->Line, 1.05f, false);
-		const float Bw = FMath::Max(360 * S, M.X + 120 * S);
-		Box(W * 0.5f - Bw / 2, By, Bw, 40 * S, Ink);
-		Box(W * 0.5f - Bw / 2, By, 5 * S, 40 * S, Acc);
-		Txt(TEXT("DIRECTOR"), W * 0.5f - Bw / 2 + 14 * S, By + 11 * S, Acc, 0.62f);
-		Txt(G->Line.Left(Chars), W * 0.5f - Bw / 2 + 92 * S, By + 8 * S, White, 1.05f);
-	}
-	// mini slate + ACTION!
-	if (Now - G->SceneSlateT < 2.8f)
-	{
-		const float A = FMath::Clamp((2.8f - (Now - G->SceneSlateT)) * 2.f, 0.f, 1.f);
-		Box(W * 0.5f - 210 * S, H * 0.2f, 420 * S, 56 * S, FLinearColor(0, 0, 0, 0.7f * A));
-		Txt(FString::Printf(TEXT("SCENE %d · TAKE %d"), G->Scene + 1, G->Take), W * 0.5f, H * 0.2f + 4 * S, FLinearColor(Yellow.R, Yellow.G, Yellow.B, A), 0.8f, 1);
-		Txt(L.Scenes[G->Scene].Name, W * 0.5f, H * 0.2f + 22 * S, FLinearColor(1, 1, 1, A), 1.2f, 1, true);
-	}
-	if (Now >= G->ActionT && Now - G->ActionT < 1.0f) Txt(TEXT("ACTION!"), W * 0.5f, H * 0.32f, Yellow, 3.f, 1, true);
-	else if (Now - G->ShoutT < 1.0f) Txt(G->ShoutWord, W * 0.5f, H * 0.3f, FLinearColor(1.f, 0.9f, 0.3f, 1.f - (Now - G->ShoutT)), 2.2f, 1, true);
-	if (Now - G->CaptionT < 3.f && Now >= G->CaptionT) Txt(G->Caption, W * 0.5f, H * 0.62f, Red, 1.1f, 1, true);
-	// popups
-	for (int32 i = 0; i < G->Popups.Num(); ++i)
-	{
-		const FFTPopup& P = G->Popups[i];
-		const float A = FMath::Clamp(1.6f - P.T, 0.f, 1.f);
-		Txt(P.Text, W * 0.5f, H * 0.56f - (G->Popups.Num() - 1 - i) * 30 * S - P.T * 30 * S, FLinearColor(P.Col.R, P.Col.G, P.Col.B, A), 0.95f * P.Big, 1, true);
-	}
-
-	// ---- spy dashboard (left)
-	const float Lx = 30 * S, Ly0 = H - 312 * S, Lw = 250 * S;
-	Panel(Lx, Ly0, Lw, 284 * S);
-	const float Ly = Ly0;
-	Txt(TEXT("◉ KESTREL-88"), Lx + 12 * S, Ly + 8 * S, Pink, 0.95f, 0, true);
-	Txt(TEXT("AGENT N. KANE"), Lx + 12 * S, Ly + 34 * S, Grey, 0.7f);
-	const float Hp = G->HpPct();   // the bar shows a share of max (Armor Plating raises the max)
-	Txt(FString::Printf(TEXT("ARMOR %d%%  (%.0f/%.0f)"), FMath::RoundToInt(Hp), G->Hp, G->MaxHp()), Lx + 12 * S, Ly + 54 * S, White, 0.8f);
-	const FLinearColor HC = Hp > 60 ? Green : (Hp > 30 ? Amber : Red);
-	const bool bBlink = Hp <= 25 && FMath::Fmod(Now, 0.5f) < 0.25f;
-	for (int32 i = 0; i < 10; ++i) Box(Lx + 12 * S + i * 22 * S, Ly + 74 * S, 18 * S, 12 * S, (i * 10 < Hp && !bBlink) ? HC : FLinearColor(1, 1, 1, 0.12f));
-	const TCHAR* DmgTxt = Hp > 79 ? TEXT("ALL SYSTEMS NOMINAL") : (Hp > 59 ? TEXT("BODYWORK DAMAGED") : (Hp > 39 ? TEXT("WINDSHIELD CRACKED") : (Hp > 24 ? TEXT("ENGINE SMOKING") : TEXT("CRITICAL — ON FIRE"))));
-	Txt(DmgTxt, Lx + 12 * S, Ly + 90 * S, HC, 0.65f);
-	const UFTGameInstance* GI = G->GI();
-	auto KeyName = [GI](EFTAction A) { return GI && GI->Binds[(int32)A][GI->Layout].IsValid() ? GI->Binds[(int32)A][GI->Layout].GetDisplayName().ToString().ToUpper() : FString(TEXT("-")); };
-	Txt(FString::Printf(TEXT("MISSILES [%s]"), *KeyName(EFTAction::Missile)), Lx + 12 * S, Ly + 110 * S, White, 0.75f);
-	for (int32 i = 0, Cap = G->MissileCap(); i < Cap; ++i) Box(Lx + 12 * S + i * 18 * S, Ly + 130 * S, 12 * S, 8 * S, i < G->Missiles ? Amber : FLinearColor(1, 1, 1, 0.12f));
-	{
-		// 06 §5: AMMO [L]  AP 37, with a three-pip STD / AP / HE selector
-		static const TCHAR* LN[3] = { TEXT("STD"), TEXT("AP"), TEXT("HE") };
-		static const FLinearColor LC[3] = { FLinearColor(1.f, 0.82f, 0.25f), FLinearColor(0.62f, 0.91f, 1.f), FLinearColor(1.f, 0.48f, 0.1f) };
-		const int32 Ld = G->AmmoLoad;
-		const FString Cnt = Ld > 0 ? FString::Printf(TEXT("  %d"), G->Run.Rounds[Ld - 1]) : FString();
-		Txt(FString::Printf(TEXT("AMMO [%s]  %s%s"), *KeyName(EFTAction::Ammo), LN[Ld], *Cnt), Lx + 12 * S, Ly + 141 * S, LC[Ld], 0.72f);
-		for (int32 i = 0; i < 3; ++i)
-		{
-			const bool bOwned = i == 0 || (i == 1 ? G->Stats.ApRank > 0 : G->Stats.HeRank > 0);
-			Box(Lx + 170 * S + i * 22 * S, Ly + 146 * S, 16 * S, 8 * S, i == Ld ? LC[i] : FLinearColor(1, 1, 1, bOwned ? 0.25f : 0.07f));
-		}
-	}
-	const TCHAR* TurboSt = G->bTurboOn ? TEXT("BURN") : (G->BoostT > 0 ? TEXT("BOOST") : (G->bTurboLock ? TEXT("RECHARGING") : (G->Turbo >= 99.f ? TEXT("READY") : TEXT("CHARGING"))));
-	Txt(FString::Printf(TEXT("TURBO [%s]  %s%s"), *KeyName(EFTAction::Turbo), TurboSt, G->bDraft ? TEXT("  DRAFT") : TEXT("")), Lx + 12 * S, Ly + 166 * S, G->bDraft ? Cyan : White, 0.75f);
-	Box(Lx + 12 * S, Ly + 186 * S, 220 * S, 9 * S, FLinearColor(1, 1, 1, 0.12f));
-	Box(Lx + 12 * S, Ly + 186 * S, 220 * S * FMath::Clamp(G->Turbo / FMath::Max(1.f, G->Stats.TurboTank), 0.f, 1.f), 9 * S, G->bTurboOn ? Pink : Cyan);
-	static const FLinearColor DC[3] = { FLinearColor(0.37f, 0.82f, 1.f), FLinearColor(1.f, 0.65f, 0.24f), FLinearColor(1.f, 0.31f, 0.72f) };
-	const TCHAR* DriftSt = G->BoostT > 0 ? TEXT("BOOST!") : (!G->bDrifting ? TEXT("HOLD + STEER") : (G->DriftLevel == 0 ? TEXT("SLIDING") : (G->DriftLevel == 1 ? TEXT("BLUE") : (G->DriftLevel == 2 ? TEXT("ORANGE") : TEXT("PINK!")))));
-	Txt(FString::Printf(TEXT("DRIFT [%s]  %s"), *KeyName(EFTAction::Drift), DriftSt), Lx + 12 * S, Ly + 200 * S, White, 0.75f);
-	for (int32 i = 0; i < 3; ++i) Box(Lx + 12 * S + i * 26 * S, Ly + 220 * S, 20 * S, 9 * S, i < G->DriftLevel ? DC[i] : FLinearColor(1, 1, 1, 0.12f));
-	Txt(FString::Printf(TEXT("%d"), FMath::RoundToInt(G->SpeedMph)), Lx + 12 * S, Ly + 232 * S, White, 1.6f, 0, true);
-	Txt(TEXT("MPH"), Lx + 92 * S, Ly + 254 * S, Grey, 0.7f);
-	{
-		// tacho arc: full scale 900 su (05 §1) so the Maxed build fits
-		const FVector2D C(Lx + 190 * S, Ly + 258 * S);
-		const float R = 34 * S, Frac = FMath::Clamp(G->SpeedMph / (900.f * 0.31f), 0.f, 1.f);
-		for (int32 i = 0; i < 20; ++i)
-		{
-			const float A0 = PI * (1.f + i / 20.f), A1 = PI * (1.f + (i + 1) / 20.f);
-			FCanvasLineItem Ln(C + FVector2D(FMath::Cos(A0), FMath::Sin(A0)) * R, C + FVector2D(FMath::Cos(A1), FMath::Sin(A1)) * R);
-			Ln.SetColor(i / 20.f < Frac ? (i > 15 ? Pink : Cyan) : FLinearColor(1, 1, 1, 0.15f));
-			Ln.LineThickness = 4.f * S;
-			Canvas->DrawItem(Ln);
-		}
-	}
-	if (G->bShowKeys && GI)
-	{
-		Txt(GI->Layout == 0 ? TEXT("WASD steer · SHIFT drift · SPACE turbo · J guns · K missile · L ammo · P pause")
-			: TEXT("ARROWS steer · SHIFT drift · SPACE turbo · Z guns · X missile · C ammo · P pause"), W * 0.5f, H - 40 * S, FLinearColor(1, 1, 1, 0.8f), 0.8f, 1);
-	}
-
-	// ---- NOW FILMING (right)
-	const float Rw = 250 * S, Rx = W - 30 * S - Rw, Ry = H - 290 * S;
-	Panel(Rx, Ry, Rw, 262 * S);
-	if (FMath::Fmod(Now, 1.f) < 0.6f) { Box(Rx + 12 * S, Ry + 12 * S, 12 * S, 12 * S, Red); }
-	Txt(TEXT("REC  NOW FILMING"), Rx + 30 * S, Ry + 8 * S, Red, 0.8f, 0, true);
-	const int32 Tc = FMath::FloorToInt(G->Timecode);
-	Txt(FString::Printf(TEXT("TC 00:%02d:%02d:%02d"), Tc / 60, Tc % 60, FMath::FloorToInt(FMath::Fmod(G->Timecode, 1.f) * 24.f)), Rx + 12 * S, Ry + 34 * S, Grey, 0.7f);
-	Txt(FString::Printf(TEXT("SCENE %d · TAKE %d"), G->Scene + 1, G->Take), Rx + 12 * S, Ry + 54 * S, White, 0.8f);
-	Txt(L.Scenes[G->Scene].Name, Rx + 12 * S, Ry + 72 * S, Pink, 0.85f, 0, true);
-	Txt(TEXT("FILM LEFT"), Rx + 12 * S, Ry + 100 * S, Grey, 0.7f);
-	for (int32 i = 0, NR = FMath::Min(G->Stats.Reels, 6); i < NR; ++i)
-	{
-		const bool bLeft = i < G->Stats.Reels - G->Retakes;
-		const FVector2D C(Rx + 100 * S + i * 24 * S, Ry + 108 * S);
-		FCanvasNGonItem Reel(C, FVector2D(10 * S, 10 * S), 10, bLeft ? Yellow : FLinearColor(1, 1, 1, 0.15f));
-		Canvas->DrawItem(Reel);
-	}
-	Txt(TEXT("BOX OFFICE"), Rx + 12 * S, Ry + 128 * S, Grey, 0.7f);
-	Txt(FString::Printf(TEXT("$%s"), *Num(G->Score)), Rx + 12 * S, Ry + 144 * S, Yellow, 1.35f, 0, true);
-	if (G->Combo > 1)
-	{
-		Txt(FString::Printf(TEXT("COMBO x%d"), G->Combo), Rx + 12 * S, Ry + 184 * S, Pink, 1.f, 0, true);
-		Box(Rx + 12 * S, Ry + 210 * S, 220 * S * FMath::Clamp(G->ComboT / 3.f, 0.f, 1.f), 6 * S, Pink);
-	}
-	else Txt(FString::Printf(TEXT("KILLS %d   NEAR MISSES %d"), G->Kills, G->NearMisses), Rx + 12 * S, Ry + 188 * S, White, 0.75f);
-	Txt(FString::Printf(TEXT("CARNAGE %d%%  ·  %d:%02d / PAR %d:%02d"), FMath::RoundToInt(100.f * G->Run.Wrecked / FMath::Max(1, G->ScriptTotal)), FMath::FloorToInt(G->LevelClock) / 60, FMath::FloorToInt(G->LevelClock) % 60,
-		FFTProgressData::Get().Levels.IsValidIndex(G->Level) ? FFTProgressData::Get().Levels[G->Level].Par / 60 : 0, FFTProgressData::Get().Levels.IsValidIndex(G->Level) ? FFTProgressData::Get().Levels[G->Level].Par % 60 : 0), Rx + 12 * S, Ry + 244 * S, Grey, 0.62f);
-	Txt(FString::Printf(TEXT("STUNTS %d   COLLATERAL %d"), G->StuntCount, G->Collateral), Rx + 12 * S, Ry + 226 * S, White, 0.75f);
+	AccentSweep(Rect(X + 1 * S, Y + 17 * S, 638 * S, 4 * S), Time - ClapperClose - ClapperTravel, Cyan, FocusSweep);
+	const FFTLevelDef& Level = G->Def();
+	const int32 Roll = 40 + (G->GI() ? G->GI()->RunCounter : 1);
+	Print(FString::Printf(TEXT("FULL THROTTLE  /  ROLL A-%d"), Roll), X + 22 * S, Y + 33 * S, Grey, LabelSize, 0, true);
+	Print(G->Take > 1 ? TEXT("RESET THE CARS") : Level.Zone, X + 22 * S, Y + 65 * S, White, Readout, 0, true, 594 * S);
+	Print(G->Take > 1 ? TEXT("FRESH PAINT ON THE KESTREL. ROLLING…") : Level.Title + TEXT("  /  ") + Level.Place,
+		X + 22 * S, Y + 120 * S, Grey, Strong, 0, false, 594 * S);
+	Box(X + 22 * S, Y + 160 * S, 596 * S, S, Rule);
+	Print(TEXT("SCENE"), X + 24 * S, Y + 177 * S, Grey, LabelSize, 0, true);
+	Print(TEXT("TAKE"), X + 232 * S, Y + 177 * S, Grey, LabelSize, 0, true);
+	Print(TEXT("LEVEL"), X + 439 * S, Y + 177 * S, Grey, LabelSize, 0, true);
+	Print(FString::Printf(TEXT("%02d / %02d"), G->Scene + 1, G->NumScenes()), X + 24 * S, Y + 197 * S, Cyan, Heading, 0, true);
+	Print(FString::Printf(TEXT("%02d"), G->Take), X + 232 * S, Y + 197 * S, G->Take > 1 ? Red : White, Heading, 0, true);
+	Print(FString::Printf(TEXT("%02d"), Level.Index + 1), X + 439 * S, Y + 197 * S, White, Heading, 0, true);
+	if (Time > 1.2f) Print(TEXT("ENTER / A   SKIP SLATE"), X + 615 * S, Y + 266 * S, Grey, Body, 2);
 }
 
 void AFTHUD::DrawCut(AFTGameMode* G)
 {
-	if (T < G->CutT) return;
-	const float A = FMath::Clamp((T - G->CutT) * 3.f, 0.f, 1.f);
-	Box(0, H * 0.36f, W, H * 0.24f, FLinearColor(0, 0, 0, 0.6f * A));
-	Txt(G->CutTitle, W * 0.5f, H * 0.37f, FLinearColor(1.f, 0.25f, 0.25f, A), 3.4f, 1, true);
-	Txt(G->CutSub, W * 0.5f, H * 0.37f + 92 * S, FLinearColor(1, 1, 1, A), 1.15f, 1);
+	const float Age = G->RealClockNow() - G->CutT;
+	if (Age < 0.f) return;
+	const float Mid = W * .5f, Y = H * .32f;
+	const FBox2D Card = Rect(Mid - 330 * S, Y, 660 * S, 112 * S);
+	Plate(Card, Red, Ink);
+	const float Wipe = bReducedMotion ? 1.f : EaseOut(Age);
+	Box(Card.Min.X, Card.Max.Y - 4 * S, (Card.GetSize().X - Corner * S) * Wipe, 3 * S, Red);
+	AccentSweep(Rect(Card.Min.X + 12 * S, Y + 3 * S, Card.GetSize().X - 24 * S, 4 * S), Age, Red, MenuEntrance);
+	Print(G->CutTitle, Mid, Y + (9.f + 6.f * (1.f - Wipe)) * S, Red, Readout, 1, true);
+	Print(G->CutSub, Mid, Y + 64 * S, White, Strong, 1, false, 616 * S);
 }
 
-// ---------------------------------------------------------------------------------------------- reel
 void AFTHUD::DrawReel(AFTGameMode* G)
 {
-	const float Bar = (H - W / 2.39f) * 0.5f;
-	Box(0, 0, W, FMath::Max(Bar, 40 * S), FLinearColor(0, 0, 0, 1));
-	Box(0, H - FMath::Max(Bar, 40 * S), W, FMath::Max(Bar, 40 * S), FLinearColor(0, 0, 0, 1));
-	if (FMath::FRand() < 0.08f) Box(FMath::FRand() * W, 0, 1.5f * S, H, FLinearColor(1, 1, 1, 0.12f));
-	Box(0, 0, W, H, FLinearColor(1.f, 0.9f, 0.7f, 0.03f + 0.02f * FMath::FRand()));
-	const FFTLevelDef& L = G->Def();
+	const float Mid = W * .5f, X = Left + Safe * S, R = Right - Safe * S;
+	const float Bar = FMath::Max((H - W / 2.39f) * .5f, 88 * S);
+	const float Entry = MenuAge(EMenuView::Reel);
+	const float Matte = Entry < 0.f ? Bar : Bar - 14 * S * (1.f - EaseOut(Entry, MenuEntrance));
+	Box(0, 0, W, Matte, Deep);
+	Box(0, H - Matte, W, Matte, Deep);
+	Box(0, Matte - S, W, S, Rule);
+	Box(0, H - Matte, W, S, Rule);
+	const float ShotAge = MenuAge(EMenuView::Reel, true);
+	if (!G->bReelDone)
+		AccentSweep(Rect(R - 318 * S, Bar - 6 * S, 318 * S, 4 * S), ShotAge, Pink, FocusSweep);
+	const FFTLevelDef& Level = G->Def();
 	if (G->ReelTitleT > 0.f)
 	{
-		Box(0, 0, W, H, FLinearColor(0, 0, 0, 0.92f));
-		Txt(TEXT("ROADBURN PICTURES PRESENTS"), W * 0.5f, H * 0.36f, Grey, 0.9f, 1);
-		Txt(TEXT("THE HIGHLIGHTS"), W * 0.5f, H * 0.42f, Yellow, 2.4f, 1, true);
-		Txt(FString::Printf(TEXT("LEVEL %d: %s · %s"), L.Index + 1, *L.Zone, *L.Title), W * 0.5f, H * 0.56f, White, 1.f, 1);
-		DrawReelContinue(G);
-		return;
+		Box(0, Bar, W, H - 2 * Bar, Alpha(Deep, .88f));
+		const FBox2D Card = Rect(Mid - 335 * S, H * .34f, 670 * S, 158 * S);
+		Plate(Card, Pink, Ink);
+		AccentSweep(Rect(Card.Min.X + 12 * S, Card.Max.Y - 8 * S, Card.GetSize().X - 24 * S, 4 * S),
+			Entry, Pink, MenuEntrance);
+		Print(TEXT("ROADBURN PICTURES"), Mid, Card.Min.Y + 16 * S, Pink, LabelSize, 1, true);
+		Print(TEXT("THE HIGHLIGHTS"), Mid, Card.Min.Y + 43 * S, White, Readout, 1, true, 630 * S);
+		Print(Level.Zone + TEXT("  /  ") + Level.Title, Mid, Card.Min.Y + 104 * S, Grey, Strong, 1, false, 630 * S);
 	}
-	Txt(TEXT("● DAILIES · HIGHLIGHTS"), 24 * S, 10 * S, Red, 0.85f, 0, true);
-	Txt(FString::Printf(TEXT("SHOT %d / %d   %s"), G->ReelShot, G->ReelShots, *G->ReelCamName), W - 24 * S, 12 * S, White, 0.8f, 2);
-	Txt(G->ReelLabel, 40 * S, H - 80 * S, Yellow, 1.3f, 0, true);
-	if (G->bReelSlow) Txt(TEXT("▶▶ SLOW MOTION"), W - 40 * S, H - 74 * S, Pink, 0.9f, 2);
-	if (T - G->ReelLoopT < 2.f) Txt(TEXT("AGAIN, FROM THE TOP"), W * 0.5f, H * 0.2f, FLinearColor(1, 1, 1, FMath::Clamp(2.f - (T - G->ReelLoopT), 0.f, 1.f)), 1.2f, 1, true);
+	Icon(EIcon::Play, X, Bar * .5f - 10 * S, 22 * S, Pink);
+	Print(TEXT("DAILIES / HIGHLIGHTS"), X + 35 * S, Bar * .5f - 11 * S, White, Strong, 0, true);
+	Print(FString::Printf(TEXT("SHOT %02d / %02d  %s"), G->ReelShot, G->ReelShots, *G->ReelCamName),
+		R, Bar * .5f - 10 * S, Grey, Body, 2, false, 318 * S);
+	Print(G->ReelLabel, X, H - Bar * .5f - 10 * S, Yellow, Strong, 0, true, 332 * S);
+	if (G->bReelSlow) Print(TEXT("SLOW MOTION"), R, H - Bar * .5f - 8 * S, Pink, Body, 2, true);
+	if (G->RealClockNow() - G->ReelLoopT < 2.f) Print(TEXT("AGAIN, FROM THE TOP"), Mid, Bar + 18 * S, White, Strong, 1, true);
 	DrawReelContinue(G);
 }
 
 void AFTHUD::DrawReelContinue(AFTGameMode* G)
 {
-	// the only way on: a clearly drawn CONTINUE button in the bottom letterbox bar
-	const float Bar = FMath::Max((H - W / 2.39f) * 0.5f, 70 * S);
-	const float Bh = FMath::Min(58 * S, Bar - 12 * S);
+	const float Bar = FMath::Max((H - W / 2.39f) * .5f, 88 * S);
+	const FBox2D Action = Rect(W * .5f - 182 * S, H - Bar * .5f - 27 * S, 364 * S, 54 * S);
 	const bool bArmed = G->PhaseT > AFTGameMode::ReelArmT;
-	const AFTPlayerController* PC = Cast<AFTPlayerController>(GetOwningPlayerController());
-	const bool bHover = PC && bArmed && PC->MouseIn(G->ReelContinueRect);
-	// 10 §2: mid-reel the button reads HOLD TO SKIP (a 1 s hold fills the ring); once played, CONTINUE
-	if (G->bReelDone) G->ReelContinueRect = Button(W * 0.5f, H - Bar * 0.5f, 360 * S, Bh, TEXT("CONTINUE  ▶"), TEXT("ENTER  ·  PAD A  ·  CLICK HERE"), bArmed, true);
-	else
-	{
-		G->ReelContinueRect = Button(W * 0.5f, H - Bar * 0.5f, 360 * S, Bh, TEXT("HOLD TO SKIP"), TEXT("HOLD ENTER  ·  PAD A  ·  OR THIS BUTTON"), bArmed, bHover || G->ReelHoldT > 0.f);
-		const float Hold = FFTProgressData::Get().T(TEXT("HoldToSkip"), 1.f);
-		Ring(W * 0.5f + 200 * S, H - Bar * 0.5f, Bh * 0.38f, FMath::Clamp(G->ReelHoldT / Hold, 0.f, 1.f), Yellow, 4.f);
-	}
+	const EControl State = G->ReelHoldT > 0.f ? EControl::Pressed : ControlState(Action, true, bArmed || G->bReelDone);
+	G->ReelContinueRect = Control(Action, G->bReelDone ? TEXT("CONTINUE") : TEXT("HOLD TO SKIP"),
+		G->bReelDone ? TEXT("ENTER / A / CLICK") : TEXT("HOLD ENTER / A / CLICK"), State, Cyan);
+	if (G->bReelDone) FocusAccent(Action, MenuAge(EMenuView::Reel, true), Cyan);
+	if (!G->bReelDone)
+		Meter(Rect(Action.Min.X, Action.Max.Y + 5 * S, Action.GetSize().X, 4 * S),
+			G->ReelHoldT / FMath::Max(.01f, FFTProgressData::Get().T(TEXT("HoldToSkip"), 1.f)), Cyan);
 }
 
-// ---------------------------------------------------------------------------------------------- dailies
 void AFTHUD::DrawRating(AFTGameMode* G)
 {
-	Box(0, 0, W, H, FLinearColor(0.01f, 0.f, 0.03f, 0.8f));
-	Txt(TEXT("THE DAILIES"), W * 0.5f, H * 0.08f, Yellow, 2.4f, 1, true);
-	const FFTLevelDef& L = G->Def();
-	Txt(FString::Printf(TEXT("LEVEL %d: %s · %s"), L.Index + 1, *L.Zone, *L.Title), W * 0.5f, H * 0.19f, White, 0.95f, 1);
-	struct FRow { const TCHAR* N; int64 V; };
-	const FRow Rows[] = { { TEXT("DESTRUCTION"), G->ScoreDestruction }, { TEXT("NEAR MISSES"), G->ScoreNear }, { TEXT("STUNTS"), G->ScoreStunts }, { TEXT("ARMOR BONUS"), G->ArmorBonus }, { TEXT("COLLATERAL"), G->ScoreCollateral } };
-	const float X0 = W * 0.5f - 260 * S, X1 = W * 0.5f + 260 * S;
-	for (int32 i = 0; i < 5; ++i)
+	Box(0, 0, W, H, Alpha(Deep, .83f));
+	const float X = Left + 184 * S, Y = (H - CanvasHeight * S) * .5f + 97 * S, R = Right - 184 * S;
+	const FFTLevelDef& Level = G->Def();
+	Print(TEXT("THE DAILIES"), X, Y - 57 * S, White, Heading, 0, true);
+	Print(Level.Zone + TEXT("  /  ") + Level.Title, R, Y - 47 * S, Grey, Strong, 2, false, 500 * S);
+	Plate(Rect(X, Y, 442 * S, 464 * S), Cyan, Ink);
+	Plate(Rect(R - 442 * S, Y, 442 * S, 464 * S), Pink, Ink);
+	AccentSweep(Rect(X + 1 * S, Y + S, 440 * S, 4 * S), G->PhaseT, Cyan, MenuEntrance);
+	AccentSweep(Rect(R - 441 * S, Y + S, 440 * S, 4 * S), G->PhaseT - .075f, Pink, MenuEntrance);
+	Print(TEXT("BOX OFFICE BREAKDOWN"), X + 21 * S, Y + 21 * S, Grey, LabelSize, 0, true);
+	struct FRow { const TCHAR* Name; int64 Value; };
+	const FRow Rows[] = { { TEXT("DESTRUCTION"), G->ScoreDestruction }, { TEXT("NEAR MISSES"), G->ScoreNear },
+		{ TEXT("STUNTS"), G->ScoreStunts }, { TEXT("ARMOR BONUS"), G->ArmorBonus }, { TEXT("COLLATERAL"), G->ScoreCollateral } };
+	for (int32 I = 0; I < UE_ARRAY_COUNT(Rows); ++I)
 	{
-		if (G->PhaseT < 0.3f + i * 0.3f) break;
-		Txt(Rows[i].N, X0, H * 0.28f + i * 36 * S, White, 1.f);
-		Txt(FString::Printf(TEXT("$%s"), *Num(Rows[i].V)), X1, H * 0.28f + i * 36 * S, Rows[i].V < 0 ? Red : Cyan, 1.f, 2);
+		const float Ry = Y + (67 + I * 51) * S;
+		Box(X + 20 * S, Ry, 402 * S, 40 * S, Steel);
+		Print(Rows[I].Name, X + 31 * S, Ry + 8 * S, White, Body);
+		const float Age = G->PhaseT - (.3f + .3f * I);
+		AccentSweep(Rect(X + 25 * S, Ry + 35 * S, 392 * S, 3 * S), Age, Cyan, FocusSweep);
+		if (bReducedMotion || Age >= 0.f) Print(Money(Rows[I].Value), X + 408 * S, Ry + 6 * S,
+			Rows[I].Value < 0 ? Red : Cyan, Strong, 2, true, 179 * S);
 	}
-	if (G->PhaseT > 1.9f)
-	{
-		Box(X0, H * 0.28f + 5 * 36 * S, X1 - X0, 2 * S, White);
-		Txt(TEXT("BOX OFFICE"), X0, H * 0.28f + 5.3f * 36 * S, Yellow, 1.3f, 0, true);
-		Txt(FString::Printf(TEXT("$%s"), *Num(G->Score)), X1, H * 0.28f + 5.3f * 36 * S, Yellow, 1.3f, 2, true);
-	}
-	if (G->PhaseT > 2.7f)
+	Print(TEXT("BOX OFFICE"), X + 22 * S, Y + 347 * S, Yellow, LabelSize, 0, true);
+	if (G->PhaseT > 1.9f || bReducedMotion) Print(Money(G->Score), X + 22 * S, Y + 373 * S, Yellow, Readout, 0, true, 399 * S);
+
+	const float RatingX = R - 420 * S;
+	Print(TEXT("DIRECTOR'S RATING"), RatingX, Y + 21 * S, Grey, LabelSize, 0, true);
+	const int32 Rating = FMath::Clamp(G->RatingIdx, 0, 3);
+	if (G->PhaseT >= 2.7f || bReducedMotion)
 	{
 		static const TCHAR* Names[] = { TEXT("B-MOVIE"), TEXT("ACTION HERO"), TEXT("BLOCKBUSTER"), TEXT("LEGENDARY DIRECTOR") };
-		static const FLinearColor Cols[] = { FLinearColor(0.79f, 0.71f, 0.54f), FLinearColor(0.21f, 0.95f, 1.f), FLinearColor(1.f, 0.24f, 0.65f), FLinearColor(1.f, 0.82f, 0.25f) };
-		const float Sc = FMath::Lerp(2.4f, 1.6f, FMath::Clamp((G->PhaseT - 2.7f) * 5.f, 0.f, 1.f));
-		Txt(TEXT("DIRECTOR'S RATING"), W * 0.5f, H * 0.66f, Grey, 0.85f, 1);
-		Txt(Names[G->RatingIdx], W * 0.5f, H * 0.7f, Cols[G->RatingIdx], Sc, 1, true);
-		FString Stars; for (int32 i = 0; i < 4; ++i) Stars += i <= G->RatingIdx ? TEXT("★ ") : TEXT("☆ ");
-		Txt(Stars, W * 0.5f, H * 0.8f, Cols[G->RatingIdx], 1.2f, 1);
-		Txt(G->RatingQuip, W * 0.5f, H * 0.86f, White, 0.9f, 1);
+		static const FLinearColor Colors[] = { White, Cyan, Pink, Yellow };
+		const FLinearColor Color = Colors[Rating];
+		const float In = bReducedMotion ? 1.f : EaseOut(G->PhaseT - 2.7f);
+		const float StampY = Y + (118.f - 9.f * (1.f - In)) * S;
+		Print(Names[Rating], RatingX, StampY, Alpha(Color, .72f + .28f * In), Heading, 0, true, 398 * S);
+		Meter(Rect(RatingX, Y + 182 * S, 397 * S, 12 * S), (Rating + 1) / 4.f, Color, 4);
+		Box(RatingX, Y + 209 * S, 396 * S * In, S, Color);
+		Print(G->RatingQuip, RatingX, Y + 233 * S, White, Strong, 0, false, 398 * S);
 	}
-	if (G->PhaseT > 3.0f)
+	if (G->PhaseT > 3.f && (G->bOutOfFilm || G->bEscaped))
 	{
-		if (G->bOutOfFilm) Txt(TEXT("OUT OF FILM: THE KILL FEE ONLY. THE LEVEL IS RESHOT."), W * 0.5f, H * 0.895f, Red, 0.85f, 1);
-		else if (G->bEscaped) Txt(TEXT("HE GOT AWAY: RATED AT MOST ACTION HERO. THE LEVEL IS RESHOT."), W * 0.5f, H * 0.895f, Amber, 0.85f, 1);
+		const bool bFilm = G->bOutOfFilm;
+		Print(bFilm ? TEXT("OUT OF FILM") : TEXT("TARGET ESCAPED"), RatingX, Y + 309 * S, bFilm ? Red : Amber, Strong, 0, true);
+		Print(bFilm ? TEXT("Kill fee only. The level is reshot.") : TEXT("Rated at most Action Hero. The level is reshot."),
+			RatingX, Y + 340 * S, Grey, Body, 0, false, 398 * S);
 	}
-	if (G->PhaseT > 2.9f && FMath::Fmod(T, 1.f) < 0.7f) Txt(TEXT("ENTER / A  CONTINUE TO THE PAYCHECK"), W * 0.5f, H * 0.925f, White, 0.95f, 1, true);
-	Txt(TEXT("R  RESHOOT   ·   ESC / B  TITLE   (BOTH THROUGH PRE-PRODUCTION)"), W * 0.5f, H * 0.96f, Grey, 0.8f, 1);
+	const FBox2D Continue = Rect(R - 442 * S, Y + 481 * S, 442 * S, 55 * S);
+	G->ResultsContinueRect = Control(Continue, TEXT("CONTINUE TO PAYCHECK"), TEXT("ENTER / A"),
+		ControlState(Continue, true, G->PhaseT > 2.9f), Cyan);
+	Print(TEXT("R   RESHOOT     ESC / B   TITLE"), X + 2 * S, Y + 499 * S, Grey, Body);
 }
 
-// ---------------------------------------------------------------------------------------------- garage
-TArray<FString> AFTHUD::WrapText(const FString& Str, float MaxW, float Scale)
+TArray<FString> AFTHUD::WrapText(const FString& Text, float MaxWidth, float FontHeight, bool bDisplay)
 {
 	TArray<FString> Words, Lines;
-	Str.ParseIntoArrayWS(Words);
-	FString Cur;
-	for (const FString& Wd : Words)
+	Text.ParseIntoArrayWS(Words);
+	FString Line;
+	for (const FString& Word : Words)
 	{
-		const FString Try = Cur.IsEmpty() ? Wd : Cur + TEXT(" ") + Wd;
-		if (!Cur.IsEmpty() && Measure(Try, Scale, false).X > MaxW) { Lines.Add(Cur); Cur = Wd; }
-		else Cur = Try;
+		const FString Candidate = Line.IsEmpty() ? Word : Line + TEXT(" ") + Word;
+		if (!Line.IsEmpty() && TextSize(Candidate, FontHeight, bDisplay).X > MaxWidth)
+		{
+			Lines.Add(MoveTemp(Line));
+			Line = Word;
+		}
+		else Line = Candidate;
 	}
-	if (!Cur.IsEmpty()) Lines.Add(Cur);
+	if (!Line.IsEmpty()) Lines.Add(MoveTemp(Line));
 	return Lines;
 }
 
-FBox2D AFTHUD::Button(float Cx, float Cy, float Wd, float Ht, const FString& Label, const FString& Sub, bool bArmed, bool bHot)
-{
-	const float X = Cx - Wd * 0.5f, Y = Cy - Ht * 0.5f;
-	const float Pulse = 0.5f + 0.5f * FMath::Sin(T * 5.f);
-	const FLinearColor Edge = !bArmed ? FLinearColor(1, 1, 1, 0.25f) : (bHot ? Yellow : FLinearColor(Pink.R, Pink.G, Pink.B, 0.65f + 0.35f * Pulse));
-	Box(X, Y, Wd, Ht, !bArmed ? FLinearColor(0.05f, 0.04f, 0.08f, 0.85f) : (bHot ? FLinearColor(0.42f, 0.08f, 0.32f, 0.95f) : FLinearColor(0.2f, 0.03f, 0.18f, 0.92f)));
-	Frame(X, Y, Wd, Ht, Edge, bHot ? 3.f : 2.f);
-	if (bArmed) Frame(X - 4 * S, Y - 4 * S, Wd + 8 * S, Ht + 8 * S, FLinearColor(Edge.R, Edge.G, Edge.B, 0.25f + 0.2f * Pulse), 1.f);
-	const FLinearColor Tc = bArmed ? (bHot ? Yellow : White) : FLinearColor(1, 1, 1, 0.35f);
-	Txt(Label, Cx, Y + Ht * 0.12f, Tc, 1.15f, 1, true);
-	if (!Sub.IsEmpty()) Txt(Sub, Cx, Y + Ht * 0.6f, bArmed ? FLinearColor(1.f, 0.97f, 0.92f, 0.95f) : FLinearColor(1, 1, 1, 0.3f), 0.8f, 1);
-	return FBox2D(FVector2D(X, Y), FVector2D(X + Wd, Y + Ht));
-}
-
-void AFTHUD::Ring(float Cx, float Cy, float Rad, float Frac, const FLinearColor& C, float Th)
-{
-	const int32 N = 32;
-	for (int32 i = 0; i < N; ++i)
-	{
-		const float A0 = -PI * 0.5f + 2.f * PI * i / N, A1 = -PI * 0.5f + 2.f * PI * (i + 1) / N;
-		FCanvasLineItem Ln(FVector2D(Cx, Cy) + FVector2D(FMath::Cos(A0), FMath::Sin(A0)) * Rad, FVector2D(Cx, Cy) + FVector2D(FMath::Cos(A1), FMath::Sin(A1)) * Rad);
-		Ln.SetColor((float)i / N < Frac ? C : FLinearColor(1, 1, 1, 0.18f));
-		Ln.LineThickness = Th * S;
-		Canvas->DrawItem(Ln);
-	}
-}
-
-// ---------------------------------------------------------------------------------------------- THE DAILIES + PAYCHECK (10 §3)
-void AFTHUD::DrawPaycheck(AFTGameMode* G)
-{
-	Box(0, 0, W, H, FLinearColor(0.01f, 0.f, 0.03f, 0.86f));
-	Txt(TEXT("PAYCHECK"), W * 0.5f, H * 0.04f, Yellow, 2.2f, 1, true);
-	const FFTLevelDef& L = G->Def();
-	Txt(FString::Printf(TEXT("LEVEL %d: %s · %s"), L.Index + 1, *L.Zone, *L.Title), W * 0.5f, H * 0.135f, White, 0.9f, 1);
-	if (!G->bPayValid) { Txt(TEXT("NO PAYCHECK FOR A BENCHMARK RUN"), W * 0.5f, H * 0.4f, Grey, 1.f, 1); return; }
-	const FFTCommitOut& P = G->Pay;
-	const float X0 = W * 0.08f, X1 = W * 0.5f, Y0 = H * 0.2f, Lh = 30 * S;
-	const int32 Shown = FMath::Clamp(FMath::FloorToInt((G->PhaseT - 0.3f) / 0.32f), 0, P.Pay.Lines.Num());
-	Txt(TEXT("CASH"), X0, Y0 - 26 * S, Grey, 0.75f);
-	for (int32 i = 0; i < Shown; ++i)
-	{
-		const FFTPayLine& Ln = P.Pay.Lines[i];
-		const float Y = Y0 + i * Lh;
-		Txt(Ln.Label, X0, Y, Ln.bMult ? Cyan : White, 0.82f);
-		if (Ln.bMult) Txt(FString::Printf(TEXT("x %.3g"), Ln.Mult), X1 - 150 * S, Y, Pink, 0.82f, 2);
-		const int64 Amt = (int64)(FMath::RoundToDouble(Ln.Amount / 10.0) * 10.0);
-		Txt(Money(Amt), X1, Y, Amt < 0 ? Red : (Ln.bMult ? Pink : Cyan), 0.82f, 2);
-	}
-	const float Yt = Y0 + P.Pay.Lines.Num() * Lh + 8 * S;
-	if (Shown >= P.Pay.Lines.Num())
-	{
-		Box(X0, Yt, X1 - X0, 2 * S, White);
-		Txt(TEXT("TOTAL"), X0, Yt + 8 * S, Yellow, 1.4f, 0, true);
-		Txt(Money(P.Pay.Total), X1, Yt + 8 * S, Yellow, 1.4f, 2, true);
-		if (const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(G)) Txt(FString::Printf(TEXT("CASH NOW %s"), *Money(CS->C.Cash)), X1, Yt + 52 * S, Grey, 0.75f, 2);
-	}
-	// XP, then the bar fills and each LEVEL UP stamps its skill points
-	const float Tx = W * 0.56f, Tw = W * 0.36f;
-	const float TXp = 0.6f + P.Pay.Lines.Num() * 0.32f;
-	if (G->PhaseT > TXp)
-	{
-		Txt(TEXT("XP"), Tx, Y0 - 26 * S, Grey, 0.75f);
-		for (int32 i = 0; i < P.XPLines.Num(); ++i) { Txt(P.XPLines[i].Label, Tx, Y0 + i * 26 * S, White, 0.72f); Txt(FString::Printf(TEXT("+%s XP"), *Num((int64)P.XPLines[i].Amount)), Tx + Tw, Y0 + i * 26 * S, Green, 0.72f, 2); }
-		const float Yb = Y0 + FMath::Max(1, P.XPLines.Num()) * 26 * S + 14 * S;
-		const FFTProgressData& D = FFTProgressData::Get();
-		const float U = FMath::Clamp((G->PhaseT - TXp - 0.4f) / 1.4f, 0.f, 1.f);
-		const int64 Xp = P.XPBefore + (int64)(P.XPGained * U);
-		const int32 Lv = D.LevelForXP(Xp);
-		const int64 Lo = D.TotalXPFor(Lv), Hi = Lv >= 30 ? Lo : D.TotalXPFor(Lv + 1);
-		Txt(FString::Printf(TEXT("DRIVER LEVEL %d"), Lv), Tx, Yb, Yellow, 1.f, 0, true);
-		Txt(FString::Printf(TEXT("%s / %s XP"), *Num(Xp), *Num(Hi)), Tx + Tw, Yb + 6 * S, Grey, 0.7f, 2);
-		Box(Tx, Yb + 34 * S, Tw, 12 * S, FLinearColor(1, 1, 1, 0.12f));
-		Box(Tx, Yb + 34 * S, Tw * (Hi > Lo ? (float)(Xp - Lo) / (float)(Hi - Lo) : 1.f), 12 * S, Green);
-		float Ys = Yb + 60 * S;
-		for (const TPair<int32, int32>& Up : P.LevelUps)
-		{
-			if (Lv < Up.Key) break;
-			const float Pop = FMath::Clamp((G->PhaseT - TXp - 0.4f - 1.4f * (float)(D.TotalXPFor(Up.Key) - P.XPBefore) / FMath::Max<int64>(1, P.XPGained)) * 4.f, 0.f, 1.f);
-			Box(Tx, Ys, Tw, 34 * S, FLinearColor(0.3f, 0.05f, 0.25f, 0.9f * Pop));
-			Frame(Tx, Ys, Tw, 34 * S, FLinearColor(Yellow.R, Yellow.G, Yellow.B, Pop), 2.f);
-			Txt(FString::Printf(TEXT("LEVEL UP!  LV %d   +%d SKILL POINT%s"), Up.Key, Up.Value, Up.Value == 1 ? TEXT("") : TEXT("S")), Tx + Tw * 0.5f, Ys + 6 * S, FLinearColor(1.f, 0.9f, 0.4f, Pop), 0.9f, 1, true);
-			Ys += 40 * S;
-		}
-		if (U >= 1.f && P.LegendarySP > 0) { Txt(TEXT("FIRST LEGENDARY DIRECTOR HERE: +1 SKILL POINT"), Tx, Ys, Yellow, 0.8f, 0, true); Ys += 30 * S; }
-		if (U >= 1.f) for (const FString& Un : P.Unlocks) { Txt(Un, Tx, Ys, Cyan, 0.7f, 0, true); Ys += 24 * S; if (Ys > H * 0.86f) break; }
-	}
-	if (G->PhaseT > 1.f && FMath::Fmod(T, 1.f) < 0.7f) Txt(TEXT("ENTER / A  CONTINUE TO PRE-PRODUCTION"), W * 0.5f, H * 0.915f, White, 0.95f, 1, true);
-	Txt(TEXT("R  RESHOOT   ·   ESC / B  TITLE   (BOTH THROUGH PRE-PRODUCTION)"), W * 0.5f, H * 0.955f, Grey, 0.8f, 1);
-}
-
-// ---------------------------------------------------------------------------------------------- PRE-PRODUCTION (10 §4)
 void AFTHUD::DrawPreProduction(AFTGameMode* G)
 {
-	const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(G);
-	if (!CS) return;
-	const FFTProgressData& D = FFTProgressData::Get();
-	const AFTPlayerController* PC = Cast<AFTPlayerController>(GetOwningPlayerController());
+	const UFTCareerSubsystem* Career = UFTCareerSubsystem::Get(G);
+	if (!Career) return;
+	const FFTProgressData& Data = FFTProgressData::Get();
 	G->BuildTiles();
-	Box(0, 0, W, H, FLinearColor(0.01f, 0.f, 0.03f, 0.88f));
-	// header: next level, driver level, XP bar, skill points, cash
-	Txt(G->PPHeader(), 40 * S, 18 * S, Yellow, 1.25f, 0, true);
-	const int32 Lv = CS->C.Level;
-	const int64 Lo = D.TotalXPFor(Lv), Hi = Lv >= 30 ? Lo : D.TotalXPFor(Lv + 1);
-	const float Hx = W * 0.56f, Hw = W * 0.4f;
-	Txt(FString::Printf(TEXT("DRIVER LV %d"), Lv), Hx, 14 * S, White, 1.f, 0, true);
-	Txt(FString::Printf(TEXT("XP %s / %s"), *Num(CS->C.XP), *Num(Hi)), Hx + 170 * S, 20 * S, Grey, 0.7f);
-	Box(Hx, 46 * S, Hw * 0.5f, 8 * S, FLinearColor(1, 1, 1, 0.12f));
-	Box(Hx, 46 * S, Hw * 0.5f * (Hi > Lo ? FMath::Clamp((float)(CS->C.XP - Lo) / (float)(Hi - Lo), 0.f, 1.f) : 1.f), 8 * S, Green);
-	Txt(FString::Printf(TEXT("SKILL POINTS %d / %d"), CS->SPLeft(), CS->SPEarned()), Hx + Hw * 0.55f, 14 * S, Cyan, 0.9f, 0, true);
-	Txt(FString::Printf(TEXT("CASH %s"), *Money(CS->C.Cash)), Hx + Hw * 0.55f, 40 * S, Yellow, 0.9f, 0, true);
-	// tabs
-	static const TCHAR* TabN[5] = { TEXT("SKILLS"), TEXT("GARAGE"), TEXT("CUSTOM"), TEXT("SFX DEPT"), TEXT("EXTRAS") };
-	G->TabRects.SetNum(5);
-	const float TabY = H * 0.105f, TabW = 170 * S, TabH = 36 * S;
-	for (int32 i = 0; i < 5; ++i)
-	{
-		const float X = 40 * S + i * (TabW + 10 * S);
-		const bool bOn = (int32)G->Tab == i;
-		Box(X, TabY, TabW, TabH, bOn ? FLinearColor(0.42f, 0.08f, 0.32f, 0.95f) : Ink);
-		Frame(X, TabY, TabW, TabH, bOn ? Yellow : FLinearColor(1, 1, 1, 0.3f), bOn ? 2.5f : 1.f);
-		Txt(TabN[i], X + TabW * 0.5f, TabY + 7 * S, bOn ? Yellow : White, 0.85f, 1, true);
-		G->TabRects[i] = FBox2D(FVector2D(X, TabY), FVector2D(X + TabW, TabY + TabH));
-	}
-	Txt(TEXT("TAB / Q E / LB RB"), 40 * S + 5 * (TabW + 10 * S), TabY + 10 * S, Grey, 0.65f);
+	const float X = Left + Safe * S, R = Right - Safe * S, Y = (H - CanvasHeight * S) * .5f;
+	const float TabY = Y + 106 * S, BoardY = Y + 192 * S, Bottom = Y + 618 * S;
+	const float BoardW = 806 * S, DetailX = R - 389 * S;
+	const bool bSkills = G->Tab == EFTTab::Skills, bGarage = G->Tab == EFTTab::Garage;
+	const bool bShop = G->Tab == EFTTab::Custom || G->Tab == EFTTab::Sfx;
+	const bool bExtras = G->Tab == EFTTab::Extras;
+	const int32 Selection = G->SelIndex();
+	const float DepartmentAge = MenuAge(EMenuView::Department);
+	const float SelectionAge = MenuAge(EMenuView::Department, true);
 
-	// the board
-	const float Bx = 40 * S, By = TabY + TabH + 34 * S, Bw = W * 0.64f, Bh = H * 0.86f - By;
-	const int32 Sel = G->SelIndex();
-	G->TileRects.SetNum(G->Tiles.Num());
-	int32 Cols = 6, Rows = 7; float LabelW = 0.f;
-	switch (G->Tab)
+	Box(0, 0, W, H, Alpha(Deep, .88f));
+	Plate(Rect(X, Y + 24 * S, R - X, 67 * S), Pink, Ink);
+	Print(TEXT("PRE-PRODUCTION"), X + 16 * S, Y + 32 * S, White, Heading, 0, true);
+	FString Header, Destination;
+	G->PPHeader().Split(TEXT(" · "), &Header, &Destination);
+	Print(Destination, X + 18 * S, Y + 66 * S, Grey, Body, 0, false, 533 * S);
+
+	const int32 Driver = Career->C.Level;
+	const int64 Lo = Data.TotalXPFor(Driver), Hi = Driver >= 30 ? Lo : Data.TotalXPFor(Driver + 1);
+	const float Rx = R - 631 * S;
+	Print(FString::Printf(TEXT("DRIVER LV %d"), Driver), Rx, Y + 34 * S, Cyan, Strong, 0, true, 155 * S);
+	Print(FString::Printf(TEXT("%s / %s XP"), *Num(Career->C.XP), *Num(Hi)), Rx, Y + 61 * S, Grey, LabelSize, 0, false, 147 * S);
+	Meter(Rect(Rx, Y + 81 * S, 151 * S, 3 * S), Hi > Lo ? float(Career->C.XP - Lo) / float(Hi - Lo) : 1.f, Cyan);
+	Print(TEXT("SKILL POINTS"), Rx + 181 * S, Y + 34 * S, Grey, LabelSize, 0, true);
+	Print(FString::Printf(TEXT("%d / %d"), Career->SPLeft(), Career->SPEarned()), Rx + 181 * S, Y + 57 * S, Cyan, Strong, 0, true, 140 * S);
+	Print(TEXT("CASH"), R - 16 * S, Y + 34 * S, Grey, LabelSize, 2, true);
+	Print(Money(Career->C.Cash), R - 16 * S, Y + 55 * S, Yellow, Strong, 2, true, 244 * S);
+
+	static const TCHAR* Tabs[] = { TEXT("SKILLS"), TEXT("GARAGE"), TEXT("CUSTOM"), TEXT("SFX DEPT"), TEXT("EXTRAS") };
+	G->TabRects.SetNum(UE_ARRAY_COUNT(Tabs));
+	for (int32 I = 0; I < UE_ARRAY_COUNT(Tabs); ++I)
 	{
-	case EFTTab::Skills: Cols = 5; Rows = 6; break;
-	case EFTTab::Garage: Cols = 3; Rows = 10; LabelW = Bw * 0.2f; break;
-	case EFTTab::Extras: Cols = 4; Rows = 2; break;
-	default: Cols = 6; Rows = 7; break;
+		const FBox2D TabRect = Rect(X + I * 178 * S, TabY, 170 * S, 44 * S);
+		const bool bCurrent = I == static_cast<int32>(G->Tab);
+		G->TabRects[I] = Control(TabRect, Tabs[I], FString(), ControlState(TabRect, bCurrent), Cyan);
+		if (bCurrent) FocusAccent(TabRect, DepartmentAge, Cyan);
 	}
-	// scroll the long shop grids so the selected tile shows
-	int32& Scroll = G->TabScroll[(int32)G->Tab];
-	if (G->Tiles.IsValidIndex(Sel)) { const int32 Rr = G->Tiles[Sel].Row; if (Rr < Scroll) Scroll = Rr; if (Rr >= Scroll + Rows) Scroll = Rr - Rows + 1; }
-	if (G->Tab == EFTTab::Skills || G->Tab == EFTTab::Garage || G->Tab == EFTTab::Extras) Scroll = 0;
-	const float Cw = (Bw - LabelW) / Cols, Ch = FMath::Min(Bh / Rows, G->Tab == EFTTab::Extras ? 150 * S : 96 * S);
-	if (G->Tab == EFTTab::Skills)
-		for (int32 b = 0; b < D.Branches.Num() && b < 5; ++b) Txt(D.Branches[b].Name, Bx + b * Cw + 6 * S, By - 24 * S, White, 0.75f, 0, true);
-	static const FLinearColor RowCols[5] = { FLinearColor(0.36f, 1.f, 0.45f), FLinearColor(1.f, 0.82f, 0.25f), FLinearColor(1.f, 0.31f, 0.72f), FLinearColor(0.21f, 0.95f, 1.f), FLinearColor(1.f, 0.48f, 0.1f) };
-	if (G->Tab == EFTTab::Garage)
+	Print(TEXT("TAB / Q E / LB RB   SWITCH DEPARTMENT"), R, TabY + 13 * S, Grey, LabelSize, 2, false, 307 * S);
+
+	const int32 Cols = bSkills ? 5 : bGarage ? 3 : bExtras ? 4 : 6;
+	const int32 Rows = bSkills ? 6 : bGarage ? 10 : bExtras ? 2 : 7;
+	const float RowLabel = bGarage ? 157 * S : 0.f;
+	const float CellW = (BoardW - RowLabel) / Cols;
+	const float CellH = FMath::Min((Bottom - BoardY) / Rows, (bExtras ? 104.f : 96.f) * S);
+	int32& Scroll = G->TabScroll[static_cast<int32>(G->Tab)];
+	if (G->Tiles.IsValidIndex(Selection))
 	{
-		static const TCHAR* LineN[10] = { TEXT("ARMOR PLATING"), TEXT("BULL BAR"), TEXT("GUN BARRELS"), TEXT("MISSILE RACKS"), TEXT("BIG-BLOCK V8"), TEXT("CLOSE-RATIO GEARBOX"), TEXT("SUPERCHARGER"), TEXT("RACE TYRES"), TEXT("AP ROUNDS"), TEXT("HE ROUNDS") };
-		static const int32 RowG[10] = { 0, 0, 1, 1, 2, 2, 2, 3, 4, 4 };
-		static const TCHAR* GrpN[5] = { TEXT("ARMOR"), TEXT("WEAPONS"), TEXT("ENGINE"), TEXT("TYRES"), TEXT("AMMO") };
-		for (int32 r = 0; r < 10; ++r)
-		{
-			Txt(LineN[r], Bx, By + r * Ch + Ch * 0.18f, White, 0.66f);
-			if (r == 0 || RowG[r] != RowG[r - 1]) Txt(GrpN[RowG[r]], Bx, By + r * Ch + Ch * 0.55f, RowCols[RowG[r]], 0.58f, 0, true);
-		}
+		const int32 Row = G->Tiles[Selection].Row;
+		Scroll = bShop ? FMath::Clamp(Scroll, FMath::Max(0, Row - Rows + 1), Row) : 0;
 	}
-	static const TCHAR* StN[6] = { TEXT("LOCKED"), TEXT(""), TEXT("PENDING"), TEXT("OWNED"), TEXT("EQUIPPED"), TEXT("COMING SOON") };
-	int32 FirstAvail = -1;
-	for (int32 i = 0; i < G->Tiles.Num(); ++i)
+	Plate(Rect(X, BoardY - 32 * S, BoardW, Bottom - BoardY + 32 * S), Cyan, Ink);
+	Plate(Rect(DetailX, BoardY - 32 * S, R - DetailX, Bottom - BoardY + 32 * S), Pink, Ink);
+	AccentSweep(Rect(X + 2 * S, BoardY - 30 * S, BoardW - 4 * S, 4 * S), DepartmentAge, Cyan, MenuEntrance);
+	AccentSweep(Rect(DetailX + 2 * S, BoardY - 30 * S, R - DetailX - 4 * S, 4 * S),
+		DepartmentAge - .06f, Pink, MenuEntrance);
+	if (bSkills)
+		for (int32 I = 0; I < Data.Branches.Num() && I < Cols; ++I)
+			Print(Data.Branches[I].Name, X + (I + .5f) * CellW, BoardY - 22 * S, Grey, LabelSize, 1, true, CellW - 8 * S);
+	if (bGarage)
 	{
-		const FFTTileView& Tl = G->Tiles[i];
-		G->TileRects[i] = FBox2D(ForceInit);
-		if (Tl.Row < Scroll || Tl.Row >= Scroll + Rows) continue;
-		const float X = Bx + LabelW + Tl.Col * Cw + 3 * S, Y = By + (Tl.Row - Scroll) * Ch + 3 * S, Tw = Cw - 6 * S, Th = Ch - 6 * S;
-		const bool bSel = i == Sel;
-		const bool bDim = Tl.State == EFTTile::Locked || Tl.State == EFTTile::Soon;
-		FLinearColor Bg = Ink;
-		if (Tl.State == EFTTile::Owned || Tl.State == EFTTile::Equipped) Bg = FLinearColor(Tl.Color.R * 0.35f, Tl.Color.G * 0.35f, Tl.Color.B * 0.35f, 0.92f);
-		if (bSel) Bg = FLinearColor(0.32f, 0.06f, 0.28f, 0.95f);
-		Box(X, Y, Tw, Th, Bg);
-		if (Tl.State == EFTTile::Pending)
-			for (int32 k = 0; k < 8; ++k) Box(X + k * Tw / 8.f, Y, Tw / 16.f, Th, FLinearColor(Tl.Color.R, Tl.Color.G, Tl.Color.B, 0.18f));   // striped
-		const float Glow = bSel ? 0.7f + 0.3f * FMath::Sin(T * 6.f) : 1.f;
-		Frame(X, Y, Tw, Th, bSel ? FLinearColor(1.f, 0.82f, 0.25f, Glow) : FLinearColor(Tl.Color.R, Tl.Color.G, Tl.Color.B, bDim ? 0.25f : 0.7f), bSel ? 3.f : 1.2f);
-		if (Tl.bSwatch) Box(X + Tw - 22 * S, Y + 6 * S, 16 * S, 16 * S, Tl.Color);
-		const bool bTight = Th < 90 * S;
-		const float Fs = bTight ? 0.55f : 0.6f;
-		const TArray<FString> TL = WrapText(Tl.Title, Tw - 30 * S, Fs);
-		for (int32 l = 0; l < TL.Num() && l < (bTight ? 1 : 2); ++l) Txt(TL[l], X + 6 * S, Y + 4 * S + l * 17 * S, bDim ? Grey : White, Fs);
-		Txt(Tl.Sub, X + 6 * S, bTight ? Y + Th * 0.5f - 9 * S : Y + Th - 38 * S, bDim ? FLinearColor(1, 1, 1, 0.35f) : Tl.Color, 0.52f);
-		const FString StT = StN[(int32)Tl.State];
-		if (!StT.IsEmpty()) Txt(StT, X + 6 * S, Y + Th - 20 * S, Tl.State == EFTTile::Locked || Tl.State == EFTTile::Soon ? Grey : (Tl.State == EFTTile::Pending ? Pink : Green), 0.52f, 0, true);
-		else if (Tl.Needs.IsEmpty()) Txt(Tl.bCash ? TEXT("HOLD TO BUY") : TEXT("AVAILABLE"), X + 6 * S, Y + Th - 20 * S, Yellow, 0.52f, 0, true);
-		if (Tl.State == EFTTile::Locked && !Tl.Needs.IsEmpty()) Txt(Tl.Needs, X + Tw - 6 * S, Y + Th - 20 * S, Grey, 0.48f, 2);
-		G->TileRects[i] = FBox2D(FVector2D(X, Y), FVector2D(X + Tw, Y + Th));
-		if (Tl.State == EFTTile::Available && FirstAvail < 0) FirstAvail = i;
+		Print(TEXT("KESTREL-88"), X + 10 * S, BoardY - 22 * S, Grey, LabelSize, 0, true);
+		for (int32 Rank = 1; Rank <= Cols; ++Rank)
+			Print(FString::Printf(TEXT("RANK %d"), Rank), X + RowLabel + (Rank - .5f) * CellW, BoardY - 22 * S, Grey, LabelSize, 1, true);
+		static const TCHAR* Lines[] = { TEXT("ARMOR PLATING"), TEXT("BULL BAR"), TEXT("GUN BARRELS"), TEXT("MISSILE RACKS"),
+			TEXT("BIG-BLOCK V8"), TEXT("CLOSE-RATIO GEARBOX"), TEXT("SUPERCHARGER"), TEXT("RACE TYRES"), TEXT("AP ROUNDS"), TEXT("HE ROUNDS") };
+		for (int32 I = 0; I < UE_ARRAY_COUNT(Lines); ++I)
+			Print(Lines[I], X + 10 * S, BoardY + I * CellH + 12 * S, White, LabelSize, 0, false, RowLabel - 15 * S);
 	}
-	if (G->Tab == EFTTab::Custom || G->Tab == EFTTab::Sfx)
+	if (bShop || bExtras)
 	{
-		const int32 MaxRow = G->Tiles.Num() ? G->Tiles.Last().Row : 0;
-		if (MaxRow >= Rows) Txt(FString::Printf(TEXT("ROWS %d-%d OF %d  ·  ▲▼ SCROLL"), Scroll + 1, FMath::Min(MaxRow + 1, Scroll + Rows), MaxRow + 1), Bx + Bw, By - 24 * S, Grey, 0.62f, 2);
-	}
-	// first visit: point at the glowing node
-	if (G->Tab == EFTTab::Skills && !CS->C.bTipSeen && CS->SPLeft() > 0 && G->TileRects.IsValidIndex(FirstAvail))
-	{
-		const FBox2D& R = G->TileRects[FirstAvail];
-		Txt(TEXT("You've got points. Spend one here.  ▼"), R.Min.X, By - 50 * S, Yellow, 0.75f, 0, true);
-		Frame(R.Min.X - 3 * S, R.Min.Y - 3 * S, R.GetSize().X + 6 * S, R.GetSize().Y + 6 * S, FLinearColor(1.f, 0.82f, 0.25f, 0.5f + 0.5f * FMath::Sin(T * 6.f)), 2.f);
+		Print(Tabs[static_cast<int32>(G->Tab)], X + 12 * S, BoardY - 22 * S, Grey, LabelSize, 0, true);
+		const int32 Count = G->Tiles.IsEmpty() ? 0 : G->Tiles.Last().Row + 1;
+		if (Count > Rows)
+			Print(FString::Printf(TEXT("ROWS %d–%d / %d  UP-DOWN"), Scroll + 1, FMath::Min(Count, Scroll + Rows), Count),
+				X + BoardW - 12 * S, BoardY - 22 * S, Grey, LabelSize, 2);
 	}
 
-	// the detail panel
-	const float Dx = W * 0.7f, Dy = By - 30 * S, Dw = W - Dx - 40 * S, Dh = H * 0.86f - Dy;
-	Panel(Dx, Dy, Dw, Dh);
-	G->BuyRect = FBox2D(ForceInit); G->UndoRect = FBox2D(ForceInit);
-	if (G->Tiles.IsValidIndex(Sel))
+	static const TCHAR* States[] = { TEXT("LOCKED"), TEXT("AVAILABLE"), TEXT("PENDING"), TEXT("OWNED"), TEXT("EQUIPPED"), TEXT("COMING SOON") };
+	const auto StateColor = [](EFTTile State)
 	{
-		const FFTTileView& Tl = G->Tiles[Sel];
-		float Y = Dy + 14 * S;
-		const TArray<FString> TL = WrapText(Tl.Title, Dw - 28 * S, 1.0f);
-		for (const FString& L : TL) { Txt(L, Dx + 14 * S, Y, Tl.Color, 1.0f, 0, true); Y += 30 * S; }
-		Txt(Tl.Group, Dx + 14 * S, Y, Grey, 0.62f); Y += 22 * S;
-		Txt(Tl.Price, Dx + 14 * S, Y, Yellow, 0.9f, 0, true); Y += 32 * S;
-		for (const FString& L : WrapText(Tl.Desc, Dw - 28 * S, 0.66f)) { Txt(L, Dx + 14 * S, Y, White, 0.66f); Y += 19 * S; if (Y > Dy + Dh - 150 * S) break; }
-		Y += 10 * S;
-		// Needs: with a check or a cross per condition
-		if (Tl.State == EFTTile::Locked || Tl.State == EFTTile::Soon)
+		switch (State)
 		{
-			TArray<FString> Parts; Tl.Needs.ParseIntoArray(Parts, TEXT(" · "));
-			Txt(TEXT("NEEDS"), Dx + 14 * S, Y, Grey, 0.62f); Y += 20 * S;
-			for (const FString& Pn : Parts) { Txt(TEXT("✗  ") + Pn, Dx + 14 * S, Y, Red, 0.68f); Y += 20 * S; }
+		case EFTTile::Available: return Cyan;
+		case EFTTile::Pending: return Yellow;
+		case EFTTile::Owned: case EFTTile::Equipped: return Green;
+		default: return Grey;
 		}
-		else if (Tl.State == EFTTile::Available) { Txt(Tl.bCash && Tl.Cost > CS->C.Cash ? FString::Printf(TEXT("✗  %s (YOU HAVE %s)"), *Tl.Price, *Money(CS->C.Cash)) : FString(TEXT("✓  EVERYTHING IT NEEDS")), Dx + 14 * S, Y, Tl.bCash && Tl.Cost > CS->C.Cash ? Red : Green, 0.68f); Y += 22 * S; }
-		// BUY (hold for cash) / EQUIP / UNDO
-		const float Bw2 = Dw - 28 * S, Bh2 = 52 * S, By2 = Dy + Dh - 2 * Bh2 - 26 * S;
-		FString Lbl = TEXT("BUY"), Sub = Tl.bCash ? TEXT("HOLD ENTER / A  ·  OR HOLD HERE") : TEXT("ENTER / A  ·  CLICK");
-		const bool bCos = G->Tab == EFTTab::Custom || G->Tab == EFTTab::Sfx;
-		if (bCos && Tl.State == EFTTile::Owned) { Lbl = TEXT("EQUIP"); Sub = TEXT("ENTER / A  ·  FREE"); }
-		else if (bCos && Tl.State == EFTTile::Equipped) { Lbl = TEXT("EQUIPPED"); Sub = Tl.Slot == TEXT("paint") || Tl.Slot == TEXT("rims") || Tl.Slot == TEXT("neon") || Tl.Slot == TEXT("nitro") ? TEXT("THIS SLOT IS NEVER EMPTY") : TEXT("ENTER / A  TAKES IT OFF"); }
-		else if (Tl.Id == TEXT("sequel") && Tl.State == EFTTile::Owned) { Lbl = TEXT("SWITCH"); Sub = TEXT("ENTER / A"); }
-		else if (Tl.State == EFTTile::Owned) { Lbl = TEXT("OWNED"); Sub = FString(); }
-		else if (Tl.State == EFTTile::Pending) { Lbl = TEXT("PENDING"); Sub = TEXT("KEPT ON READY"); }
-		const bool bCanPress = Tl.State == EFTTile::Available || (bCos && Tl.State == EFTTile::Owned) || (Tl.Id == TEXT("sequel") && Tl.State == EFTTile::Owned);
-		G->BuyRect = Button(Dx + Dw * 0.5f, By2 + Bh2 * 0.5f, Bw2, Bh2, Lbl, Sub, bCanPress, PC && PC->MouseIn(G->BuyRect));
-		if (Tl.bCash && Tl.State == EFTTile::Available) Ring(Dx + Dw - 40 * S, By2 + Bh2 * 0.5f, 16 * S, FMath::Clamp(G->BuyHoldT / FFTProgressData::Get().T(TEXT("HoldToBuy"), 0.5f), 0.f, 1.f), Yellow, 4.f);
-		if (G->Tab == EFTTab::Skills) G->UndoRect = Button(Dx + Dw * 0.5f, By2 + Bh2 * 1.5f + 10 * S, Bw2, Bh2 * 0.8f, TEXT("UNDO"), TEXT("BACKSPACE / B"), CS->C.PendingSkills.Num() > 0, PC && PC->MouseIn(G->UndoRect));
+	};
+	G->TileRects.Init(FBox2D(ForceInit), G->Tiles.Num());
+	for (int32 I = 0; I < G->Tiles.Num(); ++I)
+	{
+		const FFTTileView& Tile = G->Tiles[I];
+		if (Tile.Row < Scroll || Tile.Row >= Scroll + Rows || Tile.Col < 0 || Tile.Col >= Cols) continue;
+		const float Tx = X + RowLabel + Tile.Col * CellW + 4 * S, Ty = BoardY + (Tile.Row - Scroll) * CellH + 3 * S;
+		const FBox2D TileRect = Rect(Tx, Ty, CellW - 8 * S, CellH - 6 * S);
+		const bool bSelected = I == Selection;
+		const EControl Interaction = ControlState(TileRect, bSelected);
+		const bool bMouse = Interaction == EControl::Hover || Interaction == EControl::Pressed;
+		const FLinearColor State = StateColor(Tile.State);
+		const FVector2D Size = TileRect.GetSize();
+		Box(Tx, Ty, Size.X, Size.Y, Interaction == EControl::Pressed ? Deep : bSelected ? Active : Steel);
+		Box(Tx, Ty, (bSelected ? 4 : 2) * S, Size.Y, bSelected ? Cyan : State);
+		if (bSelected || bMouse) Frame(Tx, Ty, Size.X, Size.Y, bMouse ? White : Cyan, 1.f);
+		if (bSelected) FocusAccent(TileRect, SelectionAge, Cyan);
+		if (Tile.bSwatch) Box(TileRect.Max.X - 15 * S, Ty + 8 * S, 8 * S, 8 * S, Tile.Color);
+		const float AvailableWidth = Size.X - (Tile.bSwatch ? 27 : 17) * S;
+		Print(Tile.Title, Tx + 9 * S, Ty + 3 * S, Tile.State == EFTTile::Locked || Tile.State == EFTTile::Soon ? Grey : White,
+			bGarage ? LabelSize : Body, 0, false, AvailableWidth);
+		if (!bGarage) Print(Tile.Sub, Tx + 9 * S, Ty + 23 * S, Grey, LabelSize, 0, false, Size.X - 18 * S);
+		const bool bMaxed = bGarage && Tile.Col == Cols - 1 && Tile.State == EFTTile::Owned;
+		Print(bMaxed ? TEXT("MAX RANK") : States[static_cast<int32>(Tile.State)], Tx + 9 * S, TileRect.Max.Y - 17 * S,
+			State, 13.f, 0, true, Size.X - 18 * S);
+		G->TileRects[I] = TileRect;
 	}
-	// READY
-	const bool bReadyHot = PC && PC->MouseIn(G->ReadyRect);
-	G->ReadyRect = Button(W - 40 * S - 210 * S, H * 0.925f, 420 * S, 56 * S, G->bPPFromTitle || G->PPNextLevel < 0 ? TEXT("READY  ▶  TITLE") : FString::Printf(TEXT("READY  ▶  LEVEL %d"), G->PPNextLevel + 1), TEXT("SPACE  ·  PAD START  ·  CLICK"), G->PhaseT > 0.3f, bReadyHot);
-	Txt(TEXT("ARROWS / D-PAD MOVE   ·   ENTER / A BUY (CASH: HOLD 0.5 s)   ·   BACKSPACE / B UNDO   ·   SKILL POINTS STAY PENDING UNTIL READY"), 40 * S, H * 0.905f, Grey, 0.66f);
-	Txt(TEXT("Nothing runs here: no race, no timers. Cosmetics only change looks; the garage changes numbers; skills change how you play."), 40 * S, H * 0.94f, FLinearColor(1, 1, 1, 0.45f), 0.62f);
-	if (T - G->PPMsgT < 2.2f) Txt(G->PPMsg, Bx + Bw * 0.5f, H * 0.865f, G->bPPMsgBad ? Red : Green, 0.85f, 1, true);
+
+	G->BuyRect = FBox2D(ForceInit);
+	G->UndoRect = FBox2D(ForceInit);
+	if (G->Tiles.IsValidIndex(Selection))
+	{
+		const FFTTileView& Tile = G->Tiles[Selection];
+		const float Dx = DetailX + 17 * S, Dw = R - Dx - 17 * S;
+		float Dy = BoardY - 17 * S;
+		Print(Tile.Group.IsEmpty() ? Tabs[static_cast<int32>(G->Tab)] : Tile.Group.Replace(TEXT("·"), TEXT("/")),
+			Dx, Dy, Grey, LabelSize, 0, true, Dw);
+		Dy += 25 * S;
+		for (const FString& Line : WrapText(Tile.Title, Dw, Strong + 3.f, true))
+		{
+			Print(Line, Dx, Dy, White, Strong + 3.f, 0, true, Dw);
+			Dy += 27 * S;
+		}
+		if (Tile.bSwatch)
+		{
+			Box(Dx, Dy + 2 * S, Dw, 14 * S, Tile.Color);
+			Dy += 24 * S;
+		}
+		const bool bCanAfford = Tile.State != EFTTile::Available || !Tile.bCash || Tile.Cost <= Career->C.Cash;
+		Print(States[static_cast<int32>(Tile.State)], Dx, Dy + 4 * S, StateColor(Tile.State), LabelSize, 0, true, Dw * .52f);
+		Print(Tile.Price, R - 17 * S, Dy, bCanAfford ? Yellow : Red, Strong, 2, false, Dw * .47f);
+		Dy += 31 * S;
+		Box(Dx, Dy, Dw, S, Rule);
+		AccentSweep(Rect(Dx, Dy, Dw, 3 * S), SelectionAge - .035f, Pink, FocusSweep);
+		Dy += 13 * S;
+		if (bGarage)
+		{
+			TArray<FString> Parts;
+			Tile.Id.ParseIntoArray(Parts, TEXT(":"));
+			if (Parts.IsValidIndex(1))
+			{
+				const int32 Rank = Career->Rank(FName(*Parts[1]));
+				Print(Rank >= 3 ? TEXT("FULLY UPGRADED  /  RANK 3") : FString::Printf(TEXT("INSTALLED RANK %d  /  %d"), Rank, Cols),
+					Dx, Dy, Cyan, LabelSize, 0, true);
+				Dy += 23 * S;
+			}
+		}
+		const float ActionY = Bottom - (bSkills ? 100 : 67) * S;
+		const TArray<FString> Desc = WrapText(Tile.Desc, Dw, Body);
+		const TArray<FString> Needs = WrapText(Tile.Needs, Dw, LabelSize);
+		const float NeedsSpace = Needs.IsEmpty() ? 0.f : (21 + Needs.Num() * 16) * S;
+		for (const FString& Line : Desc)
+		{
+			if (Dy + 20 * S > ActionY - NeedsSpace - 9 * S) break;
+			Print(Line, Dx, Dy, White, Body, 0, false, Dw);
+			Dy += 19 * S;
+		}
+		if (!Needs.IsEmpty())
+		{
+			Print(TEXT("REQUIREMENTS"), Dx, Dy + 4 * S, Red, LabelSize, 0, true);
+			Dy += 23 * S;
+			for (const FString& Line : Needs)
+			{
+				if (Dy + 16 * S > ActionY - 4 * S) break;
+				Print(Line, Dx, Dy, Grey, LabelSize, 0, false, Dw);
+				Dy += 16 * S;
+			}
+		}
+		else if (Tile.State == EFTTile::Available && !bCanAfford)
+			Print(FString::Printf(TEXT("AVAILABLE CASH  %s"), *Money(Career->C.Cash)), Dx, Dy + 5 * S, Red, LabelSize, 0, false, Dw);
+
+		FString Action = TEXT("BUY"), Hint = Tile.bCash ? TEXT("HOLD ENTER / A / MOUSE") : TEXT("ENTER / A / CLICK");
+		const bool bEquipped = bShop && Tile.State == EFTTile::Equipped;
+		const bool bRequiredSlot = Tile.Slot == TEXT("paint") || Tile.Slot == TEXT("rims") || Tile.Slot == TEXT("neon") || Tile.Slot == TEXT("nitro");
+		if (bShop && Tile.State == EFTTile::Owned) { Action = TEXT("EQUIP"); Hint = TEXT("ENTER / A / CLICK"); }
+		else if (bEquipped) { Action = bRequiredSlot ? TEXT("EQUIPPED") : TEXT("UNEQUIP"); Hint = bRequiredSlot ? TEXT("REQUIRED SLOT") : TEXT("ENTER / A / CLICK"); }
+		else if (Tile.Id == TEXT("sequel") && Tile.State == EFTTile::Owned) { Action = TEXT("SWITCH"); Hint = TEXT("ENTER / A / CLICK"); }
+		else if (Tile.State != EFTTile::Available) { Action = States[static_cast<int32>(Tile.State)]; Hint = Tile.State == EFTTile::Pending ? TEXT("KEPT ON READY") : FString(); }
+		const bool bEnabled = (Tile.State == EFTTile::Available && bCanAfford)
+			|| (Tile.State == EFTTile::Owned && (bShop || Tile.Id == TEXT("sequel"))) || (bEquipped && !bRequiredSlot);
+		const FBox2D Buy = Rect(Dx, ActionY, Dw, 48 * S);
+		G->BuyRect = Control(Buy, Action, Hint, G->BuyHoldT > 0.f && bEnabled ? EControl::Pressed : ControlState(Buy, bEnabled, bEnabled), Cyan);
+		if (Tile.bCash && Tile.State == EFTTile::Available)
+			Meter(Rect(Dx, Buy.Max.Y + 3 * S, Dw, 3 * S), G->BuyHoldT / FMath::Max(.01f, Data.T(TEXT("HoldToBuy"), .5f)), Yellow);
+		if (bSkills)
+		{
+			const FBox2D Undo = Rect(Dx, ActionY + 59 * S, Dw, 31 * S);
+			G->UndoRect = Control(Undo, TEXT("UNDO  /  BACKSPACE OR B"), FString(), ControlState(Undo, false, !Career->C.PendingSkills.IsEmpty()), Yellow);
+		}
+	}
+	else Print(TEXT("NO ITEMS AVAILABLE"), DetailX + 18 * S, BoardY + 20 * S, Grey, Strong, 0, true);
+
+	const FBox2D Ready = Rect(R - 344 * S, Bottom + 13 * S, 344 * S, 54 * S);
+	const FString ReadyLabel = G->bPPFromTitle || G->PPNextLevel < 0 ? TEXT("READY / TITLE") : FString::Printf(TEXT("READY / LEVEL %d"), G->PPNextLevel + 1);
+	G->ReadyRect = Control(Ready, ReadyLabel, TEXT("SPACE / START / CLICK"), ControlState(Ready, false, G->PhaseT >= .3f), Cyan);
+	const bool bFeedback = T - G->PPMsgT < 2.2f && !G->PPMsg.IsEmpty();
+	if (bFeedback)
+	{
+		if (!bSkills)
+			AccentSweep(Rect(X + 2 * S, Bottom + 39 * S, 336 * S, 3 * S),
+				T - G->PPMsgT, G->bPPMsgBad ? Red : Green, Feedback);
+		Print(G->PPMsg.Replace(TEXT("·"), TEXT("/")), X + 2 * S, Bottom + 14 * S, G->bPPMsgBad ? Red : Green, Strong, 0, true, 836 * S);
+	}
+	else if (bSkills && !Career->C.bTipSeen && Career->SPLeft() > 0)
+		Print(TEXT("Pick an available skill to spend a point. READY keeps pending changes."), X + 2 * S, Bottom + 16 * S, Yellow, Body, 0, false, 836 * S);
+	Print(TEXT("ARROWS / D-PAD   MOVE     ENTER / A   CONFIRM     Q E / LB RB   CHANGE TAB"),
+		X + 2 * S, Bottom + 48 * S, Grey, Body, 0, false, 836 * S);
+}
+
+void AFTHUD::DrawPaycheck(AFTGameMode* G)
+{
+	Box(0, 0, W, H, Alpha(Deep, .86f));
+	const float X = Left + 71 * S, R = Right - 71 * S, Y = (H - CanvasHeight * S) * .5f;
+	const FFTLevelDef& Level = G->Def();
+	Print(TEXT("PAYCHECK"), X, Y + 32 * S, White, Heading, 0, true);
+	Print(Level.Zone + TEXT("  /  ") + Level.Title, R, Y + 42 * S, Grey, Strong, 2, false, 526 * S);
+	const FBox2D Cash = Rect(X, Y + 91 * S, 543 * S, 512 * S);
+	const FBox2D Career = Rect(R - 573 * S, Y + 91 * S, 573 * S, 512 * S);
+	Plate(Cash, Yellow, Ink);
+	Plate(Career, Cyan, Ink);
+	AccentSweep(Rect(Cash.Min.X + S, Cash.Min.Y + S, Cash.GetSize().X - 2 * S, 4 * S), G->PhaseT, Yellow, MenuEntrance);
+	AccentSweep(Rect(Career.Min.X + S, Career.Min.Y + S, Career.GetSize().X - 2 * S, 4 * S),
+		G->PhaseT - .075f, Cyan, MenuEntrance);
+	Print(TEXT("CASH STATEMENT"), Cash.Min.X + 18 * S, Cash.Min.Y + 17 * S, Yellow, LabelSize, 0, true);
+	Print(TEXT("CAREER PROGRESSION"), Career.Min.X + 18 * S, Career.Min.Y + 17 * S, Cyan, LabelSize, 0, true);
+	if (G->bPayValid)
+	{
+		const FFTCommitOut& Pay = G->Pay;
+		const int32 Shown = bReducedMotion ? Pay.Pay.Lines.Num()
+			: FMath::Clamp(FMath::FloorToInt((G->PhaseT - .3f) / .32f), 0, Pay.Pay.Lines.Num());
+		const float RowH = FMath::Min(30.f, 343.f / FMath::Max(1, Pay.Pay.Lines.Num())) * S;
+		for (int32 I = 0; I < Shown; ++I)
+		{
+			const FFTPayLine& Line = Pay.Pay.Lines[I];
+			const int64 Value = static_cast<int64>(FMath::RoundToDouble(Line.Amount / 10.0) * 10.0);
+			const float Ry = Cash.Min.Y + 50 * S + I * RowH;
+			if (I % 2 == 0) Box(Cash.Min.X + 16 * S, Ry, Cash.GetSize().X - 32 * S, RowH - 2 * S, Steel);
+			AccentSweep(Rect(Cash.Min.X + 16 * S, Ry + RowH - 3 * S, Cash.GetSize().X - 32 * S, 2 * S),
+				G->PhaseT - (.3f + (I + 1) * .32f), Yellow, FocusSweep);
+			Print(Line.Label, Cash.Min.X + 25 * S, Ry + 3 * S, Line.bMult ? Cyan : White, Body, 0, false, (Line.bMult ? 260 : 310) * S);
+			if (Line.bMult)
+				Print(FString::Printf(TEXT("× %.3g"), Line.Mult), Cash.Max.X - 144 * S, Ry + 4 * S, Pink, LabelSize, 2, false, 85 * S);
+			Print(Money(Value), Cash.Max.X - 23 * S, Ry + 3 * S, Value < 0 ? Red : Yellow, Body, 2, false, 119 * S);
+		}
+		Box(Cash.Min.X + 18 * S, Cash.Max.Y - 98 * S, Cash.GetSize().X - 36 * S, S, Rule);
+		Print(TEXT("TOTAL"), Cash.Min.X + 21 * S, Cash.Max.Y - 79 * S, Yellow, LabelSize, 0, true);
+		if (Shown >= Pay.Pay.Lines.Num())
+		{
+			AccentSweep(Rect(Cash.Min.X + 18 * S, Cash.Max.Y - 99 * S, Cash.GetSize().X - 36 * S, 4 * S),
+				G->PhaseT - (.3f + Pay.Pay.Lines.Num() * .32f), Yellow, MenuEntrance);
+			Print(Money(Pay.Pay.Total), Cash.Max.X - 22 * S, Cash.Max.Y - 86 * S, Yellow, Heading, 2, true, 375 * S);
+			if (const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(G))
+				Print(FString::Printf(TEXT("CASH NOW  %s"), *Money(CS->C.Cash)), Cash.Max.X - 22 * S, Cash.Max.Y - 38 * S, Grey, Body, 2, false, 490 * S);
+		}
+		const float XPStart = .6f + Pay.Pay.Lines.Num() * .32f;
+		if (G->PhaseT > XPStart || bReducedMotion)
+		{
+			const float XpRow = FMath::Min(27.f, 183.f / FMath::Max(1, Pay.XPLines.Num())) * S;
+			for (int32 I = 0; I < Pay.XPLines.Num(); ++I)
+			{
+				const float Ry = Career.Min.Y + 51 * S + I * XpRow;
+				Print(Pay.XPLines[I].Label, Career.Min.X + 20 * S, Ry, White, Body, 0, false, 386 * S);
+				Print(FString::Printf(TEXT("+%s XP"), *Num(static_cast<int64>(Pay.XPLines[I].Amount))),
+					Career.Max.X - 21 * S, Ry, Green, Body, 2, false, 127 * S);
+			}
+			const FFTProgressData& Data = FFTProgressData::Get();
+			const float U = bReducedMotion ? 1.f : FMath::Clamp((G->PhaseT - XPStart - .4f) / 1.4f, 0.f, 1.f);
+			const int64 Xp = Pay.XPBefore + (U >= 1.f ? Pay.XPGained : static_cast<int64>(double(Pay.XPGained) * U));
+			const int32 Driver = Data.LevelForXP(Xp);
+			const int64 Lo = Data.TotalXPFor(Driver), Hi = Driver >= 30 ? Lo : Data.TotalXPFor(Driver + 1);
+			const float ProgressY = Career.Min.Y + 75 * S + Pay.XPLines.Num() * XpRow;
+			Print(FString::Printf(TEXT("DRIVER LEVEL %d"), Driver), Career.Min.X + 20 * S, ProgressY, Cyan, Strong, 0, true);
+			Print(FString::Printf(TEXT("%s / %s XP"), *Num(Xp), *Num(Hi)), Career.Max.X - 21 * S, ProgressY + 4 * S, Grey, Body, 2, false, 252 * S);
+			Meter(Rect(Career.Min.X + 20 * S, ProgressY + 33 * S, Career.GetSize().X - 41 * S, 8 * S),
+				Hi > Lo ? float(Xp - Lo) / float(Hi - Lo) : 1.f, Cyan, 12);
+
+			int32 SkillPoints = 0, Leveled = 0;
+			for (const TPair<int32, int32>& Up : Pay.LevelUps)
+			{
+				if (Up.Key > Driver) break;
+				SkillPoints += Up.Value;
+				++Leveled;
+			}
+			float RewardY = ProgressY + 57 * S;
+			if (Leveled)
+			{
+				Box(Career.Min.X + 18 * S, RewardY, Career.GetSize().X - 36 * S, 35 * S, Active);
+				Print(FString::Printf(TEXT("LEVEL UP   /   +%d SKILL POINT%s"), SkillPoints, SkillPoints == 1 ? TEXT("") : TEXT("S")),
+					Career.Min.X + 27 * S, RewardY + 6 * S, Yellow, Strong, 0, true, 520 * S);
+				RewardY += 43 * S;
+			}
+			if (U >= 1.f)
+			{
+				if (Pay.LegendarySP > 0)
+				{
+					Print(FString::Printf(TEXT("FIRST LEGENDARY DIRECTOR HERE  /  +%d SP"), Pay.LegendarySP),
+						Career.Min.X + 20 * S, RewardY, Yellow, LabelSize, 0, true, 530 * S);
+					RewardY += 23 * S;
+				}
+				for (int32 I = 0; I < Pay.Unlocks.Num() && RewardY < Career.Max.Y - 24 * S; ++I)
+				{
+					const bool bLastRow = RewardY + 42 * S >= Career.Max.Y && I + 1 < Pay.Unlocks.Num();
+					Print(bLastRow ? FString::Printf(TEXT("+%d MORE UNLOCKS IN PRE-PRODUCTION"), Pay.Unlocks.Num() - I) : Pay.Unlocks[I],
+						Career.Min.X + 20 * S, RewardY, Green, Body, 0, false, 530 * S);
+					RewardY += 21 * S;
+				}
+			}
+		}
+	}
+	else Print(TEXT("NO PAYCHECK FOR A BENCHMARK RUN"), Cash.Min.X + 20 * S, Cash.Min.Y + 67 * S, Grey, Body);
+
+	const FBox2D Continue = Rect(R - 447 * S, Y + 622 * S, 447 * S, 54 * S);
+	G->ResultsContinueRect = Control(Continue, TEXT("CONTINUE"), TEXT("ENTER / A"),
+		ControlState(Continue, true, G->PhaseT >= .6f), Cyan);
+	Print(TEXT("R   RESHOOT     ESC / B   TITLE"), X, Y + 638 * S, Grey, Body);
 }
 
 // ---------------------------------------------------------------------------------------------- cosmetic overlays (07): wreck FX and boss finishers
 void AFTHUD::DrawFx(AFTGameMode* G)
 {
 	const float Now = G->RealClockNow();
-	if (Now - G->KaBoomT < 0.9f)
+	if (Now - G->KaBoomT < .9f && G->Phase == EFTPhase::Play)
 	{
-		const float A = FMath::Clamp(0.9f - (Now - G->KaBoomT), 0.f, 1.f);
-		const float Sc = 2.6f + (Now - G->KaBoomT) * 1.2f;
-		Txt(G->KaBoom, W * 0.5f + 4 * S, H * 0.38f + 4 * S, FLinearColor(0.f, 0.f, 0.f, A), Sc, 1, true, false);
-		Txt(G->KaBoom, W * 0.5f, H * 0.38f, FLinearColor(1.f, 0.85f, 0.1f, A), Sc, 1, true, false);
+		const float X = Left + Safe * S, Y = 25 * S;
+		Plate(Rect(X, Y, 210 * S, 38 * S), Yellow, Ink);
+		Print(G->KaBoom, X + Inset * S, Y + 8 * S, Yellow, Strong, 0, true, 182 * S);
 	}
-	if (Now - G->FilmBurnT < 0.45f)
+	if (!bReducedMotion && Now - G->FilmBurnT < .45f)
 	{
 		// Film Burn: the frame burns through for a moment
 		const float A = 1.f - (Now - G->FilmBurnT) / 0.45f;
-		Box(0, 0, W, H, FLinearColor(1.f, 0.55f, 0.15f, 0.45f * A));
-		Box(W * 0.62f, 0, W * 0.38f, H, FLinearColor(1.f, 0.95f, 0.8f, 0.35f * A));
+		Grad(0, 0, W * .17f, H, Alpha(Amber, .34f * A), Alpha(Amber, 0.f), true);
+		Grad(W * .84f, 0, W * .16f, H, Alpha(Amber, 0.f), Alpha(Amber, .34f * A), true);
 	}
 	if (!G->Finisher.IsNone() && Now - G->FinisherT < 4.f && Now >= G->FinisherT)
 	{
 		const float U = Now - G->FinisherT;
 		if (G->Finisher == TEXT("s-the-end-card") && U > 0.6f)
 		{
-			const float A = FMath::Clamp((U - 0.6f) * 1.5f, 0.f, 1.f);
-			Txt(TEXT("THE END"), W * 0.5f, H * 0.4f, FLinearColor(1.f, 0.95f, 0.85f, A), 3.6f, 1, true);
-			Txt(TEXT("...?"), W * 0.5f + 240 * S, H * 0.4f + 70 * S, FLinearColor(1.f, 0.3f, 0.3f, A * FMath::Clamp(U - 2.f, 0.f, 1.f)), 1.4f, 1, true);
+			const float A = bReducedMotion ? 1.f : EaseOut(U - .6f, .65f);
+			Print(TEXT("THE END"), W * .5f, H * .39f, Alpha(White, A), 72.f, 1, true);
+			if (U >= 2.f) Print(TEXT("...?"), W * .5f + 185 * S, H * .39f + 78 * S, Red, Heading, 1, true);
 		}
-		const UFTGameInstance* GI = G->GI();
-		if (G->Finisher == TEXT("s-supernova") && U < 0.6f && !(GI && GI->bReducedMotion)) Box(0, 0, W, H, FLinearColor(1.f, 1.f, 1.f, 0.85f * (1.f - U / 0.6f)));
+		if (G->Finisher == TEXT("s-supernova") && U < .6f && !bReducedMotion)
+			Box(0, 0, W, H, Alpha(White, .35f * (1.f - U / .6f)));
 	}
 }
 
 // ---------------------------------------------------------------------------------------------- menus
 void AFTHUD::DrawPause(AFTGameMode* G)
 {
-	Box(0, 0, W, H, FLinearColor(0, 0, 0, 0.6f));
-	Txt(TEXT("CAMERAS HOLDING"), W * 0.5f, H * 0.3f, Yellow, 2.2f, 1, true);
-	Txt(TEXT("P / ESC  RESUME      C  CONTROLS      O  OPTIONS      R  RESHOOT LEVEL      T  TITLE"), W * 0.5f, H * 0.52f, White, 0.95f, 1);
-	Txt(TEXT("M  MUTE      F1  FRAME RATE"), W * 0.5f, H * 0.58f, Grey, 0.85f, 1);
+	const float Entry = MenuAge(EMenuView::Pause);
+	const float In = Entry < 0.f ? 1.f : EaseOut(Entry, MenuEntrance);
+	Box(0, 0, W, H, Alpha(Deep, FMath::Lerp(.48f, .68f, In)));
+	const float X = W * .5f - 251 * S, Y = (H - CanvasHeight * S) * .5f + 121 * S, WidthPx = 502 * S;
+	Plate(Rect(X, Y, WidthPx, 468 * S), Yellow, Ink);
+	AccentSweep(Rect(X + 2 * S, Y + 2 * S, WidthPx - 4 * S, 4 * S), Entry, Yellow, MenuEntrance);
+	Print(TEXT("CAMERAS HOLDING"), X + (24.f + 9.f * (1.f - In)) * S, Y + 23 * S, White, Heading, 0, true);
+	Print(FString::Printf(TEXT("SCENE %02d   /   TAKE %02d"), G->Scene + 1, G->Take), X + 24 * S, Y + 67 * S, Grey, Body);
+	Print(TEXT("PAUSED"), X + WidthPx - 24 * S, Y + 30 * S, Yellow, LabelSize, 2, true);
+	static const TCHAR* Names[] = { TEXT("RESUME"), TEXT("CONTROLS"), TEXT("OPTIONS"), TEXT("RESHOOT LEVEL"), TEXT("TITLE") };
+	static const TCHAR* Hints[] = { TEXT("P / ESC / START"), TEXT("C / Y"), TEXT("O"), TEXT("R"), TEXT("T") };
+	for (int32 I = 0; I < UE_ARRAY_COUNT(Names); ++I)
+	{
+		const FBox2D Row = Rect(X + 24 * S, Y + (108 + 60 * I) * S, WidthPx - 48 * S, 51 * S);
+		const FLinearColor& Accent = I == 0 ? Cyan : Pink;
+		const bool bSelected = G->PauseRow == I;
+		G->OverlayRects.Add(Control(Row, Names[I], Hints[I], ControlState(Row, bSelected), Accent));
+		if (bSelected) FocusAccent(Row, MenuAge(EMenuView::Pause, true), Accent);
+	}
+	Print(TEXT("UP-DOWN / D-PAD   NAVIGATE     ENTER / A   SELECT     M   MUTE     F1   FPS"),
+		X + 24 * S, Y + 420 * S, Grey, Body, 0, false, WidthPx - 48 * S);
 }
 
 void AFTHUD::DrawControls(AFTGameMode* G)
 {
 	const UFTGameInstance* GI = G->GI();
 	if (!GI) return;
-	Box(0, 0, W, H, FLinearColor(0.01f, 0.f, 0.04f, 0.88f));
-	Txt(TEXT("CONTROLS"), W * 0.5f, H * 0.06f, Pink, 2.f, 1, true);
-	Txt(TEXT("The left hand drives, the right hand shoots. Each layout reads only its own keys; steering with the other layout switches to it."), W * 0.5f, H * 0.16f, Grey, 0.8f, 1);
-	const float Cx0 = W * 0.5f - 330 * S, Cx1 = W * 0.5f - 20 * S, Cx2 = W * 0.5f + 190 * S, Y0 = H * 0.23f;
-	Txt(TEXT("ACTION"), Cx0, Y0, Grey, 0.8f);
-	Txt(GI->Layout == 0 ? TEXT("WASD LAYOUT (IN USE)") : TEXT("WASD LAYOUT"), Cx1, Y0, GI->Layout == 0 ? Yellow : Grey, 0.8f);
-	Txt(GI->Layout == 1 ? TEXT("ARROWS LAYOUT (IN USE)") : TEXT("ARROWS LAYOUT"), Cx2, Y0, GI->Layout == 1 ? Yellow : Grey, 0.8f);
-	for (int32 a = 0; a <= UFTGameInstance::NumActions; ++a)
+	Box(0, 0, W, H, Alpha(Deep, .86f));
+	const float X = W * .5f - 450 * S, Y = (H - CanvasHeight * S) * .5f + 30 * S, WidthPx = 900 * S;
+	Plate(Rect(X, Y, WidthPx, 660 * S), Cyan, Ink);
+	const float Entry = MenuAge(EMenuView::Controls);
+	const float In = Entry < 0.f ? 1.f : EaseOut(Entry, MenuEntrance);
+	AccentSweep(Rect(X + 2 * S, Y + 2 * S, WidthPx - 4 * S, 4 * S), Entry, Cyan, MenuEntrance);
+	Print(TEXT("CONTROLS"), X + (24.f + 9.f * (1.f - In)) * S, Y + 18 * S, White, Heading, 0, true);
+	Print(TEXT("Active layout switches when you steer with the other set of bindings."),
+		X + 25 * S, Y + 62 * S, Grey, Body, 0, false, 690 * S);
+	const FBox2D Back = Rect(X + 715 * S, Y + 18 * S, 161 * S, 46 * S);
+	G->OverlayRects.Add(Control(Back, G->bControlsWaiting ? TEXT("CANCEL") : TEXT("BACK"), TEXT("ESC / B"),
+		ControlState(Back), Cyan));
+	const float KeysX = X + 308 * S, KeyPitch = 270 * S, RowH = 36 * S;
+	for (int32 Layout = 0; Layout < 2; ++Layout)
 	{
-		const float Y = Y0 + (a + 1) * 38 * S;
-		const bool bRow = G->ControlsRow == a;
-		if (a == UFTGameInstance::NumActions) { Txt(TEXT("RESET TO DEFAULTS"), Cx0, Y + 8 * S, bRow ? Yellow : White, 0.95f); if (bRow) Frame(Cx0 - 10 * S, Y + 2 * S, 260 * S, 34 * S, Yellow); continue; }
-		Txt(UFTGameInstance::ActionName(a), Cx0, Y + 6 * S, bRow ? Yellow : White, 0.95f);
-		for (int32 l = 0; l < 2; ++l)
+		const bool bActive = GI->Layout == Layout;
+		const FString Name = Layout == 0 ? TEXT("WASD LAYOUT") : TEXT("ARROWS LAYOUT");
+		Print(bActive ? Name + TEXT("  /  ACTIVE") : Name, KeysX + (Layout * KeyPitch + 124 * S), Y + 98 * S,
+			bActive ? Cyan : Grey, LabelSize, 1, true);
+	}
+	Print(TEXT("ACTION"), X + 25 * S, Y + 98 * S, Grey, LabelSize, 0, true);
+	for (int32 Action = 0; Action < UFTGameInstance::NumActions; ++Action)
+	{
+		const float RowY = Y + 122 * S + Action * RowH;
+		Box(X + 25 * S, RowY, 851 * S, 32 * S, G->ControlsRow == Action ? Active : Steel);
+		Print(UFTGameInstance::ActionName(Action), X + 37 * S, RowY + 5 * S, White, Body);
+		for (int32 Layout = 0; Layout < 2; ++Layout)
 		{
-			const float X = l == 0 ? Cx1 : Cx2;
-			const bool bSel = bRow && G->ControlsCol == l;
-			FString K = GI->Binds[a][l].IsValid() ? GI->Binds[a][l].GetDisplayName().ToString().ToUpper() : TEXT("—");
-			if (bSel && G->bControlsWaiting) K = FMath::Fmod(T, 0.6f) < 0.3f ? TEXT("PRESS A KEY") : TEXT("");
-			Box(X - 6 * S, Y, 180 * S, 32 * S, bSel ? FLinearColor(0.3f, 0.05f, 0.25f, 0.9f) : Ink);
-			if (bSel) Frame(X - 6 * S, Y, 180 * S, 32 * S, Yellow);
-			Txt(K, X + 6 * S, Y + 6 * S, White, 0.9f);
+			const FBox2D Key = Rect(KeysX + Layout * KeyPitch, RowY, 248 * S, 32 * S);
+			const bool bSelected = G->ControlsRow == Action && G->ControlsCol == Layout;
+			const bool bCapture = bSelected && G->bControlsWaiting;
+			const FKey& Bind = GI->Binds[Action][Layout];
+			FString Text = Bind.IsValid() ? Bind.GetDisplayName().ToString().ToUpper() : FString(TEXT("UNBOUND"));
+			if (bCapture) Text = TEXT("PRESS A KEY");
+			G->OverlayRects.Add(Control(Key, Text, FString(),
+				ControlState(Key, bSelected, !G->bControlsWaiting || bCapture), bCapture ? Yellow : Cyan));
+			if (bSelected) FocusAccent(Key, MenuAge(EMenuView::Controls, true), bCapture ? Yellow : Cyan);
 		}
 	}
-	Txt(TEXT("↑↓ PICK  ·  ←→ LAYOUT  ·  ENTER  CHANGE (DELETE CLEARS)  ·  ESC  BACK"), W * 0.5f, H * 0.86f, Grey, 0.85f, 1);
-	Txt(TEXT("Always on: mouse (hold left = guns, right click = missile, middle click = AMMO). Gamepad: stick steers, A or RB drift, X guns, B missile, LB or RT turbo, Y ammo in a race, START pause."), W * 0.5f, H * 0.91f, Cyan, 0.75f, 1);
-	Txt(TEXT("P, ESC, M, ENTER, TAB, O and F1 are reserved."), W * 0.5f, H * 0.95f, Grey, 0.7f, 1);
+	const FBox2D Reset = Rect(X + 25 * S, Y + 454 * S, 279 * S, 44 * S);
+	G->OverlayRects.Add(Control(Reset, TEXT("RESET TO DEFAULTS"), FString(),
+		ControlState(Reset, G->ControlsRow == UFTGameInstance::NumActions, !G->bControlsWaiting), Yellow));
+	if (G->ControlsRow == UFTGameInstance::NumActions)
+		FocusAccent(Reset, MenuAge(EMenuView::Controls, true), Yellow);
+	if (G->bControlsWaiting)
+		Print(TEXT("ESC CANCELS   /   DELETE OR BACKSPACE CLEARS"), X + 326 * S, Y + 462 * S, Yellow, Body);
+	else if (G->RealClockNow() - G->OverlayFeedbackT < 2.7f)
+		Print(G->OverlayFeedback, X + 326 * S, Y + 461 * S, G->bOverlayFeedbackError ? Red : Cyan, Body, 0, false, 542 * S);
+	Print(TEXT("UP-DOWN / D-PAD   ACTION     LEFT-RIGHT   LAYOUT     ENTER / A   REBIND"), X + 25 * S, Y + 522 * S, White, Body);
+	Print(TEXT("MOUSE   LEFT: GUNS   /   RIGHT: MISSILE   /   MIDDLE: AMMO"), X + 25 * S, Y + 555 * S, Grey, Body);
+	Print(TEXT("GAMEPAD   STICK: STEER   /   A OR RB: DRIFT   /   LB OR RT: TURBO   /   X: GUNS   /   B: MISSILE   /   Y: AMMO"),
+		X + 25 * S, Y + 581 * S, Grey, Body, 0, false, 850 * S);
+	Print(TEXT("Reserved keys and fixed mouse and gamepad actions cannot be rebound."), X + 25 * S, Y + 617 * S, Grey, LabelSize);
 }
 
 void AFTHUD::DrawOptions(AFTGameMode* G)
 {
 	const UFTGameInstance* GI = G->GI();
 	if (!GI) return;
-	Box(0, 0, W, H, FLinearColor(0.01f, 0.f, 0.04f, 0.85f));
-	Txt(TEXT("OPTIONS"), W * 0.5f, H * 0.12f, Cyan, 2.f, 1, true);
-	const FString Rows[4] = {
-		FString::Printf(TEXT("GRAPHICS PRESET   ◀ %s ▶"), *UFTGameInstance::QualityName(GI->Quality)),
-		FString::Printf(TEXT("SHOW FRAME RATE   ◀ %s ▶"), GI->bShowFps ? TEXT("ON") : TEXT("OFF")),
-		FString::Printf(TEXT("VSYNC   ◀ %s ▶"), GI->bVSync ? TEXT("ON") : TEXT("OFF")),
-		FString::Printf(TEXT("REDUCED MOTION   ◀ %s ▶"), GI->bReducedMotion ? TEXT("ON") : TEXT("OFF")) };
-	for (int32 i = 0; i < 4; ++i) Txt(Rows[i], W * 0.5f, H * 0.32f + i * 56 * S, G->OptionsRow == i ? Yellow : White, 1.3f, 1, G->OptionsRow == i);
-	Txt(TEXT("LOW and MEDIUM turn Lumen off and render below native resolution with TSR; HIGH uses Lumen GI and reflections; EPIC adds the full Lumen,"), W * 0.5f, H * 0.62f, Grey, 0.75f, 1);
-	// 2.9 (the Mac audit): the old line said Nanite and VSM are on at every preset, which is false on a Mac's Metal SM5 path
-	Txt(TEXT("shadow and post quality. AUTO measures this computer and picks; on a Mac it picks HIGH with Lumen on, drawn at a lower"), W * 0.5f, H * 0.655f, Grey, 0.75f, 1);
-	Txt(TEXT("resolution that TSR upscales to the screen. Nanite and Virtual Shadow Maps run where the graphics card supports them."), W * 0.5f, H * 0.69f, Grey, 0.75f, 1);
-	Txt(TEXT("↑↓ PICK  ·  ←→ CHANGE  ·  ESC  BACK"), W * 0.5f, H * 0.8f, Grey, 0.85f, 1);
+	Box(0, 0, W, H, Alpha(Deep, .82f));
+	const float X = W * .5f - 365 * S, Y = (H - CanvasHeight * S) * .5f + 83 * S, WidthPx = 730 * S;
+	Plate(Rect(X, Y, WidthPx, 554 * S), Cyan, Ink);
+	Print(TEXT("OPTIONS"), X + 25 * S, Y + 21 * S, White, Heading, 0, true);
+	const FBox2D Back = Rect(X + 545 * S, Y + 20 * S, 161 * S, 48 * S);
+	G->OverlayRects.Add(Control(Back, TEXT("BACK"), TEXT("ESC / B"), ControlState(Back), Cyan));
+
+	static const TCHAR* Labels[] = { TEXT("GRAPHICS PRESET"), TEXT("SHOW FRAME RATE"), TEXT("VSYNC"), TEXT("REDUCED MOTION") };
+	static const TCHAR* Groups[] = { TEXT("DISPLAY"), TEXT("ACCESSIBILITY") };
+	const FString Values[] = { UFTGameInstance::QualityName(GI->Quality), GI->bShowFps ? TEXT("ON") : TEXT("OFF"),
+		GI->bVSync ? TEXT("ON") : TEXT("OFF"), GI->bReducedMotion ? TEXT("ON") : TEXT("OFF") };
+	for (int32 I = 0; I < UE_ARRAY_COUNT(Labels); ++I)
+	{
+		const float RowY = Y + (112 + I * 53 + (I == 3 ? 38 : 0)) * S;
+		const bool bSelected = G->OptionsRow == I;
+		if (I == 0 || I == 3)
+			Print(Groups[I == 0 ? 0 : 1], X + 25 * S, RowY - 24 * S, Grey, LabelSize, 0, true);
+		const FBox2D Row = Rect(X + 24 * S, RowY, WidthPx - 48 * S, 45 * S);
+		Box(Row.Min.X, Row.Min.Y, Row.GetSize().X, Row.GetSize().Y, bSelected ? Active : Steel);
+		Frame(Row.Min.X, Row.Min.Y, Row.GetSize().X, Row.GetSize().Y, bSelected ? Cyan : Rule, bSelected ? 1.5f : 1.f);
+		Print(Labels[I], Row.Min.X + 14 * S, RowY + 10 * S, White, Strong, 0, true);
+		Print(Values[I], Row.Max.X - 117 * S, RowY + 9 * S, bSelected ? Cyan : White, Strong, 1, true, 122 * S);
+		const FBox2D Dec = Rect(Row.Max.X - 215 * S, RowY + 5 * S, 31 * S, 35 * S);
+		const FBox2D Inc = Rect(Row.Max.X - 50 * S, RowY + 5 * S, 31 * S, 35 * S);
+		G->OverlayRects.Add(Control(Dec, TEXT("<"), FString(), ControlState(Dec), Cyan));
+		G->OverlayRects.Add(Control(Inc, TEXT(">"), FString(), ControlState(Inc), Cyan));
+	}
+	Box(X + 24 * S, Y + 381 * S, WidthPx - 48 * S, S, Rule);
+	static const TCHAR* Details[] = {
+		TEXT("Low and Medium use TSR with Lumen off. High enables Lumen GI and reflections. Epic increases shadow and post quality. Auto chooses for this computer."),
+		TEXT("Display the current frame rate and frame time in the corner."),
+		TEXT("Synchronize frame presentation to the display refresh rate."),
+		TEXT("Reduce decorative movement and flashes in the interface and game.")
+	};
+	float DetailY = Y + 398 * S;
+	for (const FString& Line : WrapText(Details[FMath::Clamp(G->OptionsRow, 0, 3)], WidthPx - 48 * S, Body))
+	{
+		Print(Line, X + 24 * S, DetailY, Grey, Body, 0, false, WidthPx - 48 * S);
+		DetailY += 22 * S;
+	}
+	Print(TEXT("CHANGES SAVE AUTOMATICALLY"), X + 24 * S, Y + 473 * S, Grey, LabelSize, 0, true);
+	Print(TEXT("UP-DOWN / D-PAD   PICK     LEFT-RIGHT   CHANGE"), X + 24 * S, Y + 508 * S, White, Body);
 }

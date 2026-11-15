@@ -95,12 +95,12 @@ All live values are in one Material Parameter Collection, `/BayshoreSky/Material
 | `CloudDriftSpeed` | 600 | cloud drift, cm/s, along WindDirection (cirrus 2.2x) |
 | `OutlineWidth` | 0 | ink outline width (0: no ink on the sky) |
 | `Haze` | 0.3 | horizon haze; distant cloud fades toward the sky behind it at twice this |
-| `CloudCardsShown` | 48 | how many cumulus cards are drawn (dealt round-robin across the clusters) |
-| `SunDiscSize` | 0.9 | angular radius of the sun disc (deg) |
-| `SunHaloSize` | 22 | angular size of the halo (deg) |
+| `CloudCardsShown` | 0 | how many cumulus cards are drawn (dealt round-robin across the clusters) |
+| `SunDiscSize` | 1.05 | angular radius of the sun disc (deg) |
+| `SunHaloSize` | 12 | angular size of the halo (deg) |
 | `SunRayStrength` | 0 | painted rays in the halo (0: the light shafts do this now) |
-| `FlareStrength` | 0.2 | lens ghosts |
-| `GradientMidPoint` | 0.12 | elevation (0-1 of 90 deg) of the mid colour; the zenith colour is reached at 3x it |
+| `FlareStrength` | 0 | lens ghosts |
+| `GradientMidPoint` | 0.14 | elevation (0-1 of 90 deg) of the mid colour; the zenith colour is reached at 3x it |
 | `PanoramaExposure` | 0.7 | brightness of the baked atmosphere strip |
 | `PanoramaStylize` | 0.9 | how far the atmosphere strip is pulled toward the art-directed gradient (1 = gradient only) |
 | `CloudRimStrength` | 0.8 | (legacy) rim strength of the old procedural deck |
@@ -115,7 +115,7 @@ All live values are in one Material Parameter Collection, `/BayshoreSky/Material
 | `CloudAmbientGradient` | 0.7 | (legacy) ambient gradient of the old cel cards |
 | `SunDistance` | 4e+06 | distance of the halo and ghost quads (cm) |
 | `GullFlapSpeed` | 7 | gull wing beat |
-| `SunIntensity` | 20 | sun disc brightness (HDR; about 20x SDR white) |
+| `SunIntensity` | 9 | sun disc brightness (HDR; about 20x SDR white) |
 | `SeaEnabled` (set by the Blueprint) | 1 | the backdrop sea on or off (written by ShowSea) |
 | `CloudExposure` (MPC-only) | 0.45 | exposure of the photoreal altocumulus deck (HDR) |
 | `CirrusExposure` (MPC-only) | 0.45 | exposure of the photoreal cirrus layer (HDR) |
@@ -125,7 +125,9 @@ All live values are in one Material Parameter Collection, `/BayshoreSky/Material
 | `AltoCoverage` (MPC-only) | 1 | share of the sky the deck's cloud fields cover (clear blue between them; 1 = the bake everywhere) |
 | `CirrusCoverage` (MPC-only) | 1 | share of the sky the cirrus bundles cover (1 = the bake everywhere) |
 | `HillsHeight` (MPC-only) | 0.35 | the distant hills drawn at this share of their baked height (a flat bay shore, as in the reference) |
-| Colours | | `ZenithColor` #44659F, `MidColor` #6E87B6, `HorizonColor` #9A96B4, `HazeColor` #DDA0A6, `SunColor` #FFC98A, `SunHaloColor` #FF7E4C, `CloudLitColor` #F09DB0, `CloudShadowColor` #8784BA, `CloudRimColor` #FFA28E, `OutlineColor` #6A4E7C, `HillNearColor` #5F6280, `HillFarColor` #9C90AE, `SkylineColor` #E7CFC6, `SeaDeepColor` #1B2D3A, `SeaHorizonColor` #4A5566, `GlitterColor` #FFD7A8, `BlimpBodyColor` #F2EFF2, `BlimpAccentColor` #E8456B, `BlimpLetterColor` #1E3F8A, `GullColor` #FBF6F2 |
+| `CloudLayers` (MPC-only) | 0 |  |
+| `HorizonWarmth` (MPC-only) | 0.5 |  |
+| Colours | | `ZenithColor` #4A6CB4, `MidColor` #7F8FCB, `HorizonColor` #B9A8D2, `HazeColor` #F4B8B2, `SunColor` #FFD9A6, `SunHaloColor` #FF9C78, `CloudLitColor` #F09DB0, `CloudShadowColor` #8784BA, `CloudRimColor` #FFA28E, `OutlineColor` #6A4E7C, `HillNearColor` #5F6280, `HillFarColor` #9C90AE, `SkylineColor` #E7CFC6, `SeaDeepColor` #2C97AA, `SeaHorizonColor` #8CCFD0, `GlitterColor` #FFD7A8, `BlimpBodyColor` #F2EFF2, `BlimpAccentColor` #E8456B, `BlimpLetterColor` #1E3F8A, `GullColor` #FBF6F2 |
 | `SunDirection` | azimuth 30 deg, elevation 6 deg | must match the bakes |
 | `WindDirection` | (1, 0.3) | the deck drifts along it; the cirrus 15 deg off it |
 | Lights (preset) | sun 7 lux, colour (1.0, 0.74, 0.52), rotation pitch -6 yaw 210; sky light 1.2 | |

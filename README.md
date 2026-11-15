@@ -28,6 +28,7 @@ Paths are under `full-throttle-unreal/`; a file in two sections' folders belongs
 | Skills, garage & money | Gameplay | Brad | `Content/Data`, `FTSkills.*`, `FTGameInstance.*`, `ft_skilltest.py`, `FTProgress.*` (2.6) |
 | Game rules & director | Gameplay | Keenan | `Content/Core/BP_FTGameMode`, `Content/Characters/Pickups`, `FTGameMode.*`, `FTEntity.*`, `FTCore.h`, `FTFlow.cpp` (2.6) |
 | Audio | Audio | Keenan | `Content/Audio`, `Tools/sfx_synth.py` |
+| The nights (beat-em-up between the races) | Nights | | `Source/FullThrottle/Brawl`, `Content/Brawl`, `FTNightFlow.*`, `Content/Python/brawl_*.py` |
 | Code base & build files | Code | | the rest of `Source`, `FullThrottle.uproject` |
 | Tools & tests | Tools | | the rest of `Content/Python`, `Tools` |
 | Project settings | Settings | | `Config` (but `DefaultInput.ini`) |
@@ -36,7 +37,7 @@ Levels 4-8 (2.5) share one art and map script, `Content/Python/ft_v25.py` (their
 projectiles, `M_Lava`/`MI_Lava`/`MI_Facade`), so it stays in Tools & tests rather than in one level's section.
 The five new bosses' meshes sit in `Content/Characters/Bosses` (Enemies) and `M_Lava`, `MI_Lava`, `MI_Facade` in `Content/Core/Materials` (Environment).
 
-No cutscenes section yet: there is no cutscene content in the Unreal game. When the first lands (say `Content/Cinematics`), add it as a section (Justin's, by the design doc).
+The cutscenes are the nights': every night opens on THAT NIGHT and ends on LAST CALL + END OF NIGHT (night 1 also the pier), played in the brawl itself (`Brawl/FTBrawlCutscene.cpp`); they belong to the nights section.
 
 No file in the project is over 50 MB. `Binaries`, `Intermediate`, `Saved` and `DerivedDataCache` are made on each computer.
 
@@ -131,6 +132,36 @@ No file in the project is over 50 MB. `Binaries`, `Intermediate`, `Saved` and `D
   - *Test hooks*: `-fthp=N` / `ft.Hp N` race with that armour (30 = burning; bench mode holds it); autopilot logs
     `FTJUMP` (every flight: kind road/gap/ramp, air time, rise, distance, lift range) and `FTGLUE` (5 s summaries).
     `../full-throttle-tests/v240/run_dev.sh <tag> <level> <arcade> <hp> <seconds>` runs the Development package.
+
+## The nights between the races (merged 15 Nov 2026 from `../beat-em-up-unreal` 0.8.0 + night 3)
+
+The story flow (`~/Wisper/docs/full-throttle-flow/full-throttle-flow.html`) puts a night between the drives:
+L1 BAYSHORE -> N1 THE RUSTY ANCHOR -> L2 CHEMICAL WORKS -> N2 THE VELVET ROOM -> L3 NEVADA -> N3 THE LUCKY 7 -> ...
+The night is the side-scrolling 2.5D brawl, merged as-is: code `Source/FullThrottle/Brawl/` (classes `FTBrawl*`, cvars `ftb.*`,
+log `FTBRAWL`), content `Content/Brawl/` (maps `Maps/L_RustyAnchor`, `Maps/L_VelvetRoom`, `Maps/L_Lucky7`; their World Settings name
+`/Script/FullThrottleBrawl.FTBrawlGameMode`, which `[CoreRedirects]` in DefaultEngine.ini points at this module).
+The brawl project `../beat-em-up-unreal` stays the place to build nights; copy `Brawl/` and `Content/Brawl/` over again as
+they are (since 15 Nov, run 32365, the files are identical in both projects: `FTBrawlGameMode.cpp` compiles the career hand-off
+in when `FTNightFlow.h` is there, `#if __has_include`). New night maps also go in `DefaultGame.ini` `MapsToCook`.
+
+- **Hand-off (`FTNightFlow.h/.cpp`, a game-instance subsystem).** The races are untouched. After a wrapped level, ENTER on
+  the PAYCHECK calls `UFTNightFlow::GoToNight` (one line in `TickPaycheck`): it saves the career's pending level (as
+  PRE-PRODUCTION would) and opens the night that follows. When the night is over (night 1: its END OF NIGHT card + ENTER;
+  every night since run 32365) `NightOver` reopens the finished level's map on PRE-PRODUCTION for the next level, the screen the
+  paycheck led to before, and its READY loads the next race exactly as before. Got away / out of film / reshoot / title
+  never go to a night. Quitting during a night reopens PRE-PRODUCTION for the next level (the night is skipped).
+- **Which night:** `NightMaps` in FTNightFlow.cpp (after L1 `L_RustyAnchor`, L2 `L_VelvetRoom`, L3 `L_Lucky7`, then
+  N4-N7 by their story names). A night whose map is not in the project is skipped, so a new night only needs its map
+  and brawl code merged. All seven are in (run 32365): N1 THE RUSTY ANCHOR, N2 THE VELVET ROOM, N3 THE LUCKY 7, N4 THE TIKI
+  TORCH (after L4 VOLCANO), N5 STRIKE CITY (L5), N6 THE FROSTBITE LODGE (L6), N7 THE SEA BISCUIT (L7), each with its
+  THAT NIGHT and LAST CALL cutscenes (see `../beat-em-up-unreal/README.md`). L8 has no night. `L_Day1Set` (day 1's BEFORE THE
+  DRIVE scene) came along with the brawl content but is not in the flow: the owner's rule was nights only, between the races.
+- **Grab and throw (every night, run 42137):** L / C / pad B lifts the foe in front over Nova's head, L / J / K hurls him the way
+  you steer; the thrown body knocks down every foe it hits. Same code as `../beat-em-up-unreal` (its README, "Grab and throw").
+- **Tests:** `-ftnonights` turns the nights off (benches never go to them). `-brawlgrab` makes the autopilot grab and throw,
+  `-brawlkeytest` plays the autopilot through key presses (the keyboard path). In a night, `-brawlauto` fights by itself and
+  `-brawlnext` presses ENTER after the win / on the last card, `-brawlshots=<dir>` writes a frame every 4 s. Logs:
+  `FT NIGHT start after=L1 map=... next=L2`, `FT NIGHT over next=L2 preproduction on=...`.
 
 ## Build and test
 

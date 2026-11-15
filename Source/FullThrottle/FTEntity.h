@@ -68,6 +68,20 @@ public:
 	float Charge = 0.f;
 	float YetiPhase = 0.f;
 	static constexpr float YetiShoulderZ = 820.f;   // where SM_YetiArms pivots (ft_v28.py SHOULDER_Z)
+
+	// ---- 3.1: how the attacks look (nothing here is read by the race)
+	UPROPERTY(VisibleAnywhere) TObjectPtr<UNiagaraComponent> Trail2;   // a second trail layer (a missile's flame)
+	UPROPERTY(VisibleAnywhere) TObjectPtr<UStaticMeshComponent> Mark;  // where a jumper or a henchman is about to land
+	/** A foe's round: their colour, their streak, a glow (Variant as the bullet's: 0 tracer, 1 swordfish,
+	 *  2 fireball, 3 big tracer, 4 pie). Looks only: the round's speed and box are the game mode's. */
+	void SetHostile(int32 InVariant);
+	/** The road mark under something about to land on the car: WorldT on the road under it, the real half-extents
+	 *  of what it hits (cm along and across), and how far through its fall it is (0..1). */
+	void SetLandingMark(const FTransform& WorldT, float HalfAlong, float HalfAcross, float Progress);
+	void HideLandingMark();
+	virtual void SetActorHiddenInGame(bool bNewHidden) override;
+	bool bHostile = false;
+	float GlowOffT = 1.f, GlowOnT = 0.f;
 };
 
 /** A dead vehicle: a real Chaos rigid body that tumbles down the road burning, then goes. */
@@ -80,6 +94,7 @@ public:
 	UPROPERTY(VisibleAnywhere) TObjectPtr<UStaticMeshComponent> Mesh;
 	UPROPERTY(VisibleAnywhere) TObjectPtr<UNiagaraComponent> Fire;
 	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> Wheels;   // 3.3: the wreck keeps its wheels
+	UPROPERTY(VisibleAnywhere) TObjectPtr<UNiagaraComponent> Smoke;   // 3.1: it smokes as it tumbles (not at Low)
 	void Launch(UStaticMesh* InMesh, const FTransform& At, const FVector& Velocity, const FVector& Spin, float Scale = 1.f);
 	virtual void Tick(float Dt) override;
 	float Age = 0.f;
@@ -93,11 +108,20 @@ class FULLTHROTTLE_API AFTHazard : public AActor
 public:
 	AFTHazard();
 	UPROPERTY(VisibleAnywhere) TObjectPtr<UStaticMeshComponent> Plane;
+	UPROPERTY(VisibleAnywhere) TObjectPtr<UStaticMeshComponent> RightPlane;
 	UPROPERTY(VisibleAnywhere) TObjectPtr<UPointLightComponent> Light;
 	/** 2.5: what is flying in to land on the mark (a bomb, a snowball, a fish, a fireball, a lightning bolt). */
 	UPROPERTY(VisibleAnywhere) TObjectPtr<UStaticMeshComponent> Thing;
 	void SetLook(const FLinearColor& Colour, float Intensity);
+	void SetSafeGap(float Center, float HalfWidth);
 	void SetThing(UStaticMesh* M, const FTransform& WorldT);
 	void HideThing();
 	virtual void SetActorHiddenInGame(bool bNewHidden) override;
+	/** 3.1: what the marker draws inside its real area. Style 0 electric, 1 ice, 2 fire, 3 water; Type as the
+	 *  hazard's (1 and 5 are square marks, the rest lanes and waves); Progress is the warning's own clock (0 at its
+	 *  start, 1 as it goes live), which the marker shows closing in. Call after the actor's transform is set. */
+	void SetStyle(int32 Style, int32 Type, float Progress, bool bLive);
+	/** 3.1: the trail of whatever is flying in (picked by its mesh), turned to lie back along its flight. */
+	UPROPERTY(VisibleAnywhere) TObjectPtr<UNiagaraComponent> ThingTrail;
+	FVector LastThingAt = FVector::ZeroVector;
 };

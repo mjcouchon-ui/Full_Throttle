@@ -204,6 +204,17 @@ void AFTPlayerCar::BeginPlay()
 		if (!Parts[i]->GetStaticMesh()) Parts[i]->SetStaticMesh(Load<UStaticMesh>(FString(KDir) + TEXT("SM_Kestrel_") + PartNames[i]));
 		PartRest.Add(Parts[i]->GetRelativeTransform());
 	}
+	// 3.4 perf: the car moves every frame, so while its meshes fed the distance fields the engine re-baked the global
+	// distance field round it and re-captured its Lumen cards every frame (GlobalDistanceFieldUpdate "Movable" 0.21 ms
+	// and ~37 card captures at EPIC). The enemies have been out of both since 2.8; the car looks the same without them
+	// (its shadow is the virtual shadow map's, its reflections the screen's).
+	TInlineComponentArray<UStaticMeshComponent*> CarMeshes(this);
+	for (UStaticMeshComponent* C : CarMeshes)
+	{
+		C->bAffectDistanceFieldLighting = false;
+		C->bAffectDynamicIndirectLighting = false;
+		C->MarkRenderStateDirty();
+	}
 	// 3.3: the SWAT trooper hanging off the door (SM_HenchmanHang: origin at his grip, chest toward the car on +Y; the
 	// right-hand one is mirrored); the old standing henchman if the model is missing
 	UStaticMesh* HMHang = Load<UStaticMesh>(TEXT("/Game/Characters/Syndicate/SM_HenchmanHang"));
@@ -435,7 +446,7 @@ void AFTPlayerCar::OnBodyHit(UPrimitiveComponent* HitComp, AActor* Other, UPrimi
 void AFTPlayerCar::Tick(float Dt)
 {
 	Super::Tick(Dt);
-	if (!Track || !Track->IsBuilt()) return;
+	if (!Track || !Track->IsBuilt() || !Chassis->IsSimulatingPhysics()) return;
 
 	float Xl, Hl;
 	D = Track->Locate(Chassis->GetComponentLocation(), D, Xl, Hl);

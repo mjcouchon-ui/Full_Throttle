@@ -44,7 +44,7 @@ bool FTPickupReview::Camera(UWorld* World, const FTransform& Anchor, int32 Level
 		UE_LOG(LogTemp, Display, TEXT("POWERUPS REVIEW staged visual inspection mode=%d level=%d; excluded from normal-play timing"), M, Level);
 	}
 	const float Age = Time - StartTime;
-	const float Distance = M == 2 ? 10000.f : (M == 3 ? FMath::Max(450.f, 10000.f - FMath::Max(0.f, Age - 2.f) * 5400.f) : 450.f);
+	const float Distance = M == 2 ? 10000.f : (M == 3 ? FMath::Max(450.f, 13000.f - FMath::Max(0.f, Age - 2.f) * 5400.f) : 450.f);
 	float AngleDegrees = Yaw.GetValueOnGameThread() + (M == 1 ? Age * 30.f : 0.f);
 	if (SunView.GetValueOnGameThread() != 0)
 	{

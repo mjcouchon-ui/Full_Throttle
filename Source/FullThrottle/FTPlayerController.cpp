@@ -84,6 +84,13 @@ FVector2D AFTPlayerController::MousePos() const
 	return FVector2D(X, Y);
 }
 
+bool AFTPlayerController::InputKey(const FInputKeyEventArgs& Params)
+{
+	if (Params.Event == IE_Pressed || (Params.Key.IsGamepadKey() && Params.Event == IE_Axis && FMath::Abs(Params.AmountDepressed) > .5f))
+		bGamepadPrompts = Params.Key.IsGamepadKey();
+	return Super::InputKey(Params);
+}
+
 bool AFTPlayerController::Down(const FKey& K) const
 {
 	if (!K.IsValid()) return false;
@@ -195,7 +202,7 @@ bool AFTPlayerController::PollCapture(FKey& Out)
 	EKeys::GetAllKeys(Keys);
 	for (const FKey& K : Keys)
 	{
-		if (K.IsMouseButton() || K.IsGamepadKey() || K.IsAxis1D() || K.IsAxis2D() || K.IsTouch()) continue;
+		if (K == EKeys::AnyKey || K.IsMouseButton() || K.IsGamepadKey() || K.IsAxis1D() || K.IsAxis2D() || K.IsTouch()) continue;
 		if (WasInputKeyJustPressed(K)) { Out = K; return true; }
 	}
 	return false;

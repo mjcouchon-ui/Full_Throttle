@@ -2,6 +2,7 @@
 #include "FTTrack.h"
 #include "FTPlayerCar.h"
 #include "FTEntity.h"
+#include "FTFx.h"
 #include "FTPickupReview.h"
 #include "FTPlayerController.h"
 #include "FTGameInstance.h"
@@ -100,7 +101,7 @@ void AFTGameMode::BeginPlay()
 		return;
 	}
 	SetupLevel();
-	if (G) { G->ReapplyQuality(); G->ApplyMute(); TitleSel = Level; }
+	if (G) { G->ReapplyQuality(); G->ApplyMute(); TitleSel = Level; G->WarmGameplayAssets(); }
 	// 3.0: this map's track was built light for an attract shot (or fully); the next load builds fully unless a cut asks
 	if (G) { AttractScene = G->AttractScene; AttractSpawn = G->AttractSpawn; G->AttractD0 = -1.f; }
 	UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this);
@@ -217,6 +218,7 @@ void AFTGameMode::SetupLevel()
 	for (const TCHAR* Lp : { TEXT("SM_Bomb"), TEXT("SM_Snowball"), TEXT("SM_Fish"), TEXT("SM_Fireball"), TEXT("SM_Bolt") })
 		LobMeshes.Add(Load<UStaticMesh>(FString(TEXT("/Game/Characters/Projectiles/")) + Lp));
 	AFTEntityActor::WarmPickups(this);
+	FTFx::Warm(this);   // 3.1: the attack effects, loaded and their PSOs submitted before the first shot
 }
 
 // --------------------------------------------------------------------------------------------- flow
@@ -411,6 +413,8 @@ void AFTGameMode::FinishRating()
 		}
 	}
 	Phase = EFTPhase::Rating; PhaseT = 0.f;
+	ResultsContinueRect = FBox2D(ForceInit);
+	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->SetMenuMouse(true);
 	if (Music) Music->SetVolumeMultiplier(0.25f);
 	UE_LOG(LogFT, Display, TEXT("FT RATING value=%s idx=%d score=%lld"), *FString(T[RatingIdx]).Replace(TEXT(" "), TEXT("")), RatingIdx, Score);
 	UE_LOG(LogFT, Display, TEXT("FT SCREEN name=Dailies"));
@@ -429,6 +433,15 @@ void AFTGameMode::Tick(float Dt)
 	FpsSmoothed = FMath::Lerp(FpsSmoothed, Fps, 0.05f);
 	PhaseT += RDt;
 	TitleT += RDt;
+	// loop cycle 1: log every frame over 40 ms (first-use shader/PSO stalls, loads) with where it happened, for the hitch hunt
+	{
+		const double RawMs = FApp::GetDeltaTime() * 1000.0;
+		if (RawMs > 40.0 && RealClock > 0.5f)
+		{
+			++HitchCount;
+			UE_LOG(LogFT, Display, TEXT("FTHITCH ms=%.0f phase=%d phaseT=%.2f level=%d d=%.0f n=%d"), RawMs, (int32)Phase, PhaseT, Level, Car->D / 100.f, HitchCount);
+		}
+	}
 	AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController());
 	UFTGameInstance* G = GI();
 
@@ -520,7 +533,7 @@ void AFTGameMode::Tick(float Dt)
 		{
 			if (PC->Hit(EKeys::R)) { PayNext = 1; EnterPreProduction(Level, false); }
 			else if (PC->MenuBack()) { PayNext = 2; EnterPreProduction(-2, false); }
-			else if (PhaseT > 2.9f && (PC->Hit(EKeys::Enter) || PC->Hit(EKeys::SpaceBar) || PC->Hit(EKeys::Gamepad_FaceButton_Bottom) || PC->Hit(EKeys::Gamepad_Special_Right))) EnterPaycheck();
+			else if (PhaseT > 2.9f && (PC->MenuOk() || PC->Clicked(ResultsContinueRect))) EnterPaycheck();
 		}
 		break;
 	}
@@ -603,36 +616,73 @@ void AFTGameMode::TickTitle(float RDt)
 {
 	AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController());
 	if (!PC) return;
-	// 3.0: the eight levels are one list (up/down; left/right step too), 1-8 jump, the mouse hovers and clicks
-	const int32 NL = FTData::NumLevels();
-	const int32 Was = TitleSel;
-	if (PC->MenuUp() || PC->MenuLeft()) TitleSel = (TitleSel + NL - 1) % NL;
-	if (PC->MenuDown() || PC->MenuRight()) TitleSel = (TitleSel + 1) % NL;
-	static const FKey Num[8] = { EKeys::One, EKeys::Two, EKeys::Three, EKeys::Four, EKeys::Five, EKeys::Six, EKeys::Seven, EKeys::Eight };
-	for (int32 i = 0; i < NL && i < 8; ++i) if (PC->Hit(Num[i])) TitleSel = i;
-	// the mouse: hovering a row picks it (only when the mouse moves, so it never fights the keys), a click rolls it
-	const FVector2D M = PC->MousePos();
-	const bool bMoved = M.X >= 0.f && TitleMouse.X >= 0.f && FVector2D::Distance(M, TitleMouse) > 1.5f;
-	TitleMouse = M;
-	if (bMoved) for (int32 i = 0; i < TitleRowRects.Num() && i < NL; ++i) if (PC->MouseIn(TitleRowRects[i])) TitleSel = i;
-	TitleHotBtn = -1;
-	for (int32 i = 0; i < TitleBtnRects.Num(); ++i) if (PC->MouseIn(TitleBtnRects[i])) TitleHotBtn = i;
-	if (TitleSel != Was) { LastMenuInputT = RealClock; Sfx(TEXT("Near"), 0.35f, 1.6f); UE_LOG(LogFT, Display, TEXT("FT TITLE sel=%d"), TitleSel + 1); }
-	int32 Clicked = -1;   // 0 roll, 1 pre-production, 2 controls, 3 options, 4 quit
-	if (PC->Hit(EKeys::LeftMouseButton))
+	const int32 Levels = FTData::NumLevels();
+	constexpr int32 Actions = 5;
+	const int32 PreviousLevel = TitleSel, PreviousAction = TitleActionFocus;
+	const bool bSwitch = PC->Hit(EKeys::Tab) || PC->Hit(EKeys::Gamepad_RightShoulder);
+	const bool bUp = PC->MenuUp(), bDown = PC->MenuDown(), bLeft = PC->MenuLeft(), bRight = PC->MenuRight();
+	if (bSwitch) TitleActionFocus = TitleActionFocus == INDEX_NONE ? 0 : INDEX_NONE;
+	if (bUp || bDown) TitleActionFocus = INDEX_NONE;
+	if (TitleActionFocus == INDEX_NONE)
 	{
-		for (int32 i = 0; i < TitleRowRects.Num() && i < NL; ++i) if (PC->MouseIn(TitleRowRects[i])) { TitleSel = i; Clicked = 0; }
-		if (TitleHotBtn >= 0) Clicked = TitleHotBtn;
-		if (Clicked >= 0) LastMenuInputT = RealClock;
+		if (bUp || bLeft) TitleSel = (TitleSel + Levels - 1) % Levels;
+		if (bDown || bRight) TitleSel = (TitleSel + 1) % Levels;
 	}
-	if (Clicked == 2 || PC->Hit(EKeys::C) || PC->Hit(EKeys::Gamepad_FaceButton_Top)) { UE_LOG(LogFT, Display, TEXT("FT TITLE overlay=Controls")); LastMenuInputT = RealClock; Overlay = EFTOverlay::Controls; ControlsRow = 0; ControlsCol = GI() ? GI()->Layout : 0; return; }
-	if (Clicked == 3 || PC->Hit(EKeys::O)) { UE_LOG(LogFT, Display, TEXT("FT TITLE overlay=Options")); LastMenuInputT = RealClock; Overlay = EFTOverlay::Options; OptionsRow = 0; return; }
-	// 10 §4: PRE-PRODUCTION from the title (G, or the pad's Back), so points can be spent before level 1
-	if (Clicked == 1 || PC->Hit(EKeys::G) || PC->Hit(EKeys::Gamepad_Special_Left)) { StopAttract(); EnterPreProduction(-2, true); return; }
-	if ((Clicked == 4 || PC->Hit(EKeys::Escape)) && TitleT > 1.f) { UKismetSystemLibrary::QuitGame(this, PC, EQuitPreference::Quit, false); return; }
-	const UFTGameInstance* TG = GI();
-	if (Clicked == 0 || (PC->MenuOk() && TitleT > 0.4f) || (CVarFTAutopilot.GetValueOnGameThread() > 0 && TitleT > 1.5f) || (TG && TG->bAutoDrive && TitleT > 3.5f))
-		TitleStart();
+	else
+	{
+		if (bLeft) TitleActionFocus = (TitleActionFocus + Actions - 1) % Actions;
+		if (bRight) TitleActionFocus = (TitleActionFocus + 1) % Actions;
+	}
+	static const FKey Number[] = { EKeys::One, EKeys::Two, EKeys::Three, EKeys::Four, EKeys::Five, EKeys::Six, EKeys::Seven, EKeys::Eight };
+	for (int32 I = 0; I < Levels && I < UE_ARRAY_COUNT(Number); ++I)
+		if (PC->Hit(Number[I])) { TitleSel = I; TitleActionFocus = INDEX_NONE; }
+
+	const FVector2D Mouse = PC->MousePos();
+	const bool bMoved = Mouse.X >= 0.f && (TitleMouse.X < 0.f || FVector2D::Distance(Mouse, TitleMouse) > 1.5f);
+	TitleMouse = Mouse;
+	int32 Activate = INDEX_NONE;
+	for (int32 I = 0; I < TitleRowRects.Num() && I < Levels; ++I)
+	{
+		if (!PC->MouseIn(TitleRowRects[I])) continue;
+		if (bMoved || PC->Hit(EKeys::LeftMouseButton)) { TitleSel = I; TitleActionFocus = INDEX_NONE; }
+		if (PC->Hit(EKeys::LeftMouseButton)) Activate = 0;
+		break;
+	}
+	for (int32 I = 0; I < TitleBtnRects.Num(); ++I)
+		if (PC->Clicked(TitleBtnRects[I])) { Activate = I; break; }
+
+	if (PC->Hit(EKeys::C) || PC->Hit(EKeys::Gamepad_FaceButton_Top)) Activate = 2;
+	else if (PC->Hit(EKeys::O)) Activate = 3;
+	else if (PC->Hit(EKeys::G) || PC->Hit(EKeys::Gamepad_Special_Left)) Activate = 1;
+	else if (PC->Hit(EKeys::Escape)) Activate = 4;
+	else if (Activate == INDEX_NONE && PC->MenuOk() && TitleT > .4f) Activate = FMath::Max(0, TitleActionFocus);
+	const UFTGameInstance* GT = GI();
+	if (Activate == INDEX_NONE && ((CVarFTAutopilot.GetValueOnGameThread() > 0 && TitleT > 1.5f) || (GT && GT->bAutoDrive && TitleT > 3.5f)))
+		Activate = 0;
+
+	if (TitleSel != PreviousLevel || TitleActionFocus != PreviousAction || Activate != INDEX_NONE) LastMenuInputT = RealClock;
+	if (TitleSel != PreviousLevel) UE_LOG(LogFT, Display, TEXT("FT TITLE sel=%d"), TitleSel + 1);
+	switch (Activate)
+	{
+	case 0: MenuCue(TEXT("Clap")); TitleStart(); return;
+	case 1: StopAttract(); EnterPreProduction(-2, true); return;
+	case 2:
+		MenuCue(TEXT("Near"), 1.35f);
+		UE_LOG(LogFT, Display, TEXT("FT TITLE overlay=Controls"));
+		Overlay = EFTOverlay::Controls; ControlsRow = 0; ControlsCol = GT ? GT->Layout : 0; OverlayFeedback.Reset();
+		return;
+	case 3:
+		MenuCue(TEXT("Near"), 1.35f);
+		UE_LOG(LogFT, Display, TEXT("FT TITLE overlay=Options"));
+		Overlay = EFTOverlay::Options; OptionsRow = 0;
+		return;
+	case 4:
+		if (TitleT > 1.f) UKismetSystemLibrary::QuitGame(this, PC, EQuitPreference::Quit, false);
+		return;
+	default:
+		if (TitleSel != PreviousLevel || TitleActionFocus != PreviousAction) MenuCue(TEXT("Near"), 1.6f);
+		break;
+	}
 }
 
 void AFTGameMode::TitleStart()
@@ -655,7 +705,8 @@ void AFTGameMode::EnterTitle(bool bKeepTitleT)
 {
 	UFTGameInstance* G = GI();
 	Phase = EFTPhase::Title; PhaseT = 0.f;
-	if (!bKeepTitleT) TitleT = 0.f;
+	if (!bKeepTitleT) { TitleT = 0.f; TitleActionFocus = INDEX_NONE; }
+	TitleRowRects.Reset(); TitleBtnRects.Reset();
 	if (Music && Music->IsPlaying()) Music->Stop();
 	if (G) G->PlayTitleMusic(this, 0.55f);
 	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->SetMenuMouse(true);
@@ -769,61 +820,161 @@ void AFTGameMode::StopAttract()
 	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->bRaceInput = false;
 }
 
+void AFTGameMode::MenuCue(const TCHAR* Name, float Pitch)
+{
+	if (RealClock - LastMenuSoundT < .10f) return;
+	LastMenuSoundT = RealClock;
+	Sfx(Name, .32f, Pitch);
+}
+
 void AFTGameMode::TickOverlay(float RDt)
 {
 	AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController());
 	UFTGameInstance* G = GI();
 	if (!PC || !G) return;
+	const auto Clicked = [&](int32 Index)
+	{
+		return DrawnOverlay == Overlay && OverlayRects.IsValidIndex(Index) && PC->Clicked(OverlayRects[Index]);
+	};
+	const bool bConfirm = PC->Hit(EKeys::Enter) || PC->Hit(EKeys::Gamepad_FaceButton_Bottom);
 	if (Overlay == EFTOverlay::Pause)
 	{
-		if (PC->Hit(EKeys::P) || PC->MenuBack() || PC->Hit(EKeys::Gamepad_Special_Right)) { Overlay = EFTOverlay::None; UGameplayStatics::SetGamePaused(this, false); if (Music) Music->SetPaused(false); return; }
-		if (PC->Hit(EKeys::C) || PC->Hit(EKeys::Gamepad_FaceButton_Top)) { Overlay = EFTOverlay::Controls; ControlsRow = 0; ControlsCol = G->Layout; return; }
-		if (PC->Hit(EKeys::O)) { Overlay = EFTOverlay::Options; OptionsRow = 0; return; }
-		if (PC->Hit(EKeys::R)) { UGameplayStatics::SetGamePaused(this, false); Overlay = EFTOverlay::None; GoToLevel(Level, true); return; }
-		if (PC->Hit(EKeys::T)) { UGameplayStatics::SetGamePaused(this, false); Overlay = EFTOverlay::None; GoToLevel(Level, false); return; }
+		constexpr int32 Rows = 5;
+		const int32 Was = PauseRow;
+		if (PC->MenuUp()) PauseRow = (PauseRow + Rows - 1) % Rows;
+		if (PC->MenuDown()) PauseRow = (PauseRow + 1) % Rows;
+		int32 Action = bConfirm ? PauseRow : INDEX_NONE;
+		for (int32 I = 0; I < Rows; ++I)
+			if (Clicked(I)) { Action = I; break; }
+		if (PC->Hit(EKeys::P) || PC->MenuBack() || PC->Hit(EKeys::Gamepad_Special_Right)) Action = 0;
+		else if (PC->Hit(EKeys::C) || PC->Hit(EKeys::Gamepad_FaceButton_Top)) Action = 1;
+		else if (PC->Hit(EKeys::O)) Action = 2;
+		else if (PC->Hit(EKeys::R)) Action = 3;
+		else if (PC->Hit(EKeys::T)) Action = 4;
+		if (Action == INDEX_NONE)
+		{
+			if (Was != PauseRow) MenuCue(TEXT("Near"), 1.6f);
+			return;
+		}
+		MenuCue(TEXT("Near"), Action == 0 ? .9f : 1.35f);
+		if (Action == 1) { Overlay = EFTOverlay::Controls; ControlsRow = 0; ControlsCol = G->Layout; OverlayFeedback.Reset(); return; }
+		if (Action == 2) { Overlay = EFTOverlay::Options; OptionsRow = 0; return; }
+		Overlay = EFTOverlay::None;
+		PC->SetMenuMouse(false);
+		UGameplayStatics::SetGamePaused(this, false);
+		if (Action == 0) { if (Music) Music->SetPaused(false); UE_LOG(LogFT, Display, TEXT("FT SCREEN name=Pause state=resumed")); }
+		else GoToLevel(Level, Action == 3);
 		return;
 	}
+
 	const bool bFromPause = !bAttract && (Phase == EFTPhase::Play || Phase == EFTPhase::Wreck || Phase == EFTPhase::Card);
+	const auto Close = [&]()
+	{
+		MenuCue(TEXT("Near"), .9f);
+		Overlay = bFromPause ? EFTOverlay::Pause : EFTOverlay::None;
+		DrawnOverlay = EFTOverlay::None;
+	};
 	if (Overlay == EFTOverlay::Controls)
 	{
+		const auto Feedback = [&](const FString& Message, bool bError)
+		{
+			OverlayFeedback = Message;
+			OverlayFeedbackT = RealClock;
+			bOverlayFeedbackError = bError;
+			MenuCue(bError ? TEXT("Empty") : TEXT("Near"), bError ? 1.f : 1.35f);
+			UE_LOG(LogFT, Display, TEXT("FT CONTROLS result=%s message=%s"), bError ? TEXT("rejected") : TEXT("accepted"), *Message);
+		};
 		if (bControlsWaiting)
 		{
-			FKey K;
-			if (PC->PollCapture(K))
+			FKey Key;
+			if (Clicked(0) || PC->MenuBack())
 			{
-				bControlsWaiting = false; PC->bCapture = false;
-				if (K == EKeys::Escape) return;
-				if (K == EKeys::Delete || K == EKeys::BackSpace) G->SetBind(ControlsRow, ControlsCol, FKey());
-				else if (!UFTGameInstance::IsReserved(K)) G->SetBind(ControlsRow, ControlsCol, K);
+				bControlsWaiting = PC->bCapture = false;
+				MenuCue(TEXT("Near"), .9f);
+				return;
+			}
+			if (!PC->PollCapture(Key)) return;
+			bControlsWaiting = PC->bCapture = false;
+			if (Key == EKeys::Delete || Key == EKeys::BackSpace)
+			{
+				G->SetBind(ControlsRow, ControlsCol, FKey());
 				G->SaveSettings();
+				Feedback(TEXT("BINDING CLEARED"), false);
+			}
+			else if (UFTGameInstance::IsReserved(Key))
+				Feedback(TEXT("RESERVED KEY / BINDING UNCHANGED"), true);
+			else
+			{
+				int32 Previous = INDEX_NONE;
+				for (int32 I = 0; I < UFTGameInstance::NumActions; ++I)
+					if (I != ControlsRow && G->Binds[I][ControlsCol] == Key) { Previous = I; break; }
+				G->SetBind(ControlsRow, ControlsCol, Key);
+				G->SaveSettings();
+				Feedback(Previous == INDEX_NONE ? FString(TEXT("BINDING SAVED"))
+					: FString::Printf(TEXT("BINDING MOVED FROM %s"), UFTGameInstance::ActionName(Previous)), false);
 			}
 			return;
 		}
-		if (PC->MenuUp()) ControlsRow = (ControlsRow + UFTGameInstance::NumActions + 1) % (UFTGameInstance::NumActions + 1);
-		if (PC->MenuDown()) ControlsRow = (ControlsRow + 1) % (UFTGameInstance::NumActions + 1);
+		if (Clicked(0) || PC->MenuBack() || PC->Hit(EKeys::C)) { Close(); return; }
+		const int32 MaxRows = UFTGameInstance::NumActions + 1;
+		const int32 BeforeRow = ControlsRow, BeforeCol = ControlsCol;
+		if (PC->MenuUp()) ControlsRow = (ControlsRow + MaxRows - 1) % MaxRows;
+		if (PC->MenuDown()) ControlsRow = (ControlsRow + 1) % MaxRows;
 		if (PC->MenuLeft() || PC->MenuRight()) ControlsCol = 1 - ControlsCol;
-		if (PC->Hit(EKeys::Enter) || PC->Hit(EKeys::Gamepad_FaceButton_Bottom))
+		bool bActivate = bConfirm;
+		for (int32 I = 0; I < 2 * UFTGameInstance::NumActions; ++I)
 		{
-			if (ControlsRow == UFTGameInstance::NumActions) { G->ResetBinds(); G->SaveSettings(); }
-			else { bControlsWaiting = true; PC->bCapture = true; }
+			if (!Clicked(I + 1)) continue;
+			ControlsRow = I / 2;
+			ControlsCol = I % 2;
+			bActivate = true;
+			break;
 		}
-		if (PC->MenuBack() || PC->Hit(EKeys::C)) Overlay = bFromPause ? EFTOverlay::Pause : EFTOverlay::None;
+		if (Clicked(1 + 2 * UFTGameInstance::NumActions)) { ControlsRow = UFTGameInstance::NumActions; bActivate = true; }
+		if (bActivate)
+		{
+			if (ControlsRow == UFTGameInstance::NumActions)
+			{
+				G->ResetBinds();
+				G->SaveSettings();
+				Feedback(TEXT("DEFAULT BINDINGS RESTORED"), false);
+			}
+			else { bControlsWaiting = PC->bCapture = true; MenuCue(TEXT("Near"), 1.35f); }
+		}
+		else if (BeforeRow != ControlsRow || BeforeCol != ControlsCol) MenuCue(TEXT("Near"), 1.6f);
 		return;
 	}
+
 	if (Overlay == EFTOverlay::Options)
 	{
-		const int32 Rows = 4;
+		if (Clicked(0) || PC->MenuBack() || PC->Hit(EKeys::O) || PC->Hit(EKeys::Enter)) { Close(); return; }
+		constexpr int32 Rows = 4;
+		const int32 Was = OptionsRow;
 		if (PC->MenuUp()) OptionsRow = (OptionsRow + Rows - 1) % Rows;
 		if (PC->MenuDown()) OptionsRow = (OptionsRow + 1) % Rows;
-		const int32 Dir = PC->MenuRight() ? 1 : (PC->MenuLeft() ? -1 : 0);
-		if (Dir != 0)
+		int32 Dir = PC->MenuRight() ? 1 : PC->MenuLeft() ? -1 : 0;
+		for (int32 I = 0; I < 2 * Rows; ++I)
 		{
-			if (OptionsRow == 0) { int32 Q = G->Quality + Dir; if (Q < -1) Q = 3; if (Q > 3) Q = -1; G->ApplyQuality(Q); }
-			else if (OptionsRow == 1) { G->bShowFps = !G->bShowFps; G->SaveSettings(); }
-			else if (OptionsRow == 2) { G->bVSync = !G->bVSync; G->ApplyQuality(G->Quality); }
-			else if (OptionsRow == 3) { G->bReducedMotion = !G->bReducedMotion; G->SaveSettings(); }
+			if (!Clicked(I + 1)) continue;
+			OptionsRow = I / 2;
+			Dir = I % 2 ? 1 : -1;
+			break;
 		}
-		if (PC->MenuBack() || PC->Hit(EKeys::O) || PC->Hit(EKeys::Enter)) Overlay = bFromPause ? EFTOverlay::Pause : EFTOverlay::None;
+		if (Dir == 0)
+		{
+			if (Was != OptionsRow) MenuCue(TEXT("Near"), 1.6f);
+			return;
+		}
+
+		switch (OptionsRow)
+		{
+		case 0: { int32 Q = G->Quality + Dir; if (Q < -1) Q = 3; if (Q > 3) Q = -1; G->ApplyQuality(Q); break; }
+		case 1: G->bShowFps = !G->bShowFps; G->SaveSettings(); break;
+		case 2: G->bVSync = !G->bVSync; G->ApplyQuality(G->Quality); break;
+		case 3: G->bReducedMotion = !G->bReducedMotion; G->SaveSettings(); break;
+		}
+		MenuCue(TEXT("Near"), 1.35f);
+		UE_LOG(LogFT, Display, TEXT("FT OPTIONS row=%d quality=%d fps=%d vsync=%d reduced=%d"), OptionsRow, G->Quality, G->bShowFps, G->bVSync, G->bReducedMotion);
 	}
 }
 
@@ -836,8 +987,12 @@ void AFTGameMode::TickPlay(float Dt, float RDt)
 		if (PC->Hit(EKeys::P) || PC->Hit(EKeys::Escape) || PC->Hit(EKeys::Gamepad_Special_Right))
 		{
 			Overlay = EFTOverlay::Pause; PauseRow = 0;
+			DrawnOverlay = EFTOverlay::None;
+			PC->bRaceInput = false;
+			PC->SetMenuMouse(true);
 			UGameplayStatics::SetGamePaused(this, true);
 			if (Music) Music->SetPaused(true);
+			UE_LOG(LogFT, Display, TEXT("FT SCREEN name=Pause state=opened"));
 			return;
 		}
 	}
@@ -1179,10 +1334,15 @@ void AFTGameMode::TickPlayer(float Dt)
 				}
 			}
 			FireBullet(0, Car->D + 260.f, Car->X + (Alt ? 8.f : -8.f) * XU, 115.f, Car->Speed + 1150.f * DU, 0.f, 0, L);
-			if (UNiagaraSystem* M = Load<UNiagaraSystem>(TEXT("/Game/FX/NS_Muzzle")))
 			{
+				// 3.1: the flash rides on the car (left in the world it fell 3 m behind the barrel before it faded) and
+				// says which load it was: a yellow star, AP's blue-white needle star, HE's fat orange burst.
+				// With Reduced Motion the stars are off and the old soft glow stays
 				const FTransform T = Car->GunMuzzle(Alt ? 1 : -1);
-				UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, M, T.GetLocation(), T.Rotator(), FVector(1), true, true, ENCPoolMethod::AutoRelease);
+				static const TCHAR* Star[3] = { TEXT("NS_MuzzleStar"), TEXT("NS_MuzzleStarAP"), TEXT("NS_MuzzleStarHE") };
+				FTFx::Attach(Star[FMath::Clamp(L, 0, 2)], Car->GetRootComponent(), T.GetLocation() + T.GetUnitAxis(EAxis::X) * 36.f, T.Rotator(), 1.f, FTFx::Flash);
+				FTFx::Attach(TEXT("NS_MuzzleTongue"), Car->GetRootComponent(), T.GetLocation(), T.Rotator(), 1.f, FTFx::Extra);
+				if (!FTFx::Shows(this, FTFx::Flash)) FTFx::Attach(TEXT("NS_Muzzle"), Car->GetRootComponent(), T.GetLocation(), T.Rotator());
 			}
 			Sfx(TEXT("Gun"), 0.35f, R(0.95f, 1.05f));
 		}
@@ -1224,7 +1384,13 @@ void AFTGameMode::TickPlayer(float Dt)
 		if (!HenchOn[s]) continue;
 		HenchPunch[s] -= Dt;
 		HenchOnT[s] += Dt;
-		if (HenchPunch[s] <= 0.f) { HurtPlayer(Stats.Has(TEXT("CAR3")) ? 3.f : 4.f); HenchPunch[s] = R(1.4f, 2.0f); Sfx(TEXT("HenchHit")); }
+		if (HenchPunch[s] <= 0.f)
+		{
+			HurtPlayer(Stats.Has(TEXT("CAR3")) ? 3.f : 4.f); HenchPunch[s] = R(1.4f, 2.0f); Sfx(TEXT("HenchHit"));
+			// 3.1: the punch shows: sparks off the door he is hanging from
+			const FTransform Ct = Car->GetActorTransform();
+			FTFx::Attach(TEXT("NS_HitPlayerSparks"), Car->GetRootComponent(), Ct.TransformPosition(FVector(20.f, s == 0 ? -120.f : 120.f, 110.f)), (Ct.GetUnitAxis(EAxis::Y) * (s == 0 ? 1.f : -1.f)).Rotation(), 0.7f, FTFx::Extra);
+		}
 		if (Stats.Has(TEXT("CAR3")) && HenchOnT[s] > 5.f)
 		{
 			HenchOn[s] = 0; HenchOnT[s] = 0.f;
@@ -1541,6 +1707,26 @@ void AFTGameMode::FireBullet(int32 InOwner, float D, float X, float H, float VD,
 		}
 	}
 	if (Variant == 1 || Variant == 2) { B.W = 90.f; B.H = FMath::Min(H, 120.f); }
+	// 3.1: a foe's round looks like theirs (AFTEntityActor::SetHostile), and the barrel it left flashes: one flash
+	// for a whole fan fired from the same spot. Looks only: nothing above this line has changed
+	if (InOwner == 1)
+	{
+		if (AFTEntityActor* A = B.Proxy.Get()) A->SetHostile(Variant);
+		static float MuzT = -1.f, MuzD = 0.f, MuzX = 0.f;
+		if (FMath::Abs(Clock - MuzT) > 0.04f || FMath::Abs(D - MuzD) > 300.f || FMath::Abs(X - MuzX) > 150.f)
+		{
+			MuzT = Clock; MuzD = D; MuzX = X;
+			const FTransform Bt = EntTransform(B);
+			// on the vehicle that fired (the one standing where the round starts), so the flash stays on its barrel:
+			// left in the world it would be metres behind before it faded
+			USceneComponent* On = nullptr;
+			for (const FFTEnt& S : Ents)
+				if (!S.bDead && (S.Kind == EFTKind::Moto || S.Kind == EFTKind::Suv || S.Kind == EFTKind::Boss) && FMath::Abs(S.X - X) < 1.f && D > S.D - S.L * 0.5f - 210.f && D < S.D + 10.f)
+					if (const AFTEntityActor* P = S.Proxy.Get()) { On = P->GetRootComponent(); break; }
+			if (On) FTFx::Attach(TEXT("NS_EnemyMuzzle"), On, Bt.GetLocation(), Bt.Rotator(), Variant == 0 ? 1.f : 1.5f, FTFx::Flash);
+			else FTFx::Burst(this, TEXT("NS_EnemyMuzzle"), Bt.GetLocation(), Bt.Rotator(), Variant == 0 ? 1.f : 1.5f, FTFx::Flash);
+		}
+	}
 }
 
 void AFTGameMode::FireMissile()
@@ -1548,6 +1734,10 @@ void AFTGameMode::FireMissile()
 	FFTEnt& M = Spawn(EFTKind::Missile, 250.f, Car->X);
 	M.H = 120.f; M.Owner = 0; M.T1 = 2.6f; M.Dmg = 260.f * DU; M.Heading = 0.f;
 	Sfx(TEXT("Missile")); Duck(0.7f, 0.3f);
+	// 3.1: the launch: a flash at the rail and a kick of smoke behind it, on the car
+	const FTransform Mt = EntTransform(M);
+	FTFx::Attach(TEXT("NS_MissileLaunch"), Car->GetRootComponent(), Mt.GetLocation(), Mt.Rotator(), 1.f, FTFx::Flash);
+	FTFx::Attach(TEXT("NS_MissileBackblast"), Car->GetRootComponent(), Mt.GetLocation(), Mt.Rotator(), 1.f, FTFx::Extra);
 }
 
 void AFTGameMode::DropPickup(const FFTEnt& E, EFTKind K)
@@ -1668,6 +1858,12 @@ void AFTGameMode::Kill(FFTEnt& E, int32 Cause)
 	}
 
 	Explode(At, ExSize, bSyn && Cause != 3 && Cause != 6 && E.Kind != EFTKind::Boss);
+	// 3.1: a barrel throws burning scrap and a ring out to its real reach (60 px across)
+	if (E.Kind == EFTKind::Barrel)
+	{
+		FTFx::Burst(this, TEXT("NS_BarrelBurst"), At, FRotator::ZeroRotator, 1.f, FTFx::Extra);
+		FTFx::Burst(this, TEXT("NS_BlastRing"), At, FRotator::ZeroRotator, 60.f * XU / 100.f, FTFx::Extra);
+	}
 	if (E.Kind == EFTKind::Heli)
 	{
 		FTimerHandle H; const FVector A2 = At + FVector(0, 0, -800.f);
@@ -1750,24 +1946,44 @@ void AFTGameMode::Kill(FFTEnt& E, int32 Cause)
 	Release(E);
 }
 
-void AFTGameMode::Explode(const FVector& At, float Size, bool bPlayerWreck)
+void AFTGameMode::Explode(const FVector& At, float Size, bool bPlayerWreck, int32 Look)
 {
 	const FName WreckFx = bPlayerWreck ? (UFTCareerSubsystem::Get(this) ? UFTCareerSubsystem::Get(this)->Worn(TEXT("wreck")) : NAME_None) : NAME_None;
 	// Wreck FX (07): a tinted copy of the fireball (ft_v26), same size and timing as the stock blast
 	const bool bTinted = WreckFx == TEXT("s-blue-fire") || WreckFx == TEXT("s-toxic-blast");
-	if (UNiagaraSystem* S = Load<UNiagaraSystem>(bTinted ? TEXT("/Game/FX/NS_Explosion_") + WreckFx.ToString().Replace(TEXT("-"), TEXT("_")) : FString(TEXT("/Game/FX/NS_Explosion"))))
-		UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, S, At, FRotator::ZeroRotator, FVector(Size), true, true, ENCPoolMethod::AutoRelease);
+	const FString Tint = bTinted ? TEXT("_") + WreckFx.ToString().Replace(TEXT("-"), TEXT("_")) : FString();
+	const float Sz = FMath::Max(0.6f, Size);
+	if (Look == 0)
+	{
+		FTFx::Burst(this, *(TEXT("NS_Explosion") + Tint), At, FRotator::ZeroRotator, Size);
+		// 3.1: the effects sheet's banded burst in front of the fireball (the readable shape, at every quality), then
+		// what Low goes without: the flash, sparks, a ring, smoke that lingers and embers that hang in the air.
+		// A blast right beside the camera gets neither the burst nor the ring: flat shapes that close would fill
+		// the screen (first captures), and the pass adds no screen-filling flash
+		const bool bNearCam = FVector::DistSquared(At, CamLoc) < FMath::Square(1400.f);
+		if (!bNearCam) FTFx::Burst(this, *(TEXT("NS_BlastCore") + Tint), At, FRotator::ZeroRotator, Sz);
+		for (const TCHAR* Extra : { TEXT("NS_ExplosionFlash"), TEXT("NS_ExplosionSparks"), TEXT("NS_ExplosionSmoke"), TEXT("NS_ShockRing"), TEXT("NS_ExplosionEmbers") })
+			if (!bNearCam || FCString::Strcmp(Extra, TEXT("NS_ShockRing")) != 0) FTFx::Burst(this, Extra, At, FRotator::ZeroRotator, Sz, FTFx::Extra);
+	}
+	else
+	{
+		// 3.1: not every blast is fire. Ice (1), water (2) and electricity (3) have their own burst, so a snowball no
+		// longer lands in flames. The sound, the shake and the light below are the blast's own, whatever it is made of
+		static const TCHAR* Core[3] = { TEXT("NS_ExplosionIce"), TEXT("NS_ExplosionWater"), TEXT("NS_ExplosionZap") };
+		static const TCHAR* More[3][2] = { { TEXT("NS_SnowBurst"), TEXT("NS_IceShards") }, { TEXT("NS_Splash"), TEXT("NS_ShockRing") }, { TEXT("NS_ZapArcs"), TEXT("NS_ImpactRing") } };
+		const int32 Li = FMath::Clamp(Look, 1, 3) - 1;
+		FTFx::Burst(this, Core[Li], At, FRotator::ZeroRotator, Sz, Li == 2 ? FTFx::Flash : FTFx::Main);
+		for (const TCHAR* Extra : More[Li]) FTFx::Burst(this, Extra, At, FRotator::ZeroRotator, Sz, FTFx::Extra);
+	}
 	if (bPlayerWreck) UE_LOG(LogFT, Display, TEXT("FT WRECKFX fx=%s size=%.2f"), WreckFx.IsNone() ? TEXT("stock") : *WreckFx.ToString(), Size);
 	if (!WreckFx.IsNone()) WreckExtras(WreckFx, At, Size);
-	for (const TCHAR* Extra : { TEXT("/Game/FX/NS_ExplosionSparks"), TEXT("/Game/FX/NS_ExplosionSmoke") })
-		if (UNiagaraSystem* S2 = Load<UNiagaraSystem>(Extra))
-			UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, S2, At, FRotator::ZeroRotator, FVector(FMath::Max(0.6f, Size)), true, true, ENCPoolMethod::AutoRelease);
 	UPointLightComponent* Best = Flashes[0];
 	for (UPointLightComponent* L : Flashes) if (L->Intensity < Best->Intensity) Best = L;
 	Best->SetWorldLocation(At + FVector(0, 0, 250.f));
 	Best->SetAttenuationRadius(2500.f + 1500.f * Size);
 	Best->SetIntensity(40000.f * Size);
-	Best->SetLightColor(WreckFx == TEXT("s-blue-fire") ? FLinearColor(0.3f, 0.55f, 1.f) : (WreckFx == TEXT("s-toxic-blast") ? FLinearColor(0.4f, 1.f, 0.35f) : FLinearColor(1.f, 0.6f, 0.25f)));
+	Best->SetLightColor(Look == 1 ? FLinearColor(0.75f, 0.9f, 1.f) : (Look == 2 ? FLinearColor(0.3f, 0.8f, 1.f) : (Look == 3 ? FLinearColor(0.7f, 0.85f, 1.f)
+		: (WreckFx == TEXT("s-blue-fire") ? FLinearColor(0.3f, 0.55f, 1.f) : (WreckFx == TEXT("s-toxic-blast") ? FLinearColor(0.4f, 1.f, 0.35f) : FLinearColor(1.f, 0.6f, 0.25f))))));
 	Sfx(TEXT("Explode"), FMath::Clamp(0.5f + Size * 0.25f, 0.5f, 1.2f), R(0.85f, 1.05f) / FMath::Sqrt(FMath::Max(Size, 0.5f)));
 	Duck(0.55f, 0.25f);
 	const float Dist = FVector::Dist(At, Car->GetActorLocation());
@@ -1977,6 +2193,8 @@ void AFTGameMode::TickEnts(float Dt)
 			E.Sp = Vp;
 			E.H = FMath::Lerp(E.Vh, 95.f, Ease);
 			Ahead = E.D - Pd;
+			// 3.1: where he lands: a mark on the road under him, the size of the latch's real reach, closing as he drops
+			if (AFTEntityActor* Ha = E.Proxy.Get()) Ha->SetLandingMark(Track->TransformAt(E.D, E.X, 6.f), 30.f * DU + 200.f, 22.f * XU + 140.f, U);
 			if (E.T1 <= 0.f)
 			{
 				const bool bCaught = FMath::Abs(E.Tx - Px) < 260.f;
@@ -2010,9 +2228,12 @@ void AFTGameMode::TickEnts(float Dt)
 				E.Sp = Vp + (E.Ta - Ahead) * 4.f;
 				E.X = FMath::Lerp(E.X, E.Tx, FMath::Min(1.f, Dt * 4.f));
 				E.H = FMath::Lerp(34.f * XU * 1.6f, 0.f, U) + 46.f * XU * 2.f * FMath::Sin(PI * U);
+				// 3.1: he had no mark at all. Under him, on the road: the box his landing really hits, closing as he falls
+				if (AFTEntityActor* Ha = E.Proxy.Get()) { if (U < 1.f) Ha->SetLandingMark(Track->TransformAt(E.D, E.X, 6.f), 34.f * DU + 200.f, 20.f * XU + 150.f, U); else Ha->HideLandingMark(); }
 				if (U >= 1.f)
 				{
 					E.H = 0.f; E.State = 1; E.bAir = false;
+					FTFx::Burst(this, TEXT("NS_RevSmoke"), Track->ToWorld(E.D, E.X, 20.f), Track->TransformAt(E.D, E.X, 0.f).Rotator(), 1.2f, FTFx::Extra);   // 3.1: dust where he lands
 					if (FMath::Abs(E.X - Px) < 20.f * XU + 150.f && FMath::Abs(E.D - Pd) < 34.f * DU + 200.f) { HurtPlayer(12.f); Sfx(TEXT("HogLand")); }
 					else { AddScore(150, 2, 150, TEXT("DodgedJump")); Popup(TEXT("DODGED THE JUMP +150"), CCyan); }
 				}
@@ -2036,6 +2257,8 @@ void AFTGameMode::TickEnts(float Dt)
 					if (E.T1 <= 0.f)
 					{
 						E.Glow = 0.f; E.State = 1; E.T2 = R(1.8f, 2.6f);
+						// 3.1: the swing itself: sparks off the chain, thrown across at the car's side of the bike
+						if (AFTEntityActor* Ha = E.Proxy.Get()) FTFx::Attach(TEXT("NS_ChainSwing"), Ha->GetRootComponent(), FVector(0.f, (Px > E.X ? 1.f : -1.f) * 60.f, 110.f), FRotator(0.f, Px > E.X ? 90.f : -90.f, 0.f), 1.f, FTFx::Main, true);
 						if (FMath::Abs(E.X - Px) < 56.f * XU && FMath::Abs(Ahead) < 36.f * DU + 200.f) { HurtPlayer(7.f); Say(TEXT("chainHit"), 2); Sfx(TEXT("Chain")); }
 						else { AddScore(150, 2, 150, TEXT("DuckedChain")); Popup(TEXT("DUCKED THE CHAIN +150"), CCyan); Say(TEXT("chainDodged"), 1); }
 					}
@@ -2062,7 +2285,7 @@ void AFTGameMode::TickEnts(float Dt)
 		{
 			E.T1 -= Dt;
 			E.X += E.Vx * Dt;
-			if (E.T1 <= 0.f) { Release(E); break; }
+			if (E.T1 <= 0.f) { if (E.Owner == 0) FTFx::Burst(this, TEXT("NS_Fizzle"), EntTransform(E).GetLocation(), FRotator::ZeroRotator, 1.f, FTFx::Extra); Release(E); break; }
 			if (E.Owner == 0)
 			{
 				for (FFTEnt& O : Ents)
@@ -2072,15 +2295,17 @@ void AFTGameMode::TickEnts(float Dt)
 					if (FMath::Abs(O.X - E.X) < O.W / 2 + 40.f && E.D > O.D - O.L / 2 - Sweep && E.D < O.D + O.L / 2 + 50.f)
 					{
 						if (E.Hits.Contains(O.Id)) continue;
-						if (UNiagaraSystem* S = Load<UNiagaraSystem>(TEXT("/Game/FX/NS_Impact")))
-							UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, S, Track->ToWorld(E.D, E.X, O.bAir ? O.H : 110.f), FRotator::ZeroRotator, FVector(1), true, true, ENCPoolMethod::AutoRelease);
-						BulletHit(E, O);
+						BulletHit(E, O);   // 3.1: the hit's effects are in BulletHit, which knows the load and the armour class
 						if (E.bDead) break;
 					}
 				}
 			}
 			else if (FMath::Abs(E.X - Px) < CarW / 2 + FMath::Max(0.f, E.W * 0.5f - 20.f) && FMath::Abs(E.D - Pd) < CarL / 2 + FMath::Abs(E.Sp - Vp) * Dt && (Car->bGrounded || Car->H - Car->SurfH < 260.f))
 			{
+				// 3.1: where it struck, on the car so it stays with it: their colour, and sparks off the bodywork
+				const FTransform Bt = EntTransform(E);
+				FTFx::Attach(TEXT("NS_HitPlayer"), Car->GetRootComponent(), Bt.GetLocation(), Bt.Rotator());
+				FTFx::Attach(TEXT("NS_HitPlayerSparks"), Car->GetRootComponent(), Bt.GetLocation(), Bt.Rotator(), 1.f, FTFx::Extra);
 				HurtPlayer(E.Variant == 3 ? 5.f : 6.f);
 				Release(E);
 			}
@@ -2119,6 +2344,12 @@ void AFTGameMode::TickEnts(float Dt)
 					HurtEnt(O, 9.f, 1);
 					const bool bCluster = Stats.Has(TEXT("DEM3"));
 					const float Rr = bCluster ? 64.f : 46.f, Sd = bCluster ? 4.f : 3.f;
+					{
+						// 3.1: shrapnel on along the missile's way, and a ring out to the splash's real reach
+						const FTransform Mt = EntTransform(E);
+						FTFx::Burst(this, TEXT("NS_MissileHit"), Mt.GetLocation(), Mt.Rotator());
+						FTFx::Burst(this, TEXT("NS_BlastRing"), Mt.GetLocation(), FRotator::ZeroRotator, Rr * XU / 100.f, FTFx::Extra);
+					}
 					for (FFTEnt& S : Ents)
 						if (!S.bDead && &S != &O && S.Kind != EFTKind::Bullet && S.Kind != EFTKind::Missile && S.Kind != EFTKind::Crate && S.Kind != EFTKind::Wrench && S.Kind != EFTKind::Ramp
 							&& FMath::Abs(S.X - Mx) < Rr * XU + S.W / 2 && FMath::Abs(S.D - Md) < Rr * DU + S.L / 2) HurtEnt(S, Sd, 4);
@@ -2191,6 +2422,13 @@ void AFTGameMode::TickEnts(float Dt)
 					// henchman sideswipe: hit something with the side he's riding on
 					const int32 HitSide = Dx > 0.f ? 1 : 0;
 					E.bTouched = true;
+					{
+						// 3.1: metal on metal: sparks where the two meet, and a flash when it is a turbo ram
+						const FVector Hit = Track->ToWorld((Pd + E.D) * 0.5f, (Px + E.X) * 0.5f, 70.f);
+						const FRotator Way = Track->TransformAt(Pd, Px, 0.f).Rotator();
+						if (bHot) FTFx::Attach(TEXT("NS_RamBurst"), Car->GetRootComponent(), Hit, Way, 1.f, FTFx::Flash);
+						FTFx::Attach(TEXT("NS_RamSparks"), Car->GetRootComponent(), Hit, Way, bHot ? 1.f : 0.6f, bHot ? FTFx::Main : FTFx::Extra);
+					}
 					if (HenchOn[HitSide] && E.Kind != EFTKind::Boss)
 					{
 						HenchOn[HitSide] = 0; HenchOnT[HitSide] = 0.f;
@@ -2232,7 +2470,7 @@ void AFTGameMode::TickEnts(float Dt)
 						HurtPlayer(Dmg, nullptr, Push);
 						Sfx(TEXT("Bump"));
 						if (E.Kind == EFTKind::Civ) HurtEnt(E, 1.f, 2);
-						else if (bCharge) { HurtEnt(E, FMath::Max(2.f, Stats.BumpDmg), 2); E.State = 1; E.T1 = 1.5f; E.Sp = Vp; }
+						else if (bCharge) { HurtEnt(E, FMath::Max(2.f, Stats.BumpDmg), 2); E.State = 1; E.T1 = 1.5f; E.Sp = Vp; E.Glow = 0.f; }
 						else if (bSynE) HurtEnt(E, Stats.BumpDmg, 2);   // a plain bump hits the Syndicate (Bull Bar 1 -> 2 -> 2 -> 3)
 					}
 					if (!E.bDead) { E.X -= Push * 0.25f; E.bNoNear = true; }
@@ -2521,7 +2759,7 @@ void AFTGameMode::BulletFan(const FFTEnt& B, int32 N, float Step, int32 GapAt, f
 	{
 		if (GapAt >= 0 && (k == GapAt || k == GapAt + 1)) continue;
 		const float A = AimA + (k - (N - 1) * 0.5f) * Step;
-		FireBullet(1, B.D - B.L / 2, B.X, 150.f, Vp - FMath::Cos(A) * Spd, FMath::Sin(A) * Spd, Def().BossBullet);
+		FireBullet(1, B.D - B.L / 2, B.X, 150.f, Vp - FMath::Cos(A) * Spd, FMath::Sin(A) * Spd, Level == 4 ? 4 : Def().BossBullet);   // 3.1: MR. CHUCKLES' are pies (4: a tracer's box and damage, a pie's look)
 	}
 }
 
@@ -2859,6 +3097,7 @@ void AFTGameMode::TickLightning(float Dt)
 		FFTHazardState& Hz = Hazards.AddDefaulted_GetRef(); Hz.Type = 1; Hz.Style = 0; Hz.Thing = 4;
 		Hz.X = FMath::Clamp(Car->X + R(-60.f, 60.f) * XU, -RoadHalf, RoadHalf); Hz.D = R(800.f, 1600.f); Hz.Track = 0.f;
 		Hz.Warn = 1.1f; Hz.Live = 0.3f; Hz.W = 36.f * XU * 1.3f;
+		Hz.FromX = R(0.f, 360.f);   // 3.1: the bolt's turn, rolled once (FromX is free on a strike ring)
 		Say(TEXT("zoneWarn"), 1, 6.f);
 	}
 }
@@ -2892,11 +3131,14 @@ void AFTGameMode::TickHazards(float Dt)
 			Hz.Actor = A;
 		}
 		const bool bLive = Hz.T >= Hz.Warn;
-		const float Blink = bLive ? 6.f : (FMath::Fmod(Hz.T, 0.2f) < 0.1f ? 1.6f : 0.6f);
+		const float WarningProgress = FMath::Clamp(Hz.T / FMath::Max(Hz.Warn, 0.05f), 0.f, 1.f);
+		const float Blink = bLive ? 4.f : FMath::Lerp(0.85f, 1.9f, WarningProgress) + 0.32f * FMath::Sin(Hz.T * 23.f);
+		A->SetSafeGap(Hz.X / FT::Edge, Hz.Type == 2 ? Hz.Gap * 0.5f / FT::Edge : 0.f);
 		// 2.5 looks: 0 electric (the Alchemist), 1 ice and snow (the yeti), 2 fire, 3 water
 		static const FLinearColor LiveCol[4] = { FLinearColor(0.7f, 0.9f, 1.f), FLinearColor(0.85f, 0.95f, 1.f), FLinearColor(1.f, 0.55f, 0.1f), FLinearColor(0.3f, 0.8f, 1.f) };
 		const FLinearColor LC = LiveCol[FMath::Clamp(Hz.Style, 0, 3)];
-		const FLinearColor WarnC = Hz.Style == 1 ? FLinearColor(0.2f, 0.45f, 1.f) : FLinearColor(1.f, 0.2f, 0.2f);
+		static const FLinearColor WarnCol[4] = { FLinearColor(1.f, 0.3f, 0.2f), FLinearColor(0.16f, 0.42f, 1.f), FLinearColor(1.f, 0.16f, 0.03f), FLinearColor(0.92f, 0.17f, 0.54f) };
+		const FLinearColor WarnC = WarnCol[FMath::Clamp(Hz.Style, 0, 3)];
 		auto Hs = [this](float D, float X) { return (Track->FlagsAt(D) & FTFlag::HalfPipe) ? Track->SurfaceH(D, X) : 0.f; };
 		if (Hz.Type == 0)
 		{
@@ -2907,7 +3149,8 @@ void AFTGameMode::TickHazards(float Dt)
 			if (bLive && !Hz.bHit)
 			{
 				Hz.bHit = true; Sfx(Hz.Style == 1 ? TEXT("Strike") : (Hz.bTesla ? TEXT("TeslaZap") : TEXT("Zap")));
-				if (Hz.Style == 1) for (int32 k = 0; k < 4; ++k) Explode(Track->ToWorld(Pd + 1500.f * k - 1000.f, Hz.X, 40.f), 0.35f);
+				if (Hz.Style == 1) for (int32 k = 0; k < 4; ++k) Explode(Track->ToWorld(Pd + 1500.f * k - 1000.f, Hz.X, 40.f), 0.35f, false, 1);   // 3.1: ice, not fire
+				else for (int32 k = 0; k < 5; ++k) FTFx::Burst(this, TEXT("NS_ZapArcs"), Track->ToWorld(Pd + 1500.f * k - 1000.f, Hz.X, 70.f), FRotator::ZeroRotator, 1.f, k % 2 ? FTFx::Extra : FTFx::Main);   // 3.1: the arc itself, down the lane
 				if (FMath::Abs(Px - Hz.X) < 39.f * XU) { HurtPlayer(16.f); Say(Hz.Style == 1 ? TEXT("hit") : TEXT("shock"), 2); } else { Say(TEXT("dodge"), 1, 2.f); }
 			}
 			if (Hz.T > Hz.Warn + Hz.Live) Hz.bDone = true;
@@ -2920,10 +3163,18 @@ void AFTGameMode::TickHazards(float Dt)
 			A->SetActorTransform(FTransform(FRotator::ZeroRotator, FVector::ZeroVector, FVector(Hz.W / 50.f, Hz.W / 50.f, 1.f)) * Track->TransformAt(Pd + Hz.D, Hz.X, 6.f + Mh));
 			A->SetLook(bLive ? LC : WarnC, Blink);
 			// a lightning strike: the bolt stands on the ring while it is live
-			if (Hz.Thing == 4 && bLive && LobMeshes.IsValidIndex(4) && LobMeshes[4]) A->SetThing(LobMeshes[4], FTransform(FRotator(0.f, R(0.f, 360.f), 0.f), Track->ToWorld(Pd + Hz.D, Hz.X, 0.f), FVector(0.45f)));
+			if (Hz.Thing == 4 && bLive && LobMeshes.IsValidIndex(4) && LobMeshes[4]) A->SetThing(LobMeshes[4], FTransform(FRotator(0.f, Hz.FromX, 0.f), Track->ToWorld(Pd + Hz.D, Hz.X, 0.f), FVector(0.45f)));
+			// 3.1: the Chairman's rocket strikes had no rocket. One comes down on each ring and arrives as it goes live
+			if (Hz.Style == 2 && Hz.Thing != 4)
+			{
+				static UStaticMesh* Rocket = AFTEntityActor::MeshFor(EFTKind::Missile, 0, 0);
+				const float Left = 1.f - WarningProgress;
+				if (bLive) A->HideThing();
+				else if (Rocket) A->SetThing(Rocket, FTransform(FRotator(-59.f, 180.f, 0.f), FVector::ZeroVector, FVector(1.6f)) * Track->TransformAt(Pd + Hz.D + 2600.f * Left, Hz.X, 60.f + 4400.f * Left));
+			}
 			if (bLive && !Hz.bHit)
 			{
-				Hz.bHit = true; Sfx(Hz.bTesla ? TEXT("TeslaZap") : TEXT("Strike")); Explode(Track->ToWorld(Pd + Hz.D, Hz.X, 50.f + Mh), 0.5f);
+				Hz.bHit = true; Sfx(Hz.bTesla ? TEXT("TeslaZap") : TEXT("Strike")); Explode(Track->ToWorld(Pd + Hz.D, Hz.X, 50.f + Mh), 0.5f, false, Hz.Style == 0 ? 3 : (Hz.Style == 1 ? 1 : (Hz.Style == 3 ? 2 : 0)));
 				const bool bOnIt = Hz.Rail >= 0 ? (Car->RailIndex() == Hz.Rail) : (FMath::Abs(Px - Hz.X) < Hz.W && FMath::Abs(Hz.D) < Hz.W);
 				if (bOnIt) { HurtPlayer(18.f); Say(TEXT("shock"), 2); }
 				else if (Hz.Rail >= 0) { AddScore(200, 2, 200, TEXT("RailDodge")); Popup(TEXT("DODGED! +200"), CGreen); Say(TEXT("dodge"), 1, 2.f); }
@@ -2943,9 +3194,10 @@ void AFTGameMode::TickHazards(float Dt)
 				if (Hz.FxT <= 0.f)
 				{
 					Hz.FxT = 0.09f;
-					if (UNiagaraSystem* S = Load<UNiagaraSystem>(TEXT("/Game/FX/NS_Fire")))
-						for (int32 k = 0; k < 3; ++k)
-							UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, S, Track->ToWorld(Pd + R(-1200.f, 5000.f), Hz.X + R(-0.7f, 0.7f) * Hz.W, 30.f), FRotator::ZeroRotator, FVector(1.4f), true, true, ENCPoolMethod::AutoRelease);
+					// 3.1: bursts that end. This spawned the LOOPING wreck fire, three every 0.09 s: none of them ever
+					// finished, so none went back to the pool for the rest of the fight. Same places, same rhythm
+					for (int32 k = 0; k < 3; ++k)
+						FTFx::Burst(this, TEXT("NS_FlameBurst"), Track->ToWorld(Pd + R(-1200.f, 5000.f), Hz.X + R(-0.7f, 0.7f) * Hz.W, 30.f), FRotator::ZeroRotator, 1.4f);
 				}
 				if (!Hz.bHit) { Hz.bHit = true; Sfx(TEXT("Explode"), 0.5f, 0.6f); }
 				if (FMath::Abs(Px - Hz.X) < Hz.W + CarW * 0.35f && Car->bGrounded) { HurtPlayer(Hz.Dmg); Say(TEXT("hit"), 2, 2.f); }
@@ -2973,7 +3225,9 @@ void AFTGameMode::TickHazards(float Dt)
 			{
 				Hz.bHit = true;
 				A->HideThing();
-				Explode(Track->ToWorld(Pd + Hz.D, Hz.X, 60.f + Mh), Hz.Thing == 1 ? 0.6f : 0.8f);
+				Explode(Track->ToWorld(Pd + Hz.D, Hz.X, 60.f + Mh), Hz.Thing == 1 ? 0.6f : 0.8f, false, Hz.Thing == 1 ? 1 : (Hz.Thing == 2 ? 2 : 0));   // 3.1: snow lands as snow, a fish as a splash
+				if (Hz.Thing == 0) FTFx::Burst(this, TEXT("NS_LandBomb"), Track->ToWorld(Pd + Hz.D, Hz.X, 60.f + Mh), FRotator::ZeroRotator, 1.f, FTFx::Extra);
+				if (Hz.Thing == 3) FTFx::Burst(this, TEXT("NS_FireSplash"), Track->ToWorld(Pd + Hz.D, Hz.X, 40.f + Mh), FRotator::ZeroRotator, 1.f, FTFx::Extra);
 				if (Hz.Rail >= 0)
 				{
 					// 3.3 a bomb on a coaster rail: it hits whoever is on that rail; you dodge by hopping off it
@@ -2992,16 +3246,16 @@ void AFTGameMode::TickHazards(float Dt)
 			A->SetActorTransform(FTransform(FRotator::ZeroRotator, FVector::ZeroVector, FVector(3.f, 2.f * FT::Edge / 100.f, 1.f)) * Track->TransformAt(Pd + Hz.D, 0.f, 8.f));
 			A->SetLook(bLive ? (Hz.Style == 1 ? LiveCol[1] : FLinearColor(0.6f, 0.85f, 1.f)) : WarnC, Blink);
 			// the avalanche: a rolling wall of snow, except the gap
-			if (bLive && Hz.Style == 1)
+			// 3.1: snow for the avalanche (it was the explosions' brown smoke), arcs for the shock wave (it had nothing)
+			if (bLive)
 			{
 				Hz.FxT -= Dt;
 				if (Hz.FxT <= 0.f)
 				{
 					Hz.FxT = 0.1f;
-					if (UNiagaraSystem* S = Load<UNiagaraSystem>(TEXT("/Game/FX/NS_ExplosionSmoke")))
-						for (int32 l = 0; l < 4; ++l)
-							if (FMath::Abs(LaneX(l) - Hz.X) > Hz.Gap * 0.5f)
-								UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, S, Track->ToWorld(Pd + Hz.D, LaneX(l), 60.f), FRotator::ZeroRotator, FVector(1.3f), true, true, ENCPoolMethod::AutoRelease);
+					for (int32 l = 0; l < 4; ++l)
+						if (FMath::Abs(LaneX(l) - Hz.X) > Hz.Gap * 0.5f)
+							FTFx::Burst(this, Hz.Style == 1 ? TEXT("NS_SnowWall") : TEXT("NS_ZapArcs"), Track->ToWorld(Pd + Hz.D, LaneX(l), 60.f), FRotator::ZeroRotator, Hz.Style == 1 ? 1.3f : 0.8f, Hz.Style == 1 ? FTFx::Main : FTFx::Extra);
 				}
 			}
 			if (bLive && !Hz.bHit && Hz.D <= CarL * 0.5f)
@@ -3013,10 +3267,12 @@ void AFTGameMode::TickHazards(float Dt)
 			}
 			if (Hz.D < -3000.f) Hz.bDone = true;
 		}
+		// 3.1: what the marker draws inside its real area: the attack's own style, and its warning closing in on the
+		// warning's own clock (after the transform above: the marker's size comes from it)
+		A->SetStyle(Hz.Style, Hz.Type, WarningProgress, bLive);
 	}
 	for (FFTHazardState& Hz : Hazards) if (Hz.bDone && Hz.Actor.IsValid()) Hz.Actor->SetActorHiddenInGame(true);
 	Hazards.RemoveAll([](const FFTHazardState& Hz) { return Hz.bDone; });
-	// the shock wave's gap shows as its own green strip
 }
 
 // --------------------------------------------------------------------------------------------- stunts

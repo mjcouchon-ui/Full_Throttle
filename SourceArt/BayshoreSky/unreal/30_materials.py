@@ -218,8 +218,8 @@ c += HaloC * 0.25 * exp(-sang / max(radians(HaloSize), 1e-3));
 // golden-hour glow on the sun-side horizon (Brickell reference): a saturated orange band, its core a little above SDR
 // white. Kept moderate so the tonemapper keeps its colour (R7's horizon under the sun is #FDA170, not white; at 1.6x
 // and 2.2x the band bleached to cream in game); the HDR peak is the sun, its halo and the clouds' silver lining
-c = lerp(c, HaloC * 1.15, saturate(pow(toward, 5.0) * exp(-max(el, 0.0) / 0.06)));
-c = lerp(c, SunC_G * 1.3, saturate(pow(toward, 16.0) * exp(-max(el, 0.0) / 0.025)));
+c = lerp(c, HaloC * 1.15, saturate(pow(toward, 5.0) * exp(-max(el, 0.0) / 0.06)) * saturate(Warm));
+c = lerp(c, SunC_G * 1.3, saturate(pow(toward, 16.0) * exp(-max(el, 0.0) / 0.025)) * saturate(Warm));
 if (el < 0.0) { c = lerp(Haz, Hor * 0.55, saturate(-el / 0.35)); }
 """
 
@@ -376,7 +376,8 @@ DECK_SUN_OCC = r"""
     float aC = saturate(Texture2DSampleLevel(CirA, CirASampler, uvC, 2.0).r);
     aC = (1.0 - pow(1.0 - aC, clamp((RcO + hC) / max(sC, 1.0), 1.0, 6.0))) * @CIRRUS(uvC) * (1.0 - step(0.5, LowQ));
     float up = smoothstep(-0.004, 0.04, Sd.z);
-    vis *= (1.0 - 0.9 * aO * up) * (1.0 - 0.45 * aC * up);
+    float on = step(0.5, Layers);   // the photoreal layers can be switched off (the stylized sky)
+    vis *= (1.0 - 0.9 * aO * up * on) * (1.0 - 0.45 * aC * up * on);
 }
 """
 
@@ -384,7 +385,8 @@ DECK_SUN_OCC = r"""
 def occ_inputs(g, alto_a, cir_a):
     return [("AltoA", g.tex_object("AltoAlpha", alto_a)), ("CirA", g.tex_object("CirrusAlpha", cir_a)), ("CP", g.campos()),
             ("OP", g.objpos()), ("Time", g.time()), ("Wind", g.mpc("WindDirection")), ("Speed", g.mpc("CloudDriftSpeed")),
-            ("AltoCov", g.mpc("AltoCoverage")), ("CirCov", g.mpc("CirrusCoverage")), ("LowQ", g.mpc("LowQuality"))]
+            ("AltoCov", g.mpc("AltoCoverage")), ("CirCov", g.mpc("CirrusCoverage")), ("LowQ", g.mpc("LowQuality")),
+            ("Layers", g.mpc("CloudLayers"))]
 
 
 # the sun visibility (vertex shader of the glow and the ghosts): scene depth, then the cloud layers crossing the sun
@@ -456,7 +458,7 @@ float a1 = 0.0, a2 = 0.0;
 float3 c1 = 0.0, c2 = 0.0;
 // aerial perspective: humid bay air, so distant cloud melts into the sky colour behind it (twice the gradient's haze)
 float aerial = saturate(Haze * 2.0);
-[branch] if (fadeEl > 0.0)
+[branch] if (fadeEl > 0.0 && Layers > 0.5)
 {
     [branch] if (m1 > 0.0)
     {
@@ -519,7 +521,7 @@ float3 sc = sky;
     float2 uvR = float2(dot(pR, wd) - T * Speed, dot(pR, wq)) / 2400000.0;
     float3 LR = Texture2DSampleLevel(AltoL, AltoLSampler, uvR, 3.0).rgb;
     float ar = saturate(Texture2DSampleLevel(AltoA, AltoASampler, uvR, 3.0).r);
-    ar = (1.0 - pow(1.0 - ar, clamp((RcR + hR) / max(sR, 1.0), 1.0, 6.0))) * smoothstep(-0.004, 0.04, dep) * @DECK(uvR);
+    ar = (1.0 - pow(1.0 - ar, clamp((RcR + hR) / max(sR, 1.0), 1.0, 6.0))) * smoothstep(-0.004, 0.04, dep) * @DECK(uvR) * step(0.5, Layers);
     float eR = saturate(elb / 1.5707963);
     float mR = clamp(MidPt, 0.02, 0.6);
     float3 cR = (eR < mR) ? lerp(SkyHor, SkyMid, smoothstep(0.0, 1.0, eR / mR)) : lerp(SkyMid, SkyZen, smoothstep(0.0, 1.0, saturate((eR - mR) / (2.0 * mR))));
@@ -601,7 +603,7 @@ def grad_inputs(g, d_src):
     return [("D", d_src), ("Zen", g.mpc("ZenithColor")), ("Mid", g.mpc("MidColor")), ("Hor", g.mpc("HorizonColor")),
             ("Haz", g.mpc("HazeColor")), ("SunD", g.mpc("SunDirection")), ("HaloC", g.mpc("SunHaloColor")),
             ("MidPt", g.mpc("GradientMidPoint")), ("Haze", g.mpc("Haze")), ("HaloSize", g.mpc("SunHaloSize")),
-            ("SunC_G", g.mpc("SunColor"))]
+            ("SunC_G", g.mpc("SunColor")), ("Warm", g.mpc("HorizonWarmth"))]
 
 
 def neg_camvec(g):
@@ -683,7 +685,7 @@ def build_sky_dome(mpc, ramp, atmo_tex, alto_l, alto_a, cir_l, cir_a):
         ("ShadowC", g.mpc("CloudShadowColor")), ("RimC", g.mpc("CloudRimColor")), ("HazC", g.mpc("HazeColor")),
         ("HazeDist", g.mpc("HazeDistance")), ("CloudExpo", g.mpc("CloudExposure")), ("CirExpo", g.mpc("CirrusExposure")),
         ("TauScale", g.mpc("CloudTauScale")), ("LowQ", g.mpc("LowQuality")),
-        ("DiscSize", g.mpc("SunDiscSize")), ("SunC", g.mpc("SunColor")), ("SunI", g.mpc("SunIntensity"))],
+        ("DiscSize", g.mpc("SunDiscSize")), ("SunC", g.mpc("SunColor")), ("SunI", g.mpc("SunIntensity")), ("Layers", g.mpc("CloudLayers"))],
         extra=[("ElDeg", "CMOT_Float1"), ("SeaV", "CMOT_Float1")])
     s = g.custom("SkyShade", COVER + with_fields(SKY_SHADE), [
         ("AltoCov", g.mpc("AltoCoverage")), ("CirCov", g.mpc("CirrusCoverage")),
@@ -695,7 +697,7 @@ def build_sky_dome(mpc, ramp, atmo_tex, alto_l, alto_a, cir_l, cir_a):
         ("SkyHor", g.mpc("HorizonColor")), ("SkyMid", g.mpc("MidColor")), ("SkyZen", g.mpc("ZenithColor")),
         ("MidPt", g.mpc("GradientMidPoint")), ("Haze", g.mpc("Haze")),
         ("HazC", g.mpc("HazeColor")), ("Deep", g.mpc("SeaDeepColor")), ("HorC", g.mpc("SeaHorizonColor")),
-        ("Glit", g.mpc("GlitterColor")), ("Strength", g.mpc("SeaGlitterStrength")), ("SeaOn", g.mpc("SeaEnabled")),
+        ("Glit", g.mpc("GlitterColor")), ("Strength", g.mpc("SeaGlitterStrength")), ("SeaOn", g.mpc("SeaEnabled")), ("Layers", g.mpc("CloudLayers")),
         ("T", g.time()), ("Bright", g.mpc("SkyBrightness"))])
     g.out((s, ""), "MP_EmissiveColor")
     compile_check(m)
@@ -1011,7 +1013,7 @@ float2 ph = rl.xy + S.xy * ((2.0 * RcH * hH + hH * hH) / max(RcH * S.z + sH, 1.0
 float2 uvh = float2(dot(ph, wd) - T * Speed, dot(ph, wq)) / 2400000.0;
 // the deck's opacity along the low sun's slanted path, as the dome and the sun occlusion use it (review)
 float shd = saturate(Texture2DSampleLevel(AltoA, AltoASampler, uvh, 2.0).r);
-shd = (1.0 - pow(1.0 - shd, clamp((RcH + hH) / max(sH, 1.0), 1.0, 6.0))) * @DECK(uvh);
+shd = (1.0 - pow(1.0 - shd, clamp((RcH + hH) / max(sH, 1.0), 1.0, 6.0))) * @DECK(uvh) * step(0.5, Layers);
 col *= lerp(1.0, 0.72, shd);
 col = lerp(col, col * float3(0.9, 0.92, 1.08), shd * 0.5);
 col = lerp(col, HazC, saturate(Haze) * (0.5 + 0.4 * G));
@@ -1025,7 +1027,7 @@ return col * Bright;
                                          ("EdgeSoft", g.mpc("CloudEdgeSoftness")), ("Haze", g.mpc("Haze")), ("HazC", g.mpc("HazeColor")),
                                          ("WP", g.worldpos()), ("OP", g.objpos()), ("SunD", g.mpc("SunDirection")),
                                          ("Wind", g.mpc("WindDirection")), ("Speed", g.mpc("CloudDriftSpeed")), ("T", g.time()),
-                                         ("AltoA", g.tex_object("AltoAlpha", alto_a)),
+                                         ("AltoA", g.tex_object("AltoAlpha", alto_a)), ("Layers", g.mpc("CloudLayers")),
                                          ("Bright", g.mpc("SkyBrightness"))], extra=[("Opacity", "CMOT_Float1")])
     g.out((s, ""), "MP_EmissiveColor")
     g.out((s, "Opacity"), "MP_OpacityMask")

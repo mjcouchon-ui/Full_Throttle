@@ -13,6 +13,7 @@ import ft_city
 import ft_chem
 import ft_desert
 import ft_heli
+import ft_visual_art
 
 AL = unreal.EditorAssetLibrary
 MEL = unreal.MaterialEditingLibrary
@@ -42,20 +43,22 @@ def finish(col, kind):
     return (0.0, 0.6)
 
 
-def palette_mi(col, glow, kind):
+def palette_mi(col, glow, kind, upgraded=False):
     metal, rough = finish(col, kind)
-    key = (col.lower(), round(glow, 2), metal, rough)
+    key = (col.lower(), round(glow, 2), metal, rough, upgraded)
     if key in _MI:
         return _MI[key]
     name = 'MI_%s_g%d_m%d_r%d' % (col.lstrip('#').lower(), int(glow * 100), int(metal * 100), int(rough * 100))
-    path = PALETTE + '/' + name
+    folder = ft_visual_art.FINISH if upgraded else PALETTE
+    path = folder + '/' + name
     if AL.does_asset_exist(path):
         mi = AL.load_asset(path)
     else:
-        if not AL.does_directory_exist(PALETTE):
-            AL.make_directory(PALETTE)
-        mi = AT.create_asset(name, PALETTE, unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
-        mi.set_editor_property('parent', AL.load_asset('/Game/Core/Materials/M_Paint'))
+        parent = ft_visual_art.master() if upgraded else AL.load_asset('/Game/Core/Materials/M_Paint')
+        if not AL.does_directory_exist(folder):
+            AL.make_directory(folder)
+        mi = AT.create_asset(name, folder, unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
+        mi.set_editor_property('parent', parent)
         r, g, b = ft_art.hex_lin(col)
         MEL.set_material_instance_vector_parameter_value(mi, 'Color', unreal.LinearColor(r, g, b, 1))
         MEL.set_material_instance_scalar_parameter_value(mi, 'Glow', glow)
@@ -83,6 +86,9 @@ def save_mesh(meshes, asset_path, kind='prop', offset=(0, 0, 0), yaw=0.0, nanite
     usage flag (ft_buildings.paint_nanite() for the palette)."""
     if not meshes:
         return None
+    upgraded = ft_visual_art.enabled(asset_path)
+    if upgraded:
+        ft_visual_art.refine(meshes, asset_path)
     combined = unreal.DynamicMesh()
     if uv_sets > 1:
         unreal.GeometryScript_UVs.set_num_uv_sets(combined, uv_sets)
@@ -90,7 +96,7 @@ def save_mesh(meshes, asset_path, kind='prop', offset=(0, 0, 0), yaw=0.0, nanite
     slots = []
     xf = unreal.Transform(unreal.Vector(*offset), unreal.Rotator(0, 0, 0), unreal.Vector(scale, scale, scale))
     rot = unreal.Transform(unreal.Vector(0, 0, 0), unreal.Rotator(roll=0, pitch=0, yaw=yaw), unreal.Vector(1, 1, 1))
-    sections = [(m, palette_mi(col, glow, kind), None) for (col, glow), m in meshes.items()] + list(extra or [])
+    sections = [(m, palette_mi(col, glow, kind, upgraded), None) for (col, glow), m in meshes.items()] + list(extra or [])
     for i, (m, mat, slot) in enumerate(sections):
         unreal.GeometryScript_Normals.set_per_face_normals(m)
         unreal.GeometryScript_Materials.enable_material_i_ds(m)
@@ -98,6 +104,21 @@ def save_mesh(meshes, asset_path, kind='prop', offset=(0, 0, 0), yaw=0.0, nanite
         unreal.GeometryScript_MeshEdits.append_mesh(combined, m, xf * rot)
         mats.append(mat)
         slots.append(slot or 'M%d' % i)
+    if upgraded and AL.does_asset_exist(asset_path):
+        sm = AL.load_asset(asset_path)
+        opts = unreal.GeometryScriptCopyMeshToAssetOptions()
+        opts.enable_recompute_normals = False
+        opts.replace_materials = True
+        opts.new_materials = mats
+        opts.new_material_slot_names = [unreal.Name(slot) for slot in slots]
+        opts.emit_transaction = False
+        _, outcome = unreal.GeometryScript_AssetUtils.copy_mesh_to_static_mesh(
+            combined, sm, opts, unreal.GeometryScriptMeshWriteLOD())
+        if outcome != unreal.GeometryScriptOutcomePins.SUCCESS:
+            raise RuntimeError('could not update ' + asset_path)
+        if not AL.save_loaded_asset(sm):
+            raise RuntimeError('could not save ' + asset_path)
+        return sm
     folder, name = asset_path.rsplit('/', 1)
     if not AL.does_directory_exist(folder):
         AL.make_directory(folder)

@@ -134,6 +134,12 @@ float ax = abs(x);
 float2 g = floor(float2(u * 2600.0, v * 2600.0));
 float n = frac(sin(dot(g, float2(12.9898, 78.233))) * 43758.5453);
 float3 c = lerp(RoadA, Pastel, Lift) * (1.0 - Grain + 2.0 * Grain * n);
+// Worn wheel lines, seam repairs and shoulder grit sit underneath all track markings.
+float wheelWear = 1.0 - smoothstep(48.0, 132.0, abs(abs(ax - 290.0) - 49.0));
+float patch = smoothstep(0.64, 0.86, frac(sin(floor(v*2.7)*40.31 + floor(u*9.0)*8.91) * 17543.11));
+float joint = 1.0 - smoothstep(0.006, 0.025, abs(frac(v * 2.7) - 0.23));
+float edgeDirt = smoothstep(945.0, 1140.0, ax) * (0.65 + n * 0.35);
+c *= 1.0 - wheelWear * 0.074 - patch * 0.088 - joint * 0.044 - 0.11 * edgeDirt;
 float lw = 8.0;
 float dash = step(frac(v * 1.1), 0.36);
 float lines = max(step(abs(ax - 585.0), lw) * dash, step(ax, lw) * dash);
@@ -185,11 +191,14 @@ def simple_lit(name, color, rough=0.5, metal=0.0, path=CORE, vertex_color=False)
         vc = expr(m, unreal.MaterialExpressionVertexColor)
         wp = expr(m, unreal.MaterialExpressionWorldPosition, y=200)
         c = custom(m, """
-float2 g = floor(WP.xy * 0.004);
-float n = frac(sin(dot(g, float2(12.9898, 78.233))) * 43758.5453);
-float2 g2 = floor(WP.xy * 0.03);
-float n2 = frac(sin(dot(g2, float2(39.3468, 11.135))) * 24634.6345);
-return VC.rgb * (0.82 + 0.22 * n + 0.12 * n2);
+float2 p = WP.xy * 0.0013;
+float ridges = sin(p.x + 1.2 * sin(p.y*1.4)) * cos(p.y*0.95 + p.x*0.33);
+float washes = sin(p.x*0.42 - p.y*0.65) * sin(p.x*0.8 + p.y*0.38);
+float layers = floor((ridges*0.58 + washes*0.42 + 1.0)*2.0) * 0.25;
+float2 gritCell = floor(WP.xy * 0.036);
+float grit = frac(dot(frac(gritCell*float2(0.1273,0.3129)),float2(7.13,8.63)));
+float blur = saturate(length(fwidth(WP.xy))*0.023);
+return VC.rgb * (0.86 + 0.26*layers + lerp(grit - 0.5,0.0,blur)*0.09);
 """, [('VC', vc, ''), ('WP', wp, '')], desc='Ground')
         MEL.connect_material_property(c, '', unreal.MaterialProperty.MP_BASE_COLOR)
     else:
@@ -354,18 +363,82 @@ return c * on * pane * Gain;
     return finish(m)
 
 
+HAZARD_HLSL = """
+// The marker is a plane the game scales to the attack's real area (a lane, a square mark, a wave across the road).
+// Size is that area in cm (AFTHazard::SetStyle), so the rails and patterns keep their scale on any of them.
+float2 c = (UV - 0.5) * 2.0;
+float2 d = abs(c);
+float2 hs = max(Size.xy * 0.5, 1.0);
+float2 p = c * hs;
+float2 inset = hs - abs(p);
+float em = min(inset.x, inset.y);
+float rw = max(18.0, 0.07 * min(hs.x, hs.y));
+// the rail sits on the real edge: what is inside it is what gets hit
+float rail = smoothstep(rw * 0.25, rw * 0.5, em) * (1.0 - smoothstep(rw * 1.25, rw * 1.5, em));
+float u = p.x * 0.01;
+float v = p.y * 0.01;
+// the warning closes in: across a lane or a wave from both rails to the middle, on a mark from the rim to the centre.
+// Progress is the real time left (0 at the warning's start, 1 when it goes live), so the gap IS the countdown
+float prog = saturate(Progress);
+float dd = Mark > 0.5 ? max(d.x, d.y) : d.y;
+float aw = max(fwidth(dd) * 1.5, 0.004);
+float fill = lerp(smoothstep(1.0 - prog - aw, 1.0 - prog + aw, dd), 1.0, saturate(Live));
+float front = (1.0 - smoothstep(0.0, 0.05, abs(dd - (1.0 - prog)))) * (1.0 - saturate(Live)) * step(0.02, prog);
+float pat = 0.0;
+if (Style < 0.5)
+{
+    // electric: jagged arcs that jump
+    float tq = floor(T * 14.0);
+    float z1 = v * 1.4 + 0.5 * sin(u * 2.1 + tq * 1.7) + 0.28 * sin(u * 5.3 - tq * 2.9);
+    float z2 = v * 0.9 - 0.4 * sin(u * 3.3 - tq * 2.3) + 0.3;
+    pat = max(1.0 - smoothstep(0.03, 0.10, abs(frac(z1) - 0.5)), 0.6 * (1.0 - smoothstep(0.02, 0.07, abs(frac(z2) - 0.5))));
+}
+else if (Style < 1.5)
+{
+    // ice: a lattice of facets with a glint running through it
+    float g1 = abs(frac(u * 0.9 + v * 0.7) - 0.5);
+    float g2 = abs(frac(u * 0.9 - v * 0.7) - 0.5);
+    float glint = smoothstep(0.75, 1.0, sin(u * 1.7 + v * 2.1 - T * 5.0));
+    pat = (1.0 - smoothstep(0.02, 0.07, min(g1, g2))) * 0.9 + 0.3 * glint;
+}
+else if (Style < 2.5)
+{
+    // fire: tongues licking along
+    float f = sin(u * 3.1 - T * 9.0 + 2.2 * sin(v * 2.3 + T * 4.0)) + 0.6 * sin(u * 7.3 - T * 13.0 + v * 3.0);
+    pat = smoothstep(0.25, 0.45, f) * 0.9;
+}
+else
+{
+    // water: ripples
+    float rr = Mark > 0.5 ? length(p) * 0.01 : abs(v) + 0.25 * sin(u * 1.3 + T * 2.0);
+    pat = smoothstep(0.55, 0.85, sin(rr * 5.0 - T * 7.0)) * 0.8;
+}
+float chev = smoothstep(0.52, 0.67, frac(u * 0.7 + d.y * 0.9 - T * 0.85));
+// levels: the inside is as bright as the old marker's was (0.065 base, 0.285 on its stripes), with the pattern drawn
+// in that range. Brighter (0.5 to 1.3 live in the first build, then 0.14 to 0.59) a whole lane or mark went flat
+// white on screen under the game's live intensity: a flash the size of a lane, and no pattern left to read
+float warn = 0.05 + 0.14 * chev * (1.0 - fill) + fill * (0.065 + 0.20 * pat) + 0.5 * front;
+float live = 0.065 + 0.22 * pat;
+return Col * Gain * (lerp(warn, live, saturate(Live)) + 0.9 * rail);
+"""
+
+
 def hazard():
+    """The road marker of every telegraphed attack. Colour and Intensity as before (AFTHazard::SetLook); 3.1 adds the
+    attack's Style (0 electric, 1 ice, 2 fire, 3 water), its real countdown (Progress, Live) and its shape (Mark, Size),
+    all set each frame by AFTHazard::SetStyle. Left at their defaults it is a full, lit electric marker."""
     m = new_material(FX, 'M_Hazard', blend=unreal.BlendMode.BLEND_ADDITIVE, shading=unreal.MaterialShadingModel.MSM_UNLIT, two_sided=True)
     uv = expr(m, unreal.MaterialExpressionTextureCoordinate)
     t = expr(m, unreal.MaterialExpressionTime, y=100)
     c = vparam(m, 'Color', (1, 0.2, 0.2, 1), y=200)
     g = sparam(m, 'Intensity', 2.0, y=300)
-    e = custom(m, """
-float2 d = abs(UV - 0.5) * 2.0;
-float edge = saturate(max(d.x, d.y) * 6.0 - 4.8);
-float stripes = step(0.5, frac((UV.x + UV.y) * 6.0 - T * 1.5));
-return Col * Gain * (0.25 + 0.35 * stripes + 1.5 * edge);
-""", [('UV', uv, ''), ('T', t, ''), ('Col', c, ''), ('Gain', g, '')], desc='Hazard')
+    ins = [('UV', uv, ''), ('T', t, ''), ('Col', c, ''), ('Gain', g, '')]
+    y = 400
+    for nm, val in (('Style', 0.0), ('Progress', 1.0), ('Live', 0.0), ('Mark', 0.0)):
+        ins.append((nm, sparam(m, nm, val, y=y), ''))
+        y += 100
+    ins.append(('Size', vparam(m, 'Size', (1000.0, 600.0, 0.0, 0.0), y=y), ''))
+    e = custom(m, HAZARD_HLSL, ins, desc='Hazard')
     MEL.connect_material_property(e, '', unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     return finish(m)
 
@@ -376,10 +449,13 @@ float2 q = UV - 0.5;
 float r = length(q) * 2.0;
 float a = atan2(q.y, q.x);
 float t = T * 1.7 + Rand * 31.0;
-float n = sin(a * 5.0 + t * 2.1) * 0.5 + sin(a * 9.0 - t * 3.3) * 0.3 + sin(r * 11.0 - t * 4.0) * 0.2;
-float edge = 1.0 - smoothstep(0.55 + 0.18 * n, 1.0, r);
-float core = 1.0 - smoothstep(0.0, 0.55, r);
-float3 c = PC.rgb * (edge * 0.9 + core * 0.8);
+float lobe = sin(a*5.0 + t*1.9) * 0.46 + sin(a*8.0 - t*2.2) * 0.30 + sin(r*12.0 - t*3.5)*0.24;
+float qRadius = r - lobe * (0.10 + 0.06*r);
+float aa = max(0.018, fwidth(qRadius));
+float rim = 1.0 - smoothstep(0.91-aa,0.98+aa,qRadius);
+float body = 1.0 - smoothstep(0.61-aa,0.69+aa,qRadius);
+float core = 1.0 - smoothstep(0.29-aa,0.38+aa,qRadius);
+float3 c = PC.rgb * (0.26*rim + 0.55*body + 0.61*core);
 return c * PC.a * Gain;
 """
 
@@ -391,7 +467,7 @@ def fx_materials():
     pc = expr(m, unreal.MaterialExpressionParticleColor, y=100)
     t = expr(m, unreal.MaterialExpressionTime, y=200)
     rnd = expr(m, unreal.MaterialExpressionParticleRandom, y=300)
-    g = sparam(m, 'Intensity', 18.0, y=400)
+    g = sparam(m, 'Intensity', 6.8, y=400)
     e = custom(m, FIRE_HLSL, [('UV', uv, ''), ('PC', pc, 'RGBA'), ('T', t, ''), ('Rand', rnd, ''), ('Gain', g, '')], desc='Fire')
     MEL.connect_material_property(e, '', unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     finish(m)
@@ -417,7 +493,7 @@ return saturate((1.0 - smoothstep(0.35 + 0.2 * n, 1.0, r)) * PC.a);
     m = new_material(FX, 'M_FX_Spark', blend=unreal.BlendMode.BLEND_ADDITIVE, shading=unreal.MaterialShadingModel.MSM_UNLIT, two_sided=True)
     uv = expr(m, unreal.MaterialExpressionTextureCoordinate)
     pc = expr(m, unreal.MaterialExpressionParticleColor, y=100)
-    g = sparam(m, 'Intensity', 40.0, y=200)
+    g = sparam(m, 'Intensity', 22.0, y=200)
     e = custom(m, """
 float2 q = abs(UV - 0.5) * 2.0;
 float s = saturate(1.0 - q.x) * saturate(1.0 - q.y * q.y);
@@ -429,7 +505,7 @@ return PC.rgb * PC.a * s * s * Gain;
     m = new_material(FX, 'M_FX_Glow', blend=unreal.BlendMode.BLEND_ADDITIVE, shading=unreal.MaterialShadingModel.MSM_UNLIT, two_sided=True)
     uv = expr(m, unreal.MaterialExpressionTextureCoordinate)
     pc = expr(m, unreal.MaterialExpressionParticleColor, y=100)
-    g = sparam(m, 'Intensity', 12.0, y=200)
+    g = sparam(m, 'Intensity', 7.0, y=200)
     e = custom(m, """
 float r = length(UV - 0.5) * 2.0;
 float s = saturate(1.0 - r);

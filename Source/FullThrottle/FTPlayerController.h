@@ -35,6 +35,8 @@ public:
 	AFTPlayerController();
 	virtual void PlayerTick(float Dt) override;
 	virtual void BeginPlay() override;
+	virtual bool InputKey(const FInputKeyEventArgs& Params) override;
+	bool UsesGamepadPrompts() const { return bGamepadPrompts; }
 
 	FFTInput In;
 	bool bRaceInput = false;      // the race is running (layout switching only then)
@@ -67,4 +69,5 @@ private:
 	float PadSteer() const;
 	bool bPrevPadMissile = false;
 	bool bPrevDrift = false;
+	bool bGamepadPrompts = false;
 };

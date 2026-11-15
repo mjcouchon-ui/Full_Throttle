@@ -237,7 +237,7 @@ def car_fire():
     s = ft_fx.make('NS_CarFire', ft_fx.LOOP, {
         'emitter': {'SpawnInfos': '((Type=Rate,Rate=(Min=30,Max=30)))', 'FixedBounds': ft_fx.BIG},
         'modules': {
-            'InitializeParticle': {'LifetimeDistribution': ft_fx.rng(0.35, 0.7), 'SpriteSizeDistribution': ft_fx.v2rng((34, 34), (72, 72)), 'SpriteRotationDistribution': ft_fx.rng(0, 360)},
+            'InitializeParticle': {'LifetimeDistribution': ft_fx.rng(0.35, 0.7), 'SpriteSizeDistribution': ft_fx.v2rng((29, 39), (64, 77)), 'SpriteRotationDistribution': ft_fx.rng(0, 360)},
             'ShapeLocation': {'ShapePrimitive': 'Box', 'BoxSize': ft_fx.vconst(70, 90, 10)},
             'AddVelocity': {'VelocityType': 'InCone', 'ConeAngle': '18.0', 'ConeVelocityDistribution': ft_fx.rng(160, 340)},
             'Drag': {'DragDistribution': ft_fx.const(1.0)},
@@ -245,7 +245,7 @@ def car_fire():
             'SolveVelocitiesAndForces': {},
             # hot enough at birth for the yellow and orange bands (the first pass read as dark red blobs)
             'ScaleColor': {'ScaleDistribution': ft_fx.colors((4.0, 2.0, 0.5, 1), (2.6, 0.9, 0.2, 1), (1.0, 0.2, 0.05, 0.6), (0, 0, 0, 0))},
-            'ScaleSpriteSize': {'ScaleDistribution': ft_fx.sizes(0.8, 1.15, 0.45)},
+            'ScaleSpriteSize': {'ScaleDistribution': ft_fx.sizes(0.64, 1.04, 0.36)},
             'SpriteRotationRate': {'RotationRateDistribution': ft_fx.rng(-90, 90)},
             'ApplyOwnerScaleToAttributes': {},
         },
@@ -263,7 +263,7 @@ def car_smoke():
     cfg = {
         'emitter': {'SpawnInfos': '((Type=Rate,Rate=(Min=12,Max=12)))'},
         'modules': {
-            'InitializeParticle': {'LifetimeDistribution': ft_fx.rng(0.8, 1.4), 'SpriteSizeDistribution': ft_fx.v2rng((45, 45), (80, 80)), 'SpriteRotationDistribution': ft_fx.rng(0, 360)},
+            'InitializeParticle': {'LifetimeDistribution': ft_fx.rng(0.8, 1.4), 'SpriteSizeDistribution': ft_fx.v2rng((45, 40), (86, 70)), 'SpriteRotationDistribution': ft_fx.rng(0, 360)},
             'ShapeLocation': {'ShapePrimitive': 'Sphere'},
             'AddVelocity': {'VelocityType': 'InCone', 'ConeAngle': '25.0', 'ConeVelocityDistribution': ft_fx.rng(150, 300)},
             'Drag': {'DragDistribution': ft_fx.const(0.8)},
@@ -332,8 +332,10 @@ LEVELS = [
          exposure=0.0,
          road=dict(RoadPastel=hex_lin('5f5b78'), RoadLift=1.0, Grain=0.035, Wet=0.7, Puddles=0.0),
          wall=dict(Color=hex_lin('bfe9f2'), Rough=0.75, Metal=0.0),
-         ground=[(-14000, -420, '7ccfc8'), (-12800, -300, 'e6cc98'), (-11000, -220, 'f2dcae'), (-1600, -70, 'f6e3b6'),
-                 (1600, -70, 'f5b6d2'), (6400, -60, 'f8c8de'), (7000, -60, '93dcc2'), (30000, -250, '7fcdb0')],
+         # 3.1: the beach runs 300 m down to a real sea (AFTTrack's floor, MI_BaySea) and the town's ground reaches
+         # out under the far skyline (it stopped at 300 m, with the towers beyond it standing over nothing)
+         ground=[(-30000, -1350, 'd6bd8c'), (-22000, -820, 'e6cc98'), (-11000, -220, 'f2dcae'), (-1600, -70, 'f6e3b6'),
+                 (1600, -70, 'f5b6d2'), (6400, -60, 'f8c8de'), (7000, -60, 'd9c6f2'), (64000, -250, 'bba9e0')],
          water=dict(Color=hex_lin('4fcfd0'), Rough=0.3),
          cel=dict(Key=3.0, Bright=0.8, HueKeep=0.35)),
     # Chemical Works: the 1.1 plant by moonlight (2.4): the 1.1 banded pale-cyan moon, big and low ahead, and a

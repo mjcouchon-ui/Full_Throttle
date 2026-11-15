@@ -7,6 +7,7 @@
 #include "Engine/GameInstance.h"
 #include "InputCoreTypes.h"
 #include "Scalability.h"
+#include "Engine/StreamableManager.h"
 #include "FTGameInstance.generated.h"
 
 UENUM()
@@ -101,5 +102,11 @@ public:
 	/** 2.9: on an Apple GPU, AUTO is capped (Unreal's benchmark rates Apple chips far above what they deliver). Returns the screen-percentage cap. */
 	float CapAutoForApple(class UGameUserSettings* S) const;
 	void ApplyMute();
+	/** Loop cycle 1: every gameplay sound, effect and vehicle mesh is loaded in the background once, while the title is up,
+	 *  and held for the session. Before, the first explosion / chopper / fire / barrel of a race each loaded synchronously
+	 *  mid-race (54 blocking loads in Level 1's first two minutes, some reloaded after each GC) - stalls on a cold disk. */
+	void WarmGameplayAssets();
+	TArray<TSharedPtr<FStreamableHandle>> WarmHandles;
+	bool bWarmStarted = false;
 	static FString QualityName(int32 Q);
 };
