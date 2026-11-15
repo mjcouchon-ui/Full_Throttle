@@ -21,13 +21,36 @@ namespace FTFlag
 	constexpr uint16 SetPiece = Loop | Twist | Pipe;
 }
 
-/** 2.5: the two coaster rails at one point: centre x and height over the road's frame (cm), and whether you can
- *  hop across (they sit side by side at the same height). */
+/** 2.5: the coaster rails at one point: centre x and height over the road's frame (cm). 3.3: three rails (left,
+ *  centre, right); you can hop between two that sit side by side at the same height. */
 struct FFTRails
 {
-	float XL = 0.f, HL = 0.f, XR = 0.f, HR = 0.f;
-	bool bAdjacent = true;
+	static constexpr int32 Num = 3;
 	static constexpr float HalfW = 300.f; // half the width of one rail's deck
+	static constexpr float Sep = 760.f;   // rail centres side by side
+	float X[Num] = { -Sep, 0.f, Sep };
+	float H[Num] = { 0.f, 0.f, 0.f };
+	FVector2D P(int32 i) const { return FVector2D(X[i], H[i]); }
+	/** The rail nearest a point (x, h) in the cross-section. */
+	int32 Nearest(const FVector2D& Pt) const
+	{
+		int32 B = 0;
+		for (int32 i = 1; i < Num; ++i) if (FVector2D::DistSquared(Pt, P(i)) < FVector2D::DistSquared(Pt, P(B))) B = i;
+		return B;
+	}
+	bool Adjacent(int32 A, int32 B) const { return A != B && FMath::Abs(X[A] - X[B]) < Sep + 200.f && FMath::Abs(H[A] - H[B]) < 120.f; }
+	/** The next rail to the left (Dir -1) or right (+1) of rail From that you can hop to, or -1. */
+	int32 Neighbour(int32 From, int32 Dir) const
+	{
+		int32 B = -1;
+		for (int32 j = 0; j < Num; ++j)
+		{
+			if (j == From || (X[j] - X[From]) * Dir <= 0.f) continue;
+			if (B < 0 || FMath::Abs(X[j] - X[From]) < FMath::Abs(X[B] - X[From])) B = j;
+		}
+		return (B >= 0 && Adjacent(From, B)) ? B : -1;
+	}
+	bool AnyAdjacent() const { return Adjacent(0, 1) || Adjacent(1, 2) || Adjacent(0, 2); }
 };
 
 struct FFTFrame
@@ -62,6 +85,33 @@ struct FFTPropRule
 	UPROPERTY() int32 Light = 0;       // 1 = this prop carries a road light
 };
 
+/** What a roadside advert sells; it decides which story beats and districts the planner gives it. */
+UENUM()
+enum class EFTAdKind : uint8 { Lawyer, Casino, Food, Motel };
+
+/** A design's part in the short stunt sequences: Any, the gag after a landing, or the lawsuit that closes one. */
+UENUM()
+enum class EFTAdBeat : uint8 { Any, CrashGag, LawsuitThreat };
+
+/** Bayshore's advertising districts, found from the landmark props (the Ferris wheel = pier, the lighthouse = marina). */
+namespace FTAdWhere
+{
+	enum : uint8 { Strip = 1, Pier = 2, Marina = 4 };
+}
+
+/** One printed billboard design (a mesh variant with its own face) and where it may appear. */
+USTRUCT()
+struct FFTAdRule
+{
+	GENERATED_BODY()
+	UPROPERTY(EditAnywhere) FString Mesh;                        // asset path of the billboard variant
+	UPROPERTY(EditAnywhere) EFTAdKind Kind = EFTAdKind::Lawyer;
+	UPROPERTY(EditAnywhere) uint8 Where = FTAdWhere::Strip;      // FTAdWhere bits it may fill (0 = story beats only)
+	UPROPERTY(EditAnywhere) bool bNear = false;                  // detailed art: the near band (~44 m out), else ~70 m
+	UPROPERTY(EditAnywhere) EFTAdBeat Beat = EFTAdBeat::Any;     // CrashGag: only on a calm run-out after a landing
+	UPROPERTY(EditAnywhere) uint8 Landmark = 0;                  // FTAdWhere district whose centre slot it owns, at 1.4x
+};
+
 UCLASS()
 class FULLTHROTTLE_API AFTTrack : public AActor
 {
@@ -91,6 +141,10 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Track|Props") TArray<FFTPropRule> Props;
 
+	/** Printed billboards placed by story beat and district (empty = the level's defaults). Off with ft.Ads 0 / -ftads=0. */
+	UPROPERTY(EditAnywhere, Category = "Track|Props") TArray<FFTAdRule> Ads;
+	UPROPERTY(EditAnywhere, Category = "Track|Props") bool bAds = true;
+
 	// ---- queries (track space -> world)
 	int32 Num() const { return Frames.Num(); }
 	float Length() const { return (Frames.Num() - 1) * Step; }
@@ -110,6 +164,11 @@ public:
 	float SurfaceH(float D, float X, float* OutSlope = nullptr, bool* bSolid = nullptr) const;
 	/** 2.5: the coaster rails at d (only meaningful where FlagsAt(d) has Coaster). */
 	FFTRails RailsAt(float D) const;
+	/** 3.3: where something flying sits at (d, x, h): level with the world, over the land's straight line through
+	 *  loops, corkscrews and coaster dips (choppers and the flying boss don't loop the loop with the road). */
+	FTransform AirTransformAt(float D, float X, float H) const;
+	/** 3.3: how high a flyer at d must climb to clear the road there (a loop's top, the coaster's high rails), cm. */
+	float AirClearAt(float D) const;
 	/** The section a distance falls in, and that section's shape data. */
 	const FFTSection* SectionAt(float D, float* OutU = nullptr) const;
 
@@ -133,6 +192,14 @@ protected:
 	void Integrate();
 	void BuildMeshes();
 	void BuildProps();
+
+	/** One planned billboard: its transform, the rule it shows, and its footprint for the keep-out test. */
+	struct FAdSpot { FTransform Xf; FVector2D Centre; float Radius = 0.f; int32 Rule = 0; int32 Slot = 0; };
+	void PlanAds(const TArray<FFTPropRule>& Rules, const TArray<FFTAdRule>& AdRules, float SlotLen, TArray<FAdSpot>& Out) const;
+	/** The level's ground bands (x cm, z cm) and colours, and the sea's edge (0 = no sea). */
+	void GroundBands(TArray<FVector2D>& GP, TArray<FLinearColor>& GC, float& WaterX) const;
+	/** Height of the land at x cm across from the road (relative to the frame's Ground). */
+	float GroundZ(float Xcm) const;
 
 	// 2.7: scenery stays off the road. The road's frames on a 2D grid, so any point can ask "is some part of the
 	// road here?", including parts that come back near this one (tight curves, the circuit lapping round).

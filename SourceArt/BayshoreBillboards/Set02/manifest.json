@@ -1,0 +1,117 @@
+{
+  "name": "Bayshore Billboards Set 02",
+  "target": "Full Throttle / Bayshore / Unreal Engine 5.9 / Windows",
+  "source_project_inspected": "K:/Full Throttle/UE/full-throttle-unreal",
+  "resolution_decision": "2048x1024 drive-by textures; no 4K derivatives requested after user clarification",
+  "original_sheet_dimensions": [
+    1774,
+    887
+  ],
+  "generation_provenance": "Original AI-generated fictional advertising; exact prompts retained. No third-party stock assets used in this pack. No independent IP or license clearance claimed.",
+  "validation": "PNG decoding, dimensions, aspect ratio, RGB color, sRGB profile, hashes, and visual headline review passed. Not imported or tested in the running Unreal level.",
+  "suggested_import": {
+    "compression": "BC7",
+    "srgb": true,
+    "mipmaps": true,
+    "streaming": true,
+    "max_texture_size": 2048,
+    "lod_group": "World",
+    "address_x": "Clamp",
+    "address_y": "Clamp"
+  },
+  "estimated_bc7_bytes_per_texture_with_full_mip_chain": 2796208,
+  "assets": [
+    {
+      "name": "Billable Bill",
+      "texture": "textures_2k/T_BB_BillableBill_BC.png",
+      "source": "originals/billable_bill.png",
+      "prompt": "prompts/billable_bill.txt",
+      "generated_dimensions": [
+        1774,
+        887
+      ],
+      "texture_dimensions": [
+        2048,
+        1024
+      ],
+      "mode": "RGB",
+      "alpha": false,
+      "color_space": "sRGB",
+      "resampling": "Pillow LANCZOS, no sharpening, no synthesized detail",
+      "native_2k": false,
+      "generation": "OpenAI built-in image_gen",
+      "source_sha256": "4f1cd00a245a246221b113d743ffae1650dc8d7287731a176b64f0dbd5059c81",
+      "texture_sha256": "7384416c145d2c2a899663c541201a500742cc0fe6c7f69ac7f19ad43e71f868",
+      "texture_bytes": 3322374
+    },
+    {
+      "name": "Last Dime Casino",
+      "texture": "textures_2k/T_BB_LastDime_BC.png",
+      "source": "originals/last_dime.png",
+      "prompt": "prompts/last_dime.txt",
+      "generated_dimensions": [
+        1774,
+        887
+      ],
+      "texture_dimensions": [
+        2048,
+        1024
+      ],
+      "mode": "RGB",
+      "alpha": false,
+      "color_space": "sRGB",
+      "resampling": "Pillow LANCZOS, no sharpening, no synthesized detail",
+      "native_2k": false,
+      "generation": "OpenAI built-in image_gen",
+      "source_sha256": "d0523e9d05006f9bad948f9c9bded955d4c0a2e0d1d196cace9a7b07ad3a8d60",
+      "texture_sha256": "ca3973a65be6f0f8aa5688fb1ab9cf9214eb89537b2763ed0987b7e11b5915b7",
+      "texture_bytes": 3681556
+    },
+    {
+      "name": "Captain Liability's",
+      "texture": "textures_2k/T_BB_CaptainLiability_BC.png",
+      "source": "originals/captain_liability.png",
+      "prompt": "prompts/captain_liability.txt",
+      "generated_dimensions": [
+        1774,
+        887
+      ],
+      "texture_dimensions": [
+        2048,
+        1024
+      ],
+      "mode": "RGB",
+      "alpha": false,
+      "color_space": "sRGB",
+      "resampling": "Pillow LANCZOS, no sharpening, no synthesized detail",
+      "native_2k": false,
+      "generation": "OpenAI built-in image_gen",
+      "source_sha256": "c87c769bb22cf2e86818aeebf74829afd82eabfaf0db6e7e745bd3cfb98a1717",
+      "texture_sha256": "8915c24bef6858a8252137297a499186bcbf1269e0b281796c8cfc8305fb384b",
+      "texture_bytes": 3651708
+    },
+    {
+      "name": "Alibi Inn",
+      "texture": "textures_2k/T_BB_AlibiInn_BC.png",
+      "source": "originals/alibi_inn.png",
+      "prompt": "prompts/alibi_inn.txt",
+      "generated_dimensions": [
+        1774,
+        887
+      ],
+      "texture_dimensions": [
+        2048,
+        1024
+      ],
+      "mode": "RGB",
+      "alpha": false,
+      "color_space": "sRGB",
+      "resampling": "Pillow LANCZOS, no sharpening, no synthesized detail",
+      "native_2k": false,
+      "generation": "OpenAI built-in image_gen",
+      "source_sha256": "26603c32c8e14c6c52e8f3ea604e4ab16ce1289b8af26287e7920734ab2994c8",
+      "texture_sha256": "2865d467b90ba68749b4eacc8f255da98205ba4d33f97b834f55924c9bf968dd",
+      "texture_bytes": 3423412
+    }
+  ]
+}

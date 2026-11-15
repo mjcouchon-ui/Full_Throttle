@@ -1,0 +1,14 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "0.1",
+	"FriendlyName": "Bayshore Sky",
+	"Description": "Hyper-real golden-hour sky for Full Throttle Level 1 (Bayshore): HDR dome with photoreal parallax cloud layers, photoreal cumulus cards, sun, light shafts, blimp, gulls. No cel shading. Content only.",
+	"Category": "Full Throttle",
+	"CreatedBy": "Full Throttle team (Epic AI MegaJam 2026)",
+	"CanContainContent": true,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"EnabledByDefault": true,
+	"Modules": []
+}

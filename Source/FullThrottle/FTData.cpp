@@ -261,21 +261,25 @@ static TArray<FFTLevelDef> BuildLevels()
 		V.Opening = ParseSections(TEXT(
 			"1400|1300:.6:.25|1300:-.6:-.25|1200:.9:.4:hill:.05:1|1200:-.9:-.4|600|1400:1.4:.8|500|1300:twist:1|1000:-1:-.45|"
 			"1000:1.8:.9|900:-1.8:-.9|500|900:rise:.2|1700:jump:.32:.40|600|1100:2.1:1.0|1000:-2.1:-1.0|500|2100:loop|400|"
-			"900:rise:.15|600|2400:coaster:0:.18|2600:coaster:1:.12|1800:coaster:0:.2|2600:coaster:2:0|1600:coaster:0:.15|2800:coaster:3:.1|"
-			"1800:coaster:0:.2|2400:coaster:1:.1|1200:coaster:0:.1|600|800:fall:.15|"
+			"900:rise:.15|600|"
+			// 3.3 THE COASTER, crazier: three tracks (left, centre, right), two full loops, a corkscrewing centre rail, a
+			// double helix and banked turns between them (25,600 units, was 19,200; everything after it moves 6,400 on)
+			"2000:coaster:0:.15|2400:.8:.35:coaster:1:.12|1000:coaster:0:.1|2100:coaster:4:0|1000:-.9:-.4:coaster:0:.12|2400:coaster:5:.06|"
+			"1000:coaster:0:.15|2400:coaster:2:0|1000:1:.45:coaster:0:.1|2100:coaster:4:0|1000:coaster:0:.12|2600:-.7:-.3:coaster:3:.1|"
+			"1000:coaster:0:.15|2400:coaster:-6:0|1200:coaster:0:.1|600|800:fall:.15|"
 			"1000:2.2:1.0|800:-2.4:-1.0|800:2.4:1.0|500|1300:twist:-1|900:-2:-.9|900:2:.9|500|2100:loop|500|1000:-2.2:-1.0|1000:2.2:1.0|"
 			"1000:rise:.27|400|2000:jump:.36:.45|600|900:-1.8:-.8|900:1.8:.8|1500"));
 		V.Arena = ParseSections(TEXT("5000|4000:.35:.15|4000:-.35:-.15|5000:hill:.03:1|4000:.3:.12|4000:-.3:-.12|6000|4000:.25:.1|4000:-.25:-.1"));
 		V.Circuit = ParseSections(TEXT("1000:1.8:.9|1000:-1.8:-.9|600|2100:loop|600|1200:1.2:.5|1200:-1.2:-.5|1500"));
-		V.FinaleD = 61400.f;
+		V.FinaleD = 67800.f;
 		V.Scenes = {
 			Scene(TEXT("OPENING NIGHT"), 0, TEXT("1500:mm 3200:c 5200:r 7000:s"), TEXT("Scene five. The park's open late and the clowns are armed!"), TEXT("Opening night. Make it a show!")),
 			Scene(TEXT("THE MIDWAY"), 8400, TEXT("8400:rr 11200:mm 13100:s 15000:w"), TEXT("The turns get tighter from here. Hug the inside and drift!"), TEXT("Drift the midway. Tighter!")),
 			Scene(TEXT("HAIRPIN ALLEY"), 16200, TEXT("16200:rm 18900:sm 20400:h"), TEXT("Hairpins and a loop! Drift it or wear it!"), TEXT("Hairpins. Drift them all!")),
-			Scene(TEXT("THE COASTER"), 22800, TEXT(""), TEXT("THE COASTER! Foot down. Hop across when the rails meet!"), TEXT("Ride the rails. Hop when they're side by side!")),
-			Scene(TEXT("WILD MOUSE"), 42600, TEXT("42600:mmm 44000:r 46600:sm 49800:h"), TEXT("Back on the road and it's all hairpins! Steer, Kane, STEER!"), TEXT("Wild mouse. Every corner is a hairpin!")),
-			Scene(TEXT("THE FUNHOUSE"), 52800, TEXT("52800:rr 54300:s 56300:wc 58700:mm"), TEXT("Crazy turns, a big jump, then the clown himself!"), TEXT("The funhouse. Jump it and get ready!")),
-			Scene(TEXT("THE FINALE"), 61400, TEXT("61400:B"), TEXT("Mr. Chuckles! His balloons are full of bombs. Watch the shadows!"), TEXT("Final shot. Dodge the bombs, pop the clown!")),
+			Scene(TEXT("THE COASTER"), 22800, TEXT("25200:h 32600:h 40600:h"), TEXT("THE COASTER! Three tracks! Hop across when the rails meet, and shoot those choppers!"), TEXT("Ride the rails. Hop off the rail they're aiming at!")),
+			Scene(TEXT("WILD MOUSE"), 49000, TEXT("49000:mmm 50400:r 53000:sm 56200:h"), TEXT("Back on the road and it's all hairpins! Steer, Kane, STEER!"), TEXT("Wild mouse. Every corner is a hairpin!")),
+			Scene(TEXT("THE FUNHOUSE"), 59200, TEXT("59200:rr 60700:s 62700:wc 65100:mm"), TEXT("Crazy turns, a big jump, then the clown himself!"), TEXT("The funhouse. Jump it and get ready!")),
+			Scene(TEXT("THE FINALE"), 67800, TEXT("67800:B"), TEXT("Mr. Chuckles! His balloons are full of bombs. Watch the shadows!"), TEXT("Final shot. Dodge the bombs, pop the clown!")),
 		};
 		V.Rating[1] = 75000; V.Rating[2] = 140000; V.Rating[3] = 200000;
 		V.Boss = EFTBoss::Clown; V.BossName = TEXT("MR. CHUCKLES"); V.BossHp = 140.f; V.BossEscape = 80.f; V.BossBullet = 0;

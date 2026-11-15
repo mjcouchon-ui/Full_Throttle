@@ -72,6 +72,8 @@ struct FFTHazardState
 	float FromD = 0.f, FromX = 0.f, FromH = 0.f, Arc = 600.f, Dmg = 14.f;
 	int32 Thing = 0;    // 0 bomb, 1 snowball, 2 fish, 3 fireball, 4 lightning bolt
 	float FxT = 0.f;
+	int32 Rail = -1;    // 3.3 on the coaster: aimed at this rail (0 left, 1 centre, 2 right); hop off it to dodge
+	bool bTesla = false; // 3.3 the Tesla truck's strike: an arc from the coil while it is live
 	TWeakObjectPtr<AFTHazard> Actor;
 };
 
@@ -356,6 +358,9 @@ protected:
 	void Release(FFTEnt& E);
 	void ClearEnts();
 	FTransform EntTransform(const FFTEnt& E) const;
+	FTransform EntTransformRaw(const FFTEnt& E) const;
+	/** 3.3: where a rail-aimed or road mark sits: (x, h over the frame) on the coaster's rail, else the road/half pipe. */
+	float MarkH(float D, float X, int32 Rail, float* OutX = nullptr) const;
 	void FireBullet(int32 InOwner, float D, float X, float H, float VD, float VX, int32 Variant = 0, int32 LoadIdx = 0);
 	void FireMissile();
 	void DropPickup(const FFTEnt& E, EFTKind K);
@@ -398,6 +403,24 @@ protected:
 	// 2.5 set-piece bookkeeping for the new stunts
 	int32 HalfSection = -1, HalfSide = 0; int32 BldgSection = -1; bool bOnCoaster = false; int32 CoasterMode = -1; bool bHopAir = false;
 	float CoasterT = 0.f;
+	// 3.3 the coaster's flying boss: MR. CHUCKLES on propellers, bombing the rail you ride (an actor of its own,
+	// not a foe in Ents: he can't be shot down up there, only dodged)
+	UPROPERTY(Transient) TObjectPtr<AFTEntityActor> Flyer;
+	UPROPERTY(Transient) TObjectPtr<UAudioComponent> PropAudio;
+	int32 FlyState = 0;               // 0 none, 1 flying in, 2 bombing, 3 leaving
+	float FlyT = 0.f, FlyAhead = 9000.f, FlyX = 0.f, FlyH = 3000.f, FlyBombT = 2.f, FlyClear = 0.f;
+	int32 FlyDrops = 0;
+	bool bFlyDone = false;
+	void TickFlyer(float Dt);
+	void HideFlyer();
+	float CoasterChopT = 0.f;
+	// 3.3 half pipe tricks and grinds
+	float GrindT = 0.f, GrindPayT = 0.f;
+	// 3.3 the Tesla truck's charge (0..1), for its glow and hum
+	float TeslaWarnT = 0.f, TeslaWarnLen = 1.f;
+	// 3.3 the replay camera: smoothed, and kept out of the scenery
+	FVector ReelCamLoc = FVector::ZeroVector, ReelCamTgt = FVector::ZeroVector; int32 ReelCamClip = -1;
+	FVector ReelSafeCam(const FVector& Focus, const FVector& Want) const;
 
 	TArray<FFTEnt> Ents;
 	TArray<FFTEnt> PendingEnts; // spawned this frame; joins Ents at the next entity tick

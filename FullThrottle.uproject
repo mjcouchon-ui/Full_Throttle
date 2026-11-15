@@ -63,6 +63,10 @@
     {
       "Name": "ChaosEditor",
       "Enabled": true
+    },
+    {
+      "Name": "BayshoreSky",
+      "Enabled": true
     }
   ],
   "Modules": [

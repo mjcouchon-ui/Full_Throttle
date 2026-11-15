@@ -1,0 +1,46 @@
+[
+  {
+    "asset": "/Game/Characters/Pickups/SM_Crate",
+    "triangles": 1484,
+    "sections": 4,
+    "nanite": false,
+    "bounds_min": [
+      -52.5,
+      -76.0,
+      0.0
+    ],
+    "bounds_max": [
+      52.5,
+      76.0,
+      142.0
+    ],
+    "materials": [
+      "/Game/Characters/Pickups/Materials/MI_Pickup_Guards.MI_Pickup_Guards",
+      "/Game/Characters/Pickups/Materials/MI_Pickup_Orange.MI_Pickup_Orange",
+      "/Game/Characters/Pickups/Materials/MI_Pickup_Ivory.MI_Pickup_Ivory",
+      "/Game/Characters/Pickups/Materials/MI_Pickup_Amber.MI_Pickup_Amber"
+    ]
+  },
+  {
+    "asset": "/Game/Characters/Pickups/SM_Wrench",
+    "triangles": 1376,
+    "sections": 4,
+    "nanite": false,
+    "bounds_min": [
+      -51.000000000000036,
+      -71.0,
+      0.0
+    ],
+    "bounds_max": [
+      51.000000000000036,
+      71.0,
+      131.00000000000006
+    ],
+    "materials": [
+      "/Game/Characters/Pickups/Materials/MI_Pickup_Guards.MI_Pickup_Guards",
+      "/Game/Characters/Pickups/Materials/MI_Pickup_Green.MI_Pickup_Green",
+      "/Game/Characters/Pickups/Materials/MI_Pickup_Ivory.MI_Pickup_Ivory",
+      "/Game/Characters/Pickups/Materials/MI_Pickup_Mint.MI_Pickup_Mint"
+    ]
+  }
+]

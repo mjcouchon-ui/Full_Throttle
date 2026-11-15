@@ -44,7 +44,11 @@ struct FFTDrive
 	int32 DriftDir = 0;       // -1 left, +1 right, 0 not sliding
 	float DriftTargetLat = 0.f; // cm/s sideways slide wanted while drifting
 	bool bFrozen = false;     // cards, retake resets: hold still
+	bool bFlip = false;       // 3.3 half pipe air: the drift button rolls the car (a barrel roll)
 };
+
+/** 3.3 half pipe: off the lip into the air (tricks), or grinding along the coping. */
+enum class EFTHalf : uint8 { None, Air, Grind };
 
 UCLASS()
 class FULLTHROTTLE_API AFTPlayerCar : public APawn
@@ -92,6 +96,21 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Car|Tuning") float RailK = 36.f;
 	UPROPERTY(EditAnywhere, Category = "Car|Tuning") float RailDamp = 12.f;
 	bool IsOnRails() const { return bRailInit; }
+	/** 3.3: which of the three coaster rails the car rides (0 left, 1 centre, 2 right), -1 off the rails. */
+	int32 RailIndex() const;
+	// 3.3 half pipe air and grind (the game mode scores them; it reads these and clears the events)
+	EFTHalf Half = EFTHalf::None;
+	int32 HalfSide = 0;          // which wall (-1 left, +1 right)
+	float HalfT = 0.f;           // time in the air / on the grind
+	float HalfDur = 0.f;         // the air's flight time
+	float TrickYaw = 0.f, TrickRoll = 0.f;   // degrees turned in the air (spins, barrel rolls)
+	bool bHalfLaunched = false, bHalfLanded = false, bHalfBailed = false, bGrindStart = false, bGrindEnd = false;
+	float HalfPeak = 0.f;        // how high over the lip (cm)
+	// 3.3 the body on its springs (looks only): roll into turns, squat and dive, a bounce on landings
+	UPROPERTY(EditAnywhere, Category = "Car|Look") float LeanRollPerG = 3.2f;    // degrees of body roll per g sideways
+	UPROPERTY(EditAnywhere, Category = "Car|Look") float LeanPitchPerG = 2.4f;   // degrees of squat/dive per g
+	UPROPERTY(EditAnywhere, Category = "Car|Look") float BodyFreq = 11.f;        // spring (rad/s)
+	UPROPERTY(EditAnywhere, Category = "Car|Look") float BodyDamp = 0.32f;       // damping ratio (under 1: it rocks)
 	/** On a coaster where the rails sit side by side: hop to the other rail. Dir = -1 left, +1 right. */
 	bool RailHop(int32 Dir);
 	bool CanRailHop(int32 Dir) const;
@@ -152,5 +171,14 @@ protected:
 	// 2.5 tests: what the car last hit (stall reports)
 	FString LastHit; float LastHitT = 0.f;
 	TArray<FTransform> PartRest;
+	bool bHangModel = false;
+	// 3.3 half pipe air: where it left (x, height over the frame), its speed up and along
+	float HalfX0 = 0.f, HalfH0 = 0.f, HalfVUp = 0.f, HalfSpeed = 0.f, HalfTilt0 = 0.f;
+	bool TickHalfPipe(float Dt, const struct FFTFrame& F, float Slope);
+	// 3.3 body springs: roll, pitch (degrees) and heave (cm), each with its rate
+	float BodyRoll = 0.f, BodyRollV = 0.f, BodyPitch = 0.f, BodyPitchV = 0.f, BodyHeave = 0.f, BodyHeaveV = 0.f;
+	FVector PrevVel = FVector::ZeroVector; bool bPrevVel = false;
+	FVector AccF = FVector::ZeroVector;   // filtered acceleration in the car's frame
+	void TickBody(float Dt);
 	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> LooseParts;
 };

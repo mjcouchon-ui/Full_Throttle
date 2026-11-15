@@ -1,6 +1,6 @@
-"""Turn the FULL THROTTLE 1.x models (Geometry Script code, original art) into Unreal 5.8 game assets:
-Nanite static meshes with PBR palette materials (M_Paint instances), recentred, with simple collision
-where physics needs it, and the KESTREL split into body, detachable parts and wheels.
+"""Turn the FULL THROTTLE 1.x models (Geometry Script code, original art) into Unreal game assets:
+static meshes with PBR palette materials (M_Paint instances), recentred, with simple collision
+where physics needs it, and the KESTREL split into body, detachable parts and wheels. (Not Nanite: see save_mesh.)
 
 Run in the editor over the Unreal MCP connector:  import ft_export; ft_export.run()   (or run(['kestrel']))
 """
@@ -67,20 +67,37 @@ def palette_mi(col, glow, kind):
     return mi
 
 
-def save_mesh(meshes, asset_path, kind='prop', offset=(0, 0, 0), yaw=0.0, nanite=True, collision=None, scale=1.0):
-    """meshes: {(col, glow): DynamicMesh}. collision: None, 'box' (fitted to the mesh) or (cx, cy, cz, sx, sy, sz)."""
+def save_mesh(meshes, asset_path, kind='prop', offset=(0, 0, 0), yaw=0.0, nanite=False, collision=None, scale=1.0, extra=None, uv_sets=1,
+              no_shadow=()):
+    """meshes: {(col, glow): DynamicMesh}. collision: None, 'box' (fitted to the mesh) or (cx, cy, cz, sx, sy, sz).
+    extra: [(DynamicMesh, MaterialInterface, slot name)], sections with their own material and UVs (billboard faces,
+    the buildings' glass and neon). uv_sets: UV channels kept on the mesh (the glass reads two).
+    no_shadow: slot-name prefixes whose sections cast no shadow (flat glass and neon lying on a wall).
+
+    nanite: off by default, which is what this function always produced. Until 14 Nov 2026 it asked for Nanite
+    (nanite=True) and never got it: it set only the create options' enable_nanite, and the engine copies the options'
+    nanite_settings struct, whose own switch stayed off. So no mesh of the game was Nanite. With that fixed, the 16
+    Bayshore props as Nanite cost +0.74 ms GPU at Epic and +0.43 ms at Low on Level 1 (3440x1440, RTX 4080 SUPER):
+    the Nanite passes' fixed cost (visibility buffer, streaming readback, its shadow path) for meshes of a few
+    thousand triangles. Pass nanite=True only for a mesh heavy enough to earn it; its materials then need the Nanite
+    usage flag (ft_buildings.paint_nanite() for the palette)."""
     if not meshes:
         return None
     combined = unreal.DynamicMesh()
+    if uv_sets > 1:
+        unreal.GeometryScript_UVs.set_num_uv_sets(combined, uv_sets)
     mats = []
+    slots = []
     xf = unreal.Transform(unreal.Vector(*offset), unreal.Rotator(0, 0, 0), unreal.Vector(scale, scale, scale))
     rot = unreal.Transform(unreal.Vector(0, 0, 0), unreal.Rotator(roll=0, pitch=0, yaw=yaw), unreal.Vector(1, 1, 1))
-    for i, ((col, glow), m) in enumerate(meshes.items()):
+    sections = [(m, palette_mi(col, glow, kind), None) for (col, glow), m in meshes.items()] + list(extra or [])
+    for i, (m, mat, slot) in enumerate(sections):
         unreal.GeometryScript_Normals.set_per_face_normals(m)
         unreal.GeometryScript_Materials.enable_material_i_ds(m)
         unreal.GeometryScript_Materials.remap_material_i_ds(m, 0, i)
         unreal.GeometryScript_MeshEdits.append_mesh(combined, m, xf * rot)
-        mats.append(palette_mi(col, glow, kind))
+        mats.append(mat)
+        slots.append(slot or 'M%d' % i)
     folder, name = asset_path.rsplit('/', 1)
     if not AL.does_directory_exist(folder):
         AL.make_directory(folder)
@@ -88,12 +105,30 @@ def save_mesh(meshes, asset_path, kind='prop', offset=(0, 0, 0), yaw=0.0, nanite
         AL.delete_asset(asset_path)
     opts = unreal.GeometryScriptCreateNewStaticMeshAssetOptions()
     opts.set_editor_property('enable_nanite', nanite)
+    # enable_nanite alone leaves the mesh non-Nanite (see the docstring): the struct's own switch has to be set too
+    try:
+        ns = opts.get_editor_property('nanite_settings')
+        ns.set_editor_property('enabled', nanite)
+        opts.set_editor_property('nanite_settings', ns)
+    except Exception as e:
+        unreal.log_warning('save_mesh: no nanite_settings on the create options (%s)' % e)
     opts.set_editor_property('enable_collision', False)
     opts.set_editor_property('enable_recompute_normals', False)
     sm, outcome = unreal.GeometryScript_NewAssetUtils.create_new_static_mesh_asset_from_mesh(combined, asset_path, opts)
     if sm is None:
         raise RuntimeError('could not create ' + asset_path)
-    sm.set_editor_property('static_materials', [unreal.StaticMaterial(material_interface=mats[i], material_slot_name='M%d' % i) for i in range(len(mats))])
+    sm.set_editor_property('static_materials', [unreal.StaticMaterial(material_interface=mats[i], material_slot_name=slots[i]) for i in range(len(mats))])
+    if bool(sm.get_editor_property('nanite_settings').get_editor_property('enabled')) != bool(nanite):
+        # the create options did not carry it (an engine change): set it on the mesh itself and rebuild
+        ns = sm.get_editor_property('nanite_settings')
+        ns.set_editor_property('enabled', nanite)
+        unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem).set_nanite_settings(sm, ns, apply_changes=True)
+    for i, slot in enumerate(slots):
+        if no_shadow and slot.startswith(tuple(no_shadow)):
+            try:
+                unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem).enable_section_cast_shadow(sm, False, 0, i)
+            except Exception as e:
+                unreal.log_warning('save_mesh: could not switch off the shadow of %s section %s (%s)' % (asset_path, slot, e))
     if collision is not None:
         box = unreal.DynamicMesh()
         if collision == 'box':
@@ -136,18 +171,13 @@ def henchman(m):
 
 
 def crate(m):
-    m.box('#ff8a1e', (0, 0, 55), (110, 110, 110))
-    for z in (8, 102):
-        m.box('#2b2350', (0, 0, z), (114, 114, 10))
-    m.box('#ffe14d', (56, 0, 55), (2, 70, 70), glow=0.9)
-    m.box('#2b2350', (57, 0, 55), (2, 46, 12))
+    import ft_powerups
+    ft_powerups.crate(m)
 
 
 def wrench(m):
-    m.box('#2fbf71', (0, 0, 50), (100, 100, 100))
-    m.box('#eef6ff', (51, 0, 50), (2, 18, 70), glow=0.8)
-    m.cyl('#eef6ff', (51, 0, 84), 18, 2, rot=(0, 0, 90), steps=12, glow=0.8)
-    m.box('#1f9a62', (0, 0, 2), (106, 106, 6))
+    import ft_powerups
+    ft_powerups.wrench(m)
 
 
 def barrel(m, col='#ff3355', glow=0.0):
@@ -210,8 +240,8 @@ def fleet():
     save_mesh(model(lambda m: ft_fleet.truck(m, True)).meshes, C + 'Bosses/SM_Juggernaut', 'car', (-625, 0, 0), collision='box')
     save_mesh(model(lambda m: ft_chem.tanker(m)).meshes, C + 'Bosses/SM_Tanker', 'car', (-625, 0, 0), collision='box')
     save_mesh(model(lambda m: ft_desert.carrier(m)).meshes, C + 'Bosses/SM_Carrier', 'car', (-500, 0, 0), collision='box')
-    save_mesh(model(crate).meshes, C + 'Pickups/SM_Crate', 'prop', collision='box')
-    save_mesh(model(wrench).meshes, C + 'Pickups/SM_Wrench', 'prop', collision='box')
+    import ft_powerups
+    ft_powerups.build()  # dedicated materials; update in place without orphaning references
     save_mesh(model(lambda m: barrel(m)).meshes, C + 'Pickups/SM_Barrel', 'prop', collision='box')
     save_mesh(model(lambda m: barrel(m, '#3dff6a', 0.5)).meshes, C + 'Pickups/SM_DrumGreen', 'prop', collision='box')
     save_mesh(model(tracer).meshes, '/Game/FX/SM_Tracer', 'prop', nanite=False)
@@ -222,17 +252,22 @@ def bayshore():
     jobs = [
         ('SM_Lamp', lambda m: ft_city.lamp(m)), ('SM_LampR', lambda m: ft_city.lamp(m, -1)),
         ('SM_Palm', lambda m: ft_city.palm(m)), ('SM_Palm2', lambda m: ft_city.palm(m, h=700, lean=-16, seed=3)),
-        ('SM_HotelPink', lambda m: ft_city.hotel(m)),
-        ('SM_HotelMint', lambda m: ft_city.hotel(m, 1500, 1000, 5, ft_city.MINT, ft_city.PEACH, ft_city.HOTPINK, False, ft_city.SKY)),
-        ('SM_HotelLav', lambda m: ft_city.hotel(m, 2200, 1200, 9, ft_city.LAV, ft_city.CREAM, ft_city.TEAL, True, ft_city.HOTPINK)),
-        ('SM_HotelPeach', lambda m: ft_city.hotel(m, 1400, 900, 4, ft_city.PEACH, ft_city.SKY, ft_city.HOTPINK, True, ft_city.MINT)),
+        # the hotels' names are our own (no real hotel's sign, lettering or logo): block capitals drawn in ft_city
+        ('SM_HotelPink', lambda m: ft_city.hotel(m, name='CABANA')),
+        ('SM_HotelMint', lambda m: ft_city.liner(m, 1500, 1000, 5, ft_city.MINT, ft_city.PEACH, ft_city.HOTPINK, ft_city.SKY, name='LIDO')),
+        ('SM_HotelLav', lambda m: ft_city.hotel(m, 2200, 1200, 9, ft_city.LAV, ft_city.CREAM, ft_city.TEAL, True, ft_city.HOTPINK, name='BAYSHORE', balcony=True)),
+        ('SM_HotelPeach', lambda m: ft_city.hotel(m, 1400, 900, 4, ft_city.PEACH, ft_city.SKY, ft_city.HOTPINK, True, ft_city.MINT, name='ALIBI', blade='INN')),
         ('SM_Lifeguard', lambda m: ft_city.lifeguard(m)), ('SM_Lifeguard2', lambda m: ft_city.lifeguard(m, ft_city.TEAL, ft_city.YEL)),
         ('SM_Umbrella', lambda m: ft_city.umbrella(m)), ('SM_Umbrella2', lambda m: ft_city.umbrella(m, ft_city.TEAL, ft_city.YEL)),
         ('SM_Billboard', lambda m: ft_city.billboard(m)), ('SM_Ferris', lambda m: ft_city.ferris(m)),
         ('SM_Lighthouse', lambda m: ft_city.lighthouse(m)), ('SM_Skyline', lambda m: ft_city.skyline(m)),
     ]
+    import ft_buildings
     for name, fn in jobs:
-        save_mesh(model(fn).meshes, D + name, 'prop')
+        mdl = model(fn)
+        # the buildings' glass and neon are sections with their own unlit materials (ft_buildings)
+        extra = ft_buildings.extra_sections(mdl)
+        save_mesh(mdl.meshes, D + name, 'prop', extra=extra, uv_sets=2 if extra else 1, no_shadow=('Glass', 'Neon'))
 
 
 def chemworks():
@@ -260,7 +295,13 @@ def nevada():
         save_mesh(model(fn).meshes, D + name, 'prop')
 
 
-GROUPS = {'kestrel': kestrel, 'fleet': fleet, 'bayshore': bayshore, 'chemworks': chemworks, 'nevada': nevada}
+def billboards():
+    """Bayshore's 13 printed billboards: textures (imported once), M_BB_Printed, instances, SM_BB_* variants."""
+    import ft_billboards
+    ft_billboards.build()
+
+
+GROUPS = {'kestrel': kestrel, 'fleet': fleet, 'bayshore': bayshore, 'billboards': billboards, 'chemworks': chemworks, 'nevada': nevada}
 
 
 def run(only=None):

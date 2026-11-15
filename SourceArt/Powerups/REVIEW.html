@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Full Throttle — Power-up concept review</title>
+  <style>
+    :root{color-scheme:dark;--bg:#140f20;--panel:#231a33;--text:#f2eaf7;--muted:#bdb1cf;--line:#483454;--pink:#ff4fb8;--orange:#ff8a1e;--green:#59d99b}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 system-ui,sans-serif}main{max-width:1500px;margin:auto;padding:36px clamp(18px,4vw,60px) 60px}.eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--pink)}h1{font-size:clamp(30px,4vw,52px);line-height:1.08;margin:14px 0 18px}h2{font-size:24px;margin:34px 0 16px}p{max-width:900px;color:var(--muted)}a{color:#c0dfff}a:focus-visible{outline:3px solid var(--pink);outline-offset:5px}.board{display:block;width:100%;height:auto;border-radius:6px;margin-top:24px}.recommendation{border-left:4px solid var(--pink);background:var(--panel);padding:16px 22px;margin:24px 0}.recommendation p{margin:4px 0}.recommendation strong{color:var(--text)}.options{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.option{padding:18px;border:1px solid var(--line);border-radius:6px}.option h3{margin:0 0 8px;font-size:18px}.option p{margin:0;font-size:14px}.refs{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.ref{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden}.ref img{display:block;width:100%;height:220px;object-fit:contain;background:#08070d}.ref.scene{grid-column:span 1}.ref.scene img{object-fit:contain}.ref figcaption{padding:15px;font-size:14px;color:var(--muted)}.ref strong{color:var(--text);display:block;margin-bottom:4px}.links{display:flex;gap:22px;flex-wrap:wrap;margin-top:30px;font-size:14px}footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);margin-top:32px;padding-top:18px}@media(max-width:850px){.options,.refs{grid-template-columns:1fr 1fr}}@media(max-width:560px){.options,.refs{grid-template-columns:1fr}.ref img{height:210px}}
+  </style>
+</head>
+<body><main>
+  <div class="eyebrow">Justin / Art direction review / 14 Nov 2026</div>
+  <h1>Power-ups worth swerving for.</h1>
+  <p>Three original directions for missile supply and repair, based on the current game art and your brief. Each combines broad painted forms, navy structure, a recognizable physical motif, and focused neon accents.</p>
+  <a href="concepts/powerups-directions-v01.png" aria-label="Open the full-size six-concept sheet"><img class="board" src="concepts/powerups-directions-v01.png" width="1536" height="1024" alt="Six concepts arranged in three columns: M1 armored ammunition case and R1 green toolbox; M2 exposed three-missile rack and R2 upright wrench in green cradle; M3 diagonal rocket cassette and R3 folding wrench caddy. Each has a small dark silhouette."></a>
+  <div class="recommendation"><strong>Approved by Justin: M2 + R1</strong><p>Three exposed missiles in an orange carrier, paired with a green toolbox and raised wrench. These are the selected directions for the procedural Unreal models.</p></div>
+  <section class="options" aria-label="Direction tradeoffs">
+    <article class="option"><h3>A / Field cases</h3><p>M1 + R1 feel like coordinated equipment from the same 1980s film. Chunky latches, substantial guards, and broad icon panels give a tangible prop identity.</p></article>
+    <article class="option"><h3>B / Exposed hardware</h3><p>M2 + R2 make their function part of the outline. They offer the clearest proposed separation at distance and the most exaggerated arcade proportions.</p></article>
+    <article class="option"><h3>C / Stunt gadgets</h3><p>M3 + R3 use low, angled forms and open gaps. M3 can suggest a launcher; both require particular attention to readability as they turn.</p></article>
+  </section>
+  <h2>The exact project references</h2>
+  <p>These five source images were supplied to the image generator. The screenshots are exploratory captures from the existing Development build. They show the look to match, not a tested result for the new concepts.</p>
+  <section class="refs" aria-label="Reference contact sheet">
+    <figure class="ref"><a href="references/01-current-missile-crate.png"><img src="references/01-current-missile-crate.png" alt="Existing orange and yellow missile crate with navy bands"></a><figcaption><strong>Current missile supply</strong>Retain orange reward identity; replace the plain cube with recognizable equipment.</figcaption></figure>
+    <figure class="ref"><a href="references/02-current-repair-kit.png"><img src="references/02-current-repair-kit.png" alt="Existing green repair cube with luminous wrench glyph"></a><figcaption><strong>Current repair kit</strong>Retain green and the wrench motif; improve the silhouette and preserve surface color.</figcaption></figure>
+    <figure class="ref"><a href="references/03-kestrel-body.png"><img src="references/03-kestrel-body.png" alt="KESTREL body with angular red panels, navy breaks and neon accents"></a><figcaption><strong>KESTREL construction</strong>Match angular planes, broad paint, dark structural breaks, and sparse high-impact accents.</figcaption></figure>
+    <figure class="ref scene"><a href="references/04-bayshore-gameplay.png"><img src="references/04-bayshore-gameplay.png" alt="Bayshore gameplay with golden-hour sky, pastel scenery and purple road"></a><figcaption><strong>Bayshore / daylight</strong>Keep the collectible consistent with pastel scenery, contour ink, and the current car.</figcaption></figure>
+    <figure class="ref scene"><a href="references/05-night-repair-approach.png"><img src="references/05-night-repair-approach.png" alt="Night gameplay showing a bright green-white repair pickup ahead of the car"></a><figcaption><strong>Chemical Works / night</strong>The existing luminous face loses detail here. Keep the new glow concentrated around a readable motif.</figcaption></figure>
+  </section>
+  <nav class="links" aria-label="Supporting documents"><a href="evidence/index.html">Runtime visual evidence</a><a href="ART_REVIEW.md">Independent art review</a><a href="ART_DIRECTION.md">Art direction &amp; tradeoffs</a><a href="PROMPTS.md">Exact generation prompt</a><a href="provenance-v01.json">Source files &amp; hashes</a><a href="CREDITS.md">Credits</a><a href="DEVLOG.md">Development log</a></nav>
+  <footer>AI-generated 2D concept illustration, created with the built-in image tool. Justin approved R1 and M2 for modeling. Shape thumbnails are visual aids; runtime distance readability, HDR shading, and performance remain to be validated in Unreal. The source models and isolated visual effects are being built and validated on the powerups feature branch.</footer>
+</main></body>
+</html>

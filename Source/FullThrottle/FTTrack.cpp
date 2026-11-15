@@ -6,8 +6,13 @@
 #include "Materials/MaterialInterface.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 #include "FTGameInstance.h"
 #include "HAL/PlatformTime.h"
+
+static TAutoConsoleVariable<int32> CVarFTAds(TEXT("ft.Ads"), 1, TEXT("FULL THROTTLE: printed roadside billboards, 1 = on, 0 = off (read when the track builds; for before/after benches, or -ftads=0)"));
 
 namespace
 {
@@ -113,7 +118,12 @@ void AFTTrack::RoadSpan(int32 J, float& W, float& Lo, float& Hi, float& Floor) c
 		const float Az = F.Ground.Z + PipeAxis;
 		Lo = FMath::Min(Lo, Az - PipeR - 60.f); Hi = FMath::Max(Hi, Az + PipeR + 150.f); Floor = Lo;
 	}
-	if (F.Flags & FTFlag::Coaster) { W = RailX0 + 2600.f + FFTRails::HalfW + 150.f; Lo = F.Pos.Z - 1300.f - DeckDepth - 60.f; Hi = F.Pos.Z + 1900.f + 900.f; Floor = F.Pos.Z - 1300.f; }
+	if (F.Flags & FTFlag::Coaster)
+	{
+		W = FFTRails::Sep + 2600.f + FFTRails::HalfW + 150.f; Lo = F.Pos.Z - 1300.f - DeckDepth - 60.f; Hi = F.Pos.Z + 2300.f + 900.f; Floor = F.Pos.Z - 1300.f;
+		// 3.3: its loop and corkscrews take the road's room for those
+		if (F.Flags & (FTFlag::Loop | FTFlag::Twist)) { Lo = FMath::Min(Lo, F.Pos.Z - W - 200.f); Hi = FMath::Max(Hi, F.Pos.Z + W + 900.f); }
+	}
 	if (F.Flags & FTFlag::HalfPipe) Hi += HPR;
 	if (F.Flags & FTFlag::Building) { W = FT::Edge + BldgOut; Hi = F.Pos.Z + BldgCeil + 2500.f; }
 }
@@ -247,6 +257,14 @@ void AFTTrack::Integrate()
 			Pitch = S.B * FMath::Sin(4.f * PI * u);
 			const int32 Mode = FMath::RoundToInt(FMath::Abs(S.A));
 			if (Mode == 2) { Roll += FMath::Sign(S.A) * 2.f * PI * Smoother(u); Flags |= FTFlag::Twist; }
+			// 3.3: two corkscrews in one, and a full vertical loop with all three rails (slid sideways like the road's)
+			if (Mode == 6) { Roll += (S.A < 0.f ? -1.f : 1.f) * 4.f * PI * Smoother(u); Flags |= FTFlag::Twist; }
+			if (Mode == 4)
+			{
+				Pitch = 2.f * PI * Smoother(u);
+				Slide = 400.f * FT::XU * Smooth((u - 0.2f) / 0.6f);
+				Flags |= FTFlag::Loop;
+			}
 			Flags |= FTFlag::Coaster;
 			break;
 		}
@@ -299,6 +317,12 @@ void AFTTrack::Integrate()
 		}
 		else if (Shape == EFTSec::Coaster)
 		{
+			// 3.3: a coaster loop's land runs straight under it, like the road's loops
+			if (FMath::RoundToInt(FMath::Abs(All[Sc].A)) == 4)
+			{
+				const FVector G0 = Frames[i0].Ground, G1 = Frames[FMath::Min(i1 + 1, N - 1)].Ground;
+				for (int32 j = i0; j <= i1; ++j) Frames[j].Ground = FMath::Lerp(G0, G1, float(j - i0 + 1) / float(i1 - i0 + 2));
+			}
 			// the land falls away under the coaster (its pillars are the supports)
 			for (int32 j = i0; j <= i1; ++j)
 			{
@@ -334,7 +358,11 @@ FFTFrame AFTTrack::Sample(float D) const
 	R.Ground = FMath::Lerp(A.Ground, Bf.Ground, t);
 	R.Fwd = FMath::Lerp(A.Fwd, Bf.Fwd, t).GetSafeNormal();
 	R.Up = FMath::Lerp(A.Up, Bf.Up, t).GetSafeNormal();
+	// 3.3: never a zero axis (a NaN rotation downstream): fall back on the sample's own
+	if (R.Fwd.IsNearlyZero()) R.Fwd = A.Fwd;
+	if (R.Up.IsNearlyZero()) R.Up = A.Up;
 	R.Right = FVector::CrossProduct(R.Up, R.Fwd).GetSafeNormal();
+	if (R.Right.IsNearlyZero()) R.Right = A.Right;
 	R.GRight = FMath::Lerp(A.GRight, Bf.GRight, t).GetSafeNormal();
 	R.Curve = FMath::Lerp(A.Curve, Bf.Curve, t);
 	return R;
@@ -405,35 +433,89 @@ const FFTSection* AFTTrack::SectionAt(float D, float* OutU) const
 FFTRails AFTTrack::RailsAt(float D) const
 {
 	FFTRails R;
-	R.XL = -RailX0; R.XR = RailX0;
 	float U = 0.f;
 	const FFTSection* S = SectionAt(D, &U);
 	if (!S || S->Shape != EFTSec::Coaster) return R;
 	const int32 Mode = FMath::RoundToInt(FMath::Abs(S->A));
 	const float E = FMath::Square(FMath::Sin(PI * U)); // 0 at both ends: every mode meets the next side by side
+	const float Sp = FFTRails::Sep;
+	// rails: 0 left, 1 centre (3.3: the third track), 2 right
 	switch (Mode)
 	{
-	case 1: // they split: one climbs high and wide, the other dives low and wide, both waving
+	case 1: // they split: the left climbs high and wide, the right dives low and wide, the centre rolls over big hills
 	{
 		const float Wv = 380.f * E * FMath::Sin(6.f * PI * U);
-		R.XL = -(RailX0 + 2600.f * E); R.HL = 1700.f * E + Wv;
-		R.XR = RailX0 + 2600.f * E;    R.HR = -900.f * E - Wv;
+		R.X[0] = -(Sp + 2600.f * E); R.H[0] = 1700.f * E + Wv;
+		R.X[2] = Sp + 2600.f * E;    R.H[2] = -900.f * E - Wv;
+		R.H[1] = 700.f * E * FMath::Sin(4.f * PI * U);
 		break;
 	}
-	case 2: // the double helix: a little apart while the frame rolls them round each other
-		R.XL = -(RailX0 + 520.f * E); R.XR = RailX0 + 520.f * E;
+	case 2: case 6: // the helix: a little apart while the frame rolls them round each other (6: twice round)
+		R.X[0] = -(Sp + 520.f * E); R.X[2] = Sp + 520.f * E;
 		break;
-	case 3: // the cross-over: they swap sides, one over the top and one underneath
+	case 3: // the cross-over: the outer two swap sides, one over the top and one underneath the centre rail
 	{
 		const float Sx = Smoother(U);
-		R.XL = -RailX0 * FMath::Cos(PI * Sx); R.HL = 1900.f * FMath::Sin(PI * Sx);
-		R.XR = RailX0 * FMath::Cos(PI * Sx);  R.HR = -1300.f * FMath::Sin(PI * Sx);
+		R.X[0] = -Sp * FMath::Cos(PI * Sx); R.H[0] = 1900.f * FMath::Sin(PI * Sx);
+		R.X[2] = Sp * FMath::Cos(PI * Sx);  R.H[2] = -1300.f * FMath::Sin(PI * Sx);
 		break;
 	}
-	default: break;
+	case 5: // 3.3 the third track corkscrews: the centre rail barrel-rolls twice round the outer pair's middle
+	{
+		const float Th = 4.f * PI * Smoother(U);
+		const float Rr = 1150.f * E;
+		R.X[0] = -(Sp + 900.f * E); R.X[2] = Sp + 900.f * E;
+		R.X[1] = Rr * FMath::Sin(Th); R.H[1] = Rr * (1.f - FMath::Cos(Th));
+		R.H[0] = R.H[2] = -250.f * E;
+		break;
 	}
-	R.bAdjacent = FMath::Abs(R.XR - R.XL) < 2.f * RailX0 + 200.f && FMath::Abs(R.HR - R.HL) < 120.f;
+	default: break;   // 0 side by side (with the section's hills), 4 the vertical loop (all three loop together)
+	}
 	return R;
+}
+
+FTransform AFTTrack::AirTransformAt(float D, float X, float H) const
+{
+	const FFTFrame F = Sample(D);
+	const FFTFrame F2 = Sample(D + 400.f);
+	FVector Fwd = F2.Ground - F.Ground; Fwd.Z *= 0.3f;
+	if (!Fwd.Normalize()) Fwd = FVector(F.Fwd.X, F.Fwd.Y, 0.f).GetSafeNormal();
+	if (Fwd.IsNearlyZero()) Fwd = FVector(F.GRight.Y, -F.GRight.X, 0.f).GetSafeNormal();
+	if (Fwd.IsNearlyZero()) Fwd = FVector::ForwardVector;
+	// the coaster's land falls away under it; a flyer keeps to the line the road came in on
+	float Drop = 0.f;
+	if (F.Flags & FTFlag::Coaster) Drop = 2600.f * Smooth(F.U / 0.18f) * Smooth((1.f - F.U) / 0.18f);
+	// and over a jump's gap, where the land dips away under the road
+	if (Sections.IsValidIndex(F.Section) && Sections[F.Section].Shape == EFTSec::Jump) Drop = 1800.f * FMath::Sin(PI * Smooth((F.U - 0.12f) / 0.6f));
+	const FVector Right = FVector::CrossProduct(FVector::UpVector, Fwd).GetSafeNormal();
+	return FTransform(FRotationMatrix::MakeFromXZ(Fwd, FVector::UpVector).Rotator(), F.Ground + Right * X + FVector(0, 0, H + Drop)) * GetActorTransform();
+}
+
+float AFTTrack::AirClearAt(float D) const
+{
+	if (Frames.Num() < 2) return 0.f;
+	// anything looping or rolling within 60 m either side: clear its highest point over the land's line
+	const int32 C = FMath::RoundToInt(D / Step);
+	float Top = 0.f;
+	for (int32 i = FMath::Max(0, C - 30); i <= FMath::Min(Frames.Num() - 1, C + 30); i += 2)
+	{
+		const FFTFrame& F = Frames[i];
+		if (F.Flags & (FTFlag::Loop | FTFlag::Twist | FTFlag::Pipe | FTFlag::Coaster))
+		{
+			float Drop = 0.f;
+			if (F.Flags & FTFlag::Coaster) Drop = 2600.f * Smooth(F.U / 0.18f) * Smooth((1.f - F.U) / 0.18f);
+			float Room = FT::Edge;
+			if (F.Flags & FTFlag::Coaster)
+			{
+				const FFTRails R = RailsAt(i * Step);
+				Room = FMath::Max3(R.H[0], R.H[1], R.H[2]) + 700.f;
+				// a loop or a corkscrew on the coaster sweeps the whole ribbon round
+				if (F.Flags & (FTFlag::Loop | FTFlag::Twist)) Room = FMath::Max(Room, FFTRails::Sep + 2400.f);
+			}
+			Top = FMath::Max(Top, F.Pos.Z - (F.Ground.Z + Drop) + Room);
+		}
+	}
+	return Top;
 }
 
 float AFTTrack::SurfaceH(float D, float X, float* OutSlope, bool* bSolid) const
@@ -462,10 +544,10 @@ float AFTTrack::SurfaceH(float D, float X, float* OutSlope, bool* bSolid) const
 	if (S->Shape == EFTSec::Coaster)
 	{
 		const FFTRails R = RailsAt(D);
-		const float DL = FMath::Abs(X - R.XL), DR = FMath::Abs(X - R.XR);
-		const bool bLeft = DL < DR;
-		if (FMath::Min(DL, DR) > FFTRails::HalfW + 40.f && bSolid) *bSolid = false;
-		return bLeft ? R.HL : R.HR;
+		int32 Bi = 0;
+		for (int32 i = 1; i < FFTRails::Num; ++i) if (FMath::Abs(X - R.X[i]) < FMath::Abs(X - R.X[Bi])) Bi = i;
+		if (FMath::Abs(X - R.X[Bi]) > FFTRails::HalfW + 40.f && bSolid) *bSolid = false;
+		return R.H[Bi];
 	}
 	return 0.f;
 }
@@ -484,6 +566,74 @@ float AFTTrack::NextFlagStart(float FromD, uint16 Flag, float Within) const
 }
 
 // ------------------------------------------------------------------------------------------ meshes
+void AFTTrack::GroundBands(TArray<FVector2D>& GP, TArray<FLinearColor>& GC, float& WaterX) const
+{
+	GP = GroundProfile;
+	GC = GroundColours;
+	WaterX = 0.f;
+	if (GP.Num() >= 2) return;
+	GP.Reset(); GC.Reset();
+	auto P = [&](float X, float Z, const TCHAR* Hex) { GP.Add(FVector2D(X, Z)); GC.Add(FTData::Hex(Hex)); };
+	if (LevelIndex == 0)
+	{
+		P(-14000, -420, TEXT("6b5a48")); P(-12800, -300, TEXT("b89466")); P(-11000, -220, TEXT("d9b98a")); P(-1600, -70, TEXT("e0c08e"));
+		P(1600, -70, TEXT("c98aa8")); P(6400, -60, TEXT("e8a6c4")); P(7000, -60, TEXT("2f6b52")); P(30000, -250, TEXT("24503e"));
+		WaterX = -13400.f;
+	}
+	else if (LevelIndex == 1)
+	{
+		P(-30000, -300, TEXT("1d2350")); P(-9000, -120, TEXT("2b3466")); P(-1600, -70, TEXT("3a4478"));
+		P(1600, -70, TEXT("3a4478")); P(9000, -120, TEXT("2b3466")); P(30000, -300, TEXT("1d2350"));
+	}
+	else if (LevelIndex == 2)
+	{
+		P(-30000, 200, TEXT("a2507a")); P(-12000, -120, TEXT("c9805a")); P(-1600, -70, TEXT("d98a5e"));
+		P(1600, -70, TEXT("d98a5e")); P(12000, -120, TEXT("c9805a")); P(30000, 260, TEXT("a2507a"));
+	}
+	else if (LevelIndex == 3) // volcano: black basalt, ash, scorched red
+	{
+		P(-30000, 900, TEXT("2a1d26")); P(-9000, -60, TEXT("3b2a30")); P(-1600, -70, TEXT("54393a"));
+		P(1600, -70, TEXT("54393a")); P(9000, -60, TEXT("3b2a30")); P(30000, 1200, TEXT("2a1d26"));
+	}
+	else if (LevelIndex == 4) // theme park: lawns and a sandy promenade
+	{
+		P(-30000, -300, TEXT("2f6b52")); P(-4200, -80, TEXT("4f9a6a")); P(-1600, -70, TEXT("efcf9f"));
+		P(1600, -70, TEXT("efcf9f")); P(4200, -80, TEXT("4f9a6a")); P(30000, -300, TEXT("2f6b52"));
+	}
+	else if (LevelIndex == 5) // glacier: snowfields rising to the ridges
+	{
+		P(-30000, 2600, TEXT("bcd6f2")); P(-8000, -30, TEXT("e4f0ff")); P(-1600, -70, TEXT("ffffff"));
+		P(1600, -70, TEXT("ffffff")); P(8000, -30, TEXT("e4f0ff")); P(30000, 2600, TEXT("bcd6f2"));
+	}
+	else if (LevelIndex == 6) // the seabed: pale sand, then the trench walls
+	{
+		P(-30000, 1400, TEXT("1a3f66")); P(-9000, -100, TEXT("b9a77e")); P(-1600, -70, TEXT("d9c89a"));
+		P(1600, -70, TEXT("d9c89a")); P(9000, -100, TEXT("b9a77e")); P(30000, 1400, TEXT("1a3f66"));
+	}
+	else // midtown: sidewalks and blocks
+	{
+		P(-30000, -60, TEXT("3a3848")); P(-2700, -40, TEXT("9a98a8")); P(-1600, -70, TEXT("706e80"));
+		P(1600, -70, TEXT("706e80")); P(2700, -40, TEXT("9a98a8")); P(30000, -60, TEXT("3a3848"));
+	}
+}
+
+float AFTTrack::GroundZ(float Xcm) const
+{
+	TArray<FVector2D> GP; TArray<FLinearColor> GC; float WaterX;
+	GroundBands(GP, GC, WaterX);
+	if (GP.Num() < 2) return -60.f;
+	if (Xcm <= GP[0].X) return GP[0].Y;
+	for (int32 k = 0; k + 1 < GP.Num(); ++k)
+	{
+		if (Xcm <= GP[k + 1].X)
+		{
+			const float t = (Xcm - GP[k].X) / FMath::Max(GP[k + 1].X - GP[k].X, 1.f);
+			return FMath::Lerp(GP[k].Y, GP[k + 1].Y, t);
+		}
+	}
+	return GP.Last().Y;
+}
+
 void AFTTrack::BuildMeshes()
 {
 	for (UProceduralMeshComponent* C : Chunks) if (C) C->DestroyComponent();
@@ -515,55 +665,10 @@ void AFTTrack::BuildMeshes()
 	}
 
 	// ground bands: (x cm, z cm) and colours, defaults per level
-	TArray<FVector2D> GP = GroundProfile;
-	TArray<FLinearColor> GC = GroundColours;
+	TArray<FVector2D> GP;
+	TArray<FLinearColor> GC;
 	float WaterX = 0.f; // L1: sea on the left beyond this x
-	if (GP.Num() < 2)
-	{
-		GP.Reset(); GC.Reset();
-		auto P = [&](float X, float Z, const TCHAR* Hex) { GP.Add(FVector2D(X, Z)); GC.Add(FTData::Hex(Hex)); };
-		if (LevelIndex == 0)
-		{
-			P(-14000, -420, TEXT("6b5a48")); P(-12800, -300, TEXT("b89466")); P(-11000, -220, TEXT("d9b98a")); P(-1600, -70, TEXT("e0c08e"));
-			P(1600, -70, TEXT("c98aa8")); P(6400, -60, TEXT("e8a6c4")); P(7000, -60, TEXT("2f6b52")); P(30000, -250, TEXT("24503e"));
-			WaterX = -13400.f;
-		}
-		else if (LevelIndex == 1)
-		{
-			P(-30000, -300, TEXT("1d2350")); P(-9000, -120, TEXT("2b3466")); P(-1600, -70, TEXT("3a4478"));
-			P(1600, -70, TEXT("3a4478")); P(9000, -120, TEXT("2b3466")); P(30000, -300, TEXT("1d2350"));
-		}
-		else if (LevelIndex == 2)
-		{
-			P(-30000, 200, TEXT("a2507a")); P(-12000, -120, TEXT("c9805a")); P(-1600, -70, TEXT("d98a5e"));
-			P(1600, -70, TEXT("d98a5e")); P(12000, -120, TEXT("c9805a")); P(30000, 260, TEXT("a2507a"));
-		}
-		else if (LevelIndex == 3) // volcano: black basalt, ash, scorched red
-		{
-			P(-30000, 900, TEXT("2a1d26")); P(-9000, -60, TEXT("3b2a30")); P(-1600, -70, TEXT("54393a"));
-			P(1600, -70, TEXT("54393a")); P(9000, -60, TEXT("3b2a30")); P(30000, 1200, TEXT("2a1d26"));
-		}
-		else if (LevelIndex == 4) // theme park: lawns and a sandy promenade
-		{
-			P(-30000, -300, TEXT("2f6b52")); P(-4200, -80, TEXT("4f9a6a")); P(-1600, -70, TEXT("efcf9f"));
-			P(1600, -70, TEXT("efcf9f")); P(4200, -80, TEXT("4f9a6a")); P(30000, -300, TEXT("2f6b52"));
-		}
-		else if (LevelIndex == 5) // glacier: snowfields rising to the ridges
-		{
-			P(-30000, 2600, TEXT("bcd6f2")); P(-8000, -30, TEXT("e4f0ff")); P(-1600, -70, TEXT("ffffff"));
-			P(1600, -70, TEXT("ffffff")); P(8000, -30, TEXT("e4f0ff")); P(30000, 2600, TEXT("bcd6f2"));
-		}
-		else if (LevelIndex == 6) // the seabed: pale sand, then the trench walls
-		{
-			P(-30000, 1400, TEXT("1a3f66")); P(-9000, -100, TEXT("b9a77e")); P(-1600, -70, TEXT("d9c89a"));
-			P(1600, -70, TEXT("d9c89a")); P(9000, -100, TEXT("b9a77e")); P(30000, 1400, TEXT("1a3f66"));
-		}
-		else // midtown: sidewalks and blocks
-		{
-			P(-30000, -60, TEXT("3a3848")); P(-2700, -40, TEXT("9a98a8")); P(-1600, -70, TEXT("706e80"));
-			P(1600, -70, TEXT("706e80")); P(2700, -40, TEXT("9a98a8")); P(30000, -60, TEXT("3a3848"));
-		}
-	}
+	GroundBands(GP, GC, WaterX);
 
 	// 2.7: the land beside the road stops short of any other part of the road. It used to run its full 300 m
 	// out from every frame, so on the inside of a tight curve, or where the circuit comes back past itself, the
@@ -647,9 +752,9 @@ void AFTTrack::BuildMeshes()
 				else
 				{
 					const FFTRails R = RailsAt(Dd);
-					for (int32 s = 0; s < 2; ++s)
+					for (int32 s = 0; s < FFTRails::Num; ++s)
 					{
-						const float Xc = s == 0 ? R.XL : R.XR, Hc = s == 0 ? R.HL : R.HR;
+						const float Xc = R.X[s], Hc = R.H[s];
 						TArray<FVector2D>& C = Out.AddDefaulted_GetRef();
 						for (int32 k = 0; k <= 4; ++k) C.Add(FVector2D(Xc - FFTRails::HalfW + 2.f * FFTRails::HalfW * k / 4.f, Hc));
 					}
@@ -980,18 +1085,23 @@ void AFTTrack::BuildMeshes()
 		const TArray<FProcMeshTangent> NoT;
 		DeckFlags.SetNumZeroed(Deck.V.Num());
 		const TArray<FVector2D> NoUV;
-		PM->CreateMeshSection_LinearColor(0, Deck.V, Deck.I, Deck.N, Deck.UV, DeckFlags, NoUV, NoUV, Deck.C, NoT, bColl);
-		PM->CreateMeshSection_LinearColor(1, Wall.V, Wall.I, Wall.N, Wall.UV, Wall.C, NoT, bColl);
+		// 3.3 perf: every CreateMeshSection re-cooks the component's whole collision (synchronously), so eleven calls
+		// cooked the deck up to four times per chunk (~5.6 s of every level load). The looks-only sections go first, the
+		// deck, walls and fence go in without collision and are switched on in place, and the ground's call cooks all
+		// four once.
 		PM->CreateMeshSection_LinearColor(2, NeonB.V, NeonB.I, NeonB.N, NeonB.UV, NeonB.C, NoT, false);
-		PM->CreateMeshSection_LinearColor(3, Fence.V, Fence.I, Fence.N, Fence.UV, Fence.C, NoT, bColl);
-		PM->SetMeshSectionVisible(3, false);
 		PM->CreateMeshSection_LinearColor(4, Glass.V, Glass.I, Glass.N, Glass.UV, Glass.C, NoT, false);
 		PM->CreateMeshSection_LinearColor(5, Rib.V, Rib.I, Rib.N, Rib.UV, Rib.C, NoT, false);
-		PM->CreateMeshSection_LinearColor(6, Ground.V, Ground.I, Ground.N, Ground.UV, Ground.C, NoT, bColl);
 		PM->CreateMeshSection_LinearColor(7, Water.V, Water.I, Water.N, Water.UV, Water.C, NoT, false);
 		PM->CreateMeshSection_LinearColor(8, Bldg.V, Bldg.I, Bldg.N, Bldg.UV, Bldg.C, NoT, false);
 		PM->CreateMeshSection_LinearColor(9, Lobby.V, Lobby.I, Lobby.N, Lobby.UV, Lobby.C, NoT, false);
 		PM->CreateMeshSection_LinearColor(10, Lava.V, Lava.I, Lava.N, Lava.UV, Lava.C, NoT, false);
+		PM->CreateMeshSection_LinearColor(0, Deck.V, Deck.I, Deck.N, Deck.UV, DeckFlags, NoUV, NoUV, Deck.C, NoT, false);
+		PM->CreateMeshSection_LinearColor(1, Wall.V, Wall.I, Wall.N, Wall.UV, Wall.C, NoT, false);
+		PM->CreateMeshSection_LinearColor(3, Fence.V, Fence.I, Fence.N, Fence.UV, Fence.C, NoT, false);
+		PM->SetMeshSectionVisible(3, false);
+		for (int32 Sc : { 0, 1, 3 }) if (FProcMeshSection* Sec = PM->GetProcMeshSection(Sc)) Sec->bEnableCollision = bColl;
+		PM->CreateMeshSection_LinearColor(6, Ground.V, Ground.I, Ground.N, Ground.UV, Ground.C, NoT, bColl);
 		PM->SetMaterial(0, MRoad); PM->SetMaterial(1, MWall); PM->SetMaterial(2, MNeon);
 		PM->SetMaterial(4, MGlass); PM->SetMaterial(5, MRib); PM->SetMaterial(6, MGround); PM->SetMaterial(7, MWater);
 		PM->SetMaterial(8, MBldg); PM->SetMaterial(9, MWall); PM->SetMaterial(10, MLava);
@@ -1137,6 +1247,204 @@ static TArray<FFTPropRule> DefaultProps(int32 Level)
 	return R;
 }
 
+// ------------------------------------------------------------------------------------------ adverts
+/** Bayshore's printed billboards (SourceArt/BayshoreBillboards, built by Content/Python/ft_billboards.py). */
+static TArray<FFTAdRule> DefaultAds(int32 Level)
+{
+	TArray<FFTAdRule> R;
+	if (Level != 0) return R;
+	const FString D = TEXT("/Game/Maps/Bayshore/Billboards/Meshes/SM_BB_");
+	auto A = [&](const TCHAR* Stem, EFTAdKind Kind, uint8 Where, bool bNear, EFTAdBeat Beat = EFTAdBeat::Any, uint8 Landmark = 0)
+	{
+		FFTAdRule Q; Q.Mesh = D + Stem; Q.Kind = Kind; Q.Where = Where; Q.bNear = bNear; Q.Beat = Beat; Q.Landmark = Landmark;
+		R.Add(Q);
+	};
+	using namespace FTAdWhere;
+	// Set02: painted at 1774 px per sign, so these take the near band
+	A(TEXT("BillableBill"), EFTAdKind::Lawyer, Strip, true);
+	A(TEXT("LastDime"), EFTAdKind::Casino, Strip | Marina, true, EFTAdBeat::Any, Marina);
+	A(TEXT("CaptainLiability"), EFTAdKind::Food, Pier, true, EFTAdBeat::LawsuitThreat);
+	A(TEXT("AlibiInn"), EFTAdKind::Motel, Strip | Marina, true);
+	// Set01: about 580 px of source per sign, read from the far band
+	A(TEXT("LenFender"), EFTAdKind::Lawyer, Strip, false);
+	A(TEXT("DickSettle"), EFTAdKind::Lawyer, Marina, false);
+	A(TEXT("RearEndRick"), EFTAdKind::Lawyer, 0, false, EFTAdBeat::CrashGag);
+	A(TEXT("LoosePelican"), EFTAdKind::Casino, Marina, false);
+	A(TEXT("SecondMortgage"), EFTAdKind::Casino, Strip, false);
+	A(TEXT("SinkingFund"), EFTAdKind::Casino, Strip | Marina, false);
+	A(TEXT("CaptainShucks"), EFTAdKind::Food, Pier, false);
+	A(TEXT("BurnNotice"), EFTAdKind::Food, Pier | Strip, false);
+	A(TEXT("BigDicks"), EFTAdKind::Food, Pier | Strip, false, EFTAdBeat::Any, Pier);
+	return R;
+}
+
+void AFTTrack::PlanAds(const TArray<FFTPropRule>& Rules, const TArray<FFTAdRule>& AdRules, float SlotLen, TArray<FAdSpot>& Out) const
+{
+	Out.Reset();
+	const int32 Slots = FMath::FloorToInt(Length() / SlotLen);
+	if (Slots < 6 || AdRules.Num() == 0) return;
+
+	// The other roadside landmarks: the old sunset billboard keeps its slots, the Ferris wheel marks the pier and the
+	// lighthouse the marina (both stand on the sea side).
+	auto RuleAt = [&](const TCHAR* Suffix, int32 s)
+	{
+		if (s < 0) return false;
+		for (const FFTPropRule& Q : Rules) if (Q.Mesh.EndsWith(Suffix) && ((s + Q.Phase) % FMath::Max(1, Q.Every)) == 0) return true;
+		return false;
+	};
+	auto RuleNear = [&](const TCHAR* Suffix, int32 s, int32 R)
+	{
+		for (int32 d = -R; d <= R; ++d) if (RuleAt(Suffix, s + d)) return true;
+		return false;
+	};
+	auto District = [&](int32 s) -> uint8
+	{
+		if (RuleNear(TEXT("/SM_Ferris"), s, 3)) return FTAdWhere::Pier;
+		if (RuleNear(TEXT("/SM_Lighthouse"), s, 3)) return FTAdWhere::Marina;
+		return FTAdWhere::Strip;
+	};
+
+	// A slot can carry a sign when the stretch it is read from and its own stretch hold no set piece, jump cue or
+	// warning paint, and the road is not bending hard (the sign would face away from the camera). 2.5's half pipes,
+	// coasters and tower blocks are set pieces too.
+	const uint16 Bad = FTFlag::Loop | FTFlag::Gap | FTFlag::Pipe | FTFlag::Twist | FTFlag::Kicker | FTFlag::Landing | FTFlag::Warn
+		| FTFlag::HalfPipe | FTFlag::Coaster | FTFlag::Building;
+	TArray<bool> Clear; Clear.Init(false, Slots);
+	for (int32 s = 1; s < Slots - 1; ++s)
+	{
+		const float D = s * SlotLen;
+		bool bOk = FMath::Abs(Sample(D).Curve) < 1.f && !RuleNear(TEXT("/SM_Billboard"), s, 1);
+		for (float d = D - 0.9f * SlotLen; bOk && d <= D + 0.4f * SlotLen; d += Step) if (FlagsAt(d) & Bad) bOk = false;
+		Clear[s] = bOk;
+	}
+	auto Calm = [&](int32 s) { return FMath::Abs(Sample(s * SlotLen).Curve) < 0.5f && FMath::Abs(Sample((s - 1) * SlotLen).Curve) < 0.5f; };
+
+	TArray<int32> Taken; Taken.Init(-1, Slots);
+	TArray<int32> LastUsed; LastUsed.Init(-100000, AdRules.Num());
+	auto Free = [&](int32 s, int32 Gap)
+	{
+		for (int32 d = -Gap; d <= Gap; ++d) if (Taken.IsValidIndex(s + d) && Taken[s + d] >= 0) return false;
+		return true;
+	};
+	// least recently shown design first, so the designs rotate instead of clumping
+	auto Pick = [&](TFunctionRef<bool(const FFTAdRule&)> Ok) -> int32
+	{
+		int32 Best = -1;
+		for (int32 r = 0; r < AdRules.Num(); ++r) if (Ok(AdRules[r]) && (Best < 0 || LastUsed[r] < LastUsed[Best])) Best = r;
+		return Best;
+	};
+	auto Place = [&](int32 s, int32 r, float Scale) -> bool
+	{
+		const FFTAdRule& A = AdRules[r];
+		const uint8 Dist = District(s);
+		// pier and marina signs stand on the waterfront (left), the rest along the hotel side (right)
+		const float Side = Dist == FTAdWhere::Strip ? 1.f : -1.f;
+		FRandomStream Rs(s * 7919 + r * 104729 + LevelIndex * 31 + 977);
+		const float Xu = (A.bNear ? 480.f : 760.f) + Rs.FRandRange(-30.f, 30.f);
+		const float X = Side * Xu * FT::XU;
+		const float D = (s + Rs.FRandRange(-0.12f, 0.12f)) * SlotLen;
+		const FFTFrame G = Sample(D);
+		FVector Pos = G.Ground + G.GRight * X;
+		Pos.Z += GroundZ(X) - 20.f; // footings sink 20 cm into the land band it stands on
+		const float HalfW = 640.f * Scale; // half the 12 m face plus its frame
+		// clear of every stretch of road: loops, overlapping sections, the far side of bends (2.5: a coaster's split
+		// rails and a tower block's facade reach up to ~21 m past the barrier, so those frames keep 22 m more clear)
+		const float MinD = FT::Edge + HalfW + 400.f;
+		for (int32 i = 0; i < Frames.Num(); i += 2)
+		{
+			const float R = (Frames[i].Flags & (FTFlag::Coaster | FTFlag::Building)) ? MinD + 2200.f : MinD;
+			if (FVector2D::DistSquared(FVector2D(Pos.X, Pos.Y), FVector2D(Frames[i].Pos.X, Frames[i].Pos.Y)) < R * R) return false;
+		}
+		// turn the face toward the road ~150 m back, where the chase camera first reads it
+		const FFTFrame V = Sample(FMath::Max(0.f, D - 1.8f * SlotLen));
+		const FVector Dir = FVector(Pos.X - V.Pos.X, Pos.Y - V.Pos.Y, 0.f).GetSafeNormal();
+		const float RoadYaw = FVector(G.Fwd.X, G.Fwd.Y, 0.f).GetSafeNormal().Rotation().Yaw;
+		const float Turn = FMath::Clamp(FRotator::NormalizeAxis(Dir.Rotation().Yaw - RoadYaw), -40.f, 40.f);
+		FAdSpot Sp;
+		Sp.Xf = FTransform(FRotator(0.f, RoadYaw + Turn, 0.f), Pos, FVector(Scale));
+		Sp.Centre = FVector2D(Pos.X, Pos.Y);
+		Sp.Radius = HalfW + 450.f;
+		Sp.Rule = r; Sp.Slot = s;
+		Out.Add(Sp);
+		Taken[s] = r; LastUsed[r] = s;
+		return true;
+	};
+	auto PlaceFirst = [&](int32 From, int32 Within, bool bCalm, int32 r, float Scale) -> int32
+	{
+		if (r < 0) return -1;
+		for (int32 k = FMath::Max(1, From); k < FMath::Min(Slots - 1, From + Within); ++k)
+		{
+			if (Clear[k] && Free(k, 1) && (!bCalm || Calm(k)) && Place(k, r, Scale)) return k;
+		}
+		return -1;
+	};
+
+	// 1. Short stunt sequences round each jump: an injury lawyer on the run-up (before the warning paint), Rear-End
+	//    Rick on a calm run-out after every other landing, a casino farther on for the settlement, and on alternate
+	//    jumps the seafood bar promising the next lawsuit.
+	struct FJump { float Kick, Land; };
+	TArray<FJump> Jumps;
+	for (int32 i = 1; i < Frames.Num(); ++i)
+	{
+		if ((Frames[i].Flags & FTFlag::Kicker) && !(Frames[i - 1].Flags & FTFlag::Kicker)) Jumps.Add({ i * Step, i * Step });
+		if (Jumps.Num() && (Frames[i - 1].Flags & FTFlag::Landing) && !(Frames[i].Flags & FTFlag::Landing)) Jumps.Last().Land = i * Step;
+	}
+	for (int32 j = 0; j < Jumps.Num(); ++j)
+	{
+		const int32 sKick = FMath::FloorToInt(Jumps[j].Kick / SlotLen);
+		const int32 sLand = FMath::CeilToInt(Jumps[j].Land / SlotLen);
+		const int32 Lawyer = Pick([](const FFTAdRule& A) { return A.Kind == EFTAdKind::Lawyer && A.Beat == EFTAdBeat::Any; });
+		for (int32 s = sKick - 1; Lawyer >= 0 && s >= FMath::Max(1, sKick - 4); --s)
+		{
+			if (Clear[s] && Free(s, 1) && Place(s, Lawyer, 1.f)) break;
+		}
+		int32 Cursor = sLand;
+		if ((j % 2) == 0)
+		{
+			const int32 k = PlaceFirst(Cursor, 3, true, Pick([](const FFTAdRule& A) { return A.Beat == EFTAdBeat::CrashGag; }), 1.f);
+			if (k >= 0) Cursor = k + 2;
+		}
+		const int32 kc = PlaceFirst(Cursor, 5, false, Pick([](const FFTAdRule& A) { return A.Kind == EFTAdKind::Casino; }), 1.f);
+		if (kc >= 0) Cursor = kc + 2;
+		if ((j % 2) == 1) PlaceFirst(Cursor, 6, false, Pick([](const FFTAdRule& A) { return A.Beat == EFTAdBeat::LawsuitThreat; }), 1.f);
+	}
+
+	// 2. Landmarks: every third pier and marina gets its big sign (1.4x) beside the Ferris wheel or the lighthouse.
+	for (const TPair<uint8, const TCHAR*>& L : { TPair<uint8, const TCHAR*>(FTAdWhere::Pier, TEXT("/SM_Ferris")), TPair<uint8, const TCHAR*>(FTAdWhere::Marina, TEXT("/SM_Lighthouse")) })
+	{
+		const int32 r = Pick([&L](const FFTAdRule& A) { return A.Landmark == L.Key; });
+		if (r < 0) continue;
+		int32 Seen = 0;
+		for (int32 s = 1; s < Slots - 1; ++s)
+		{
+			if (!RuleAt(L.Value, s)) continue;
+			if ((Seen++ % 3) != 0) continue;
+			for (int32 d : { 0, 1, -1, 2 })
+			{
+				const int32 k = s + d;
+				if (Clear.IsValidIndex(k) && Clear[k] && Free(k, 2) && Place(k, r, 1.4f)) break;
+			}
+		}
+	}
+
+	// 3. Fill: the district's designs in rotation, with at least five empty slots (~225 m) either side, so a
+	//    headline gets its own glance.
+	const int32 FillGap = 5;
+	for (int32 s = 2; s < Slots - 1; ++s)
+	{
+		if (!Clear[s] || !Free(s, FillGap)) continue;
+		const uint8 Dist = District(s);
+		const int32 r = Pick([Dist](const FFTAdRule& A) { return (A.Where & Dist) != 0; });
+		if (r >= 0) Place(s, r, 1.f);
+	}
+
+	Out.Sort([](const FAdSpot& A, const FAdSpot& B) { return A.Slot < B.Slot; });
+	uint32 H = 2166136261u;
+	TSet<int32> Designs;
+	for (const FAdSpot& A : Out) { H = (H ^ uint32(A.Slot * 31 + A.Rule)) * 16777619u; Designs.Add(A.Rule); }
+	UE_LOG(LogFT, Log, TEXT("FTADS level %d: %d billboards, %d designs, %d jumps, layout %08x"), LevelIndex, Out.Num(), Designs.Num(), Jumps.Num(), H);
+}
+
 void AFTTrack::BuildProps()
 {
 	for (UHierarchicalInstancedStaticMeshComponent* C : PropComps) if (C) C->DestroyComponent();
@@ -1196,6 +1504,25 @@ void AFTTrack::BuildProps()
 
 	const float SlotLen = 330.f * FT::DU;
 	const int32 Slots = FMath::FloorToInt(Length() / SlotLen);
+
+	// printed billboards: planned first so palms and umbrellas keep out of their footprint
+	TArray<FFTAdRule> AdRules;
+	TArray<FAdSpot> AdSpots;
+	int32 CmdAds = 1;
+	FParse::Value(FCommandLine::Get(), TEXT("ftads="), CmdAds);
+	if (bAds && CmdAds != 0 && CVarFTAds.GetValueOnGameThread() != 0)
+	{
+		// skip designs not built yet. The component is made here, so 2.7's distance cull is sized now, for the largest
+		// scale PlanAds uses (the 1.4x landmark signs): a big sign never stops drawing early
+		for (const FFTAdRule& A : (Ads.Num() ? Ads : DefaultAds(LevelIndex))) if (Comp(A.Mesh, 1.4f)) AdRules.Add(A);
+		PlanAds(Rules, AdRules, SlotLen, AdSpots);
+	}
+	auto KeptOut = [&AdSpots](const FVector& P)
+	{
+		for (const FAdSpot& A : AdSpots) if (FVector2D::DistSquared(FVector2D(P.X, P.Y), A.Centre) < A.Radius * A.Radius) return true;
+		return false;
+	};
+
 	for (int32 s = 1; s < Slots; ++s)
 	{
 		const float D = s * SlotLen;
@@ -1231,7 +1558,8 @@ void AFTTrack::BuildProps()
 					Pos = G.Ground + G.GRight * X + FVector(0, 0, -60.f);
 					Rot = FVector(G.Fwd.X, G.Fwd.Y, 0.f).GetSafeNormal().Rotation();
 					Rot.Yaw += Q.bFaceRoad ? 0.f : Rs.FRandRange(0.f, 360.f);
-					Out = G.GRight * FMath::Sign(X);
+					if (KeptOut(Pos)) continue;           // clear of the printed billboards
+					Out = G.GRight * FMath::Sign(X);      // 2.7: the way out if it touches its own barrier
 				}
 				const float Sc = Q.Scale * (1.f + (Rs.FRand() - 0.5f) * 2.f * Q.ScaleJitter);
 				if (!C) continue;
@@ -1242,6 +1570,12 @@ void AFTTrack::BuildProps()
 				if (Q.Light) LampSpots.Add(Q.bOnRoad ? (G.Pos + G.Right * (X * 0.8f) + G.Up * 780.f) : (Pos + FVector(0, 0, 600.f)));
 			}
 		}
+	}
+
+	// PlanAds already keeps every sign clear of the road, so the signs skip 2.7's road test
+	for (const FAdSpot& A : AdSpots)
+	{
+		if (UHierarchicalInstancedStaticMeshComponent* C = Comp(AdRules[A.Rule].Mesh, 1.4f)) C->AddInstance(A.Xf, false);
 	}
 
 	// Las Vegas, lit up ahead of the Nevada highway, past the end of the road (2.5: every level can have its
@@ -1307,11 +1641,15 @@ void AFTTrack::BuildProps()
 			// 2.5: a coaster stands on a pillar under each rail (not under the top one where they cross over)
 			const bool bCo = (F.Flags & FTFlag::Coaster) != 0;
 			const FFTRails Rl = RailsAt(i * Step);
-			for (int32 sgn = -1; sgn <= 1; sgn += 2)
+			for (int32 pi = 0; pi < (bCo ? FFTRails::Num : 2); ++pi)
 			{
-				const float Xp = bCo ? (sgn < 0 ? Rl.XL : Rl.XR) : sgn * FT::RoadHalf * 0.6f;
-				const float Hp = bCo ? (sgn < 0 ? Rl.HL : Rl.HR) : 0.f;
-				if (bCo && FMath::Abs(Rl.XL - Rl.XR) < 900.f && Hp > FMath::Min(Rl.HL, Rl.HR) + 300.f) continue;
+				const float sgn = pi == 0 ? -1.f : 1.f;
+				const float Xp = bCo ? Rl.X[pi] : sgn * FT::RoadHalf * 0.6f;
+				const float Hp = bCo ? Rl.H[pi] : 0.f;
+				// a rail passing over another one stands on nothing (the one below carries the pillar)
+				bool bOver = false;
+				if (bCo) for (int32 q = 0; q < FFTRails::Num; ++q) if (q != pi && FMath::Abs(Rl.X[q] - Xp) < 900.f && Hp > Rl.H[q] + 300.f) bOver = true;
+				if (bOver) continue;
 				const FVector Top = F.Pos + F.Right * Xp + F.Up * (Hp - DeckDepth);
 				const float H = Top.Z - (F.Ground.Z - 400.f);
 				if (H < 250.f) continue;

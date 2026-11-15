@@ -1,4 +1,4 @@
-# FULL THROTTLE 3.0.0: the Unreal Engine 5.9 game
+# FULL THROTTLE 3.3.0: the Unreal Engine 5.9 game
 
 The 80s spy car chase (web app `full-throttle`, 1.7.2) rebuilt as a native Unreal Engine 5.9 game for Windows,
 C++ plus Blueprints. WispOS opens the packaged build as the native app `full-throttle-unreal`
@@ -21,8 +21,8 @@ Paths are under `full-throttle-unreal/`; a file in two sections' folders belongs
 | City Center: Metro (level 8) | Levels | Matt | `Content/Maps/Metro` (built by `Content/Python/ft_v25.py`) |
 | Track & road builder | Levels | Matt | `FTTrack.*`, `FTData.cpp`, `Content/Python/ft_level.py` |
 | Driving: the KESTREL and how it handles | Vehicles & driving | Matt | `Content/Characters/Kestrel`, `FTPlayerCar.*`, `FTPlayerController.*`, `Config/DefaultInput.ini`, `ft_car.py` |
-| Enemies, bosses & traffic | Characters | Matt | `Content/Characters/{Syndicate,Choppers,SnakeEyes,Bosses,Traffic,Projectiles,Themed}`, `ft_fleet.py`, `ft_heli.py`, `ft_v28.py` (2.8) |
-| Environment: materials, sky & the cel look | Environment | Justin | `Content/Core/Materials`, `Content/Core/Palette`, `ft_mats.py`, `ft_cel.py`, `ft_art.py` |
+| Enemies, bosses & traffic | Characters | Matt | `Content/Characters/{Syndicate,Choppers,SnakeEyes,Bosses,Traffic,Projectiles,Themed,Wheels}`, `ft_fleet.py`, `ft_heli.py`, `ft_v28.py` (2.8), `ft_v33.py` (3.3) |
+| Environment: materials, sky & the cel look | Environment | Justin | `Content/Core/Materials`, `Content/Core/Palette`, `ft_mats.py`, `ft_cel.py`, `ft_art.py`, `ft_buildings.py` (Level 1 glass and neon) |
 | Effects: fire, smoke & explosions | Effects | Justin | `Content/FX`, `ft_fx.py`, `ft_v26.py` (2.6) |
 | UI & HUD | UI | Brad | `Content/UI`, `FTHUD.*` |
 | Skills, garage & money | Gameplay | Brad | `Content/Data`, `FTSkills.*`, `FTGameInstance.*`, `ft_skilltest.py`, `FTProgress.*` (2.6) |
@@ -65,6 +65,35 @@ No file in the project is over 50 MB. `Binaries`, `Intermediate`, `Saved` and `D
   Check it with `ft_cel.shot(name)` (a HighResShot of the game viewport): the `ft.Shots` hook films through a
   SceneCapture, which skips post-process materials, so it never shows the cel pass.
 
+- **Level 1 sky (BayshoreSky plugin):** `Plugins/BayshoreSky` replaces Bayshore's NightSky, Sun and SkyLight with a semi-cel daylight
+  sky (baked horizon and clouds, sun, sea, hills, blimp, gulls). It is a Level Instance (`/BayshoreSky/Maps/LI_BayshoreSky`) added by
+  `import ft_sky; ft_sky.apply(0)`; run it after `ft_level.build(0)` / `ft_cel.apply_level(0)`. It keeps the old actors in the map,
+  switched off, and `ft_sky.remove(0)` brings them back. Tuning, bakes and costs: `Plugins/BayshoreSky/INTEGRATION.md` and `SourceArt/BayshoreSky/BAKE.md`.
+
+- **Level 1 buildings (`BUILDINGS.md`):** Bayshore's hotels and skyline have real glass and neon behind the cel look.
+  `Content/Python/ft_buildings.py` builds two emissive-only materials in `Maps/Bayshore/Materials`: `M_BayGlass` (a lit room
+  behind every pane by interior mapping, no textures; the BayshoreSky gradient reflected in the glass; rooms switching on
+  through the evening) and `M_BayNeon` (HDR tubes that hum and now and then dip). Their GBuffer base colour is black, so
+  `M_PP_Cel` does not band them; the shared post-process is unchanged. `ft_city.py` dresses every side of the four hotels
+  (`hotel()`, and `liner()` for the Streamline one) and lights the skyline pane by pane. Found on the way: no mesh of the
+  game was ever Nanite (`ft_export.save_mesh` asked for it and never got it). Measured on Level 1, getting it made the
+  frame slower, so `save_mesh` now defaults to `nanite=False` and says why (see `BUILDINGS.md`). Rebuild:
+  `import ft_buildings, ft_export; ft_buildings.build_materials(); ft_export.run(['bayshore'])`. Placement
+  (`FTTrack.cpp`) is unchanged.
+
+- **Bayshore billboards:** the 13 printed adverts of `SourceArt/BayshoreBillboards/Set01|Set02`. `import ft_billboards;
+  ft_billboards.build()` imports the PNGs (BC7, sRGB, World, streamed; max 1024 for Set01, cut from a nine-panel sheet, 2048 for
+  Set02), builds `Maps/Bayshore/Billboards/Materials/M_BB_Printed` (opaque Default Lit, ISM + Nanite usage) with one `MI_BB_<Stem>`
+  each, and `Meshes/SM_BB_<Stem>`: `ft_city.ad_billboard()` (the sunset sign's posts and backing, a cream frame lip, a catwalk in
+  the brand colour, three lamps) plus the 1200 x 600 cm face in its own `Face` slot. `AFTTrack::PlanAds` (`DefaultAds`) places
+  them on every rebuild, deterministically: a lawyer on each jump's run-up (where a clear slot exists), Rear-End Rick on a calm
+  run-out after every other landing, a casino after, Captain Liability's closing alternate sequences; Big Dick's / Last Dime as
+  1.4x landmarks at every third Ferris wheel / lighthouse; then each district's designs in rotation (pier: food; marina: the
+  casinos, the motel and Dick Settle; the hotel strip: the other lawyers, casinos, the motel, Burn Notice and Big Dick's), never
+  in a set piece (loops, gaps, pipes, coasters, tower blocks), its warning paint or the old sunset sign's slots, clear of every
+  road section. Every ground prop (in practice palms, umbrellas and lifeguard towers) keeps out of a sign's footprint.
+  `ft.Ads 0` / `-ftads=0` builds the track without them (before/after benches); the log line
+  `FTADS level 0: N billboards ... layout <hash>` shows the layout is the same each build (Level 1: 58 billboards, 13 designs).
 - **Skill points and the garage (2.3):** `Content/Data/skills.json` (staged as a UFS file, `DirectoriesToAlwaysStageAsUFS=Data`)
   holds the points a level pays, the stats and the upgrades (ranks, costs, effects, `branch`/`tier`/`requires` for the coming
   skill tree). `FTSkills.cpp` reads it; `UFTGameInstance` keeps the bank and ranks in settings.json (`skills`) and answers
@@ -304,3 +333,43 @@ No file in the project is over 50 MB. `Binaries`, `Intermediate`, `Saved` and `D
   - Log lines: `FT ATTRACT shot ...`, `FTBUILD level= light= ...`; `FTDumpLevel` also prints the title song and attract state.
   - Checked by the owner in the Development package (`../full-throttle-tests/v300/dev-build`); the Shipping package
     went out without further test runs on the owner's order.
+
+- **3.3.0 (owner's queue): choppers and SWAT drops, separated wheels and body springs, half pipe tricks, the Tesla truck,
+  the three-track coaster, the replay camera, performance.** (Enemies, Driving, Track, Game rules and Audio sections:
+  `FTEntity.*`, `FTPlayerCar.*`, `FTTrack.*`, `FTGameMode.*`, `FTData.cpp`, `Content/Python/ft_v33.py`, `Content/Data/wheels.json`.)
+  - *Models* (`ft_v33.py`, run after `ft_export.fleet()`, `ft_v25.export()` and `ft_v28.export()`, which would put the old
+    meshes back): the 80s gunship chopper (open doors with rappel arms, stub wings, chin gun, separate `SM_HeliTailRotor`),
+    SWAT troopers (`SM_Henchman`, themed per level; `SM_HenchmanHang` clinging to the car), the level 2 Tesla truck
+    (`SM_Tanker`, `SM_TeslaTop`, `SM_TeslaArc`), the clown car's propeller rig (`SM_ClownRig`, `SM_ClownProp`). Every car,
+    truck and boss built with `ft_car.wheel` is exported body-only; its wheels are listed in `Content/Data/wheels.json`
+    and drawn as `Content/Characters/Wheels/SM_FoeWheel*` with `SM_FoeStrut` struts. Sounds: `S_TeslaCharge`,
+    `S_TeslaZap`, `S_PropBuzz`, `S_BombWhistle` (synthesized, `../full-throttle-tests/v330/synth_audio.py`).
+  - *Suspension (looks only)*: foes' bodies roll, pitch and bounce on springs over wheels that roll on the road; the
+    KESTREL's body leans on its springs too (its wheels now hang off the chassis). Gameplay and physics are unchanged.
+  - *Chopper drops*: a trooper slides down the rope from the door to the car's door in 1.35 s; more than ~2.6 m of
+    swerve beats him, otherwise he catches the side (3.2 timed out ~9 m short, so most drops missed). `FT HENCH` lines.
+  - *Half pipe* (`AFTPlayerCar::TickHalfPipe`): up the wall faster than 12.5 m/s across launches the car off the lip (steer
+    spins, drift rolls; within 50 degrees of square or it bails), gently onto the edge grinds the coping until you steer
+    down. `FT HALF` lines; the autopilot rides it too.
+  - *Coaster*: three rails (`FFTRails` X[3]/H[3], `Neighbour`), modes 4 (vertical loop), 5 (the centre rail corkscrews) and 6
+    (double helix); the theme park coaster is 25,600 units (was 19,200), everything after it moved on by 6,400. Choppers fly
+    over it (`AFTTrack::AirTransformAt`, `AirClearAt`) and fire rail-aimed rockets; MR. CHUCKLES flies over on propellers
+    and bombs your rail (`TickFlyer`, `FT FLYER` lines): hop rails to dodge (hazards carry `Rail`).
+  - *Replay camera*: shots use the road's frame (never the car's spin), ease their offset, sweep out of the scenery and
+    stay above the deck; the ghost KESTREL has its wheels and sits on the road.
+  - *Bugs fixed*: pooled foes kept the last owner's dynamic materials; a henchman's NaN position (an ensure in Dev);
+    degenerate track samples guarded. *Performance*: one collision cook per track chunk (level build 5.8 s -> 0.85 s),
+    material/light updates only on change, far foes' wheels every third frame.
+  - Tests: `../full-throttle-tests/v330/run_dev.sh coaster|halfpipe|tesla|heli|reel` (Development package), bench in
+    `../full-throttle-tests/v330/bench.txt`.
+
+- **Mac performance audit (14 Nov 2026; taken into the game as 2.9.0 above, Mac bench notes).** On an Apple M1 Max the game ran 19-27 fps: Unreal's synth benchmark reads
+  Apple GPUs as far faster than they are, so AUTO picked EPIC (TSR with 200% history ~22 ms, Lumen at Epic ~16 ms; the CPU
+  is idle at ~3 ms). This Mac runs Metal SM5: no Nanite, no Virtual Shadow Maps (fallback meshes, cascaded shadows).
+  `UFTGameInstance::CapAutoForApple` (AUTO + Apple GPU only): every group capped at HIGH but effects and textures, at most
+  ~1.65 MP rendered (67% of 2560x1440) and dynamic resolution 50%-cap at a 15.5 ms budget, upscaled by TSR. Now 58-68 fps on
+  all eight levels with the same cel look (Lumen stays on: Metro's lobby loses its bounce light without it). Props are
+  already HISM instances and occlusion queries are on; hiding every prop saves nothing measurable.
+  Measure with `Tools/bench_mac.sh <tag> <level> <quality> <seconds> 2560x1440` (needs `-NoHotReloadFromIDE` builds while
+  another editor runs, and FullscreenMode=2 in `Saved/Config/MacEditor/GameUserSettings.ini`). Report:
+  `~/Wisper/Log/Reports/2026-11-14-full-throttle-unreal-performance-audit.html`.

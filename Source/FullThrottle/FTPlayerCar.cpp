@@ -27,6 +27,8 @@ namespace
 	const TCHAR* KDir = TEXT("/Game/Characters/Kestrel/");
 	// Wheel hubs on the KESTREL model (origin mid-car on the ground, X forward, Y right)
 	const FVector WheelPos[4] = { FVector(147, -99, 31), FVector(147, 99, 31), FVector(-133, -112, 40), FVector(-133, 112, 40) };
+	// 3.3 where a hanging trooper grips the car (left side; the right is mirrored): the door's window sill
+	const FVector HangGrip(20.f, 100.f, 114.f);
 	// the chassis box's centre sits this high above the model's ground origin
 	constexpr float ChassisZ = 88.f; // box from 56 to 120 cm: clear of the wheels' suspension traces
 	// Parts in the order they come off (1.x: below 88, 76, 64, 52, 40, 28 and 16 armour)
@@ -117,9 +119,10 @@ AFTPlayerCar::AFTPlayerCar()
 	for (int32 i = 0; i < 4; ++i)
 	{
 		UStaticMeshComponent* W = CreateDefaultSubobject<UStaticMeshComponent>(*FString::Printf(TEXT("Wheel%d"), i));
-		W->SetupAttachment(Body);
+		// 3.3: the wheels hang off the chassis, not the body, so the body can roll and pitch on its springs above them
+		W->SetupAttachment(Chassis);
 		W->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		W->SetRelativeLocation(WheelPos[i]);
+		W->SetRelativeLocation(WheelPos[i] - FVector(0.f, 0.f, ChassisZ));
 		if (WheelPos[i].Y > 0.f) W->SetRelativeScale3D(FVector(1.f, -1.f, 1.f));
 		WheelMeshes.Add(W);
 	}
@@ -201,8 +204,23 @@ void AFTPlayerCar::BeginPlay()
 		if (!Parts[i]->GetStaticMesh()) Parts[i]->SetStaticMesh(Load<UStaticMesh>(FString(KDir) + TEXT("SM_Kestrel_") + PartNames[i]));
 		PartRest.Add(Parts[i]->GetRelativeTransform());
 	}
-	UStaticMesh* HM = Load<UStaticMesh>(TEXT("/Game/Characters/Syndicate/SM_Henchman"));
-	for (UStaticMeshComponent* Hm : Henchmen) if (!Hm->GetStaticMesh()) Hm->SetStaticMesh(HM);
+	// 3.3: the SWAT trooper hanging off the door (SM_HenchmanHang: origin at his grip, chest toward the car on +Y; the
+	// right-hand one is mirrored); the old standing henchman if the model is missing
+	UStaticMesh* HMHang = Load<UStaticMesh>(TEXT("/Game/Characters/Syndicate/SM_HenchmanHang"));
+	UStaticMesh* HM = HMHang ? HMHang : Load<UStaticMesh>(TEXT("/Game/Characters/Syndicate/SM_Henchman"));
+	bHangModel = HMHang != nullptr;
+	for (int32 i = 0; i < Henchmen.Num(); ++i)
+	{
+		UStaticMeshComponent* Hm = Henchmen[i];
+		if (!Hm->GetStaticMesh()) Hm->SetStaticMesh(HM);
+		if (bHangModel)
+		{
+			// the right-hand one is the same model turned round (mirroring it would print SWAT backwards)
+			Hm->SetRelativeLocation(FVector(HangGrip.X, i == 0 ? -HangGrip.Y : HangGrip.Y, HangGrip.Z));
+			Hm->SetRelativeRotation(FRotator(0.f, i == 0 ? 0.f : 180.f, 0.f));
+			Hm->SetRelativeScale3D(FVector(1.f));
+		}
+	}
 	auto SetFX = [](UNiagaraComponent* C, const TCHAR* P) { if (!C->GetAsset()) C->SetAsset(Load<UNiagaraSystem>(P)); };
 	SetFX(SmokeFX, TEXT("/Game/FX/NS_Smoke"));
 	// 2.4: the car burns with its own flat cel fire (NS_CarFire, MI_Fire_Car); NS_Fire's white-hot puffs hid it
@@ -230,22 +248,26 @@ void AFTPlayerCar::SetLightsForLevel(int32 Level)
 bool AFTPlayerCar::CanRailHop(int32 Dir) const
 {
 	if (!bRailInit || !Track || HopCd > 0.f || HopT >= 0.f || Dir == 0) return false;
+	// 3.3: three rails; hop to the neighbour on that side where it sits beside yours
 	const FFTRails R = Track->RailsAt(D);
-	if (!R.bAdjacent) return false;
-	// hop toward the other rail only
-	const bool bOnLeft = FVector2D::DistSquared(RailPt, FVector2D(R.XL, R.HL)) < FVector2D::DistSquared(RailPt, FVector2D(R.XR, R.HR));
-	return bOnLeft ? Dir > 0 : Dir < 0;
+	return R.Neighbour(R.Nearest(RailPt), Dir) >= 0;
+}
+
+int32 AFTPlayerCar::RailIndex() const
+{
+	if (!bRailInit || !Track) return -1;
+	return Track->RailsAt(D).Nearest(RailPt);
 }
 
 bool AFTPlayerCar::RailHop(int32 Dir)
 {
 	if (!CanRailHop(Dir)) return false;
 	const FFTRails R = Track->RailsAt(D);
-	const bool bOnLeft = FVector2D::DistSquared(RailPt, FVector2D(R.XL, R.HL)) < FVector2D::DistSquared(RailPt, FVector2D(R.XR, R.HR));
+	const int32 To = R.Neighbour(R.Nearest(RailPt), Dir);
 	// up and over on a set arc that always lands on the other rail (the first 2.5 build flew it with physics and a
 	// spring, and one hop in four missed and fell between the rails)
 	HopFrom = FVector2D(X, SurfH);
-	RailPt = bOnLeft ? FVector2D(R.XR, R.HR) : FVector2D(R.XL, R.HL);
+	RailPt = R.P(To);
 	HopT = 0.f;
 	LaunchT = HopDur + 0.1f;
 	HopCd = 1.1f;
@@ -266,8 +288,9 @@ void AFTPlayerCar::PlaceOnTrack(float InD, float InX, float InSpeed)
 	if (Track->FlagsAt(InD) & FTFlag::Coaster)
 	{
 		const FFTRails R = Track->RailsAt(InD);
-		const bool bLeft = FMath::Abs(InX - R.XL) < FMath::Abs(InX - R.XR);
-		InX = bLeft ? R.XL : R.XR; Hs = bLeft ? R.HL : R.HR;
+		int32 Bi = 0;
+		for (int32 i = 1; i < FFTRails::Num; ++i) if (FMath::Abs(InX - R.X[i]) < FMath::Abs(InX - R.X[Bi])) Bi = i;
+		InX = R.X[Bi]; Hs = R.H[Bi];
 		RailPt = FVector2D(InX, Hs); bRailInit = true;
 	}
 	else Hs = Track->SurfaceH(InD, InX);
@@ -278,6 +301,8 @@ void AFTPlayerCar::PlaceOnTrack(float InD, float InX, float InSpeed)
 	// (no ResetVehicle: it rebuilds the physics vehicle and asserts if called mid-spawn; a teleport is enough)
 	D = InD; X = InX; H = 0.f;
 	LaunchT = 0.f;
+	Half = EFTHalf::None;
+	bPrevVel = false;
 	bWrecked = false;
 	Chassis->SetSimulatePhysics(true);
 }
@@ -354,6 +379,20 @@ void AFTPlayerCar::SetHenchmenVisible(bool bLeft, bool bRight)
 {
 	Henchmen[0]->SetVisibility(bLeft);
 	Henchmen[1]->SetVisibility(bRight);
+	// 3.3: they swing on the door, legs trailing in the wind
+	if (bHangModel && (bLeft || bRight))
+	{
+		const float T = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+		for (int32 i = 0; i < 2; ++i)
+		{
+			// the body swings out from the door (about 40 degrees, so his boots clear the road) and trails back in the
+			// wind. In his own frame he hangs on -Y; the right-hand one is turned round (yaw 180), so "back" flips.
+			const float Out = 40.f + 7.f * FMath::Sin(T * 5.3f + 1.7f * i);
+			const float Back = (22.f + 5.f * FMath::Sin(T * 7.f + i)) * (i == 0 ? 1.f : -1.f);
+			const FQuat Local = FQuat(FVector::ForwardVector, FMath::DegreesToRadians(-Out)) * FQuat(FVector::RightVector, FMath::DegreesToRadians(Back));
+			Henchmen[i]->SetRelativeRotation(FQuat(FVector::UpVector, i == 0 ? 0.f : PI) * Local);
+		}
+	}
 }
 
 void AFTPlayerCar::Wreck()
@@ -496,16 +535,19 @@ void AFTPlayerCar::Tick(float Dt)
 	{
 		UChaosVehicleWheel* W = Vehicle->Wheels[i];
 		if (!W) continue;
-		const FVector Base = WheelPos[i] + FVector(0, 0, -W->GetSuspensionOffset());
-		WheelMeshes[i]->SetRelativeLocation(Base);
+		// (in the air the suspension hangs all the way down: the wheels drop away from the body, then the body
+		// lands on them; 3.3 eases the reported offset so a landing reads as a compression, not a pop)
+		const FVector Base = WheelPos[i] + FVector(0, 0, -W->GetSuspensionOffset() - ChassisZ);
+		WheelMeshes[i]->SetRelativeLocation(FMath::VInterpTo(WheelMeshes[i]->GetRelativeLocation(), Base, Dt, 30.f));
 		const float Spin = W->GetRotationAngle();
 		const float Steer = W->GetSteerAngle();
 		WheelMeshes[i]->SetRelativeRotation(FRotator(-Spin, Steer, 0.f));
 	}
+	TickBody(Dt);
 
 	// effects and sound
 	const bool bSpark = (bWallLeft || bWallRight) && FMath::Abs(Speed) > 1500.f && !bWrecked;
-	if (SparksFX->GetAsset())
+	if (SparksFX->GetAsset() && Half != EFTHalf::Grind)
 	{
 		SparksFX->SetRelativeLocation(FVector(-60.f, bWallLeft ? -130.f : 130.f, 30.f));
 		if (bSpark && !SparksFX->IsActive()) SparksFX->Activate(true);
@@ -532,6 +574,146 @@ void AFTPlayerCar::Tick(float Dt)
 	if (SkidAudio->IsPlaying()) SkidAudio->SetVolumeMultiplier(bSlide ? 0.7f : 0.f);
 }
 
+void AFTPlayerCar::TickBody(float Dt)
+{
+	// 3.3 "the cars are so stiff": the body rides its springs over the wheels. Sideways acceleration rolls it to the
+	// outside of a bend, speeding up squats it, braking dives it, and a landing bounces it. Looks only: the physics
+	// chassis (and the gameplay) is exactly as before.
+	if (Dt <= 0.f) return;
+	const FVector Vn = Chassis->GetPhysicsLinearVelocity();
+	const bool bKinematic = bRailInit || Half != EFTHalf::None || Drive.bFrozen || bWrecked;
+	FVector ALocal = FVector::ZeroVector;
+	if (bPrevVel && !bKinematic)
+	{
+		const FVector A = (Vn - PrevVel) / Dt;
+		ALocal = Chassis->GetComponentTransform().InverseTransformVectorNoScale(A);
+		// a teleport (put back, rescue, a retake) is not an acceleration
+		if (ALocal.Size() > 30000.f) ALocal = FVector::ZeroVector;
+	}
+	PrevVel = Vn; bPrevVel = true;
+	AccF = FMath::VInterpTo(AccF, ALocal, Dt, 9.f);
+	const float G = 980.f;
+	const float RollT = FMath::Clamp(-AccF.Y / G * LeanRollPerG, -5.5f, 5.5f);
+	const float PitchT = FMath::Clamp(AccF.X / G * LeanPitchPerG, -3.5f, 3.5f);
+	// heave: the springs compress under a hard push down (a landing, the bottom of a dip) and the body sinks
+	const float HeaveT = FMath::Clamp(-(AccF.Z) / G * 5.f, -10.f, 6.f);
+	const float W = BodyFreq, Z = BodyDamp;
+	auto Spring = [&](float& X, float& V, float Target)
+	{
+		const float Acc = W * W * (Target - X) - 2.f * Z * W * V;
+		V += Acc * Dt; X += V * Dt;
+		if (!FMath::IsFinite(X)) { X = 0.f; V = 0.f; }
+	};
+	Spring(BodyRoll, BodyRollV, RollT);
+	Spring(BodyPitch, BodyPitchV, PitchT);
+	Spring(BodyHeave, BodyHeaveV, HeaveT);
+	// the body pivots about its middle at axle height, so a roll doesn't swing it off the wheels
+	const FVector Pivot(0.f, 0.f, 40.f);
+	const FRotator Rot(BodyPitch, 0.f, BodyRoll);
+	const FVector Off = Pivot - Rot.RotateVector(Pivot);
+	Body->SetRelativeLocationAndRotation(FVector(0.f, 0.f, -ChassisZ + BodyHeave) + Off, Rot);
+}
+
+bool AFTPlayerCar::TickHalfPipe(float Dt, const FFTFrame& F, float Slope)
+{
+	// 3.3 half pipe. The owner: "the half pipe should allow the player car to do jumps and tricks and stuff, you can
+	// grind if you just gently drive up to the edge". Up a wall at speed, the car leaves the lip and flies straight up
+	// (and keeps rolling down the pipe), you spin it with steer and barrel-roll it with drift, and it comes back down
+	// onto the same wall: land square (within 50 degrees) or bail. Drive up gently instead and it locks onto the
+	// coping and grinds along it until you steer back down. Both are set on a path, like the coaster rails: physics
+	// takes the car back the moment it lands or drops in.
+	const bool bHalf = (F.Flags & FTFlag::HalfPipe) != 0;
+	const float EdgeX = FT::Edge - 150.f;   // the car's centre on the coping
+	if (Half == EFTHalf::None)
+	{
+		if (!bHalf || bWrecked || LaunchT > 0.f || !bGrounded) return false;
+		const float Side = X > 0.f ? 1.f : -1.f;
+		const float Out = LatSpeed * Side;   // up the wall
+		if (FMath::Abs(X) < FT::Edge - 300.f || Track->SurfaceH(D, Side * EdgeX) < 300.f) return false;
+		HalfSide = (int32)Side; HalfT = 0.f; TrickYaw = TrickRoll = 0.f; HalfPeak = 0.f;
+		HalfSpeed = FMath::Max(FVector::DotProduct(Chassis->GetPhysicsLinearVelocity(), F.Fwd), FT::BaseSpeed * 0.8f);
+		float Sl = 0.f; const float Hs = Track->SurfaceH(D, X, &Sl);
+		HalfX0 = X; HalfH0 = Hs;
+		HalfTilt0 = FMath::RadiansToDegrees(FMath::Atan(FMath::Abs(Sl)));
+		if (Out > 1250.f)
+		{
+			// launch: the faster up the wall, the bigger the air (1.5 .. 2.6 s)
+			Half = EFTHalf::Air; bHalfLaunched = true;
+			HalfVUp = FMath::Clamp(Out * 0.9f + 700.f, 1500.f, 2550.f);
+			HalfDur = 2.f * HalfVUp / 1960.f;
+			return true;
+		}
+		if (Out > -200.f && Drive.Steer * Side > -0.1f)
+		{
+			Half = EFTHalf::Grind; bGrindStart = true;
+			return true;
+		}
+		return false;
+	}
+	if (bWrecked || Drive.bFrozen) { Half = EFTHalf::None; return false; }
+	const float Side = (float)HalfSide;
+	HalfT += Dt;
+	HalfSpeed = FMath::FInterpTo(HalfSpeed, FMath::Max(Drive.TargetSpeed, FT::BaseSpeed * 0.8f), Dt, 0.4f);
+	const float Dn = D + HalfSpeed * Dt;
+	const FFTFrame Fn = Track->Sample(Dn);
+	if (Half == EFTHalf::Air)
+	{
+		// up and down over the lip; drifts in a little so it lands on the curve, not the coping
+		const float Tn = FMath::Min(HalfT, HalfDur);
+		const float Lift = HalfVUp * Tn - 0.5f * 1960.f * Tn * Tn;
+		HalfPeak = FMath::Max(HalfPeak, Lift);
+		const float Xn = FMath::Lerp(HalfX0, Side * (FT::Edge - 420.f), FMath::Clamp(Tn / HalfDur, 0.f, 1.f));
+		const float Hn = Track->SurfaceH(Dn, Xn) + ChassisZ + FMath::Max(Lift, 0.f);
+		// tricks: steer spins it, drift rolls it (keeps turning a little after you let go, then holds)
+		TrickYaw += Drive.Steer * 540.f * Dt;
+		if (Drive.bFlip) TrickRoll += -Side * 600.f * Dt;
+		// the wall's tilt eases to level at the top and back for the landing
+		const float U = FMath::Clamp(Tn / HalfDur, 0.f, 1.f);
+		const float Tilt = HalfTilt0 * FMath::Abs(FMath::Cos(PI * U)) * Side;
+		const FTransform Base = Track->TransformAt(Dn, Xn, Hn);
+		const FQuat Q = Base.GetRotation() * FQuat(FVector::ForwardVector, FMath::DegreesToRadians(Tilt + TrickRoll)) * FQuat(FVector::UpVector, FMath::DegreesToRadians(TrickYaw));
+		Chassis->SetWorldTransform(FTransform(Q, Base.GetLocation()), false, nullptr, ETeleportType::TeleportPhysics);
+		Chassis->SetPhysicsLinearVelocity(Fn.Fwd * HalfSpeed);
+		Chassis->SetPhysicsAngularVelocityInRadians(FVector::ZeroVector);
+		LaunchT = FMath::Max(LaunchT, 0.3f);
+		if (HalfT >= HalfDur || !(Fn.Flags & FTFlag::HalfPipe))
+		{
+			// down: square within 50 degrees of a whole turn on both axes, or a bail
+			auto Off = [](float Deg) { const float M = FMath::Fmod(FMath::Abs(Deg), 360.f); return FMath::Min(M, 360.f - M); };
+			bHalfBailed = Off(TrickYaw) > 50.f || Off(TrickRoll) > 50.f;
+			bHalfLanded = true;
+			Half = EFTHalf::None;
+			const FTransform L = Track->TransformAt(Dn, Xn, Track->SurfaceH(Dn, Xn) + ChassisZ + 4.f);
+			Chassis->SetWorldTransform(FTransform(L.GetRotation() * FQuat(FVector::ForwardVector, FMath::DegreesToRadians(HalfTilt0 * Side)), L.GetLocation()), false, nullptr, ETeleportType::TeleportPhysics);
+			Chassis->SetPhysicsLinearVelocity(Fn.Fwd * HalfSpeed - Fn.Right * Side * 700.f);
+			LaunchT = 0.f;
+		}
+		return true;
+	}
+	// the grind: on the coping, leaning on it, sparks; steer back down (or the pipe runs out) to drop in
+	const float Hc = Track->SurfaceH(Dn, Side * EdgeX);
+	const bool bOff = Drive.Steer * Side < -0.35f || !(Fn.Flags & FTFlag::HalfPipe) || Hc < 250.f;
+	float Sl = 0.f; Track->SurfaceH(Dn, Side * EdgeX, &Sl);
+	const float TiltG = FMath::RadiansToDegrees(FMath::Atan(FMath::Abs(Sl))) * 0.85f * Side;
+	const FTransform Base = Track->TransformAt(Dn, Side * EdgeX, Hc + ChassisZ - 6.f);
+	Chassis->SetWorldTransform(FTransform(Base.GetRotation() * FQuat(FVector::ForwardVector, FMath::DegreesToRadians(TiltG)), Base.GetLocation()), false, nullptr, ETeleportType::TeleportPhysics);
+	Chassis->SetPhysicsLinearVelocity(Fn.Fwd * HalfSpeed);
+	Chassis->SetPhysicsAngularVelocityInRadians(FVector::ZeroVector);
+	if (SparksFX->GetAsset())
+	{
+		SparksFX->SetRelativeLocation(FVector(-60.f, Side * 130.f, 20.f));
+		if (!SparksFX->IsActive()) SparksFX->Activate(true);
+	}
+	if (bOff)
+	{
+		Half = EFTHalf::None; bGrindEnd = true;
+		Chassis->SetPhysicsLinearVelocity(Fn.Fwd * HalfSpeed - Fn.Right * Side * 900.f);
+		if (SparksFX->IsActive()) SparksFX->Deactivate();
+	}
+	(void)Slope;
+	return true;
+}
+
 void AFTPlayerCar::ApplyArcade(float Dt)
 {
 	if (bWrecked)
@@ -551,9 +733,13 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 	if (bCoaster)
 	{
 		const FFTRails R = Track->RailsAt(D);
-		if (!bRailInit) { RailPt = FMath::Abs(X - R.XL) < FMath::Abs(X - R.XR) ? FVector2D(R.XL, R.HL) : FVector2D(R.XR, R.HR); bRailInit = true; }
-		const FVector2D PL(R.XL, R.HL), PR(R.XR, R.HR);
-		RailPt = FVector2D::DistSquared(RailPt, PL) < FVector2D::DistSquared(RailPt, PR) ? PL : PR;
+		if (!bRailInit)
+		{
+			int32 Bi = 0;
+			for (int32 i = 1; i < FFTRails::Num; ++i) if (FMath::Abs(X - R.X[i]) < FMath::Abs(X - R.X[Bi])) Bi = i;
+			RailPt = R.P(Bi); bRailInit = true;
+		}
+		RailPt = R.P(R.Nearest(RailPt));
 		RailX = RailPt.X; SurfH = RailPt.Y;
 		bSolid = FMath::Abs(X - RailX) < FFTRails::HalfW + 60.f;
 	}
@@ -656,15 +842,15 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 			TH = FMath::Lerp(HopFrom.Y, SurfH, U) + 320.f * 4.f * U * (1.f - U);
 			if (U >= 1.f) HopT = -1.f;
 		}
-		const float MaxStep = 3000.f * Dt;
+		// (3.3: 7,000 cm/s across, so the corkscrewing centre rail can't leave its car behind)
+		const float MaxStep = 7000.f * Dt;
 		const float NX = X + FMath::Clamp(TX - X, -MaxStep, MaxStep);
 		const float NH = Hr + SurfH; // current height over the frame
 		const float WantH = TH + ChassisZ - 2.f;
 		const float NewH = NH + FMath::Clamp(WantH - NH, -MaxStep, MaxStep);
 		// how the rail itself moves across and up as the car runs along it
 		const FFTRails R2 = Track->RailsAt(D + 200.f);
-		const FVector2D P2a(R2.XL, R2.HL), P2b(R2.XR, R2.HR);
-		const FVector2D P2 = FVector2D::DistSquared(RailPt, P2a) < FVector2D::DistSquared(RailPt, P2b) ? P2a : P2b;
+		const FVector2D P2 = R2.P(R2.Nearest(RailPt));
 		const float VRoadC = FMath::Max(FVector::DotProduct(Chassis->GetPhysicsLinearVelocity(), F.Fwd), bInSet ? SetFloor : 0.f);
 		const float VX = HopT >= 0.f ? 0.f : (P2.X - RailX) / 200.f * VRoadC;
 		const float VH = HopT >= 0.f ? 0.f : (P2.Y - SurfH) / 200.f * VRoadC;
@@ -674,6 +860,15 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 		X = NX;
 	}
 	else HopT = -1.f;
+
+	// 3.3 half pipe: air off the lip with tricks, or a grind along the coping (the car rides a set path meanwhile)
+	if (!bCoaster && TickHalfPipe(Dt, F, Slope))
+	{
+		Vehicle->SetThrottleInput(0.3f);
+		Vehicle->SetBrakeInput(0.f);
+		Vehicle->SetSteeringInput(0.f);
+		return;
+	}
 
 	// 2.5 corkscrews: the road rolls round its centreline, so off-centre the deck sweeps through a car that isn't
 	// rolling with it (3.3 rad/s at turbo speed) and the depenetration threw it off, or under the deck. Held near

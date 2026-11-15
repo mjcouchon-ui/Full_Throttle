@@ -1,0 +1,4060 @@
+{
+  "raw_capture_root": "K:\\Full Throttle\\PowerupsReview",
+  "timings": "Deferred by Justin; screenshot runs are not performance evidence.",
+  "runs": [
+    {
+      "mode": "shots",
+      "level": 0,
+      "quality": 3,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\baseline\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "F1DC92698AB8F4827C8BC80C1537364CCE9A7A3A97B421152D05427EC753CA2A",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=0",
+        "-ftquality=3",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\baseline-270\\L0-Q3\\game.log\"",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T19:04:40.5493433-05:00",
+      "set": "before-2.7",
+      "png_count": 114,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 0,
+      "quality": 3,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-v2\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "2FD4E7FC880472603C9E1D0EBD67E30DBFEAEC94D18970048EE509ED26F4EF83",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=0",
+        "-ftquality=3",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\after-270\\L0-Q3\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T19:51:12.2754952-05:00",
+      "set": "after-2.7",
+      "png_count": 114,
+      "normal_exit": true,
+      "gameplay_log_matches_baseline": true
+    },
+    {
+      "mode": "shots",
+      "level": 0,
+      "quality": 3,
+      "seconds": 2,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-280\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "29E037D8E24790B9D30654A25B9764E2B930505434520D626F8A6238B69A9967",
+      "game_module_sha256": null,
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=0",
+        "-ftquality=3",
+        "-ftseconds=2",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0,ft.PickupReview 3,ShowHUD\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L0-Q3\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:29:04.1427859-05:00",
+      "set": "staged-2.8",
+      "png_count": 25,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 1,
+      "quality": 3,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\baseline\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "F1DC92698AB8F4827C8BC80C1537364CCE9A7A3A97B421152D05427EC753CA2A",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=1",
+        "-ftquality=3",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\baseline-270\\L1-Q3\\game.log\"",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T19:06:16.4623668-05:00",
+      "set": "before-2.7",
+      "png_count": 114,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 1,
+      "quality": 3,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-v2\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "2FD4E7FC880472603C9E1D0EBD67E30DBFEAEC94D18970048EE509ED26F4EF83",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=1",
+        "-ftquality=3",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\after-270\\L1-Q3\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T19:53:11.2987404-05:00",
+      "set": "after-2.7",
+      "png_count": 114,
+      "normal_exit": true,
+      "gameplay_log_matches_baseline": true
+    },
+    {
+      "mode": "shots",
+      "level": 1,
+      "quality": 3,
+      "seconds": 2,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-280\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "29E037D8E24790B9D30654A25B9764E2B930505434520D626F8A6238B69A9967",
+      "game_module_sha256": null,
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=1",
+        "-ftquality=3",
+        "-ftseconds=2",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0,ft.PickupReview 3,ShowHUD\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L1-Q3\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:30:20.8627767-05:00",
+      "set": "staged-2.8",
+      "png_count": 25,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 2,
+      "quality": 3,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\baseline\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "F1DC92698AB8F4827C8BC80C1537364CCE9A7A3A97B421152D05427EC753CA2A",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=2",
+        "-ftquality=3",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\baseline-270\\L2-Q3\\game.log\"",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T19:08:21.8940393-05:00",
+      "set": "before-2.7",
+      "png_count": 114,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 2,
+      "quality": 3,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-v2\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "2FD4E7FC880472603C9E1D0EBD67E30DBFEAEC94D18970048EE509ED26F4EF83",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=2",
+        "-ftquality=3",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\after-270\\L2-Q3\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T19:55:19.1498953-05:00",
+      "set": "after-2.7",
+      "png_count": 114,
+      "normal_exit": true,
+      "gameplay_log_matches_baseline": true
+    },
+    {
+      "mode": "shots",
+      "level": 2,
+      "quality": 3,
+      "seconds": 2,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-280\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "29E037D8E24790B9D30654A25B9764E2B930505434520D626F8A6238B69A9967",
+      "game_module_sha256": null,
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=2",
+        "-ftquality=3",
+        "-ftseconds=2",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0,ft.PickupReview 3,ShowHUD\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L2-Q3\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:31:29.9797271-05:00",
+      "set": "staged-2.8",
+      "png_count": 25,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 3,
+      "quality": 3,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\baseline\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "F1DC92698AB8F4827C8BC80C1537364CCE9A7A3A97B421152D05427EC753CA2A",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=3",
+        "-ftquality=3",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\baseline-270\\L3-Q3\\game.log\"",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T19:10:11.2703446-05:00",
+      "set": "before-2.7",
+      "png_count": 114,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 3,
+      "quality": 3,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-v2\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "2FD4E7FC880472603C9E1D0EBD67E30DBFEAEC94D18970048EE509ED26F4EF83",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=3",
+        "-ftquality=3",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\after-270\\L3-Q3\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T19:57:15.2150691-05:00",
+      "set": "after-2.7",
+      "png_count": 114,
+      "normal_exit": true,
+      "gameplay_log_matches_baseline": true
+    },
+    {
+      "mode": "shots",
+      "level": 3,
+      "quality": 3,
+      "seconds": 2,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-280\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "29E037D8E24790B9D30654A25B9764E2B930505434520D626F8A6238B69A9967",
+      "game_module_sha256": null,
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=3",
+        "-ftquality=3",
+        "-ftseconds=2",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0,ft.PickupReview 3,ShowHUD\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L3-Q3\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:32:45.2020550-05:00",
+      "set": "staged-2.8",
+      "png_count": 25,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 4,
+      "quality": 3,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\baseline\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "F1DC92698AB8F4827C8BC80C1537364CCE9A7A3A97B421152D05427EC753CA2A",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=4",
+        "-ftquality=3",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\baseline-270\\L4-Q3\\game.log\"",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T19:11:47.7515437-05:00",
+      "set": "before-2.7",
+      "png_count": 114,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 4,
+      "quality": 3,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-v2\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "2FD4E7FC880472603C9E1D0EBD67E30DBFEAEC94D18970048EE509ED26F4EF83",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=4",
+        "-ftquality=3",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\after-270\\L4-Q3\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T19:58:55.6786758-05:00",
+      "set": "after-2.7",
+      "png_count": 114,
+      "normal_exit": true,
+      "gameplay_log_matches_baseline": true
+    },
+    {
+      "mode": "shots",
+      "level": 4,
+      "quality": 3,
+      "seconds": 2,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-280\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "29E037D8E24790B9D30654A25B9764E2B930505434520D626F8A6238B69A9967",
+      "game_module_sha256": null,
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=4",
+        "-ftquality=3",
+        "-ftseconds=2",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0,ft.PickupReview 3,ShowHUD\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L4-Q3\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:34:03.5451943-05:00",
+      "set": "staged-2.8",
+      "png_count": 25,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 5,
+      "quality": 3,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\baseline\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "F1DC92698AB8F4827C8BC80C1537364CCE9A7A3A97B421152D05427EC753CA2A",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=5",
+        "-ftquality=3",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\baseline-270\\L5-Q3\\game.log\"",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T19:13:54.5685011-05:00",
+      "set": "before-2.7",
+      "png_count": 114,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 5,
+      "quality": 3,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-v2\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "2FD4E7FC880472603C9E1D0EBD67E30DBFEAEC94D18970048EE509ED26F4EF83",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=5",
+        "-ftquality=3",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\after-270\\L5-Q3\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:00:42.2780429-05:00",
+      "set": "after-2.7",
+      "png_count": 114,
+      "normal_exit": true,
+      "gameplay_log_matches_baseline": true
+    },
+    {
+      "mode": "shots",
+      "level": 5,
+      "quality": 3,
+      "seconds": 2,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-280\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "29E037D8E24790B9D30654A25B9764E2B930505434520D626F8A6238B69A9967",
+      "game_module_sha256": null,
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=5",
+        "-ftquality=3",
+        "-ftseconds=2",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0,ft.PickupReview 3,ShowHUD\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L5-Q3\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:35:17.5029002-05:00",
+      "set": "staged-2.8",
+      "png_count": 25,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 6,
+      "quality": 3,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\baseline\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "F1DC92698AB8F4827C8BC80C1537364CCE9A7A3A97B421152D05427EC753CA2A",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=6",
+        "-ftquality=3",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\baseline-270\\L6-Q3\\game.log\"",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T19:15:55.5837267-05:00",
+      "set": "before-2.7",
+      "png_count": 114,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 6,
+      "quality": 3,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-v2\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "2FD4E7FC880472603C9E1D0EBD67E30DBFEAEC94D18970048EE509ED26F4EF83",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=6",
+        "-ftquality=3",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\after-270\\L6-Q3\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:02:55.8298427-05:00",
+      "set": "after-2.7",
+      "png_count": 114,
+      "normal_exit": true,
+      "gameplay_log_matches_baseline": true
+    },
+    {
+      "mode": "shots",
+      "level": 6,
+      "quality": 3,
+      "seconds": 2,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-280\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "29E037D8E24790B9D30654A25B9764E2B930505434520D626F8A6238B69A9967",
+      "game_module_sha256": null,
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=6",
+        "-ftquality=3",
+        "-ftseconds=2",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0,ft.PickupReview 3,ShowHUD\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L6-Q3\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:36:36.1320372-05:00",
+      "set": "staged-2.8",
+      "png_count": 25,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 7,
+      "quality": 3,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\baseline\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "F1DC92698AB8F4827C8BC80C1537364CCE9A7A3A97B421152D05427EC753CA2A",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=7",
+        "-ftquality=3",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\baseline-270\\L7-Q3\\game.log\"",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T19:17:39.2711898-05:00",
+      "set": "before-2.7",
+      "png_count": 114,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 7,
+      "quality": 3,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-v2\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "2FD4E7FC880472603C9E1D0EBD67E30DBFEAEC94D18970048EE509ED26F4EF83",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=7",
+        "-ftquality=3",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\after-270\\L7-Q3\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:05:18.6746060-05:00",
+      "set": "after-2.7",
+      "png_count": 114,
+      "normal_exit": true,
+      "gameplay_log_matches_baseline": true
+    },
+    {
+      "mode": "shots",
+      "level": 7,
+      "quality": 3,
+      "seconds": 2,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-280\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "29E037D8E24790B9D30654A25B9764E2B930505434520D626F8A6238B69A9967",
+      "game_module_sha256": null,
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=7",
+        "-ftquality=3",
+        "-ftseconds=2",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0,ft.PickupReview 3,ShowHUD\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L7-Q3\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:37:52.8717499-05:00",
+      "set": "staged-2.8",
+      "png_count": 25,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 0,
+      "quality": 0,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\baseline\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "F1DC92698AB8F4827C8BC80C1537364CCE9A7A3A97B421152D05427EC753CA2A",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=0",
+        "-ftquality=0",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\baseline-270\\L0-Q0\\game.log\"",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T19:19:25.6987225-05:00",
+      "set": "before-2.7",
+      "png_count": 114,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 0,
+      "quality": 0,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-v2\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "2FD4E7FC880472603C9E1D0EBD67E30DBFEAEC94D18970048EE509ED26F4EF83",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=0",
+        "-ftquality=0",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\after-270\\L0-Q0\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:08:33.0360252-05:00",
+      "set": "after-2.7",
+      "png_count": 114,
+      "normal_exit": true,
+      "gameplay_log_matches_baseline": true
+    },
+    {
+      "mode": "shots",
+      "level": 0,
+      "quality": 0,
+      "seconds": 2,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-280\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "29E037D8E24790B9D30654A25B9764E2B930505434520D626F8A6238B69A9967",
+      "game_module_sha256": null,
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=0",
+        "-ftquality=0",
+        "-ftseconds=2",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0,ft.PickupReview 3,ShowHUD\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L0-Q0\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:29:04.1569935-05:00",
+      "set": "staged-2.8",
+      "png_count": 25,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 1,
+      "quality": 0,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\baseline\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "F1DC92698AB8F4827C8BC80C1537364CCE9A7A3A97B421152D05427EC753CA2A",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=1",
+        "-ftquality=0",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\baseline-270\\L1-Q0\\game.log\"",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T19:20:47.3056377-05:00",
+      "set": "before-2.7",
+      "png_count": 114,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 1,
+      "quality": 0,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-v2\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "2FD4E7FC880472603C9E1D0EBD67E30DBFEAEC94D18970048EE509ED26F4EF83",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=1",
+        "-ftquality=0",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\after-270\\L1-Q0\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:10:41.3681207-05:00",
+      "set": "after-2.7",
+      "png_count": 114,
+      "normal_exit": true,
+      "gameplay_log_matches_baseline": true
+    },
+    {
+      "mode": "shots",
+      "level": 1,
+      "quality": 0,
+      "seconds": 2,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-280\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "29E037D8E24790B9D30654A25B9764E2B930505434520D626F8A6238B69A9967",
+      "game_module_sha256": null,
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=1",
+        "-ftquality=0",
+        "-ftseconds=2",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0,ft.PickupReview 3,ShowHUD\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L1-Q0\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:30:23.8762498-05:00",
+      "set": "staged-2.8",
+      "png_count": 25,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 2,
+      "quality": 0,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\baseline\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "F1DC92698AB8F4827C8BC80C1537364CCE9A7A3A97B421152D05427EC753CA2A",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=2",
+        "-ftquality=0",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\baseline-270\\L2-Q0\\game.log\"",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T19:22:22.6638407-05:00",
+      "set": "before-2.7",
+      "png_count": 114,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 2,
+      "quality": 0,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-v2\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "2FD4E7FC880472603C9E1D0EBD67E30DBFEAEC94D18970048EE509ED26F4EF83",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=2",
+        "-ftquality=0",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\after-270\\L2-Q0\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:12:38.5424632-05:00",
+      "set": "after-2.7",
+      "png_count": 114,
+      "normal_exit": true,
+      "gameplay_log_matches_baseline": true
+    },
+    {
+      "mode": "shots",
+      "level": 2,
+      "quality": 0,
+      "seconds": 2,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-280\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "29E037D8E24790B9D30654A25B9764E2B930505434520D626F8A6238B69A9967",
+      "game_module_sha256": null,
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=2",
+        "-ftquality=0",
+        "-ftseconds=2",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0,ft.PickupReview 3,ShowHUD\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L2-Q0\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:31:32.7389522-05:00",
+      "set": "staged-2.8",
+      "png_count": 25,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 3,
+      "quality": 0,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\baseline\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "F1DC92698AB8F4827C8BC80C1537364CCE9A7A3A97B421152D05427EC753CA2A",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=3",
+        "-ftquality=0",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\baseline-270\\L3-Q0\\game.log\"",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T19:23:58.0731527-05:00",
+      "set": "before-2.7",
+      "png_count": 114,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 3,
+      "quality": 0,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-v2\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "2FD4E7FC880472603C9E1D0EBD67E30DBFEAEC94D18970048EE509ED26F4EF83",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=3",
+        "-ftquality=0",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\after-270\\L3-Q0\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:14:19.0469820-05:00",
+      "set": "after-2.7",
+      "png_count": 114,
+      "normal_exit": true,
+      "gameplay_log_matches_baseline": true
+    },
+    {
+      "mode": "shots",
+      "level": 3,
+      "quality": 0,
+      "seconds": 2,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-280\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "29E037D8E24790B9D30654A25B9764E2B930505434520D626F8A6238B69A9967",
+      "game_module_sha256": null,
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=3",
+        "-ftquality=0",
+        "-ftseconds=2",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0,ft.PickupReview 3,ShowHUD\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L3-Q0\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:32:45.8716766-05:00",
+      "set": "staged-2.8",
+      "png_count": 25,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 4,
+      "quality": 0,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\baseline\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "F1DC92698AB8F4827C8BC80C1537364CCE9A7A3A97B421152D05427EC753CA2A",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=4",
+        "-ftquality=0",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\baseline-270\\L4-Q0\\game.log\"",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T19:25:24.2717155-05:00",
+      "set": "before-2.7",
+      "png_count": 114,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 4,
+      "quality": 0,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-v2\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "2FD4E7FC880472603C9E1D0EBD67E30DBFEAEC94D18970048EE509ED26F4EF83",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=4",
+        "-ftquality=0",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\after-270\\L4-Q0\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:15:50.5586834-05:00",
+      "set": "after-2.7",
+      "png_count": 114,
+      "normal_exit": true,
+      "gameplay_log_matches_baseline": true
+    },
+    {
+      "mode": "shots",
+      "level": 4,
+      "quality": 0,
+      "seconds": 2,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-280\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "29E037D8E24790B9D30654A25B9764E2B930505434520D626F8A6238B69A9967",
+      "game_module_sha256": null,
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=4",
+        "-ftquality=0",
+        "-ftseconds=2",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0,ft.PickupReview 3,ShowHUD\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L4-Q0\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:34:04.3930054-05:00",
+      "set": "staged-2.8",
+      "png_count": 25,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 5,
+      "quality": 0,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\baseline\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "F1DC92698AB8F4827C8BC80C1537364CCE9A7A3A97B421152D05427EC753CA2A",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=5",
+        "-ftquality=0",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\baseline-270\\L5-Q0\\game.log\"",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T19:26:55.6299625-05:00",
+      "set": "before-2.7",
+      "png_count": 114,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 5,
+      "quality": 0,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-v2\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "2FD4E7FC880472603C9E1D0EBD67E30DBFEAEC94D18970048EE509ED26F4EF83",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=5",
+        "-ftquality=0",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\after-270\\L5-Q0\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:17:24.1409978-05:00",
+      "set": "after-2.7",
+      "png_count": 114,
+      "normal_exit": true,
+      "gameplay_log_matches_baseline": true
+    },
+    {
+      "mode": "shots",
+      "level": 5,
+      "quality": 0,
+      "seconds": 2,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-280\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "29E037D8E24790B9D30654A25B9764E2B930505434520D626F8A6238B69A9967",
+      "game_module_sha256": null,
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=5",
+        "-ftquality=0",
+        "-ftseconds=2",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0,ft.PickupReview 3,ShowHUD\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L5-Q0\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:35:18.0225097-05:00",
+      "set": "staged-2.8",
+      "png_count": 25,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 6,
+      "quality": 0,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\baseline\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "F1DC92698AB8F4827C8BC80C1537364CCE9A7A3A97B421152D05427EC753CA2A",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=6",
+        "-ftquality=0",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\baseline-270\\L6-Q0\\game.log\"",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T19:28:29.9743343-05:00",
+      "set": "before-2.7",
+      "png_count": 114,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 6,
+      "quality": 0,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-v2\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "2FD4E7FC880472603C9E1D0EBD67E30DBFEAEC94D18970048EE509ED26F4EF83",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=6",
+        "-ftquality=0",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\after-270\\L6-Q0\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:18:57.5244665-05:00",
+      "set": "after-2.7",
+      "png_count": 114,
+      "normal_exit": true,
+      "gameplay_log_matches_baseline": true
+    },
+    {
+      "mode": "shots",
+      "level": 6,
+      "quality": 0,
+      "seconds": 2,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-280\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "29E037D8E24790B9D30654A25B9764E2B930505434520D626F8A6238B69A9967",
+      "game_module_sha256": null,
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=6",
+        "-ftquality=0",
+        "-ftseconds=2",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0,ft.PickupReview 3,ShowHUD\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L6-Q0\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:36:34.6706657-05:00",
+      "set": "staged-2.8",
+      "png_count": 25,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 7,
+      "quality": 0,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\baseline\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "F1DC92698AB8F4827C8BC80C1537364CCE9A7A3A97B421152D05427EC753CA2A",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=7",
+        "-ftquality=0",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\baseline-270\\L7-Q0\\game.log\"",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T19:30:05.3058479-05:00",
+      "set": "before-2.7",
+      "png_count": 114,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 7,
+      "quality": 0,
+      "seconds": 24,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-v2\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "2FD4E7FC880472603C9E1D0EBD67E30DBFEAEC94D18970048EE509ED26F4EF83",
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=7",
+        "-ftquality=0",
+        "-ftseconds=24",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\after-270\\L7-Q0\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:20:30.9541307-05:00",
+      "set": "after-2.7",
+      "png_count": 114,
+      "normal_exit": true,
+      "gameplay_log_matches_baseline": true
+    },
+    {
+      "mode": "shots",
+      "level": 7,
+      "quality": 0,
+      "seconds": 2,
+      "exe": "K:\\Full Throttle\\PowerupsReview\\builds\\after-280\\Windows\\FullThrottle\\Binaries\\Win64\\FullThrottle.exe",
+      "exe_sha256": "29E037D8E24790B9D30654A25B9764E2B930505434520D626F8A6238B69A9967",
+      "game_module_sha256": null,
+      "arguments": [
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=7",
+        "-ftquality=0",
+        "-ftseconds=2",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0,ft.PickupReview 3,ShowHUD\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L7-Q0\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:37:51.9435641-05:00",
+      "set": "staged-2.8",
+      "png_count": 25,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 0,
+      "quality": 3,
+      "seconds": 1,
+      "exe": "K:\\UE_5.9\\Engine\\Binaries\\Win64\\UnrealEditor-Cmd.exe",
+      "exe_sha256": "C845624D577319BCD45C59D05FE065DB285CEAD0D357CE1FED335BE8E9B32844",
+      "game_module_sha256": "630E8CBB837F7D1314A51AE001DA3654493D786F2A10ED4B2271086C35050D10",
+      "source_revision": "8cbdacba25559f92c2b82f1f22cda116469d56fd",
+      "source_parents": [
+        "3d0284612b1ce0883525312cddf2021fa57198c1",
+        "f99e5dec7b6735c557077b7bd015024333b4398b"
+      ],
+      "source_tracked_changes": [
+        " M full-throttle-unreal/POWERUPS.md",
+        " M full-throttle-unreal/SourceArt/Powerups/evidence/index.html",
+        " M full-throttle-unreal/SourceArt/Powerups/evidence/manifest.json",
+        " M full-throttle-unreal/Tools/powerups_capture.ps1",
+        " M full-throttle-unreal/Tools/powerups_evidence.py"
+      ],
+      "arguments": [
+        "\"K:\\Full Throttle\\PowerupsWorktree\\full-throttle-unreal\\FullThrottle.uproject\"",
+        "-game",
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=0",
+        "-ftquality=3",
+        "-ftseconds=1",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0,ft.PickupReview 1,ft.PickupReviewSun 1,ShowHUD\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\sky-toward\\L0-Q3\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:40:43.3492275-05:00",
+      "set": "sky-toward",
+      "png_count": 21,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 0,
+      "quality": 3,
+      "seconds": 1,
+      "exe": "K:\\UE_5.9\\Engine\\Binaries\\Win64\\UnrealEditor-Cmd.exe",
+      "exe_sha256": "C845624D577319BCD45C59D05FE065DB285CEAD0D357CE1FED335BE8E9B32844",
+      "game_module_sha256": "630E8CBB837F7D1314A51AE001DA3654493D786F2A10ED4B2271086C35050D10",
+      "source_revision": "8cbdacba25559f92c2b82f1f22cda116469d56fd",
+      "source_parents": [
+        "3d0284612b1ce0883525312cddf2021fa57198c1",
+        "f99e5dec7b6735c557077b7bd015024333b4398b"
+      ],
+      "source_tracked_changes": [
+        " M full-throttle-unreal/POWERUPS.md",
+        " M full-throttle-unreal/SourceArt/Powerups/evidence/index.html",
+        " M full-throttle-unreal/SourceArt/Powerups/evidence/manifest.json",
+        " M full-throttle-unreal/Tools/powerups_capture.ps1",
+        " M full-throttle-unreal/Tools/powerups_evidence.py"
+      ],
+      "arguments": [
+        "\"K:\\Full Throttle\\PowerupsWorktree\\full-throttle-unreal\\FullThrottle.uproject\"",
+        "-game",
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=0",
+        "-ftquality=3",
+        "-ftseconds=1",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0,ft.PickupReview 1,ft.PickupReviewSun 2,ShowHUD\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\sky-away\\L0-Q3\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:40:43.3480235-05:00",
+      "set": "sky-away",
+      "png_count": 21,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 0,
+      "quality": 3,
+      "seconds": 1,
+      "exe": "K:\\UE_5.9\\Engine\\Binaries\\Win64\\UnrealEditor-Cmd.exe",
+      "exe_sha256": "C845624D577319BCD45C59D05FE065DB285CEAD0D357CE1FED335BE8E9B32844",
+      "game_module_sha256": "630E8CBB837F7D1314A51AE001DA3654493D786F2A10ED4B2271086C35050D10",
+      "source_revision": "8cbdacba25559f92c2b82f1f22cda116469d56fd",
+      "source_parents": [
+        "3d0284612b1ce0883525312cddf2021fa57198c1",
+        "f99e5dec7b6735c557077b7bd015024333b4398b"
+      ],
+      "source_tracked_changes": [
+        " M full-throttle-unreal/POWERUPS.md",
+        " M full-throttle-unreal/SourceArt/Powerups/ART_REVIEW.md",
+        " M full-throttle-unreal/SourceArt/Powerups/CODE_REVIEW.md",
+        " M full-throttle-unreal/SourceArt/Powerups/DEVLOG.md",
+        " M full-throttle-unreal/SourceArt/Powerups/evidence/index.html",
+        " M full-throttle-unreal/SourceArt/Powerups/evidence/manifest.json",
+        " M full-throttle-unreal/Tools/powerups_capture.ps1",
+        " M full-throttle-unreal/Tools/powerups_evidence.py"
+      ],
+      "arguments": [
+        "\"K:\\Full Throttle\\PowerupsWorktree\\full-throttle-unreal\\FullThrottle.uproject\"",
+        "-game",
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=0",
+        "-ftquality=3",
+        "-ftseconds=1",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0,ft.PickupReview 2,ShowHUD\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\sky-far-Q3\\L0-Q3\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:45:57.3235186-05:00",
+      "set": "sky-far",
+      "png_count": 21,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 0,
+      "quality": 0,
+      "seconds": 1,
+      "exe": "K:\\UE_5.9\\Engine\\Binaries\\Win64\\UnrealEditor-Cmd.exe",
+      "exe_sha256": "C845624D577319BCD45C59D05FE065DB285CEAD0D357CE1FED335BE8E9B32844",
+      "game_module_sha256": "630E8CBB837F7D1314A51AE001DA3654493D786F2A10ED4B2271086C35050D10",
+      "source_revision": "8cbdacba25559f92c2b82f1f22cda116469d56fd",
+      "source_parents": [
+        "3d0284612b1ce0883525312cddf2021fa57198c1",
+        "f99e5dec7b6735c557077b7bd015024333b4398b"
+      ],
+      "source_tracked_changes": [
+        " M full-throttle-unreal/POWERUPS.md",
+        " M full-throttle-unreal/SourceArt/Powerups/evidence/index.html",
+        " M full-throttle-unreal/SourceArt/Powerups/evidence/manifest.json",
+        " M full-throttle-unreal/Tools/powerups_capture.ps1",
+        " M full-throttle-unreal/Tools/powerups_evidence.py"
+      ],
+      "arguments": [
+        "\"K:\\Full Throttle\\PowerupsWorktree\\full-throttle-unreal\\FullThrottle.uproject\"",
+        "-game",
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=0",
+        "-ftquality=0",
+        "-ftseconds=1",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0,ft.PickupReview 1,ft.PickupReviewSun 1,ShowHUD\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\sky-toward\\L0-Q0\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:43:25.2435147-05:00",
+      "set": "sky-toward",
+      "png_count": 21,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 0,
+      "quality": 0,
+      "seconds": 1,
+      "exe": "K:\\UE_5.9\\Engine\\Binaries\\Win64\\UnrealEditor-Cmd.exe",
+      "exe_sha256": "C845624D577319BCD45C59D05FE065DB285CEAD0D357CE1FED335BE8E9B32844",
+      "game_module_sha256": "630E8CBB837F7D1314A51AE001DA3654493D786F2A10ED4B2271086C35050D10",
+      "source_revision": "8cbdacba25559f92c2b82f1f22cda116469d56fd",
+      "source_parents": [
+        "3d0284612b1ce0883525312cddf2021fa57198c1",
+        "f99e5dec7b6735c557077b7bd015024333b4398b"
+      ],
+      "source_tracked_changes": [
+        " M full-throttle-unreal/POWERUPS.md",
+        " M full-throttle-unreal/SourceArt/Powerups/evidence/index.html",
+        " M full-throttle-unreal/SourceArt/Powerups/evidence/manifest.json",
+        " M full-throttle-unreal/Tools/powerups_capture.ps1",
+        " M full-throttle-unreal/Tools/powerups_evidence.py"
+      ],
+      "arguments": [
+        "\"K:\\Full Throttle\\PowerupsWorktree\\full-throttle-unreal\\FullThrottle.uproject\"",
+        "-game",
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=0",
+        "-ftquality=0",
+        "-ftseconds=1",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0,ft.PickupReview 1,ft.PickupReviewSun 2,ShowHUD\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\sky-away\\L0-Q0\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:43:24.8811317-05:00",
+      "set": "sky-away",
+      "png_count": 21,
+      "normal_exit": true
+    },
+    {
+      "mode": "shots",
+      "level": 0,
+      "quality": 0,
+      "seconds": 1,
+      "exe": "K:\\UE_5.9\\Engine\\Binaries\\Win64\\UnrealEditor-Cmd.exe",
+      "exe_sha256": "C845624D577319BCD45C59D05FE065DB285CEAD0D357CE1FED335BE8E9B32844",
+      "game_module_sha256": "630E8CBB837F7D1314A51AE001DA3654493D786F2A10ED4B2271086C35050D10",
+      "source_revision": "8cbdacba25559f92c2b82f1f22cda116469d56fd",
+      "source_parents": [
+        "3d0284612b1ce0883525312cddf2021fa57198c1",
+        "f99e5dec7b6735c557077b7bd015024333b4398b"
+      ],
+      "source_tracked_changes": [
+        " M full-throttle-unreal/POWERUPS.md",
+        " M full-throttle-unreal/SourceArt/Powerups/ART_REVIEW.md",
+        " M full-throttle-unreal/SourceArt/Powerups/CODE_REVIEW.md",
+        " M full-throttle-unreal/SourceArt/Powerups/DEVLOG.md",
+        " M full-throttle-unreal/SourceArt/Powerups/evidence/index.html",
+        " M full-throttle-unreal/SourceArt/Powerups/evidence/manifest.json",
+        " M full-throttle-unreal/Tools/powerups_capture.ps1",
+        " M full-throttle-unreal/Tools/powerups_evidence.py"
+      ],
+      "arguments": [
+        "\"K:\\Full Throttle\\PowerupsWorktree\\full-throttle-unreal\\FullThrottle.uproject\"",
+        "-game",
+        "-windowed",
+        "-ResX=3440",
+        "-ResY=1440",
+        "-RenderOffScreen",
+        "-nosound",
+        "-unattended",
+        "-nosplash",
+        "-ftbench",
+        "-ftlevel=0",
+        "-ftquality=0",
+        "-ftseconds=1",
+        "-ftnodynres",
+        "-FixedSeed",
+        "-UseFixedTimeStep",
+        "-FPS=60",
+        "-ftslot=pie",
+        "-ExecCmds=\"DisableAllScreenMessages,r.ScreenPercentage 100,t.MaxFPS 0,r.VSync 0,ft.PickupReview 2,ShowHUD\"",
+        "-abslog=\"K:\\Full Throttle\\PowerupsReview\\sky-far-Q0\\L0-Q0\\game.log\"",
+        "-ftshots=0.25"
+      ],
+      "gpu_idle_samples": [],
+      "started": "2026-11-14T20:45:57.4822616-05:00",
+      "set": "sky-far",
+      "png_count": 21,
+      "normal_exit": true
+    }
+  ],
+  "derivatives": [
+    {
+      "file": "natural-L0-Q3.jpg",
+      "sha256": "0f26c240be01a7a2028312fecd57eac1e0a5e98acbbfd2eed12876266e85cac0",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L0-Q3\\shots\\ft_L0_016.png",
+          "sha256": "39c7e429900857eedc133ea42636f9c51cfdb67a16ae96d216380ec8cf38d70c",
+          "label": "Before / Bayshore / Epic / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L0-Q3\\shots\\ft_L0_016.png",
+          "sha256": "4a4123072a570eaa700cacbd7940479e4ce2f55846cec56d0a442cfe8577f7c3",
+          "label": "After / Bayshore / Epic / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L0-Q3\\shots\\ft_L0_032.png",
+          "sha256": "a912f657e1d93da8069921823a3f621f8fba2240a8374bbc564e8920eff1f626",
+          "label": "Before / Bayshore / Epic / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L0-Q3\\shots\\ft_L0_032.png",
+          "sha256": "1a9f6ef884f0ecd59c3bcc991ce0b296d6381b820d60198bdf3368f7d11b9e39",
+          "label": "After / Bayshore / Epic / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L0-Q3\\shots\\ft_L0_048.png",
+          "sha256": "6001c6ffb7e3775024ec8625375feccd0ead3eafa06ae1fefb9bd7a60f04fc51",
+          "label": "Before / Bayshore / Epic / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L0-Q3\\shots\\ft_L0_048.png",
+          "sha256": "6f60bb7c9b1789edb806853dd128c3ee05bf76207ea4675a27a24aa5d5defa17",
+          "label": "After / Bayshore / Epic / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L0-Q3\\shots\\ft_L0_064.png",
+          "sha256": "c838cb53e254148f13deabd874ab1d532c2d0e04867ba89bab5c76dcbbb4efe2",
+          "label": "Before / Bayshore / Epic / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L0-Q3\\shots\\ft_L0_064.png",
+          "sha256": "a14512f61edef9fdd242c14dc91d5bba66d9cf1025187757c8b41d20ac660153",
+          "label": "After / Bayshore / Epic / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L0-Q3\\shots\\ft_L0_080.png",
+          "sha256": "04f28e8b5ec4dfd31298a584a8caa233c1c1a95f5dc391934c13eed8d08ae223",
+          "label": "Before / Bayshore / Epic / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L0-Q3\\shots\\ft_L0_080.png",
+          "sha256": "60d88a4df64648273f79014aea9a6bef1a1cf44f45ef7f86a1682c845f8d4616",
+          "label": "After / Bayshore / Epic / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L0-Q3\\shots\\ft_L0_096.png",
+          "sha256": "f62818d4967996deb98c971cfb5dc91d6546bd13b71c49f5ae49234c24d00664",
+          "label": "Before / Bayshore / Epic / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L0-Q3\\shots\\ft_L0_096.png",
+          "sha256": "0b3370f5e517c25262039f8d2017ba2d5c202026c568509d7a42a04de5d8f555",
+          "label": "After / Bayshore / Epic / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L0-Q3\\shots\\ft_L0_108.png",
+          "sha256": "cbf99c9bbd43af4bdd9f34532bd3cd25f4d86b1b896dcc8b30b5ee64cfd01b94",
+          "label": "Before / Bayshore / Epic / frame 108"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L0-Q3\\shots\\ft_L0_108.png",
+          "sha256": "bf46906992f0a5e689bf019bbfc3041b112ac7ea99354b40da4767c384ab229b",
+          "label": "After / Bayshore / Epic / frame 108"
+        }
+      ]
+    },
+    {
+      "file": "staged-L0-Q3.jpg",
+      "sha256": "45d82423d6adbeacd67f12d2ac7f90ff3050fba926f521911321c1f27b9cbd61",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L0-Q3\\shots\\ft_L0_002.png",
+          "sha256": "3b99fa6c5f581f453e0f6fe9511de651df9bd6ccab2b4be06dcf1a2765a14109",
+          "label": "Bayshore / Epic / 100 m / frame 002"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L0-Q3\\shots\\ft_L0_010.png",
+          "sha256": "1026182b624a659f96b3497da9820c8c9538aa0904e03ea42266bc1580364146",
+          "label": "Bayshore / Epic / approaching / frame 010"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L0-Q3\\shots\\ft_L0_017.png",
+          "sha256": "9c68e8989a585a862d2fa1eb64d95d9bd5dcff8ea2e3d107b41b8d09bb302a28",
+          "label": "Bayshore / Epic / close / frame 017"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L0-Q3\\shots\\ft_L0_020.png",
+          "sha256": "f54e509f932046c701ee7f0ba31110779c573fee7675b099ba09cadc8a7ebfea",
+          "label": "Bayshore / Epic / collection demonstration / frame 020"
+        }
+      ]
+    },
+    {
+      "file": "far-native-L0-Q3.webp",
+      "sha256": "76f02d3e36c0d43c0d6fffcfd7eb4e61f2b3b5f4ed939d8b8906e541a66c5ba8",
+      "type": "native-resolution lossless WebP",
+      "source": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L0-Q3\\shots\\ft_L0_002.png",
+      "source_sha256": "3b99fa6c5f581f453e0f6fe9511de651df9bd6ccab2b4be06dcf1a2765a14109"
+    },
+    {
+      "file": "natural-L1-Q3.jpg",
+      "sha256": "312179a35f611190aaee7a6cd18fd25f5f320ae418421e64709c9eb756dd4432",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L1-Q3\\shots\\ft_L1_016.png",
+          "sha256": "d81f24505bc6a0bf850f55024f28f9926dba5cf971dc37b439b9d5c2e53d6299",
+          "label": "Before / Chemical Plant / Epic / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L1-Q3\\shots\\ft_L1_016.png",
+          "sha256": "22e41501f759f391f65db5ba48f0a7eca25fd35cb23f190232a8a21b63addb9d",
+          "label": "After / Chemical Plant / Epic / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L1-Q3\\shots\\ft_L1_032.png",
+          "sha256": "f10f421a930c053e688b75c61c31a9082a24f9f63224d7123ad465741e39cc1d",
+          "label": "Before / Chemical Plant / Epic / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L1-Q3\\shots\\ft_L1_032.png",
+          "sha256": "d6697180e233ccb287f1868ff244b6c9a185f30cc6ab8e75940e3e27003c1271",
+          "label": "After / Chemical Plant / Epic / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L1-Q3\\shots\\ft_L1_048.png",
+          "sha256": "85680382b80f475dfa7a82c11a3189b5c923c23d79d2dc2f6496292197719313",
+          "label": "Before / Chemical Plant / Epic / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L1-Q3\\shots\\ft_L1_048.png",
+          "sha256": "e17c3909018f160a0b596fca79ed02485eaedfc1ba748fe721f24dbe6a5e8d10",
+          "label": "After / Chemical Plant / Epic / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L1-Q3\\shots\\ft_L1_064.png",
+          "sha256": "d9b1bd26d5ac4f1faca0d8daadc9aa212eb99cdb49d1e552b38cffb6f5a25170",
+          "label": "Before / Chemical Plant / Epic / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L1-Q3\\shots\\ft_L1_064.png",
+          "sha256": "6f382cc090a90b13dee052c1628425a800b1ba74cf9b0341a81c0bf4e324054a",
+          "label": "After / Chemical Plant / Epic / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L1-Q3\\shots\\ft_L1_080.png",
+          "sha256": "9b704c20df0199925ff321bdde9262f8de824fbb4d4497cd38e3fc154b417098",
+          "label": "Before / Chemical Plant / Epic / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L1-Q3\\shots\\ft_L1_080.png",
+          "sha256": "12f0823754121a5559381eb618f65892a58857d7bfdb42d933719541d3d917a6",
+          "label": "After / Chemical Plant / Epic / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L1-Q3\\shots\\ft_L1_096.png",
+          "sha256": "a8114e42154607f2b9b4b67cc0493194ac3e8bb364b56d50ee39a760ecc74ebb",
+          "label": "Before / Chemical Plant / Epic / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L1-Q3\\shots\\ft_L1_096.png",
+          "sha256": "75bad1d375ded71ccda6254ed2390176bcf5668dd7c94467fb2db4c7e185f05c",
+          "label": "After / Chemical Plant / Epic / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L1-Q3\\shots\\ft_L1_108.png",
+          "sha256": "fe1dd5441483fbac8e146597b8a7e20ade90582870f930f5f7b5fcbabf9b25b8",
+          "label": "Before / Chemical Plant / Epic / frame 108"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L1-Q3\\shots\\ft_L1_108.png",
+          "sha256": "723c578b16a46073e387fff5b583b6d09d43115287b2566c1a72585294ff8a67",
+          "label": "After / Chemical Plant / Epic / frame 108"
+        }
+      ]
+    },
+    {
+      "file": "staged-L1-Q3.jpg",
+      "sha256": "4e26aa924a8bece2a12b0f625c748c2a95ad8b227f804f75d476922f72950d74",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L1-Q3\\shots\\ft_L1_002.png",
+          "sha256": "6a761f84cdf05bfba62eb7f9700129aec47c69c4e7e6c9fb3f99de961be960e1",
+          "label": "Chemical Plant / Epic / 100 m / frame 002"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L1-Q3\\shots\\ft_L1_010.png",
+          "sha256": "6da4a26e06fc5a0969df3f469fe662b85b5a8eda6fc474c037daf3b78d774060",
+          "label": "Chemical Plant / Epic / approaching / frame 010"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L1-Q3\\shots\\ft_L1_017.png",
+          "sha256": "602f339aa43029b6d02c4542838201c79701b074e7b708ea86f1eba7ce489e90",
+          "label": "Chemical Plant / Epic / close / frame 017"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L1-Q3\\shots\\ft_L1_020.png",
+          "sha256": "ac240fe33c1f95b38c65c877b5911d1fa8bbf4b3af0b3101ca24834da523ea1e",
+          "label": "Chemical Plant / Epic / collection demonstration / frame 020"
+        }
+      ]
+    },
+    {
+      "file": "far-native-L1-Q3.webp",
+      "sha256": "58d76566cd353a4d89b39dcc1000d91bfd3fc2838df57ad1bd271b88ebcaa7c8",
+      "type": "native-resolution lossless WebP",
+      "source": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L1-Q3\\shots\\ft_L1_002.png",
+      "source_sha256": "6a761f84cdf05bfba62eb7f9700129aec47c69c4e7e6c9fb3f99de961be960e1"
+    },
+    {
+      "file": "natural-L2-Q3.jpg",
+      "sha256": "ead8d221f8ef0a61b27ac8aca06c9637d865b74aaf157d4d4802ef988ada0aac",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L2-Q3\\shots\\ft_L2_016.png",
+          "sha256": "824ef2238fdfc5b6e61f0fd6fd43d947639bd7d2519b52def19722dee27a8890",
+          "label": "Before / Nevada Desert / Epic / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L2-Q3\\shots\\ft_L2_016.png",
+          "sha256": "d8f910b15e231e0ccad59221dbf553964fcee82395bc62d9dd6d0dcb81f2b6de",
+          "label": "After / Nevada Desert / Epic / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L2-Q3\\shots\\ft_L2_032.png",
+          "sha256": "1ffa4a069c6835b0b91f3826f0ca221cd706b4e6f17c4f4716d607a70fe79ff4",
+          "label": "Before / Nevada Desert / Epic / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L2-Q3\\shots\\ft_L2_032.png",
+          "sha256": "3b92a963304784819f0221f1004304103213c4836cb5657083948b3b2432ec92",
+          "label": "After / Nevada Desert / Epic / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L2-Q3\\shots\\ft_L2_048.png",
+          "sha256": "4daece32d1f88983662b76b86d69339ee28c752a1d9e3d088fd3730727b927ab",
+          "label": "Before / Nevada Desert / Epic / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L2-Q3\\shots\\ft_L2_048.png",
+          "sha256": "ad70d0b27aa5894b0c5e08069d89652b18f98ca606cfbbfe54a47a6530f38ff4",
+          "label": "After / Nevada Desert / Epic / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L2-Q3\\shots\\ft_L2_064.png",
+          "sha256": "68a9d78158a9887b12ebffceece5e4a93b8fb90db042b9bf372f89e0e812ced8",
+          "label": "Before / Nevada Desert / Epic / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L2-Q3\\shots\\ft_L2_064.png",
+          "sha256": "83a7f43d55312fbc3bce8ad616732dcc74f84ea7b114768c76e52f24dc00dacc",
+          "label": "After / Nevada Desert / Epic / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L2-Q3\\shots\\ft_L2_080.png",
+          "sha256": "e112b6cc1a3f9bc135720f9763c04a7e182050b484194ea04a828ffe9ec81157",
+          "label": "Before / Nevada Desert / Epic / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L2-Q3\\shots\\ft_L2_080.png",
+          "sha256": "3320e8176906ddcb8e0d84f0fcb583be0030d5722e13e351b27b924b2cac830a",
+          "label": "After / Nevada Desert / Epic / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L2-Q3\\shots\\ft_L2_096.png",
+          "sha256": "74e63f64f6fb4de5b4c48962ed0b1da64b1ce05d40e4697a287c177744669c61",
+          "label": "Before / Nevada Desert / Epic / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L2-Q3\\shots\\ft_L2_096.png",
+          "sha256": "44bcdde31998c42e3ad0fe031d271352d9b1bdbf95fd328e55b8e103935edf53",
+          "label": "After / Nevada Desert / Epic / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L2-Q3\\shots\\ft_L2_108.png",
+          "sha256": "87a6e7e5d01c75a833c9d46a8a6fb8d0683bc38f9b18c8460e656e702b7035ff",
+          "label": "Before / Nevada Desert / Epic / frame 108"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L2-Q3\\shots\\ft_L2_108.png",
+          "sha256": "134c3f852d9c57af0daa427744b88a616c983d17364ca5597b3c270bbd23f844",
+          "label": "After / Nevada Desert / Epic / frame 108"
+        }
+      ]
+    },
+    {
+      "file": "staged-L2-Q3.jpg",
+      "sha256": "1a20e6754a60eb8aac39a4aae65e6481eb432eaae688992f55bb68af444f773a",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L2-Q3\\shots\\ft_L2_002.png",
+          "sha256": "1ad536418184d744da198d719255207d2ec4c55abce3cd63ea65c123ce7dea34",
+          "label": "Nevada Desert / Epic / 100 m / frame 002"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L2-Q3\\shots\\ft_L2_010.png",
+          "sha256": "7eed15f6cd6220e15127898ab7f2137fb3d2da1d7e4799f884c05db88db215b2",
+          "label": "Nevada Desert / Epic / approaching / frame 010"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L2-Q3\\shots\\ft_L2_017.png",
+          "sha256": "89be8c5c9fa00c9d3224e99c34b575435cba4f8463677b92d4b6c35a910da43d",
+          "label": "Nevada Desert / Epic / close / frame 017"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L2-Q3\\shots\\ft_L2_020.png",
+          "sha256": "6ce43219f3fde1815874c8b0da1f846f9ccfa068e9d81ff314a04452b8d29cc5",
+          "label": "Nevada Desert / Epic / collection demonstration / frame 020"
+        }
+      ]
+    },
+    {
+      "file": "far-native-L2-Q3.webp",
+      "sha256": "c8b62a33a0bb49a151a15dad2249d7d1e2571cd7db8b59e2502bc9f86fec06d7",
+      "type": "native-resolution lossless WebP",
+      "source": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L2-Q3\\shots\\ft_L2_002.png",
+      "source_sha256": "1ad536418184d744da198d719255207d2ec4c55abce3cd63ea65c123ce7dea34"
+    },
+    {
+      "file": "natural-L3-Q3.jpg",
+      "sha256": "5f8da5e797200518f4a81da2f3bf2aaa180007e2781a6d6985ae5bb236de64b0",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L3-Q3\\shots\\ft_L3_016.png",
+          "sha256": "84ddbe25dbe226a6a526bd18439be25e974cf74cab07df168e8e9f2c3264ba0f",
+          "label": "Before / Volcano / Epic / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L3-Q3\\shots\\ft_L3_016.png",
+          "sha256": "6db2a6d68b80652ea664c8b725270326682614cb9c0af0f5d2e8d6b41e2956cc",
+          "label": "After / Volcano / Epic / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L3-Q3\\shots\\ft_L3_032.png",
+          "sha256": "54711224a92073fe8e3bf2ce1f44b402e04f42fe0b191003b878fbbc4947ed04",
+          "label": "Before / Volcano / Epic / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L3-Q3\\shots\\ft_L3_032.png",
+          "sha256": "d62f4179fdcdbe59ffaffbc23c9304a4e439bc9259747ea6247b25373e2e932a",
+          "label": "After / Volcano / Epic / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L3-Q3\\shots\\ft_L3_048.png",
+          "sha256": "f4d07439ff789e454034a76642c91ed638a0db9589e4da3d1b0c648a300a22f2",
+          "label": "Before / Volcano / Epic / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L3-Q3\\shots\\ft_L3_048.png",
+          "sha256": "b3c73518d0939bb70a7ff06f65570ef7c8bb6ff0ebd4196189559fdf0f2ea107",
+          "label": "After / Volcano / Epic / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L3-Q3\\shots\\ft_L3_064.png",
+          "sha256": "bdc494c32dfbfe7ef16acd4d9c48870ec6acfa1b2b2b7e7abf75f49a30313f83",
+          "label": "Before / Volcano / Epic / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L3-Q3\\shots\\ft_L3_064.png",
+          "sha256": "82de3808771b3d429889cb9d521760447a3de438abd80d711790bbd2dae4dbc2",
+          "label": "After / Volcano / Epic / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L3-Q3\\shots\\ft_L3_080.png",
+          "sha256": "6e746a76eb688eefbb6ffcb767d20812c53e2d6b4ed865899be0a1b19e3b8cb4",
+          "label": "Before / Volcano / Epic / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L3-Q3\\shots\\ft_L3_080.png",
+          "sha256": "cbfbf2d01cb887e7718fbb81043dcdff99052c987b42b78720fc1263165aa336",
+          "label": "After / Volcano / Epic / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L3-Q3\\shots\\ft_L3_096.png",
+          "sha256": "893a4afb8da62ae3ab1544105c3d47078e21770c86c40f052a11c57e3268244e",
+          "label": "Before / Volcano / Epic / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L3-Q3\\shots\\ft_L3_096.png",
+          "sha256": "f38bffd355d1962f771183e2f4c865fe903ff650119c693eccbfaac9051c6d0d",
+          "label": "After / Volcano / Epic / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L3-Q3\\shots\\ft_L3_108.png",
+          "sha256": "865558e9cd11ea599852707ee2f9c456f6d86e1538a4f9f2dd469cdcc69fe118",
+          "label": "Before / Volcano / Epic / frame 108"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L3-Q3\\shots\\ft_L3_108.png",
+          "sha256": "33b5bc88140cf2fffc1439f023f8cb764a8464bda711bb4ed735b6b795d62e7b",
+          "label": "After / Volcano / Epic / frame 108"
+        }
+      ]
+    },
+    {
+      "file": "staged-L3-Q3.jpg",
+      "sha256": "50311eaa3ddae6973914e3b9ab95926a2cc56ee8712a5edeb04d313968f4dba2",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L3-Q3\\shots\\ft_L3_002.png",
+          "sha256": "a10b14bf8c7da288700dcd118865dc1992810f03f8964a4b4719d0e28fd56f1e",
+          "label": "Volcano / Epic / 100 m / frame 002"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L3-Q3\\shots\\ft_L3_010.png",
+          "sha256": "c58949c65af75fd14c3aae1a993c47e86a18168a9e105442df001b173a711432",
+          "label": "Volcano / Epic / approaching / frame 010"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L3-Q3\\shots\\ft_L3_017.png",
+          "sha256": "85c9be0faf145c59e0fddcd7c7f3666294d0e572fa4b56574964f9493ab6363c",
+          "label": "Volcano / Epic / close / frame 017"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L3-Q3\\shots\\ft_L3_020.png",
+          "sha256": "9a17473374977771a506f735b552a72d0941831e62e8fc4879bcfd1fb4b793f1",
+          "label": "Volcano / Epic / collection demonstration / frame 020"
+        }
+      ]
+    },
+    {
+      "file": "far-native-L3-Q3.webp",
+      "sha256": "247e375a33b76b6f4bcc7d5f2ceef8395835ec0b3bc44e7c105c0f92ebdedf0e",
+      "type": "native-resolution lossless WebP",
+      "source": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L3-Q3\\shots\\ft_L3_002.png",
+      "source_sha256": "a10b14bf8c7da288700dcd118865dc1992810f03f8964a4b4719d0e28fd56f1e"
+    },
+    {
+      "file": "natural-L4-Q3.jpg",
+      "sha256": "ce5e3e31f38500fb6028279804ae720daf46e21cac9d4fec492e2d36119fecf7",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L4-Q3\\shots\\ft_L4_016.png",
+          "sha256": "0e5f9478998d95fbff4bf7d7e671b6ca35079a08af04f266769db4d8d52aefea",
+          "label": "Before / Theme Park / Epic / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L4-Q3\\shots\\ft_L4_016.png",
+          "sha256": "ac2207f0f4bc925f40581e51970d1ae72764470fe9a368a941811f08ee86b1e0",
+          "label": "After / Theme Park / Epic / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L4-Q3\\shots\\ft_L4_032.png",
+          "sha256": "5d4c130d8f3120c9503a11ce7b995454788f5c77e472a142b2f5945a80b9be7d",
+          "label": "Before / Theme Park / Epic / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L4-Q3\\shots\\ft_L4_032.png",
+          "sha256": "7e818ba1b06a1c0a0c6bb6301a05c8b0e52670db1c4747582412ec5686455115",
+          "label": "After / Theme Park / Epic / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L4-Q3\\shots\\ft_L4_048.png",
+          "sha256": "84a4a4199b6c6c9a62c015523d3e9793f08671880adc0c29e93660f3b9220b2e",
+          "label": "Before / Theme Park / Epic / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L4-Q3\\shots\\ft_L4_048.png",
+          "sha256": "d3fe924c2d6fff4c1d022e674da166ec2d1e4a7991f4b572b7a6d1f9927ddebb",
+          "label": "After / Theme Park / Epic / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L4-Q3\\shots\\ft_L4_064.png",
+          "sha256": "dd0a1703894954f681b9c6d6710bf90521d37789dba42160e5c2daea23f6f10f",
+          "label": "Before / Theme Park / Epic / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L4-Q3\\shots\\ft_L4_064.png",
+          "sha256": "bb287d4ac5f2a8c13caaae9a7389a62fddc236fa763b3bc9ec90469c1d352dcb",
+          "label": "After / Theme Park / Epic / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L4-Q3\\shots\\ft_L4_080.png",
+          "sha256": "e38121d978a8412f610ba6fd7506485406c375994914400ddadb182580689fe7",
+          "label": "Before / Theme Park / Epic / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L4-Q3\\shots\\ft_L4_080.png",
+          "sha256": "fd8daac3fa8d8460d748ec2bfab9565b395013e8429cf0d1ca9304e9a56617cc",
+          "label": "After / Theme Park / Epic / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L4-Q3\\shots\\ft_L4_096.png",
+          "sha256": "165223bd244e54c046a4a04efc6f7785eedcf7a1b8063b33735ddbc2eb3615d3",
+          "label": "Before / Theme Park / Epic / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L4-Q3\\shots\\ft_L4_096.png",
+          "sha256": "007b5b2f079cdc7bc2a7d46fa24bc9670ed3c37bc53b3b9c9c17046718f609d9",
+          "label": "After / Theme Park / Epic / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L4-Q3\\shots\\ft_L4_108.png",
+          "sha256": "bc4dabdc009b36bec197c4bb17baa014f23cd0c43ef1edb9ea8fc453d5c2c908",
+          "label": "Before / Theme Park / Epic / frame 108"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L4-Q3\\shots\\ft_L4_108.png",
+          "sha256": "bc3fa8c6fc6ab9f2bd9b4ff8b4f85d9641a37107be8df15696b4cdd8c97bbdd4",
+          "label": "After / Theme Park / Epic / frame 108"
+        }
+      ]
+    },
+    {
+      "file": "staged-L4-Q3.jpg",
+      "sha256": "cf4ec888acbdd26df7eac1c133ec68188224e548342ac95ee89d67b0f9946cf7",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L4-Q3\\shots\\ft_L4_002.png",
+          "sha256": "973bf8fcfe0beefbf7edcb6f3495256dabe9f13cc04bfb13d2e4ca9b1ac1f5eb",
+          "label": "Theme Park / Epic / 100 m / frame 002"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L4-Q3\\shots\\ft_L4_010.png",
+          "sha256": "020f1de2bdfcedbaff74c08a381f52c1be647dd0180aa9689ef3acc6c1d34d78",
+          "label": "Theme Park / Epic / approaching / frame 010"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L4-Q3\\shots\\ft_L4_017.png",
+          "sha256": "314e1e2af153010e50bbe41232f1aeae1f57ddab553981f4032414e053da0f10",
+          "label": "Theme Park / Epic / close / frame 017"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L4-Q3\\shots\\ft_L4_020.png",
+          "sha256": "8a3587dc8e3b074f9e5cbd587e08ac71a854da9fea363dad409daf3789992806",
+          "label": "Theme Park / Epic / collection demonstration / frame 020"
+        }
+      ]
+    },
+    {
+      "file": "far-native-L4-Q3.webp",
+      "sha256": "3a702a3a199ed5159712214099e84b937200cd4d7745a2d93833ee9c5cb56127",
+      "type": "native-resolution lossless WebP",
+      "source": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L4-Q3\\shots\\ft_L4_002.png",
+      "source_sha256": "973bf8fcfe0beefbf7edcb6f3495256dabe9f13cc04bfb13d2e4ca9b1ac1f5eb"
+    },
+    {
+      "file": "natural-L5-Q3.jpg",
+      "sha256": "737dcdeb41ea3399cfaf8ea759401018664277aca826e0bc7fdc814d7fc72830",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L5-Q3\\shots\\ft_L5_016.png",
+          "sha256": "c36c671c8174ff522db6e8d88c516484ab348daf21450863fb3f7a20f7a72f9c",
+          "label": "Before / Ice Mountain / Epic / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L5-Q3\\shots\\ft_L5_016.png",
+          "sha256": "1eabbee2b8322d8d1e55ff86992ce8cb3d9b5cb0f84400fe38b80832ba564fdb",
+          "label": "After / Ice Mountain / Epic / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L5-Q3\\shots\\ft_L5_032.png",
+          "sha256": "d1616d2d1ec94d4d46e7b8b308ca0323968ddcd216f083bc51ec1e093569c666",
+          "label": "Before / Ice Mountain / Epic / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L5-Q3\\shots\\ft_L5_032.png",
+          "sha256": "d93165d97a28db9468a271d4db959151f93d3a946ec624dc2b3ca2f3458cb9e2",
+          "label": "After / Ice Mountain / Epic / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L5-Q3\\shots\\ft_L5_048.png",
+          "sha256": "21d9b409557f2413f769d2e2142ae2d2181d38e5e35702716a49b10574e8ff45",
+          "label": "Before / Ice Mountain / Epic / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L5-Q3\\shots\\ft_L5_048.png",
+          "sha256": "7a246fd963ae7b0dbf2a9ad06961fd70d8d243b8e0b3d088a78842112c41fab6",
+          "label": "After / Ice Mountain / Epic / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L5-Q3\\shots\\ft_L5_064.png",
+          "sha256": "2aaf95758fe018556bb8b899b9a017ab5e5af58fb4fbed64d723070899901083",
+          "label": "Before / Ice Mountain / Epic / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L5-Q3\\shots\\ft_L5_064.png",
+          "sha256": "f8adff120f89c3c8f25cb6940a7e0303136bde9b97f5603e7a8f046ee8118b1c",
+          "label": "After / Ice Mountain / Epic / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L5-Q3\\shots\\ft_L5_080.png",
+          "sha256": "a23251474e58f754bf4a14f9422350ae28629d230203f93f3070002bc435c650",
+          "label": "Before / Ice Mountain / Epic / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L5-Q3\\shots\\ft_L5_080.png",
+          "sha256": "74a48bcb62a3c97f081a99862a16a302d86c8266812bfcb999f7f4a5f66d2037",
+          "label": "After / Ice Mountain / Epic / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L5-Q3\\shots\\ft_L5_096.png",
+          "sha256": "9634058c8c6b06a1b02f246311a6fd17f2737c547d009f4a2fd09f1ae90fc0a8",
+          "label": "Before / Ice Mountain / Epic / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L5-Q3\\shots\\ft_L5_096.png",
+          "sha256": "ea4cb69285f96a1987ebed21988e3e723ba14ce30d4c5bc744881f0b10073f65",
+          "label": "After / Ice Mountain / Epic / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L5-Q3\\shots\\ft_L5_108.png",
+          "sha256": "93aa21b429d56c57fff7e48100187f5cd24019656080f2a3d76838e5d6c33123",
+          "label": "Before / Ice Mountain / Epic / frame 108"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L5-Q3\\shots\\ft_L5_108.png",
+          "sha256": "91b9edd62f4fa966a678c39243f3a4cc6a71197b7bd2f052ffb9947e69ec810d",
+          "label": "After / Ice Mountain / Epic / frame 108"
+        }
+      ]
+    },
+    {
+      "file": "staged-L5-Q3.jpg",
+      "sha256": "664617d3b72cfc487e8d459198b31ca802d5e397399398ce3f16e4066c8ab829",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L5-Q3\\shots\\ft_L5_002.png",
+          "sha256": "7e2b97f2434ad89ca3a6de7f9a35de975bb337aa2984f9c211f3ba408441d679",
+          "label": "Ice Mountain / Epic / 100 m / frame 002"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L5-Q3\\shots\\ft_L5_010.png",
+          "sha256": "fc251fae7dfe809df02f35e305d0caa8831ec2a8c04d9958f026bbaa6e99f81a",
+          "label": "Ice Mountain / Epic / approaching / frame 010"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L5-Q3\\shots\\ft_L5_017.png",
+          "sha256": "669334c6ea819a1ce6a14817ea7652bec7f1a30c282f4209948252f8206a0fa7",
+          "label": "Ice Mountain / Epic / close / frame 017"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L5-Q3\\shots\\ft_L5_020.png",
+          "sha256": "94d135f97d7dff9df92acf5070434a1317b63fddd89a16d2c7f32a0a0e4a67bf",
+          "label": "Ice Mountain / Epic / collection demonstration / frame 020"
+        }
+      ]
+    },
+    {
+      "file": "far-native-L5-Q3.webp",
+      "sha256": "e1317cb90ab815455a406b5613749d868b4dc181454f868cce6a2dc60e1214fd",
+      "type": "native-resolution lossless WebP",
+      "source": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L5-Q3\\shots\\ft_L5_002.png",
+      "source_sha256": "7e2b97f2434ad89ca3a6de7f9a35de975bb337aa2984f9c211f3ba408441d679"
+    },
+    {
+      "file": "natural-L6-Q3.jpg",
+      "sha256": "93a71fe7888c2abf115a3fcbd67e67169c2af2d0cbf7c52b4320c50a96290c79",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L6-Q3\\shots\\ft_L6_016.png",
+          "sha256": "aa4919c40a1029c1b9a80b115e719c25ff0c84594987d0a47d16fdbb696fc319",
+          "label": "Before / Under the Sea / Epic / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L6-Q3\\shots\\ft_L6_016.png",
+          "sha256": "785547689848f52d626ca431e5e3bb50f6336dc83d0acf9cdb79b334d77c3186",
+          "label": "After / Under the Sea / Epic / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L6-Q3\\shots\\ft_L6_032.png",
+          "sha256": "c04af10c21073992793385b1ce3ea5573ab004effb6270a2e80d2f2c40015141",
+          "label": "Before / Under the Sea / Epic / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L6-Q3\\shots\\ft_L6_032.png",
+          "sha256": "d5739da120fe99322459cd9465a19ff0a43666312c2ac09ae56a1bf225ff652a",
+          "label": "After / Under the Sea / Epic / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L6-Q3\\shots\\ft_L6_048.png",
+          "sha256": "b6803d5f02f138c1df84b354a0e4976a1c4bdb0edff5a3dd123f887a03536f52",
+          "label": "Before / Under the Sea / Epic / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L6-Q3\\shots\\ft_L6_048.png",
+          "sha256": "9672ad3f2767a29fa6b3caa39d0098bc3495c3ef5adb76e72053ac2ad3514e14",
+          "label": "After / Under the Sea / Epic / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L6-Q3\\shots\\ft_L6_064.png",
+          "sha256": "e8ef68334cdf530965ee5923ba645bbb339c90f2d1418485eb7e0a04ebb42240",
+          "label": "Before / Under the Sea / Epic / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L6-Q3\\shots\\ft_L6_064.png",
+          "sha256": "dbff1e0804b9c54efc33816769f36518d7f4be7112f4a59f47a64003c47a24ad",
+          "label": "After / Under the Sea / Epic / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L6-Q3\\shots\\ft_L6_080.png",
+          "sha256": "2b2661e87ccee1516dfcd756868ca58261fad6adb4c22d955922fe2d1097c8b7",
+          "label": "Before / Under the Sea / Epic / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L6-Q3\\shots\\ft_L6_080.png",
+          "sha256": "959286d9dd6dab8ee9407b31e6c8452ed58020b0133f5f9a9b37a83a825f7d0c",
+          "label": "After / Under the Sea / Epic / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L6-Q3\\shots\\ft_L6_096.png",
+          "sha256": "04f7c1281e28f4543ab196532d64dae19da8eef3fc5b8718efae005a5f50077d",
+          "label": "Before / Under the Sea / Epic / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L6-Q3\\shots\\ft_L6_096.png",
+          "sha256": "04fee579739245e6fc9c97fc2335c9adb3282858a2b57a856115c96808b3abe1",
+          "label": "After / Under the Sea / Epic / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L6-Q3\\shots\\ft_L6_108.png",
+          "sha256": "78f72632a69d1f85b520a15415111c4643b600fa99206a6c8fee82209d29c7fc",
+          "label": "Before / Under the Sea / Epic / frame 108"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L6-Q3\\shots\\ft_L6_108.png",
+          "sha256": "bc1c72e3f11c9cf15564bcfff01557454c98c7189f39a8d0c878ec362052c483",
+          "label": "After / Under the Sea / Epic / frame 108"
+        }
+      ]
+    },
+    {
+      "file": "staged-L6-Q3.jpg",
+      "sha256": "5271a5a6362bfd35d0b21eef22af6e0b02f6dfdb3118517c020536af1d21d7d6",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L6-Q3\\shots\\ft_L6_002.png",
+          "sha256": "840d638dd214b426364d02e30daea155a801cf001645cd7d29bb98c1c9787331",
+          "label": "Under the Sea / Epic / 100 m / frame 002"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L6-Q3\\shots\\ft_L6_010.png",
+          "sha256": "0d3209e9e85a6e1f1ea6376739ad2cb723cf51aba8c4d7902513324b715c4a01",
+          "label": "Under the Sea / Epic / approaching / frame 010"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L6-Q3\\shots\\ft_L6_017.png",
+          "sha256": "8e3f9b0740f05bf78e326fc8191956e1b0b265d7e3ea797acb71709534e4353f",
+          "label": "Under the Sea / Epic / close / frame 017"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L6-Q3\\shots\\ft_L6_020.png",
+          "sha256": "8efbb22169f0e90fa2d39f9f8309fb3e517aa59b897c01b29497f400ae4204b7",
+          "label": "Under the Sea / Epic / collection demonstration / frame 020"
+        }
+      ]
+    },
+    {
+      "file": "far-native-L6-Q3.webp",
+      "sha256": "57fc18bbbb726b85047297fcb2a38ba017f16b4109e45787b0dec578902f4460",
+      "type": "native-resolution lossless WebP",
+      "source": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L6-Q3\\shots\\ft_L6_002.png",
+      "source_sha256": "840d638dd214b426364d02e30daea155a801cf001645cd7d29bb98c1c9787331"
+    },
+    {
+      "file": "natural-L7-Q3.jpg",
+      "sha256": "61b5150546dbf4f4724c686f4e5933956183261f4b62dbd0fd1f87b8c4fe6442",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L7-Q3\\shots\\ft_L7_016.png",
+          "sha256": "d0a36238e60bcb91c89e4399b847d423c9abbe4fab8b75a2b5fec68db7e72eed",
+          "label": "Before / City Center / Epic / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L7-Q3\\shots\\ft_L7_016.png",
+          "sha256": "51a3c559973c4d3d49d81c9ca4cfe927bcec577f3aea2e52607b1d8510751df2",
+          "label": "After / City Center / Epic / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L7-Q3\\shots\\ft_L7_032.png",
+          "sha256": "1e8374abe2857024a29a5199589c429f0d6447f37a8e8244caa5234bb2f313f1",
+          "label": "Before / City Center / Epic / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L7-Q3\\shots\\ft_L7_032.png",
+          "sha256": "7ce1ce7ed73f35078061dd661ba43b35fe169ef475db79e94b057a247e135853",
+          "label": "After / City Center / Epic / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L7-Q3\\shots\\ft_L7_048.png",
+          "sha256": "f45cb5c73ba5e49ccf6e16b5617363b5d086dc3d32389c73dea63028a4afe141",
+          "label": "Before / City Center / Epic / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L7-Q3\\shots\\ft_L7_048.png",
+          "sha256": "e6e577348eabd36312bdd3767cec90bade7e5968d9b1c854819ec5828f2811fc",
+          "label": "After / City Center / Epic / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L7-Q3\\shots\\ft_L7_064.png",
+          "sha256": "76b92cab66b647fad8653927d458a83a6ab6144f7d0744433d2f87d61bede1fb",
+          "label": "Before / City Center / Epic / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L7-Q3\\shots\\ft_L7_064.png",
+          "sha256": "b4887dc1fc1399821891bfb88ab28a589ebcf9bd950fff4a2e36c6357d2a718d",
+          "label": "After / City Center / Epic / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L7-Q3\\shots\\ft_L7_080.png",
+          "sha256": "30b6bd8ba6f5d31473685546578202d002a7b6b416be4c4435616d8390bca8db",
+          "label": "Before / City Center / Epic / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L7-Q3\\shots\\ft_L7_080.png",
+          "sha256": "009eed6ddf0bb4ba457ba2ecb49aa1ef42ba56674e987988c27a9e91f396be53",
+          "label": "After / City Center / Epic / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L7-Q3\\shots\\ft_L7_096.png",
+          "sha256": "7bfb7e937ac4ec9c0390cd0de0b65ecf8bbb37d384b3f714a4cf28157df78778",
+          "label": "Before / City Center / Epic / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L7-Q3\\shots\\ft_L7_096.png",
+          "sha256": "6c80ed59bd56134438c98eab6030353f8215ae379d87c38cb0ce375f69f909e5",
+          "label": "After / City Center / Epic / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L7-Q3\\shots\\ft_L7_108.png",
+          "sha256": "bc367298a820f3522e78a38140e3073f53d4303a2cfc48fa2801d73af533558a",
+          "label": "Before / City Center / Epic / frame 108"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L7-Q3\\shots\\ft_L7_108.png",
+          "sha256": "d8cd8db0a682f8db1ddcf6458ec4c6a7323350b9c86dc857e764d85e90e3af79",
+          "label": "After / City Center / Epic / frame 108"
+        }
+      ]
+    },
+    {
+      "file": "staged-L7-Q3.jpg",
+      "sha256": "051683bea209c1d505ba8ff39244735b63fc6c997b4e616a09e848ae19d4a9c6",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L7-Q3\\shots\\ft_L7_002.png",
+          "sha256": "55fd20c74b3d6dfe47f962ef18d9be34e9a64b225be340886ae3b9508724d575",
+          "label": "City Center / Epic / 100 m / frame 002"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L7-Q3\\shots\\ft_L7_010.png",
+          "sha256": "e664eb355ad39448d482c3194795141882005b618ecad0af9a20f8597dca988e",
+          "label": "City Center / Epic / approaching / frame 010"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L7-Q3\\shots\\ft_L7_017.png",
+          "sha256": "cc341c14aef50605c93ea638c0b3278ba4764a41fa5756ae21f5cf8ebd17b163",
+          "label": "City Center / Epic / close / frame 017"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L7-Q3\\shots\\ft_L7_020.png",
+          "sha256": "01c55eeab14a076c6932156470440db1323425ef6cab8337c562b9923c581e28",
+          "label": "City Center / Epic / collection demonstration / frame 020"
+        }
+      ]
+    },
+    {
+      "file": "far-native-L7-Q3.webp",
+      "sha256": "8be90254aec1a5fc1ff0685aa439a271e9a11517480e3726c9e0cabf443467d7",
+      "type": "native-resolution lossless WebP",
+      "source": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q3\\L7-Q3\\shots\\ft_L7_002.png",
+      "source_sha256": "55fd20c74b3d6dfe47f962ef18d9be34e9a64b225be340886ae3b9508724d575"
+    },
+    {
+      "file": "natural-L0-Q0.jpg",
+      "sha256": "d604486205d1390ee165346d757f80b96ff78966238fbd75f4dd501e92d13e2e",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L0-Q0\\shots\\ft_L0_016.png",
+          "sha256": "a4171a2cfa7ca83c42484dd35e53b7674bd1b99c884937939361bda1d9c4ab50",
+          "label": "Before / Bayshore / Low / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L0-Q0\\shots\\ft_L0_016.png",
+          "sha256": "c1f3a13f47ee7f484b1431c955787d873500825af4e43b1655c1d1187c8990a6",
+          "label": "After / Bayshore / Low / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L0-Q0\\shots\\ft_L0_032.png",
+          "sha256": "f4524a8363540edf8d9ebc400804daa54ecf4e18ee9d9dd8c40b6bd61fe9c03d",
+          "label": "Before / Bayshore / Low / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L0-Q0\\shots\\ft_L0_032.png",
+          "sha256": "5e1f468965a4156594f7d065f788a72cca4bd5bc7931a4118783cfe9bccb8a45",
+          "label": "After / Bayshore / Low / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L0-Q0\\shots\\ft_L0_048.png",
+          "sha256": "05b18959be2456e31ff71d87e78a3ea02ed3619014aa7cda728cda979616189e",
+          "label": "Before / Bayshore / Low / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L0-Q0\\shots\\ft_L0_048.png",
+          "sha256": "caa2c15c160f4f03577c521b29baf67255357665be706fe3f5fed6b43af6bab0",
+          "label": "After / Bayshore / Low / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L0-Q0\\shots\\ft_L0_064.png",
+          "sha256": "6c37ce55e79b77f5fa8fa693924e1a343141cdfb19d922488939e0acddecaf5b",
+          "label": "Before / Bayshore / Low / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L0-Q0\\shots\\ft_L0_064.png",
+          "sha256": "8bd5271a8f58c3e61ba296a15e584639c3cd82f996c95a7d44cd76b8857550c6",
+          "label": "After / Bayshore / Low / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L0-Q0\\shots\\ft_L0_080.png",
+          "sha256": "877f6680f640dae3677148afe3ba146c81061f5845e519e16f4bbdce90f1b248",
+          "label": "Before / Bayshore / Low / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L0-Q0\\shots\\ft_L0_080.png",
+          "sha256": "898c913a84458bf743a77a6ffcdc1885504ecb2d80cb3a242c043abe77bb0b96",
+          "label": "After / Bayshore / Low / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L0-Q0\\shots\\ft_L0_096.png",
+          "sha256": "f3ba923e460a800ca1cc2e944816f3733978ba4a2dca206d07077eaea2a306d5",
+          "label": "Before / Bayshore / Low / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L0-Q0\\shots\\ft_L0_096.png",
+          "sha256": "b0fd1940962ccd976107c3ea18967cab3c45d444f63450d166db8a50c0d62de0",
+          "label": "After / Bayshore / Low / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L0-Q0\\shots\\ft_L0_108.png",
+          "sha256": "891162410b01e1168d4a39f10141527fda233fef701a7fd56d527f515ab7780d",
+          "label": "Before / Bayshore / Low / frame 108"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L0-Q0\\shots\\ft_L0_108.png",
+          "sha256": "4bbf93c5adde87f1d2fb4783bf7b0ce6ea287dc5864e7ff5ee189c53f9c4c240",
+          "label": "After / Bayshore / Low / frame 108"
+        }
+      ]
+    },
+    {
+      "file": "staged-L0-Q0.jpg",
+      "sha256": "73260eeddf61ced9a2ba2e39de929584dc4545f555c52bba91bab4c56946406d",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L0-Q0\\shots\\ft_L0_002.png",
+          "sha256": "6e4b52e4071f13d366e731d884aaea0830acf66d31ffc9f8eb89ef4841424b7f",
+          "label": "Bayshore / Low / 100 m / frame 002"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L0-Q0\\shots\\ft_L0_010.png",
+          "sha256": "7eae3b1961641ca716f09c73aa0b2da11e202b6590302f7c78dd9aad9d161d98",
+          "label": "Bayshore / Low / approaching / frame 010"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L0-Q0\\shots\\ft_L0_017.png",
+          "sha256": "4cd20c7c75bfeef155c5b37d9fcb014a775c65e2249f658f544bfea8a24ed63d",
+          "label": "Bayshore / Low / close / frame 017"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L0-Q0\\shots\\ft_L0_020.png",
+          "sha256": "f87196e42943b4ab173fc8a2bcc7081b40306dcce354d0cb378220d9c01d76db",
+          "label": "Bayshore / Low / collection demonstration / frame 020"
+        }
+      ]
+    },
+    {
+      "file": "far-native-L0-Q0.webp",
+      "sha256": "4c31107db767175373593b459a4801ff30a31fee0bbac2d6b2231492586832bc",
+      "type": "native-resolution lossless WebP",
+      "source": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L0-Q0\\shots\\ft_L0_002.png",
+      "source_sha256": "6e4b52e4071f13d366e731d884aaea0830acf66d31ffc9f8eb89ef4841424b7f"
+    },
+    {
+      "file": "natural-L1-Q0.jpg",
+      "sha256": "c39f7f2f805624bd04c5c124fa1f315f3d3f475cf9695b08db5ab60e1acd86b9",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L1-Q0\\shots\\ft_L1_016.png",
+          "sha256": "c1b57f8ec05c6920afbff64fa895bbf86721c5d0011e4602d1019a368e0a1c3f",
+          "label": "Before / Chemical Plant / Low / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L1-Q0\\shots\\ft_L1_016.png",
+          "sha256": "33512d3ca126501e7bf3cd7dea104c4a06c579f5622956a441b9cbe54d781e64",
+          "label": "After / Chemical Plant / Low / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L1-Q0\\shots\\ft_L1_032.png",
+          "sha256": "84dabcb51cf17bd9e89526bef53572077c0af53ab41fb3ebe5e20507f9aab956",
+          "label": "Before / Chemical Plant / Low / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L1-Q0\\shots\\ft_L1_032.png",
+          "sha256": "c430a08cac46eec1b5211fcf586784d661a627165c00183fed7b689145298ea5",
+          "label": "After / Chemical Plant / Low / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L1-Q0\\shots\\ft_L1_048.png",
+          "sha256": "e6b7c58b1f64e365ebf48cf5f71a71dfac03ecf8984b8f60d3efd88138ba946e",
+          "label": "Before / Chemical Plant / Low / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L1-Q0\\shots\\ft_L1_048.png",
+          "sha256": "904afd8d21a72f690c4197999ea0a947890e151c813373eef2f50ceeec7aafde",
+          "label": "After / Chemical Plant / Low / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L1-Q0\\shots\\ft_L1_064.png",
+          "sha256": "985f3d22e0a307b1b081034b03f7e5f9dbf6aede6fe345a9dfae0012963075b9",
+          "label": "Before / Chemical Plant / Low / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L1-Q0\\shots\\ft_L1_064.png",
+          "sha256": "31b99dac122241f0649c107bca06dff3b352b2506c64cb1c48833bd20f1e3533",
+          "label": "After / Chemical Plant / Low / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L1-Q0\\shots\\ft_L1_080.png",
+          "sha256": "8084a648782a0fb0a94a9c21b3623992248e89e4795b3f9326221bdda9d295bf",
+          "label": "Before / Chemical Plant / Low / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L1-Q0\\shots\\ft_L1_080.png",
+          "sha256": "1f11b2dda216abb6b36c680ca840dc427280ec1181557dd06991132d23551ccb",
+          "label": "After / Chemical Plant / Low / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L1-Q0\\shots\\ft_L1_096.png",
+          "sha256": "871f3957e4db0c2e4ae20f5ad1c46f1dc8a983224ee61bf543ae56801109f9c2",
+          "label": "Before / Chemical Plant / Low / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L1-Q0\\shots\\ft_L1_096.png",
+          "sha256": "3cf6e91e58b3f7f0a676a6a687ec07ef94fb2395ac184e7334c2557104bc09fd",
+          "label": "After / Chemical Plant / Low / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L1-Q0\\shots\\ft_L1_108.png",
+          "sha256": "cf332451e7df0257bcdfc9d47a4c703d68488cabebc079761ea1bc4ed87c0818",
+          "label": "Before / Chemical Plant / Low / frame 108"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L1-Q0\\shots\\ft_L1_108.png",
+          "sha256": "6dba067497f5b1ae9dd2e6eae444d3a852386e2f4e6e956b758fe29da316670c",
+          "label": "After / Chemical Plant / Low / frame 108"
+        }
+      ]
+    },
+    {
+      "file": "staged-L1-Q0.jpg",
+      "sha256": "87261b4e31b3d0865d56745f979d741661ecc18b628e13a9c9988b4820b20adc",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L1-Q0\\shots\\ft_L1_002.png",
+          "sha256": "0fd5d6d78e4d26d9025ce2ee108583c39ff204e9c96e0ddab3af98bb20b8f9dd",
+          "label": "Chemical Plant / Low / 100 m / frame 002"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L1-Q0\\shots\\ft_L1_010.png",
+          "sha256": "0af67121e88af964cbc383ec6a8315e1395dce02ef7636ecfd1c9c322c3485ff",
+          "label": "Chemical Plant / Low / approaching / frame 010"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L1-Q0\\shots\\ft_L1_017.png",
+          "sha256": "5f779da242964d3ecfb5c06e8fe15f40d6ab37569c2e4a29fbdd7e2994cecb16",
+          "label": "Chemical Plant / Low / close / frame 017"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L1-Q0\\shots\\ft_L1_020.png",
+          "sha256": "2635898c7974b9d8686065221a2f51fb3aa960e33cca4742100d94d28d2e1e9c",
+          "label": "Chemical Plant / Low / collection demonstration / frame 020"
+        }
+      ]
+    },
+    {
+      "file": "far-native-L1-Q0.webp",
+      "sha256": "d5021250cce896c45952974621b4264df1b8f601f40d50e76e0b1538b960ff47",
+      "type": "native-resolution lossless WebP",
+      "source": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L1-Q0\\shots\\ft_L1_002.png",
+      "source_sha256": "0fd5d6d78e4d26d9025ce2ee108583c39ff204e9c96e0ddab3af98bb20b8f9dd"
+    },
+    {
+      "file": "natural-L2-Q0.jpg",
+      "sha256": "ac9a649a8e7d8b4bb9140f66392f7df5e3477763e388d1477ee1a32c50d2a579",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L2-Q0\\shots\\ft_L2_016.png",
+          "sha256": "da42fb940cf371d5cf514d9f5b3099a8f88ebb70925e72464e782a8cfc47da4e",
+          "label": "Before / Nevada Desert / Low / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L2-Q0\\shots\\ft_L2_016.png",
+          "sha256": "4134e4cade6a62461bacc7609b84e650c33ddb1d4cea7b09f33cba798ba025f5",
+          "label": "After / Nevada Desert / Low / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L2-Q0\\shots\\ft_L2_032.png",
+          "sha256": "a9e293c0ae58d60e63fdd8f4cdad0ddaba3e8667d24d3843752755a03aca4f59",
+          "label": "Before / Nevada Desert / Low / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L2-Q0\\shots\\ft_L2_032.png",
+          "sha256": "9d11b6cb11aa1d5db7e64b7e003c365f07c20ab83e601862e70b7b7f6382346a",
+          "label": "After / Nevada Desert / Low / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L2-Q0\\shots\\ft_L2_048.png",
+          "sha256": "97ac83be4ec39a672acfe79331e099953a097c22f71cff85b646a65294fa04c1",
+          "label": "Before / Nevada Desert / Low / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L2-Q0\\shots\\ft_L2_048.png",
+          "sha256": "0939d780b823b834b79fafc3d8c5edb1f149f0b28543223f0bccd99fcfd66849",
+          "label": "After / Nevada Desert / Low / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L2-Q0\\shots\\ft_L2_064.png",
+          "sha256": "fbb691e0b484a395015f68776290afafb40833d7efb3265a11dcd60e1a01f567",
+          "label": "Before / Nevada Desert / Low / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L2-Q0\\shots\\ft_L2_064.png",
+          "sha256": "413d825d3e7e42ca905b0d7e5b56bf6518aa64c94b7ebd2202d804a4d8dd71c5",
+          "label": "After / Nevada Desert / Low / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L2-Q0\\shots\\ft_L2_080.png",
+          "sha256": "ab7c34236f9a1ea7c3b83eb8df2291ffc8706a704ca25560f3d5ac56061045fb",
+          "label": "Before / Nevada Desert / Low / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L2-Q0\\shots\\ft_L2_080.png",
+          "sha256": "4ccb91836a4634bc2ca3f0c6cbc0f89c4aeddd9a461462cda5229af4330827bb",
+          "label": "After / Nevada Desert / Low / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L2-Q0\\shots\\ft_L2_096.png",
+          "sha256": "3cf34978091791c0c6f023d0a2043b04a55c4e76fa7252a7b4bbe289ff78e4c3",
+          "label": "Before / Nevada Desert / Low / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L2-Q0\\shots\\ft_L2_096.png",
+          "sha256": "9276771432822329a2f7cd5d6c49bb2fe705b44cebd713b623c859b9927278c4",
+          "label": "After / Nevada Desert / Low / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L2-Q0\\shots\\ft_L2_108.png",
+          "sha256": "8131de21e1dc4fb0ba82da789090f328d26d3a1e470cab7f4e2da1967f9fbab6",
+          "label": "Before / Nevada Desert / Low / frame 108"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L2-Q0\\shots\\ft_L2_108.png",
+          "sha256": "9414d4246f8340f3a8878ef13509c5914518f09a3773f5cf360ee878a756190c",
+          "label": "After / Nevada Desert / Low / frame 108"
+        }
+      ]
+    },
+    {
+      "file": "staged-L2-Q0.jpg",
+      "sha256": "72cedb9332de8ae5563c07b7776dfb251166e7309427641623379f567efa83e8",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L2-Q0\\shots\\ft_L2_002.png",
+          "sha256": "e51ec6230de5ce4f91f50f0d74c37629879026e362e8eec6a722a088e23906d3",
+          "label": "Nevada Desert / Low / 100 m / frame 002"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L2-Q0\\shots\\ft_L2_010.png",
+          "sha256": "5fd1b87da30d4db5845b536c886246cb22bc722111bfac36b5379c031365b3cd",
+          "label": "Nevada Desert / Low / approaching / frame 010"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L2-Q0\\shots\\ft_L2_017.png",
+          "sha256": "ac1aa6c79c7476255fa7db0c16b3d9c4de6823cb4e1767577d5dd33c4e6a5ca1",
+          "label": "Nevada Desert / Low / close / frame 017"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L2-Q0\\shots\\ft_L2_020.png",
+          "sha256": "91e329a622618dfe0cedaf724c42f3956b8f0e89299a7c6689cc42986a90f26b",
+          "label": "Nevada Desert / Low / collection demonstration / frame 020"
+        }
+      ]
+    },
+    {
+      "file": "far-native-L2-Q0.webp",
+      "sha256": "4c4323229bcc7ccfdae50edb5c6905cfcadb0708e209f9a34ca1ab9ab0f914e1",
+      "type": "native-resolution lossless WebP",
+      "source": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L2-Q0\\shots\\ft_L2_002.png",
+      "source_sha256": "e51ec6230de5ce4f91f50f0d74c37629879026e362e8eec6a722a088e23906d3"
+    },
+    {
+      "file": "natural-L3-Q0.jpg",
+      "sha256": "cad5ff1e4b45fe4134b046584056e909d1acf36dddf3e30ea3543cec358adb1c",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L3-Q0\\shots\\ft_L3_016.png",
+          "sha256": "c1dad2aa2d2baef46c2c85ad26dac778c44c9b26f5d0c53b1a43f5cc1fcf9368",
+          "label": "Before / Volcano / Low / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L3-Q0\\shots\\ft_L3_016.png",
+          "sha256": "5cfbb585c131fbd76fbdf0104016b55c9b779c3cb72fad381c758e6cb1765aca",
+          "label": "After / Volcano / Low / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L3-Q0\\shots\\ft_L3_032.png",
+          "sha256": "68f1712b9f89c76e65bd881f25f63621786b6a37308cacbc337efd6135d8e958",
+          "label": "Before / Volcano / Low / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L3-Q0\\shots\\ft_L3_032.png",
+          "sha256": "51cae27eb2539319aa9f5131bb3b141ac6c270f50757068cb9bbe108339be7b9",
+          "label": "After / Volcano / Low / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L3-Q0\\shots\\ft_L3_048.png",
+          "sha256": "daa0b58b626b7e0d7f6a946da0ef1fb8f81da241239210c231e2886300f392f7",
+          "label": "Before / Volcano / Low / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L3-Q0\\shots\\ft_L3_048.png",
+          "sha256": "8ff2fd7aff5b0b3c945312a377c5cfe6137d66b68c446ec1ea4ce6f41c55de0c",
+          "label": "After / Volcano / Low / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L3-Q0\\shots\\ft_L3_064.png",
+          "sha256": "7dbf51fe7f13fa271dc4d5558cdf92a1dd511eae1155f392f65a45e6d6cda905",
+          "label": "Before / Volcano / Low / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L3-Q0\\shots\\ft_L3_064.png",
+          "sha256": "a77b7db28e3b21e4101d976581da8cdf6fb6119ec72577cf92f015704f59d098",
+          "label": "After / Volcano / Low / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L3-Q0\\shots\\ft_L3_080.png",
+          "sha256": "0e2758a55628b3f08596c706f6a0d281a1793eed21a7e1813560a7fd28dfff73",
+          "label": "Before / Volcano / Low / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L3-Q0\\shots\\ft_L3_080.png",
+          "sha256": "81c6e9a40ac4d68d513fe6089bb3caedf437a64335534996b78cad5eb41ff3ac",
+          "label": "After / Volcano / Low / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L3-Q0\\shots\\ft_L3_096.png",
+          "sha256": "704cd5f3f02accc34dda02feedef9aa81f8162134a56a20d2fcf19fb6cbf8f6c",
+          "label": "Before / Volcano / Low / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L3-Q0\\shots\\ft_L3_096.png",
+          "sha256": "1906150eebf78f69003e935950cf2dee89b143d3e9c73ad57455d487d1cec866",
+          "label": "After / Volcano / Low / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L3-Q0\\shots\\ft_L3_108.png",
+          "sha256": "c8f1dc00b1cba45d903079f795f5e6103fd7cd8ccdf65a092b484dcea782a0b2",
+          "label": "Before / Volcano / Low / frame 108"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L3-Q0\\shots\\ft_L3_108.png",
+          "sha256": "b48e7a29e17eef38676f0b0627e57eb9b2675d821a1982c72c2130ccd3b2405a",
+          "label": "After / Volcano / Low / frame 108"
+        }
+      ]
+    },
+    {
+      "file": "staged-L3-Q0.jpg",
+      "sha256": "f5cb774a90e893c32a38de816c909da6b009f877e79454dcba49b0584805ac37",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L3-Q0\\shots\\ft_L3_002.png",
+          "sha256": "950bf00ac997d8b93619fdf3c52ecf93b7bcd16603d2b46ec09f5c19d3bcb7f7",
+          "label": "Volcano / Low / 100 m / frame 002"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L3-Q0\\shots\\ft_L3_010.png",
+          "sha256": "8fe5a102dcce8579181c6504f62b8cba1d38025c4a57549459fe44f7741f21ee",
+          "label": "Volcano / Low / approaching / frame 010"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L3-Q0\\shots\\ft_L3_017.png",
+          "sha256": "71a2a90425dbf6f5088f53257b03056cc8654c69998b649bf747269807643321",
+          "label": "Volcano / Low / close / frame 017"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L3-Q0\\shots\\ft_L3_020.png",
+          "sha256": "c6a72377991e9b9352372cc2b6134f987f5c2ecbf55581af66e7c770bdfa0ed4",
+          "label": "Volcano / Low / collection demonstration / frame 020"
+        }
+      ]
+    },
+    {
+      "file": "far-native-L3-Q0.webp",
+      "sha256": "98b80318c862546866c28a85758c0ee99c7d634afa013c2971de0d07f5ef471f",
+      "type": "native-resolution lossless WebP",
+      "source": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L3-Q0\\shots\\ft_L3_002.png",
+      "source_sha256": "950bf00ac997d8b93619fdf3c52ecf93b7bcd16603d2b46ec09f5c19d3bcb7f7"
+    },
+    {
+      "file": "natural-L4-Q0.jpg",
+      "sha256": "4f7176e11867a5289699c9df564473675923aae24d27a0fb8f83de25eb94cc8c",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L4-Q0\\shots\\ft_L4_016.png",
+          "sha256": "92a6fe973bd21eeed794733fe7e41dd91e41d3557d1079bdda9a8e6df2537dd1",
+          "label": "Before / Theme Park / Low / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L4-Q0\\shots\\ft_L4_016.png",
+          "sha256": "3cd147acea3d1b81ab522a47aff1642cef887ed52250eac3ac0282d663018938",
+          "label": "After / Theme Park / Low / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L4-Q0\\shots\\ft_L4_032.png",
+          "sha256": "cedf3a260ec851813998e7415168a636db59e34c67bd0448b829a2d340c0f493",
+          "label": "Before / Theme Park / Low / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L4-Q0\\shots\\ft_L4_032.png",
+          "sha256": "b3248c67fddba7a34d007dee0f063ab48fd0a899a5c860d2cb45895c0088b73d",
+          "label": "After / Theme Park / Low / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L4-Q0\\shots\\ft_L4_048.png",
+          "sha256": "8bb71f413f87acca34bc031ebd347b2cbff73084dc2a911357b6778995bb4407",
+          "label": "Before / Theme Park / Low / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L4-Q0\\shots\\ft_L4_048.png",
+          "sha256": "6882fa7a75b2aa8903ac894c6f6614d529717e8f059c118593e4a3185a0dfdc9",
+          "label": "After / Theme Park / Low / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L4-Q0\\shots\\ft_L4_064.png",
+          "sha256": "69be576f837fc1352eb093a8621500166601e7645fe57d9ad561c6861420c5e5",
+          "label": "Before / Theme Park / Low / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L4-Q0\\shots\\ft_L4_064.png",
+          "sha256": "8b0f13c3a84162e6132271e94f7e040df481d3652b22deb652714bc6d77e269f",
+          "label": "After / Theme Park / Low / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L4-Q0\\shots\\ft_L4_080.png",
+          "sha256": "8ccfea2b06027140b48ca596653b23134eb229b07ca44b4a58d08ed895661146",
+          "label": "Before / Theme Park / Low / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L4-Q0\\shots\\ft_L4_080.png",
+          "sha256": "3261c1b8418e7bfd87c3d9044867287eee540a6334df4f7fbbd0bf71668f5543",
+          "label": "After / Theme Park / Low / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L4-Q0\\shots\\ft_L4_096.png",
+          "sha256": "a20712a0b038b9e623ac6948bbc03ca8e9ec6dc2ed063d0c63121041d1f3eeb6",
+          "label": "Before / Theme Park / Low / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L4-Q0\\shots\\ft_L4_096.png",
+          "sha256": "79cad70449590e76d76abddc1653049bdc4ee9ee12f3074959c58a6c120d6c50",
+          "label": "After / Theme Park / Low / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L4-Q0\\shots\\ft_L4_108.png",
+          "sha256": "c02cad4f7b7fa7adc2a7e1112ab89cb9aca1573784b476d6ee47c9692e09d6c4",
+          "label": "Before / Theme Park / Low / frame 108"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L4-Q0\\shots\\ft_L4_108.png",
+          "sha256": "c7bcce421784e4f57b3c2419b91bd2ad23a6194cf671e0423902cf0799b4be09",
+          "label": "After / Theme Park / Low / frame 108"
+        }
+      ]
+    },
+    {
+      "file": "staged-L4-Q0.jpg",
+      "sha256": "9cd72f7108a8a9e670462dca788fa50ca3e573fe34b2529e6e40163ec66902f8",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L4-Q0\\shots\\ft_L4_002.png",
+          "sha256": "0d98901de12647e4cec8abe5000389da55d1d814ac2d4e02ca5d35a879db3b27",
+          "label": "Theme Park / Low / 100 m / frame 002"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L4-Q0\\shots\\ft_L4_010.png",
+          "sha256": "a8bc1618112df308eee95b619551c8f23a731592f67a162e7fe1d4665f62648c",
+          "label": "Theme Park / Low / approaching / frame 010"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L4-Q0\\shots\\ft_L4_017.png",
+          "sha256": "95633bfce4e0bc4082492d3fc71bbce1ea1b60a97811603a24b707e7dd4330ce",
+          "label": "Theme Park / Low / close / frame 017"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L4-Q0\\shots\\ft_L4_020.png",
+          "sha256": "375a4b1fbd20cb4580bee9037aa02757f2c955e27c20d8b9fa6a136c4c0c94a8",
+          "label": "Theme Park / Low / collection demonstration / frame 020"
+        }
+      ]
+    },
+    {
+      "file": "far-native-L4-Q0.webp",
+      "sha256": "e169c5928f613b5b43fbcfbfbaf7f4b8545d3677d5be4a4127a59c1c87838065",
+      "type": "native-resolution lossless WebP",
+      "source": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L4-Q0\\shots\\ft_L4_002.png",
+      "source_sha256": "0d98901de12647e4cec8abe5000389da55d1d814ac2d4e02ca5d35a879db3b27"
+    },
+    {
+      "file": "natural-L5-Q0.jpg",
+      "sha256": "a3c70236ca08fa2567b21b28eb0c829736055ac5d311611ef1b3d14e15ec2c36",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L5-Q0\\shots\\ft_L5_016.png",
+          "sha256": "81a2b250040234d546287ed9bbdfb25c92c792aa68a564d8b3cbd9e2a9537d3e",
+          "label": "Before / Ice Mountain / Low / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L5-Q0\\shots\\ft_L5_016.png",
+          "sha256": "bce62e34f3b42625c6a1168a51b5453d8a08aa26fec7d8663e186e03b2fbed54",
+          "label": "After / Ice Mountain / Low / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L5-Q0\\shots\\ft_L5_032.png",
+          "sha256": "34189a171365b9c5936ae31573205e5ddf6c719a156e6462f179474e290bffd4",
+          "label": "Before / Ice Mountain / Low / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L5-Q0\\shots\\ft_L5_032.png",
+          "sha256": "8067cbfaf2eb2337403dd279439c79b85104d4a5d343d5b72f3aaaaf8e792550",
+          "label": "After / Ice Mountain / Low / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L5-Q0\\shots\\ft_L5_048.png",
+          "sha256": "b1a78b01f9ef87ea8ec2f7d19bbc20d941257fc22a176d5fdf744c122cfa1a1a",
+          "label": "Before / Ice Mountain / Low / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L5-Q0\\shots\\ft_L5_048.png",
+          "sha256": "b64fed038358eed6b988771b1a4312557fb4989fab365fd53c031555dee6de8c",
+          "label": "After / Ice Mountain / Low / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L5-Q0\\shots\\ft_L5_064.png",
+          "sha256": "0497914b9151af4ccbc66f74ffaa6f335377388a417dbf6785143558c546a10f",
+          "label": "Before / Ice Mountain / Low / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L5-Q0\\shots\\ft_L5_064.png",
+          "sha256": "17b07304e8733dcb2c5ae227d1d01ca0d2df5956e49daa1a7ab5e70ee6e52e31",
+          "label": "After / Ice Mountain / Low / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L5-Q0\\shots\\ft_L5_080.png",
+          "sha256": "08fa75e387e395783d17eee9e155ef10ca49da7b4f915bd420c93ba2ad373783",
+          "label": "Before / Ice Mountain / Low / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L5-Q0\\shots\\ft_L5_080.png",
+          "sha256": "d82cfbb4ff3bdfc0599d52cf454867543512839be2b6a5bea02c6075b3bf82cc",
+          "label": "After / Ice Mountain / Low / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L5-Q0\\shots\\ft_L5_096.png",
+          "sha256": "9ecef550e4471c19d5a082ec9e3914cf7b853b2825d93e4fabac53ff9f186317",
+          "label": "Before / Ice Mountain / Low / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L5-Q0\\shots\\ft_L5_096.png",
+          "sha256": "ea9f29d910665813842e7437a7e8c981ada37612f55bf0dd1c998238b206b699",
+          "label": "After / Ice Mountain / Low / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L5-Q0\\shots\\ft_L5_108.png",
+          "sha256": "328055dd50f68bdb5c39deafd7e188afc3443c3785b5437f0c89ef759b9e2abe",
+          "label": "Before / Ice Mountain / Low / frame 108"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L5-Q0\\shots\\ft_L5_108.png",
+          "sha256": "4cdc7914d4442cd79f8698bea3881cfc8d64598421b5428c641d09fa3eb2cff4",
+          "label": "After / Ice Mountain / Low / frame 108"
+        }
+      ]
+    },
+    {
+      "file": "staged-L5-Q0.jpg",
+      "sha256": "92202fe2ad7b6d807eb6a557f74d46399a0bf301a12a9bd23d6ff8c163e7a778",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L5-Q0\\shots\\ft_L5_002.png",
+          "sha256": "630fb236813750cd62be3e4fa52ec5e9d078aeb25b3c879d487535b63254920b",
+          "label": "Ice Mountain / Low / 100 m / frame 002"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L5-Q0\\shots\\ft_L5_010.png",
+          "sha256": "02b49be031ebc4bd70687559795c24c1feedccdae528e297fb16741365f12b46",
+          "label": "Ice Mountain / Low / approaching / frame 010"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L5-Q0\\shots\\ft_L5_017.png",
+          "sha256": "6346cc542ca6a8aecfcd2280ea70593c868f8b5f44aa817709c7207edd7eb739",
+          "label": "Ice Mountain / Low / close / frame 017"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L5-Q0\\shots\\ft_L5_020.png",
+          "sha256": "ef58923f76e2eb9e189b7a46a7c1b8b828648f8399311ab8fa0344042a3be358",
+          "label": "Ice Mountain / Low / collection demonstration / frame 020"
+        }
+      ]
+    },
+    {
+      "file": "far-native-L5-Q0.webp",
+      "sha256": "4265c5e1510ce2846b554a8fac1e1306a7eb315bff0d06826356a4af24a546b0",
+      "type": "native-resolution lossless WebP",
+      "source": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L5-Q0\\shots\\ft_L5_002.png",
+      "source_sha256": "630fb236813750cd62be3e4fa52ec5e9d078aeb25b3c879d487535b63254920b"
+    },
+    {
+      "file": "natural-L6-Q0.jpg",
+      "sha256": "b57eb14d6b8c9b044ad3bd10dbe2219a59d8a822e585272e488f843175fb3334",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L6-Q0\\shots\\ft_L6_016.png",
+          "sha256": "2af9114e82f7c49d651883559617d257b2de55093ed5577491d6de6ded9df5c1",
+          "label": "Before / Under the Sea / Low / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L6-Q0\\shots\\ft_L6_016.png",
+          "sha256": "8ccdb3d4d7104c8ac0fe0616cd93fb4c207b3452b178b02aa56b59c9249345f9",
+          "label": "After / Under the Sea / Low / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L6-Q0\\shots\\ft_L6_032.png",
+          "sha256": "caa88a3f8c438146af1e0028800555f0993f47c466ab832443d1693a5fea13ac",
+          "label": "Before / Under the Sea / Low / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L6-Q0\\shots\\ft_L6_032.png",
+          "sha256": "98ccd69d4508c5e384c59b8d1b0b1c2e8f58d77fcd7bc53911e34943c6a119db",
+          "label": "After / Under the Sea / Low / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L6-Q0\\shots\\ft_L6_048.png",
+          "sha256": "8c401e58e86739c88d83777ca24799cedcd0d806602e46a45dede1fca2d3b9f9",
+          "label": "Before / Under the Sea / Low / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L6-Q0\\shots\\ft_L6_048.png",
+          "sha256": "61b5dbf506cedc5f0b41e305894f419435dabb05c9703c2735f63bc39f718863",
+          "label": "After / Under the Sea / Low / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L6-Q0\\shots\\ft_L6_064.png",
+          "sha256": "76e36c7a5f80170838b4b63079d9fbe74e1eca5ed883f5fcfeec0557c7123470",
+          "label": "Before / Under the Sea / Low / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L6-Q0\\shots\\ft_L6_064.png",
+          "sha256": "8687cad24b97969f56463a545453c9532f2bcd0c6d9852601f89336309fe95c4",
+          "label": "After / Under the Sea / Low / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L6-Q0\\shots\\ft_L6_080.png",
+          "sha256": "9c07c181839595f6069ebbde0a5c840f102ed8443ee2a4e8a1dd29161ea0c633",
+          "label": "Before / Under the Sea / Low / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L6-Q0\\shots\\ft_L6_080.png",
+          "sha256": "673733ffe7f88011e6499d2b891d74d5a33449ec4782904eb12589fec9689644",
+          "label": "After / Under the Sea / Low / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L6-Q0\\shots\\ft_L6_096.png",
+          "sha256": "1825cbe794a59121b2552c180524a44a5410e07130fdc3f37009f49d8b158eeb",
+          "label": "Before / Under the Sea / Low / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L6-Q0\\shots\\ft_L6_096.png",
+          "sha256": "033c9d26f0ab4c135071c43790829ea7f26f4231618bd6d28d6871ef66275c51",
+          "label": "After / Under the Sea / Low / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L6-Q0\\shots\\ft_L6_108.png",
+          "sha256": "b9370367b94727597370566f92ca8a23f884d0413fb518ce73794bebd90f4967",
+          "label": "Before / Under the Sea / Low / frame 108"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L6-Q0\\shots\\ft_L6_108.png",
+          "sha256": "13ae944ce5e372b8f047935af94bfd1c91dbbef9f5ae37c72ce272de46cc3be0",
+          "label": "After / Under the Sea / Low / frame 108"
+        }
+      ]
+    },
+    {
+      "file": "staged-L6-Q0.jpg",
+      "sha256": "70a306c7cf795f764cf695f34fab6554673ce7c654ec43a09c608ca74787c117",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L6-Q0\\shots\\ft_L6_002.png",
+          "sha256": "19e7a973f231cb576176f133f31d1f0162286f495cc42e63ba8ce5defbe802d3",
+          "label": "Under the Sea / Low / 100 m / frame 002"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L6-Q0\\shots\\ft_L6_010.png",
+          "sha256": "ef14002a71faef0730ec1f377309d9c4b631a7f9bb7cb83029bc19239e62d753",
+          "label": "Under the Sea / Low / approaching / frame 010"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L6-Q0\\shots\\ft_L6_017.png",
+          "sha256": "507cd1e9d13412bac0d49c82ce3aefd1b1224932487721a843016e0d4cb2de3a",
+          "label": "Under the Sea / Low / close / frame 017"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L6-Q0\\shots\\ft_L6_020.png",
+          "sha256": "137248b074de1f507d6718952b9fe5efd2d9e5d1a50bbf8ea7a783e02ca17913",
+          "label": "Under the Sea / Low / collection demonstration / frame 020"
+        }
+      ]
+    },
+    {
+      "file": "far-native-L6-Q0.webp",
+      "sha256": "aa988d4307986f61dea69ab6b199529dda674d59cb2292e7c40983047e7f803b",
+      "type": "native-resolution lossless WebP",
+      "source": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L6-Q0\\shots\\ft_L6_002.png",
+      "source_sha256": "19e7a973f231cb576176f133f31d1f0162286f495cc42e63ba8ce5defbe802d3"
+    },
+    {
+      "file": "natural-L7-Q0.jpg",
+      "sha256": "fa325f8b8898b973216e1a2292007ad3a7685a8628c90842b76386a3a516c032",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L7-Q0\\shots\\ft_L7_016.png",
+          "sha256": "6e6d6dd0f806dbc7f1a99b754715d6802a0e2f70e364b9a6818a8c1acd90063c",
+          "label": "Before / City Center / Low / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L7-Q0\\shots\\ft_L7_016.png",
+          "sha256": "e2bcb62a04eaac4e1b5b6ec5835ef9d864982c15d4571cca25ac8fb2d7548af3",
+          "label": "After / City Center / Low / frame 016"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L7-Q0\\shots\\ft_L7_032.png",
+          "sha256": "d0fb30430c2b4f83e9436ee0e415d6f6f9bf1018190eede70d68ec4307c9cc12",
+          "label": "Before / City Center / Low / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L7-Q0\\shots\\ft_L7_032.png",
+          "sha256": "fde1ad8c5c78a4969b729f4f3d53dffb430ddc043486fe531d48b6db39fe40e8",
+          "label": "After / City Center / Low / frame 032"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L7-Q0\\shots\\ft_L7_048.png",
+          "sha256": "19c84ceeeb795d61186a7f9e8c932058c634d161c506915f58bb56bac6b3bd7a",
+          "label": "Before / City Center / Low / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L7-Q0\\shots\\ft_L7_048.png",
+          "sha256": "afc4931380990c771fe1a7f686930d3350644bb825cec159e416f84dd6de79ae",
+          "label": "After / City Center / Low / frame 048"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L7-Q0\\shots\\ft_L7_064.png",
+          "sha256": "bf691d7e9b89eec2ce73eedb952b93316903eb97b5ad25ee01050ff880fcbeb3",
+          "label": "Before / City Center / Low / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L7-Q0\\shots\\ft_L7_064.png",
+          "sha256": "bc34aa70cc675a026d93e2cf77da8e8df0429eabf336dcbe248ec757a06d3ac0",
+          "label": "After / City Center / Low / frame 064"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L7-Q0\\shots\\ft_L7_080.png",
+          "sha256": "ba8ccda08858428875783fbe37923d1f52afe4a952a651736261c267d66ff83d",
+          "label": "Before / City Center / Low / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L7-Q0\\shots\\ft_L7_080.png",
+          "sha256": "42f9f2cc8d47e4c3d54c5ffe6295506d2cc3c1353c68dfcfd5192304ab753897",
+          "label": "After / City Center / Low / frame 080"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L7-Q0\\shots\\ft_L7_096.png",
+          "sha256": "934d126d22e944de6e8e7fb9f29ba998bcce8b159ad3770d068894457bafadd1",
+          "label": "Before / City Center / Low / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L7-Q0\\shots\\ft_L7_096.png",
+          "sha256": "4fc1922a4102ccaced09b407c7954cfc6c86f8db607d76f5d4a6a9916588913b",
+          "label": "After / City Center / Low / frame 096"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\baseline-270\\L7-Q0\\shots\\ft_L7_108.png",
+          "sha256": "eb8cc96135034a625d2402af5f96699c2298c64ad7ed4797bf3b4e49c17c58ff",
+          "label": "Before / City Center / Low / frame 108"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\after-270\\L7-Q0\\shots\\ft_L7_108.png",
+          "sha256": "147ad8cdea5faf1bb983aaad6551358ee63b60d8b44b1d994d033d230eb79721",
+          "label": "After / City Center / Low / frame 108"
+        }
+      ]
+    },
+    {
+      "file": "staged-L7-Q0.jpg",
+      "sha256": "3fc0e3f04046d8387dfacf853cbf650246b60b3bc3b6b42ee7402215433482c9",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L7-Q0\\shots\\ft_L7_002.png",
+          "sha256": "4305508802fc8abef1891350289ebbe95965713fa27fef9a0302fa8b29fce9e0",
+          "label": "City Center / Low / 100 m / frame 002"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L7-Q0\\shots\\ft_L7_010.png",
+          "sha256": "3195bd54b581958c215064348a9bc78b25cf3a563ae4e2f1cb38c93e4c54b645",
+          "label": "City Center / Low / approaching / frame 010"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L7-Q0\\shots\\ft_L7_017.png",
+          "sha256": "18194ffccc71a7ba3ed765dfd7195c68a03dd064c8a04772e1175262560c34ac",
+          "label": "City Center / Low / close / frame 017"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L7-Q0\\shots\\ft_L7_020.png",
+          "sha256": "8ad3142dba96d5984e5af6fe0a6e526f81d681ac04c7e2eddd95ca24eda8fdd8",
+          "label": "City Center / Low / collection demonstration / frame 020"
+        }
+      ]
+    },
+    {
+      "file": "far-native-L7-Q0.webp",
+      "sha256": "cae8f09de2be72efbb33ca8d34a886da1505999d65b91ada71492b125a28f73a",
+      "type": "native-resolution lossless WebP",
+      "source": "K:\\Full Throttle\\PowerupsReview\\staged-280-Q0\\L7-Q0\\shots\\ft_L7_002.png",
+      "source_sha256": "4305508802fc8abef1891350289ebbe95965713fa27fef9a0302fa8b29fce9e0"
+    },
+    {
+      "file": "turntable-L0-Q3.jpg",
+      "sha256": "d4133237b8e365daa6bedf6ffe5c9c73dc35c49696235b0f4b5e0832c32016d6",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\turntables-v2\\L0-Q3\\shots\\ft_L0_002.png",
+          "sha256": "31ede14adcfe230d71af962517efd4ae8c6f6f97a659ddbee5ccc8b9a28a87b8",
+          "label": "Bayshore / Q3 / frame 002"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\turntables-v2\\L0-Q3\\shots\\ft_L0_010.png",
+          "sha256": "c204ee44adca6ad392610de34d10e68f64d7d2a16230ae4397cb898a92c5cebe",
+          "label": "Bayshore / Q3 / frame 010"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\turntables-v2\\L0-Q3\\shots\\ft_L0_018.png",
+          "sha256": "04a2993fadd26799a672541eb21a3fb1d7600a71cdf7be40fd1136c489a8fa6f",
+          "label": "Bayshore / Q3 / frame 018"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\turntables-v2\\L0-Q3\\shots\\ft_L0_026.png",
+          "sha256": "f5a217ff49a5552e5385d97e19aba6e8f0dec82800c84afb0bbab5b9e241d7b1",
+          "label": "Bayshore / Q3 / frame 026"
+        }
+      ]
+    },
+    {
+      "file": "turntable-L1-Q3.jpg",
+      "sha256": "e31c7e8657a2588821dd8584660b7c769887c8599627f5380457c7300bbef5da",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\turntables-v2\\L1-Q3\\shots\\ft_L1_002.png",
+          "sha256": "81baabb844a0ff2a4973bed9629a27517ec9a6e41e1cc7b4e5e500387f2ce205",
+          "label": "Chemical Plant / Q3 / frame 002"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\turntables-v2\\L1-Q3\\shots\\ft_L1_010.png",
+          "sha256": "84f0cc303e3327735c6ee02a6be8390cfd30b7920bb7edfbb1a347c847f80e9c",
+          "label": "Chemical Plant / Q3 / frame 010"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\turntables-v2\\L1-Q3\\shots\\ft_L1_018.png",
+          "sha256": "19d657f07d9d3695332678e6b52f0edad9e5ac07b91dd0ce0eaeaabf1559c86c",
+          "label": "Chemical Plant / Q3 / frame 018"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\turntables-v2\\L1-Q3\\shots\\ft_L1_026.png",
+          "sha256": "8812d5f6bd80eb3c963f8a30abed29ff643402f686573f816bd3911683437859",
+          "label": "Chemical Plant / Q3 / frame 026"
+        }
+      ]
+    },
+    {
+      "file": "turntable-L0-Q0.jpg",
+      "sha256": "b39401e704fb307d0e94e860cd29bc5a90676f2db2f076baf02fa7a14d57c745",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\turntables-v2\\L0-Q0\\shots\\ft_L0_002.png",
+          "sha256": "9e20d367dc728c0e9b6cf42e7c4b97267d8c4fa2bbda2e20ac79f1f4d8d6b2c4",
+          "label": "Bayshore / Q0 / frame 002"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\turntables-v2\\L0-Q0\\shots\\ft_L0_010.png",
+          "sha256": "64cc2ef95249288f3e38c3901f2dfdb14bbc0c66451e645e7b5eab023d083d4a",
+          "label": "Bayshore / Q0 / frame 010"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\turntables-v2\\L0-Q0\\shots\\ft_L0_018.png",
+          "sha256": "033545da852738e6009b08f3f581c2e18eeed5f4a8e58b4ce15dbd3a0dccccb3",
+          "label": "Bayshore / Q0 / frame 018"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\turntables-v2\\L0-Q0\\shots\\ft_L0_026.png",
+          "sha256": "adf345604c2eaa3c5fa85cc38b32bec2c1d93d43dd3eabf5528f4ebb2b904be1",
+          "label": "Bayshore / Q0 / frame 026"
+        }
+      ]
+    },
+    {
+      "file": "turntable-L1-Q0.jpg",
+      "sha256": "8a834562cbc11460d202b0ef09e1e6881fff15803e11349a933f246dc7de1b17",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\turntables-v2\\L1-Q0\\shots\\ft_L1_002.png",
+          "sha256": "e8beb7ccc4be4aaacb905ebcc6690b88af7da9db5ec610bad2c8bd9ad6f1901d",
+          "label": "Chemical Plant / Q0 / frame 002"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\turntables-v2\\L1-Q0\\shots\\ft_L1_010.png",
+          "sha256": "4ad06297459069dfdadf9cad6c2a2fb0601ee86139371a713ba3b0c2a2fd92f2",
+          "label": "Chemical Plant / Q0 / frame 010"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\turntables-v2\\L1-Q0\\shots\\ft_L1_018.png",
+          "sha256": "34ea7d7ee0986ce0791bdec15260362c948b0fdf992dcefc283bf9f4ae56c092",
+          "label": "Chemical Plant / Q0 / frame 018"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\turntables-v2\\L1-Q0\\shots\\ft_L1_026.png",
+          "sha256": "683299b738e707d7cd1789786428bcd4eed549d0c2ec77b0081b9f26d4b614dc",
+          "label": "Chemical Plant / Q0 / frame 026"
+        }
+      ]
+    },
+    {
+      "file": "grayscale-close.jpg",
+      "sha256": "03013c069a9b389e421f0c04a2539393f43322c30d85944c310cfebacd20e978",
+      "type": "review composite",
+      "grayscale": true,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\turntables-v2\\L0-Q3\\shots\\ft_L0_002.png",
+          "sha256": "31ede14adcfe230d71af962517efd4ae8c6f6f97a659ddbee5ccc8b9a28a87b8",
+          "label": "Grayscale / Bayshore / Epic / frame 002"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\turntables-v2\\L0-Q3\\shots\\ft_L0_010.png",
+          "sha256": "c204ee44adca6ad392610de34d10e68f64d7d2a16230ae4397cb898a92c5cebe",
+          "label": "Grayscale / Bayshore / Epic / frame 010"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\turntables-v2\\L0-Q3\\shots\\ft_L0_018.png",
+          "sha256": "04a2993fadd26799a672541eb21a3fb1d7600a71cdf7be40fd1136c489a8fa6f",
+          "label": "Grayscale / Bayshore / Epic / frame 018"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\turntables-v2\\L0-Q3\\shots\\ft_L0_026.png",
+          "sha256": "f5a217ff49a5552e5385d97e19aba6e8f0dec82800c84afb0bbab5b9e241d7b1",
+          "label": "Grayscale / Bayshore / Epic / frame 026"
+        }
+      ]
+    },
+    {
+      "file": "reference-contact.jpg",
+      "sha256": "a01455883fde90f195345ff762bc401edc4d771d48649c7b98d2559fd16e37a9",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "SourceArt\\Powerups\\concepts\\powerups-directions-v01.png",
+          "sha256": "ed13fb4786af433b4b7cc869ed75d6d9871a17bbff7f1b02744703e85950ccf6",
+          "label": "Original concepts / Justin chose R1 and M2"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\turntables-v2\\L0-Q3\\shots\\ft_L0_002.png",
+          "sha256": "31ede14adcfe230d71af962517efd4ae8c6f6f97a659ddbee5ccc8b9a28a87b8",
+          "label": "Actual game / R1 and M2 / daytime"
+        },
+        {
+          "path": "SourceArt\\Powerups\\references\\03-kestrel-body.png",
+          "sha256": "3bd2f1f0e2acdbd0e5f3b27513d898002b4573abf2f7ea57f7d13b030437b294",
+          "label": "Existing KESTREL / angular planes and navy breaks"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\turntables-v2\\L1-Q3\\shots\\ft_L1_002.png",
+          "sha256": "81baabb844a0ff2a4973bed9629a27517ec9a6e41e1cc7b4e5e500387f2ce205",
+          "label": "Actual game / R1 and M2 / night"
+        },
+        {
+          "path": "SourceArt\\Powerups\\references\\01-current-missile-crate.png",
+          "sha256": "6321cb6e5392fc332a1bfb9fecb5c2e0db265a7eec89f40fda6b33b454ae8a97",
+          "label": "Original missile crate"
+        },
+        {
+          "path": "SourceArt\\Powerups\\references\\02-current-repair-kit.png",
+          "sha256": "f7d566f9f3f9d0a1baadcc21185694a8765e2f45956881fecf66d5ac5d809ced",
+          "label": "Original repair cube"
+        }
+      ]
+    },
+    {
+      "file": "far-Q3.jpg",
+      "sha256": "e68e5c38e58a9471b4647d4078edce9b067c0fb91c468b79a50b839d59582d88",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\far-v2\\L0-Q3\\shots\\ft_L0_002.png",
+          "sha256": "50eb25233dff44438c8474c49589cdbf5f47854b1ff72d6a3d5c44502074eb2c",
+          "label": "Bayshore / Q3 / exact 100 m"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\far-v2\\L1-Q3\\shots\\ft_L1_002.png",
+          "sha256": "336f08fc1e136256d7477bad445a99ca9e5775c1c0b2dc3fe24ec6e877d9d778",
+          "label": "Chemical Plant / Q3 / exact 100 m"
+        }
+      ]
+    },
+    {
+      "file": "far-Q0.jpg",
+      "sha256": "562db42e90ebe6f20d57c8f23e091a6639fa9bc99f91ca105c7152b792ab5463",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\far-v2\\L0-Q0\\shots\\ft_L0_002.png",
+          "sha256": "7b271a29491e8f4c6f1bb236153cead83ba671b8fa7cca1cb6dc994d8531bb44",
+          "label": "Bayshore / Q0 / exact 100 m"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\far-v2\\L1-Q0\\shots\\ft_L1_002.png",
+          "sha256": "26dda84c761f5ddff5211e8699fc94904a214b64ef0f404d8aefffa72e070606",
+          "label": "Chemical Plant / Q0 / exact 100 m"
+        }
+      ]
+    },
+    {
+      "file": "golden-hour-Q3.jpg",
+      "sha256": "4da41226325458ac0a8c782ec2443179b17b0ab0855a46426000be561f489566",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\sky-toward\\L0-Q3\\shots\\ft_L0_017.png",
+          "sha256": "a63c664e12cf0bca43e135bb2b968c2a0e0c1766eca994ad41ee5050c9348318",
+          "label": "Golden hour / Epic / toward sun / frame 017"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\sky-away\\L0-Q3\\shots\\ft_L0_017.png",
+          "sha256": "a59e8ef70b553e6c15a82183e34ad46514c87336684339984f2ca0a9474b6b5a",
+          "label": "Golden hour / Epic / away from sun / frame 017"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\sky-far-Q3\\L0-Q3\\shots\\ft_L0_017.png",
+          "sha256": "d54fe6d963607f543c2b2a7f433ba2e4f72018e072bd59fe657f67f0994aa5a6",
+          "label": "Golden hour / Epic / 100 m along road / frame 017"
+        }
+      ]
+    },
+    {
+      "file": "golden-hour-far-Q3.webp",
+      "sha256": "44b22241e4a923239c6d2660125fd8ea1fca1061e4a351b869fd724fb777103d",
+      "type": "native-resolution lossless WebP",
+      "source": "K:\\Full Throttle\\PowerupsReview\\sky-far-Q3\\L0-Q3\\shots\\ft_L0_017.png",
+      "source_sha256": "d54fe6d963607f543c2b2a7f433ba2e4f72018e072bd59fe657f67f0994aa5a6"
+    },
+    {
+      "file": "golden-hour-Q0.jpg",
+      "sha256": "e7653b16609467a664c0ba8ecf220e619278ada9a6d5fa17645aeab0e92aae9c",
+      "type": "review composite",
+      "grayscale": false,
+      "sources": [
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\sky-toward\\L0-Q0\\shots\\ft_L0_017.png",
+          "sha256": "d3547f4f6bbd712b740f2c9ab8388fd22122b3d4531b9dc005356c865efb9a28",
+          "label": "Golden hour / Low / toward sun / frame 017"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\sky-away\\L0-Q0\\shots\\ft_L0_017.png",
+          "sha256": "fdf72ff35aa654ab24776bd4bf0094f753f6d55ce1beafa5484e94fd03b2900a",
+          "label": "Golden hour / Low / away from sun / frame 017"
+        },
+        {
+          "path": "K:\\Full Throttle\\PowerupsReview\\sky-far-Q0\\L0-Q0\\shots\\ft_L0_017.png",
+          "sha256": "7fab626746fa3e151295f40e9b54977c4fbe6084a9b8c6a675c82c78a88ac129",
+          "label": "Golden hour / Low / 100 m along road / frame 017"
+        }
+      ]
+    },
+    {
+      "file": "golden-hour-far-Q0.webp",
+      "sha256": "a9ccd8803ed50d94c1a3b00f488f520d09864a9673e71e998d078c1d2d2416ef",
+      "type": "native-resolution lossless WebP",
+      "source": "K:\\Full Throttle\\PowerupsReview\\sky-far-Q0\\L0-Q0\\shots\\ft_L0_017.png",
+      "source_sha256": "7fab626746fa3e151295f40e9b54977c4fbe6084a9b8c6a675c82c78a88ac129"
+    },
+    {
+      "file": "turntable-day.mp4",
+      "sha256": "9fbaedae159ab955539ccb06bc8985d400bee089c93b806eb9e698ab32baeba4",
+      "type": "4 fps screenshot sequence at original cadence",
+      "source_pattern": "K:\\Full Throttle\\PowerupsReview\\turntables-v2\\L0-Q3\\shots\\ft_L0_%03d.png"
+    }
+  ]
+}

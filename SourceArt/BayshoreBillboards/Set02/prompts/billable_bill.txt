@@ -1,0 +1,12 @@
+Create ONE finished production-quality billboard texture for the video game FULL THROTTLE, level 1 BAYSHORE. Output at 4096 x 2048 pixels, landscape exactly 2:1, the highest available native resolution. This is one large individual advertisement, NOT a sheet, grid or collage. Edge-to-edge flat front-facing billboard artwork; no surrounding street, supports, perspective, frame, outer margins, shadows or mockup. Sharp high-resolution lettering is essential for a 12 metre by 6 metre in-game sign.
+
+Bayshore is a satirical 1980s coastal resort with pastel Art Deco hotels, marina money, palms and sleazy local commerce. Art style: authentic 1980s airbrushed regional advertising, slightly cel-shaded illustrations, crisp contours, rich painterly surfaces, restrained ink accents, cheap commercial confidence. High contrast bold condensed letterforms; limited light weathering only at outer edges and behind art, never across copy.
+
+Business name EXACT: "BILLABLE BILL"
+Business descriptor EXACT: "WORKPLACE INJURY LAW"
+Huge headline EXACT, the dominant text on the left: "HURT AT WORK? CONGRATULATIONS."
+Supporting line EXACT: "Your boss finally gave you something."
+No other text, phone numbers or logos.
+
+Composition: cream, deep navy and emergency yellow, a splash of money green. Left 58 percent: enormous perfectly legible headline, name and descriptor above, supporting line below. Right 42 percent: ridiculous celebratory commercial portrait of a magnificently sleazy 1980s lawyer with feathered hair, mustache, cream double-breasted suit and gleaming gold watch. He warmly congratulates a tired adult warehouse worker in a neck brace by handing over an enormous ribbon-wrapped settlement check with blank fields, while a festive burst of tiny dollar-bill-shaped confetti rains down. In the small background an abandoned forklift has a comically bent fork, no visible injuries. The lawyer looks professionally delighted, the worker baffled. Play it totally straight as a sincere local law-firm ad. Ensure each exact wording appears once, readable and correctly spelled. Extremely clean edges and full-resolution fine print rendering. Deliver only the complete flat 4096x2048 advertising image.
+

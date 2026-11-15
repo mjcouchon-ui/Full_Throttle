@@ -1,0 +1,531 @@
+{
+  "textures": {
+    "sun": "T_BSky_Day_CumulusSun.exr",
+    "aux": "T_BSky_Day_CumulusAux.png"
+  },
+  "layout": "2 columns x 4 rows of 1024 x 512 texels; cell i at column i % 2, row i // 2, row 0 at the top",
+  "cell_world": "cell width = 2200 m of the bake frame (ortho camera), height = half of that; u to the right, v down. Shapes are built for how bsky_layout.py draws a card: 4.8-11.5 km wide (2.2-5.2x the bake frame), so a cell holds many thermals and dome generations rather than one 2 km cumulus",
+  "intended_card_width_m": [
+    4800.0,
+    11520.0
+  ],
+  "sun_exr": {
+    "R": "BACK phi 20",
+    "G": "SIDE phi 90",
+    "B": "FRONT phi 160",
+    "meaning": "sun-lit luminance per unit opacity (straight, divided by alpha, dilated into empty texels), white sun lamp, linear, half float, one common scale (sun_scale) for all three channels, not clamped",
+    "post": "Combined pass denoised by OpenImageDenoise at render time (albedo-guided; each render holds one light); texels with alpha < ~0.02 hold the alpha-weighted pull-push average of their neighbourhood, pushed with bilinear upsampling",
+    "sun_strength_w_m2": 8.3,
+    "front_sunlit_body_median_as_rendered": 1.0855886936187744,
+    "sun_scale": 0.3816918843567942,
+    "front_sunlit_body_median_stored": 0.4143603941037805,
+    "sun_scale_note": "the lamp is set so the FRONT sunlit body renders at about 1.0; the stored channels are the rendered values times sun_scale, one scale for all three, chosen so SunTint and AmbTint as specified weigh sun and sky as this sky model's direct sun and sky do",
+    "sun_scale_basis": {
+      "sun_over_sky_weight_runtime_tints": 4.05203765368255,
+      "probe": {
+        "sun_elevation_deg": 6.0,
+        "plane_radiance": {
+          "sun_facing_disc": [
+            27.88390350341797,
+            16.247238159179688,
+            6.131204605102539
+          ],
+          "sun_facing_sky": [
+            4.245203018188477,
+            3.457918882369995,
+            2.669701337814331
+          ],
+          "up_sky": [
+            1.292035460472107,
+            1.7845582962036133,
+            2.604929208755493
+          ]
+        },
+        "direct_sun_e_over_pi_rgb": [
+          23.638700485229492,
+          12.789319276809692,
+          3.461503267288208
+        ],
+        "direct_sun_irradiance_lum": 45.30939826828013,
+        "direct_sun_chroma": [
+          1.0,
+          0.5410330946407577,
+          0.1464337377366031
+        ],
+        "sky_on_sun_facing_plane_lum": 3.5683861829280854,
+        "sky_on_up_plane_lum": 1.7390787212133407
+      },
+      "sun_over_sky_weight_physical_in_texture_units": 1.5466298875187756,
+      "scale_for_physical_balance": 0.3816918843567942
+    }
+  },
+  "aux_png": {
+    "R": "sky-lit luminance per unit opacity x sky_factor (linear; 0.95 = 99.9th percentile over alpha > 0.15), +-1 LSB triangular dither before 8-bit quantisation",
+    "G": "opacity (linear, straight alpha)",
+    "B": "thickness 1 - exp(-tau / tau_ref), tau = optical depth along the card camera's (pitched) rays",
+    "A": "255",
+    "sky_factor": 0.28331932351864164,
+    "tau_ref": 12.941043853759766
+  },
+  "passes": {
+    "back": {
+      "phi_deg": 20.0,
+      "sun_dir_card": [
+        0.3401465117931366,
+        0.9345448613166809,
+        0.10452846437692642
+      ]
+    },
+    "side": {
+      "phi_deg": 90.0,
+      "sun_dir_card": [
+        0.9945219159126282,
+        6.089690434725589e-17,
+        0.10452846437692642
+      ]
+    },
+    "front": {
+      "phi_deg": 160.0,
+      "sun_dir_card": [
+        0.3401465117931366,
+        -0.9345448613166809,
+        0.10452846437692642
+      ]
+    }
+  },
+  "sky_pass": {
+    "world": "MULTIPLE_SCATTERING sky, no sun disc, strength 1, its sun at elevation 6.0 deg and phi 90 (+u side)",
+    "below_horizon": "mirrored sky x 0.25 (sea and haze under the cloud base)",
+    "environment_excluded": "transparent film: Combined holds the cloud's light only"
+  },
+  "phi_definition": "horizontal angle between the camera view direction and the sun direction; 0 = sun straight behind the card, 180 = sun straight behind the camera",
+  "lit_side_in_side_pass": "+u (right). Every pass has the sun on the +u side; mirror u when the sun is on the card's other side",
+  "sun_elevation_deg": 6.0,
+  "camera": {
+    "type": "orthographic, 2200 m wide, looking along +Y pitched up 6.0 deg (the card seen from below its base, as the game sees cards 3-12 deg up)",
+    "location_m": [
+      0.0,
+      -6000.0,
+      -188.80767933809835
+    ]
+  },
+  "cloud_base_v": 0.8,
+  "cloud_base_note": "v where the cloud base plane (110 m) crosses the card plane (the cloud's depth centre). The pitched view shows the base from below as a band: near edge above this v, far edge below it (about +-0.048 for a cloud 1 km deep). The runtime places atlas v 0.85 at the instance height (Ht * 0.35); for this bake use Ht * 0.300",
+  "cells": [
+    {
+      "index": 0,
+      "kind": "clusters3",
+      "fit_factor": 0.8069181604661348,
+      "bbox_u0_u1_v0_v1": [
+        0.0927734375,
+        0.900390625,
+        0.59765625,
+        0.84375
+      ],
+      "nearest_alpha_px_from_cell_edge": 65,
+      "max_alpha_in_24px_border": 0.0,
+      "filled_hole_px": 0,
+      "n_blobs": 724,
+      "n_hanging": 4,
+      "n_fractus": 3
+    },
+    {
+      "index": 1,
+      "kind": "wide",
+      "fit_factor": 0.8553302871270564,
+      "bbox_u0_u1_v0_v1": [
+        0.08984375,
+        0.90625,
+        0.404296875,
+        0.85546875
+      ],
+      "nearest_alpha_px_from_cell_edge": 58,
+      "max_alpha_in_24px_border": 0.0,
+      "filled_hole_px": 0,
+      "n_blobs": 1096,
+      "n_hanging": 8,
+      "n_fractus": 4
+    },
+    {
+      "index": 2,
+      "kind": "towering",
+      "fit_factor": 0.6365269808684405,
+      "bbox_u0_u1_v0_v1": [
+        0.232421875,
+        0.748046875,
+        0.11328125,
+        0.833984375
+      ],
+      "nearest_alpha_px_from_cell_edge": 56,
+      "max_alpha_in_24px_border": 0.0,
+      "filled_hole_px": 0,
+      "n_blobs": 850,
+      "n_hanging": 6,
+      "n_fractus": 5
+    },
+    {
+      "index": 3,
+      "kind": "medium",
+      "fit_factor": 0.9298088591552459,
+      "bbox_u0_u1_v0_v1": [
+        0.109375,
+        0.9130859375,
+        0.36328125,
+        0.84765625
+      ],
+      "nearest_alpha_px_from_cell_edge": 61,
+      "max_alpha_in_24px_border": 0.0,
+      "filled_hole_px": 0,
+      "n_blobs": 642,
+      "n_hanging": 2,
+      "n_fractus": 3
+    },
+    {
+      "index": 4,
+      "kind": "clusters2",
+      "fit_factor": 1.0165292837854945,
+      "bbox_u0_u1_v0_v1": [
+        0.08984375,
+        0.892578125,
+        0.5234375,
+        0.841796875
+      ],
+      "nearest_alpha_px_from_cell_edge": 69,
+      "max_alpha_in_24px_border": 0.0,
+      "filled_hole_px": 0,
+      "n_blobs": 531,
+      "n_hanging": 4,
+      "n_fractus": 3
+    },
+    {
+      "index": 5,
+      "kind": "medium",
+      "fit_factor": 0.8188875676811498,
+      "bbox_u0_u1_v0_v1": [
+        0.095703125,
+        0.8974609375,
+        0.47265625,
+        0.833984375
+      ],
+      "nearest_alpha_px_from_cell_edge": 66,
+      "max_alpha_in_24px_border": 0.0,
+      "filled_hole_px": 0,
+      "n_blobs": 494,
+      "n_hanging": 1,
+      "n_fractus": 5
+    },
+    {
+      "index": 6,
+      "kind": "congestus",
+      "fit_factor": 0.800387548163152,
+      "bbox_u0_u1_v0_v1": [
+        0.1845703125,
+        0.8125,
+        0.126953125,
+        0.83984375
+      ],
+      "nearest_alpha_px_from_cell_edge": 63,
+      "max_alpha_in_24px_border": 0.0,
+      "filled_hole_px": 11,
+      "n_blobs": 929,
+      "n_hanging": 1,
+      "n_fractus": 3
+    },
+    {
+      "index": 7,
+      "kind": "wide",
+      "fit_factor": 0.7545064838293981,
+      "bbox_u0_u1_v0_v1": [
+        0.103515625,
+        0.9052734375,
+        0.30078125,
+        0.845703125
+      ],
+      "nearest_alpha_px_from_cell_edge": 62,
+      "max_alpha_in_24px_border": 0.0,
+      "filled_hole_px": 0,
+      "n_blobs": 1036,
+      "n_hanging": 8,
+      "n_fractus": 3
+    }
+  ],
+  "medium": {
+    "density_per_m": 0.1,
+    "phase": "hg",
+    "anisotropy": 0.6,
+    "volume_bounces": 512,
+    "samples": 256,
+    "sky_samples": 256,
+    "denoiser": "OpenImageDenoise (albedo)",
+    "voxels_across_2km": 432,
+    "haze_block_base_transmission": 0.3,
+    "haze_block_top_fraction": 0.6,
+    "notes": [
+      "512 bounces: multiple scattering converges there (1024 identical); 16 bounces left BACK bodies at about 12 % of their converged sun light",
+      "extinction 0.10/m (round 1: 0.07): crisper domes at the 2.2-5x magnification the cards are drawn at; 0.07, 0.095 and 0.12 were compared",
+      "HG 0.6 kept: the dual lobe 0.7 HG(0.8) + 0.3 HG(-0.2) darkened BACK bodies by about 15 % and turned them bluer (B/R 1.08 -> 1.18 on cell 6) for under 2 % change in FRONT"
+    ]
+  },
+  "runtime": {
+    "formula": "rgb = Exposure * (sunL(phi) * SunTint + skyL * AmbTint); alpha = aux.G",
+    "sunL_phi_as_built": "phi <= 20: R; 20..90: lerp(R, G, (phi - 20) / 70); 90..160: lerp(G, B, (phi - 90) / 70); >= 160: B (M_SemiCelCloud today)",
+    "sunL_phi_recommended": "20..90: lerp(R, G, 1 - (1 - t)^2), t = (phi - 20) / 70, so the BACK rim fades as fast as forward scattering does (at phi 40 the rim keeps 51 % instead of 71 %); 90..160 linear. In M_SemiCelCloud: wB = 1 - saturate((phi - 20) / 70); wB = wB * wB",
+    "SunTint": "linear(#FFB88C) * 1.60",
+    "AmbTint": "linear(#8784BA) * 0.90",
+    "Exposure_recommended": 1.058,
+    "Exposure_basis": "median front-lit opaque cloud luminance = 1.3 x the #8F94BA preview sky (the reference's ratio)",
+    "CumulusSkyNorm": 1.0,
+    "notes": [
+      "set CardExposure to Exposure_recommended (round 1 shipped 0.58 for unscaled sun channels)",
+      "keep CumulusSkyNorm 1.0: the physical sun/sky balance is baked into sun_scale",
+      "M_SemiCelCloud also lerps toward HazeColor by Haze * (1 - exp(-dist / HazeDistance)) * 0.85, which this formula and the look sheet leave out; it moves cards 15 km and further toward pink"
+    ],
+    "skyL": "aux.R as stored (already scaled by sky_factor)",
+    "mirror": "sample u' = 1 - u inside the cell when the sun is on the card's -u side"
+  },
+  "body_luminance_median_per_cell_pass": {
+    "0_back": 0.20973363518714905,
+    "0_side": 0.15433458983898163,
+    "0_front": 0.3489401340484619,
+    "1_back": 0.1586744636297226,
+    "1_side": 0.16143850982189178,
+    "1_front": 0.34294405579566956,
+    "2_back": 0.20777510106563568,
+    "2_side": 0.20261608064174652,
+    "2_front": 0.4084879755973816,
+    "3_back": 0.16251379251480103,
+    "3_side": 0.15540599822998047,
+    "3_front": 0.4208534061908722,
+    "4_back": 0.17839355766773224,
+    "4_side": 0.19145676493644714,
+    "4_front": 0.3993462324142456,
+    "5_back": 0.19123488664627075,
+    "5_side": 0.14435890316963196,
+    "5_front": 0.3771139681339264,
+    "6_back": 0.1925441026687622,
+    "6_side": 0.22609427571296692,
+    "6_front": 0.48590755462646484,
+    "7_back": 0.17245346307754517,
+    "7_side": 0.1716679036617279,
+    "7_front": 0.31686538457870483
+  },
+  "grain_hf_std_premult_band_body_denoised_vs_noisy": {
+    "0": {
+      "back": [
+        0.16884858906269073,
+        0.0845637395977974,
+        0.17978264391422272,
+        0.10161207616329193
+      ],
+      "side": [
+        0.0193604975938797,
+        0.018704401329159737,
+        0.024963123723864555,
+        0.04463004693388939
+      ],
+      "front": [
+        0.019284328445792198,
+        0.013525663875043392,
+        0.029976660385727882,
+        0.06259568780660629
+      ],
+      "sky": [
+        0.09747431427240372,
+        0.04845865070819855,
+        0.11507538706064224,
+        0.1025400459766388
+      ]
+    },
+    "1": {
+      "back": [
+        0.14983364939689636,
+        0.04355240240693092,
+        0.16064955294132233,
+        0.05976302921772003
+      ],
+      "side": [
+        0.022601820528507233,
+        0.012733844108879566,
+        0.031734008342027664,
+        0.044154390692710876
+      ],
+      "front": [
+        0.02223595418035984,
+        0.011092018336057663,
+        0.033192478120326996,
+        0.06193689629435539
+      ],
+      "sky": [
+        0.10051963478326797,
+        0.03280264884233475,
+        0.11799327284097672,
+        0.09786269068717957
+      ]
+    },
+    "2": {
+      "back": [
+        0.12801048159599304,
+        0.04173451289534569,
+        0.138479545712471,
+        0.06631246954202652
+      ],
+      "side": [
+        0.01995987817645073,
+        0.010600141249597073,
+        0.030055707320570946,
+        0.05063438415527344
+      ],
+      "front": [
+        0.015923259779810905,
+        0.009899590164422989,
+        0.027582209557294846,
+        0.06754911690950394
+      ],
+      "sky": [
+        0.08848278224468231,
+        0.028608422726392746,
+        0.10941079258918762,
+        0.11132098734378815
+      ]
+    },
+    "3": {
+      "back": [
+        0.15406139194965363,
+        0.05228126421570778,
+        0.1650470644235611,
+        0.06875880807638168
+      ],
+      "side": [
+        0.01942235417664051,
+        0.012958123348653316,
+        0.02602778933942318,
+        0.04600081965327263
+      ],
+      "front": [
+        0.018860971555113792,
+        0.0100824860855937,
+        0.029727324843406677,
+        0.07422391325235367
+      ],
+      "sky": [
+        0.09101602435112,
+        0.03591831773519516,
+        0.1073770672082901,
+        0.1028704047203064
+      ]
+    },
+    "4": {
+      "back": [
+        0.15954892337322235,
+        0.07490111142396927,
+        0.172466441988945,
+        0.09034524112939835
+      ],
+      "side": [
+        0.020250709727406502,
+        0.018093788996338844,
+        0.0299938153475523,
+        0.04692750424146652
+      ],
+      "front": [
+        0.0196098480373621,
+        0.012865542434155941,
+        0.02906685695052147,
+        0.06828155368566513
+      ],
+      "sky": [
+        0.09069374203681946,
+        0.049512963742017746,
+        0.11090594530105591,
+        0.1063062846660614
+      ]
+    },
+    "5": {
+      "back": [
+        0.1575232893228531,
+        0.06073293089866638,
+        0.16623850166797638,
+        0.08062518388032913
+      ],
+      "side": [
+        0.022970259189605713,
+        0.016453085467219353,
+        0.029241589829325676,
+        0.04499565437436104
+      ],
+      "front": [
+        0.023669607937335968,
+        0.013033316470682621,
+        0.032923486083745956,
+        0.06916550546884537
+      ],
+      "sky": [
+        0.10370528697967529,
+        0.04070420190691948,
+        0.11864544451236725,
+        0.09973571449518204
+      ]
+    },
+    "6": {
+      "back": [
+        0.16942349076271057,
+        0.056478872895240784,
+        0.17905084788799286,
+        0.07289239764213562
+      ],
+      "side": [
+        0.026991115882992744,
+        0.012897414155304432,
+        0.036839596927165985,
+        0.05093184858560562
+      ],
+      "front": [
+        0.02469720132648945,
+        0.011308137327432632,
+        0.03595125675201416,
+        0.07915184646844864
+      ],
+      "sky": [
+        0.1103249043226242,
+        0.03179126977920532,
+        0.12784448266029358,
+        0.11181942373514175
+      ]
+    },
+    "7": {
+      "back": [
+        0.12838777899742126,
+        0.05459515005350113,
+        0.13753926753997803,
+        0.06846410036087036
+      ],
+      "side": [
+        0.022007722407579422,
+        0.014993756078183651,
+        0.029452744871377945,
+        0.05477938428521156
+      ],
+      "front": [
+        0.014788555912673473,
+        0.009426978416740894,
+        0.023513104766607285,
+        0.062465738505125046
+      ],
+      "sky": [
+        0.08713103830814362,
+        0.03455571085214615,
+        0.10641083121299744,
+        0.11163058876991272
+      ]
+    }
+  },
+  "round_trip": {
+    "png_max_abs_diff_per_channel": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "exr_half_max_rel_diff": 0.00048804294783622026
+  }
+}

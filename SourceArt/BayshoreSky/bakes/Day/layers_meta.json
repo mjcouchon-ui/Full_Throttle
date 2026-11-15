@@ -1,0 +1,256 @@
+{
+  "layers": {
+    "alto": {
+      "light_texture": "T_BSky_Day_AltoLight.exr",
+      "alpha_texture": "T_BSky_Day_AltoAlpha.png",
+      "size": [
+        2048,
+        2048
+      ],
+      "tile_size_cm": 2400000.0,
+      "altitude_cm": 250000.0,
+      "theta_deg": 13.3,
+      "sun_elevation_deg": 6.0,
+      "tauScaleRef": 10.0,
+      "B": "max(tau, 0.85 x tau Gaussian-blurred over 6.0 texels) / tauScaleRef (phase-blend depth: thin rims of thick cells count as thick; Alpha is still 1 - exp(-tau))",
+      "light_scale": 1.0,
+      "sun_factor": 0.31,
+      "sun_strength_W_m2": 21.669,
+      "slab_m": [
+        2280.0,
+        2820.0
+      ],
+      "sigma_per_m": 0.017,
+      "soft_m": 30.0,
+      "stats": {
+        "coverage_opacity_gt_0.5": 0.0693659782409668,
+        "coverage_gt_0.15": 0.10835480690002441,
+        "coverage_gt_0.1": 0.11691927909851074,
+        "coverage_gt_0.02": 0.142348051071167,
+        "opacity_mean": 0.06763999909162521,
+        "opacity_p10_p50_p90_over_gt_0.02": [
+          0.0537562370300293,
+          0.48273539543151855,
+          0.8920307159423828
+        ],
+        "film_alpha_vs_tau_alpha_mean_abs": 0.0035218223929405212,
+        "sunY_p50_p95_p99_over_gt_0.05": [
+          0.2458706945180893,
+          0.9326198697090149,
+          1.263170838356018
+        ],
+        "skyY_p50_p95_p99_over_gt_0.05": [
+          1.026052474975586,
+          1.4564625024795532,
+          2.1555581092834473
+        ],
+        "tau_p50_p90_p99_over_gt_0.02": [
+          0.6592007279396057,
+          2.2259085178375244,
+          3.192415237426758
+        ],
+        "fireflies_removed_sun_sky": [
+          5430,
+          503
+        ],
+        "dark_specks_fixed_sun_sky": [
+          1,
+          0
+        ],
+        "thin_texels_clamped_sun_sky": [
+          19526,
+          2427
+        ],
+        "png_round_trip_max_err": 0,
+        "exr_half_round_trip_rel_err": 0.00033105205511674285,
+        "seam_alpha": {
+          "u_wrap": 0.0034476183354854584,
+          "u_interior": 0.006905420683324337,
+          "v_wrap": 0.011834623292088509,
+          "v_interior": 0.00981924682855606
+        },
+        "seam_sunY": {
+          "u_wrap": 0.006924881599843502,
+          "u_interior": 0.010236766189336777,
+          "v_wrap": 0.010559646412730217,
+          "v_interior": 0.013729805126786232
+        },
+        "seam_skyY": {
+          "u_wrap": 0.01305692084133625,
+          "u_interior": 0.016949711367487907,
+          "v_wrap": 0.01940971612930298,
+          "v_interior": 0.023856770247220993
+        },
+        "seam_tauN": {
+          "u_wrap": 0.0005828288267366588,
+          "u_interior": 0.0013440463226288557,
+          "v_wrap": 0.0023054059129208326,
+          "v_interior": 0.0019076161552220583
+        }
+      }
+    },
+    "cirrus": {
+      "light_texture": "T_BSky_Day_CirrusLight.exr",
+      "alpha_texture": "T_BSky_Day_CirrusAlpha.png",
+      "size": [
+        2048,
+        2048
+      ],
+      "tile_size_cm": 4800000.0,
+      "altitude_cm": 700000.0,
+      "theta_deg": 28.3,
+      "sun_elevation_deg": 6.0,
+      "tauScaleRef": 10.0,
+      "B": "tau / tauScaleRef",
+      "light_scale": 1.0,
+      "sun_factor": 0.31,
+      "sun_strength_W_m2": 28.395999999999997,
+      "slab_m": [
+        6650.0,
+        7350.0
+      ],
+      "sigma_per_m": 0.004,
+      "soft_m": 40.0,
+      "stats": {
+        "coverage_opacity_gt_0.5": 0.026701688766479492,
+        "coverage_gt_0.15": 0.12564587593078613,
+        "coverage_gt_0.1": 0.1543266773223877,
+        "coverage_gt_0.02": 0.23817849159240723,
+        "opacity_mean": 0.0541965514421463,
+        "opacity_p10_p50_p90_over_gt_0.02": [
+          0.034509193152189255,
+          0.16358596086502075,
+          0.5252909660339355
+        ],
+        "film_alpha_vs_tau_alpha_mean_abs": 0.003992275334894657,
+        "sunY_p50_p95_p99_over_gt_0.05": [
+          0.6473755836486816,
+          1.0746469497680664,
+          1.2872042655944824
+        ],
+        "skyY_p50_p95_p99_over_gt_0.05": [
+          0.9704039692878723,
+          1.1304011344909668,
+          1.2732224464416504
+        ],
+        "tau_p50_p90_p99_over_gt_0.02": [
+          0.17863152921199799,
+          0.7450532913208008,
+          1.760376214981079
+        ],
+        "fireflies_removed_sun_sky": [
+          4152,
+          201
+        ],
+        "dark_specks_fixed_sun_sky": [
+          0,
+          0
+        ],
+        "thin_texels_clamped_sun_sky": [
+          23433,
+          251
+        ],
+        "png_round_trip_max_err": 0,
+        "exr_half_round_trip_rel_err": 0.00039217702578753233,
+        "seam_alpha": {
+          "u_wrap": 0.0005172602832317352,
+          "u_interior": 0.0009298117365688086,
+          "v_wrap": 0.007173685356974602,
+          "v_interior": 0.009517865255475044
+        },
+        "seam_sunY": {
+          "u_wrap": 0.002362404949963093,
+          "u_interior": 0.0033284034579992294,
+          "v_wrap": 0.014712575823068619,
+          "v_interior": 0.010124633088707924
+        },
+        "seam_skyY": {
+          "u_wrap": 0.001756640151143074,
+          "u_interior": 0.00210694782435894,
+          "v_wrap": 0.013901539146900177,
+          "v_interior": 0.00773618184030056
+        },
+        "seam_tauN": {
+          "u_wrap": 6.924162153154612e-05,
+          "u_interior": 0.0001426518865628168,
+          "v_wrap": 0.0009861428989097476,
+          "v_interior": 0.001528488821350038
+        }
+      }
+    }
+  },
+  "what": "BayshoreSky periodic cloud layers (altocumulus deck, cirrus): baked from below, vertical view (round 2)",
+  "channels": {
+    "Light.R": "sunY: sun light-group luminance per unit opacity (white Sun lamp of layers.<key>.sun_strength_W_m2), x light_scale",
+    "Light.G": "skyY: sky light-group luminance per unit opacity (multiple-scattering sky, no disc, strength 1), x light_scale",
+    "Light.B": "tauN = phase-blend optical depth / tauScaleRef (10 for both layers); see layers.<key>.B",
+    "Alpha": "opacity = 1 - exp(-tau), tau the vertical optical depth; 8-bit grey, straight"
+  },
+  "texture_axes": "column = U (left to right), row = V (row 0 at the top); aV = (-aU.y, aU.x)",
+  "sky_strength": 1.0,
+  "sky_model": "Blender MULTIPLE_SCATTERING, aerosol 1.6, altitude = layer altitude",
+  "phase_baked": "0.7 HG(0.8) + 0.3 HG(-0.2)",
+  "cBake": 0.10452846326765347,
+  "sun_strength_rule": "sky model sun-disc normal irradiance at the layer (luminance, sun 6 deg: sun_phys) x sun_factor; the sun light group is linear in the lamp, so compose rescales the render to the shipped factor",
+  "sun_phys": {
+    "alto": 69.9,
+    "cirrus": 91.6
+  },
+  "runtime": {
+    "Rc_cm": 30000000.0,
+    "camera_height_cm": 600.0,
+    "composite_order": [
+      "cirrus",
+      "alto"
+    ],
+    "SunTint": "linear(#FFB88C) * 1.6",
+    "AmbTint": "linear(#8784BA) * 0.9",
+    "phase": "HG2(c) = 0.7 HG(c, 0.8) + 0.3 HG(c, -0.2); ratio = HG2(c) / HG2(cBake), capped at 24",
+    "ws": "exp(-B * TauScale), the same TauScale for both layers",
+    "alto": {
+      "TileSize_cm": 2400000.0,
+      "altitude_cm": 250000.0,
+      "aU_azimuth_deg": 16.7,
+      "speed_cm_s": 600.0,
+      "offset": [
+        0.0,
+        0.0
+      ],
+      "theta_deg": 13.3
+    },
+    "cirrus": {
+      "TileSize_cm": 4800000.0,
+      "altitude_cm": 700000.0,
+      "aU_azimuth_deg": 1.7,
+      "speed_cm_s": 1320.0,
+      "offset": [
+        0.37,
+        0.37
+      ],
+      "theta_deg": 28.3
+    }
+  },
+  "recommended": {
+    "Exposure": 0.45,
+    "TauScale": 50.0,
+    "AltoCoverage": 1.0,
+    "CirrusCoverage": 1.0,
+    "SunTint": "unchanged: linear(#FFB88C) * 1.6 (a SunTint near #FFA38C would reach R7's more saturated salmon cores)",
+    "AmbTint": "unchanged: linear(#8784BA) * 0.9",
+    "Haze": "unchanged: 0.3 with the 2.5e6 cm falloff; ratio cap 24",
+    "note": "One Exposure and one TauScale for both layers: the same tauScaleRef (10), the same sun factor (0.31) and light_scale 1, so both layers share one physical scale. The clear sky between deck groups and between cirrus bundles is now in the bake, so the runtime cloud fields (MPC AltoCoverage / CirrusCoverage) should be off (1.0); with them on, the layers thin out twice. In unreal/30_materials.py terms: c1 and c2 both use exp(-L.b * 50.0 * TauScale) with CloudTauScale = 1 (replace the 10.0 and 4.0 constants: B now uses tauScaleRef 10 for the cirrus too), and CirrusExposure = CloudExposure = 0.45. Recheck Exposure once in-engine with the real tone mapper (the previews view col / (1 + 0.15 col))."
+  },
+  "sun_factor_note": "0.247 = lum(AmbTint)/lum(SunTint) would make the tinted sun/sky balance physical; 1.0 = plain physical sun. Round 2: 0.31 for both layers (was 0.5). After the tints the self-shadowed deck's in-cloud sun:sky luminance is ~1:1 at the median (p95 ~3:1, its lit edges), as R7's mauve altocumulus patches; the unshadowed thin cirrus comes out ~2.6:1, salmon like R7's brightest cirrus cores (223, 161, 170).",
+  "bake": {
+    "renderer": "Blender 5.2 Cycles, OptiX, null-scattering volumes, 16 volume bounces, light tree off, indirect sample clamp 0",
+    "camera": "orthographic, straight up from below the slab, frame = one tile, box pixel filter 1 px",
+    "volume": "2.5D height-field clouds from periodic 2D maps (base, top, density), REPEAT image lookups, smoothstep ramp over 'soft' m inside base and top; slab box one tile past the tile on every side with black walls on its sides (an endless layer for the 6 deg sun)",
+    "spp": {
+      "alto": 256,
+      "cirrus": 512
+    },
+    "tau": "analytic from the maps (the density has no sub-texel detail, so this is exact), averaged over the render's 1-pixel box; the emission render (camera ray integrates extinction) is a check"
+  },
+  "processing": "sunY rescaled to the shipped sun factor; fireflies (texel > 3x its brightest wrapped neighbour) clamped; straight = premultiplied / (1 - exp(-tau)); thin texels (opacity < 0.4) at most 2.5x the median of the cloud texels in their 9x9 window (before and after filtering); guided filter (r 2, eps 0.02, log space, guide log tau); dark specks (cloud texel < 0.35x its 5x5 median) take the median; texels under ~6 % opacity take a periodic pull-push fill; x light_scale",
+  "light_scale_note": "R and G share one linear scale in both textures: the same sun factor (x each altitude's own sky-model sun irradiance), sky strength 1, light_scale 1; one runtime Exposure fits both"
+}

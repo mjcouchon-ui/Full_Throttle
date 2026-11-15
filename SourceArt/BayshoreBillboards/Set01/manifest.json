@@ -1,0 +1,270 @@
+{
+  "name": "Bayshore Billboards Set 01",
+  "target": "Full Throttle / Bayshore / Unreal Engine 5.9 / Windows",
+  "source_project": "K:/Full Throttle/UE/full-throttle-unreal",
+  "source_sheet_dimensions": [
+    1774,
+    887
+  ],
+  "source_sheet_sha256": "ea09953de1da4513365e58140c73fc31edaa9d60ce789931b1e246b3ac28c3aa",
+  "submitted_sheet_pixels_match_previously_saved_generation": true,
+  "provenance": "User supplied the nine-ad sheet originally produced by the built-in image generator in this chat. Cropping/upscaling follows the user-approved local image-processing workflow. Exact original generation prompt retained.",
+  "resolution_limit": "Each ad has only 581-584 by 286-289 source pixels. Output dimensions do not represent native 2K detail. These have less source detail than Set02 standalone images.",
+  "validation": "All nine PNGs decode as 2048x1024 RGB with sRGB profiles. Crop boundaries, copy preservation and contact sheet reviewed. Importer syntax checked; not run in Unreal. No in-level visual or performance validation.",
+  "suggested_import": {
+    "compression": "BC7",
+    "srgb": true,
+    "mipmaps": true,
+    "streaming": true,
+    "max_texture_size": 2048,
+    "lod_group": "World",
+    "address_x": "Clamp",
+    "address_y": "Clamp"
+  },
+  "estimated_bc7_bytes_per_texture_with_full_mip_chain": 2796240,
+  "assets": [
+    {
+      "name": "Len Fender",
+      "headline": "STAY DOWN. I'M ON MY WAY.",
+      "texture": "textures_2k/T_BB_LenFender_BC.png",
+      "source_crop": "source_crops/LenFender.png",
+      "source_crop_box_ltrb_exclusive": [
+        3,
+        3,
+        584,
+        291
+      ],
+      "source_crop_dimensions": [
+        581,
+        288
+      ],
+      "texture_dimensions": [
+        2048,
+        1024
+      ],
+      "mode": "RGB",
+      "alpha": false,
+      "color_space": "sRGB",
+      "native_2k": false,
+      "processing": "Exact submitted ad crop; LANCZOS resize with minor 2:1 aspect normalization. No redraw, sharpening, or synthesized detail.",
+      "texture_sha256": "27fd5c2171b8ba6ebb492be6122059a7b36d7afca3029f30f44802e05f40138e",
+      "texture_bytes": 2575301
+    },
+    {
+      "name": "Dick Settle",
+      "headline": "YOUR PAIN. MY BOAT.",
+      "texture": "textures_2k/T_BB_DickSettle_BC.png",
+      "source_crop": "source_crops/DickSettle.png",
+      "source_crop_box_ltrb_exclusive": [
+        595,
+        3,
+        1178,
+        291
+      ],
+      "source_crop_dimensions": [
+        583,
+        288
+      ],
+      "texture_dimensions": [
+        2048,
+        1024
+      ],
+      "mode": "RGB",
+      "alpha": false,
+      "color_space": "sRGB",
+      "native_2k": false,
+      "processing": "Exact submitted ad crop; LANCZOS resize with minor 2:1 aspect normalization. No redraw, sharpening, or synthesized detail.",
+      "texture_sha256": "6d8d5babd36766d9662d776febd1bb0a532128707e27d0887baf664b9fd3576d",
+      "texture_bytes": 2617413
+    },
+    {
+      "name": "Rear-End Rick",
+      "headline": "READING THIS WHEN YOU CRASHED?",
+      "texture": "textures_2k/T_BB_RearEndRick_BC.png",
+      "source_crop": "source_crops/RearEndRick.png",
+      "source_crop_box_ltrb_exclusive": [
+        1189,
+        3,
+        1773,
+        291
+      ],
+      "source_crop_dimensions": [
+        584,
+        288
+      ],
+      "texture_dimensions": [
+        2048,
+        1024
+      ],
+      "mode": "RGB",
+      "alpha": false,
+      "color_space": "sRGB",
+      "native_2k": false,
+      "processing": "Exact submitted ad crop; LANCZOS resize with minor 2:1 aspect normalization. No redraw, sharpening, or synthesized detail.",
+      "texture_sha256": "6450c2db6e85f0d23f0641f8c4aaf5260a88aa6c875395b0c2877ee3f8a99be0",
+      "texture_bytes": 2658426
+    },
+    {
+      "name": "The Loose Pelican",
+      "headline": "BLOW YOUR SETTLEMENT HERE.",
+      "texture": "textures_2k/T_BB_LoosePelican_BC.png",
+      "source_crop": "source_crops/LoosePelican.png",
+      "source_crop_box_ltrb_exclusive": [
+        3,
+        301,
+        584,
+        590
+      ],
+      "source_crop_dimensions": [
+        581,
+        289
+      ],
+      "texture_dimensions": [
+        2048,
+        1024
+      ],
+      "mode": "RGB",
+      "alpha": false,
+      "color_space": "sRGB",
+      "native_2k": false,
+      "processing": "Exact submitted ad crop; LANCZOS resize with minor 2:1 aspect normalization. No redraw, sharpening, or synthesized detail.",
+      "texture_sha256": "60e8dd2bcbe43968d6e1843e012a7252e26fba9927edee193fa137c2cae95a26",
+      "texture_bytes": 2784396
+    },
+    {
+      "name": "Second Mortgage Casino",
+      "headline": "COLLEGE ISN'T FOR EVERYONE.",
+      "texture": "textures_2k/T_BB_SecondMortgage_BC.png",
+      "source_crop": "source_crops/SecondMortgage.png",
+      "source_crop_box_ltrb_exclusive": [
+        595,
+        301,
+        1178,
+        590
+      ],
+      "source_crop_dimensions": [
+        583,
+        289
+      ],
+      "texture_dimensions": [
+        2048,
+        1024
+      ],
+      "mode": "RGB",
+      "alpha": false,
+      "color_space": "sRGB",
+      "native_2k": false,
+      "processing": "Exact submitted ad crop; LANCZOS resize with minor 2:1 aspect normalization. No redraw, sharpening, or synthesized detail.",
+      "texture_sha256": "e7ecf3255fdcca4312fb4a5ef37277f9fc5e2cf5ff4e93e6960e97b183c7df58",
+      "texture_bytes": 2632838
+    },
+    {
+      "name": "The Sinking Fund",
+      "headline": "THE ATM BELIEVES IN YOU.",
+      "texture": "textures_2k/T_BB_SinkingFund_BC.png",
+      "source_crop": "source_crops/SinkingFund.png",
+      "source_crop_box_ltrb_exclusive": [
+        1189,
+        301,
+        1773,
+        590
+      ],
+      "source_crop_dimensions": [
+        584,
+        289
+      ],
+      "texture_dimensions": [
+        2048,
+        1024
+      ],
+      "mode": "RGB",
+      "alpha": false,
+      "color_space": "sRGB",
+      "native_2k": false,
+      "processing": "Exact submitted ad crop; LANCZOS resize with minor 2:1 aspect normalization. No redraw, sharpening, or synthesized detail.",
+      "texture_sha256": "3e84f8183c7078076b7e30ec3bbda60711cd5b1e9122cb18b4afd54dca62616a",
+      "texture_bytes": 2568194
+    },
+    {
+      "name": "Captain Shuck's",
+      "headline": "WE SHUCK. YOU SUCK.",
+      "texture": "textures_2k/T_BB_CaptainShucks_BC.png",
+      "source_crop": "source_crops/CaptainShucks.png",
+      "source_crop_box_ltrb_exclusive": [
+        3,
+        600,
+        584,
+        886
+      ],
+      "source_crop_dimensions": [
+        581,
+        286
+      ],
+      "texture_dimensions": [
+        2048,
+        1024
+      ],
+      "mode": "RGB",
+      "alpha": false,
+      "color_space": "sRGB",
+      "native_2k": false,
+      "processing": "Exact submitted ad crop; LANCZOS resize with minor 2:1 aspect normalization. No redraw, sharpening, or synthesized detail.",
+      "texture_sha256": "a07936d00e8b8356f481117808d31eadce8396014e392c8c5ce1270b55d78ba3",
+      "texture_bytes": 2729298
+    },
+    {
+      "name": "Burn Notice",
+      "headline": "YOUR ASS HAS A SEQUEL.",
+      "texture": "textures_2k/T_BB_BurnNotice_BC.png",
+      "source_crop": "source_crops/BurnNotice.png",
+      "source_crop_box_ltrb_exclusive": [
+        595,
+        600,
+        1178,
+        886
+      ],
+      "source_crop_dimensions": [
+        583,
+        286
+      ],
+      "texture_dimensions": [
+        2048,
+        1024
+      ],
+      "mode": "RGB",
+      "alpha": false,
+      "color_space": "sRGB",
+      "native_2k": false,
+      "processing": "Exact submitted ad crop; LANCZOS resize with minor 2:1 aspect normalization. No redraw, sharpening, or synthesized detail.",
+      "texture_sha256": "04a313930c2bf5e055157deaa6a5e8751afd28770a8eb52f5c67943439e086f8",
+      "texture_bytes": 2712743
+    },
+    {
+      "name": "Big Dick's",
+      "headline": "FINALLY. TWELVE HONEST INCHES.",
+      "texture": "textures_2k/T_BB_BigDicks_BC.png",
+      "source_crop": "source_crops/BigDicks.png",
+      "source_crop_box_ltrb_exclusive": [
+        1189,
+        600,
+        1773,
+        886
+      ],
+      "source_crop_dimensions": [
+        584,
+        286
+      ],
+      "texture_dimensions": [
+        2048,
+        1024
+      ],
+      "mode": "RGB",
+      "alpha": false,
+      "color_space": "sRGB",
+      "native_2k": false,
+      "processing": "Exact submitted ad crop; LANCZOS resize with minor 2:1 aspect normalization. No redraw, sharpening, or synthesized detail.",
+      "texture_sha256": "ce1199cc5c069f3e8a51d7013d2ca9bc162cdba0bb95b4e408779409656702d9",
+      "texture_bytes": 2553652
+    }
+  ]
+}

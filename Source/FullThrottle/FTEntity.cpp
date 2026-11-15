@@ -4,15 +4,150 @@
 #include "Engine/StaticMesh.h"
 #include "NiagaraComponent.h"
 #include "NiagaraSystem.h"
+#include "NiagaraFunctionLibrary.h"
+#include "HAL/IConsoleManager.h"
 #include "Materials/MaterialInterface.h"
 #include "UObject/ConstructorHelpers.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "FTPlayerCar.h"
 
 namespace
 {
+	TAutoConsoleVariable<int32> CVarPickupMotion(TEXT("ft.PickupMotion"), 1, TEXT("Pickup visual bob and rocking; 0 for comparison."));
+	TAutoConsoleVariable<int32> CVarPickupBurst(TEXT("ft.PickupBurst"), 1, TEXT("Pickup collection chips; always disabled at Low effects quality."));
+	TAutoConsoleVariable<float> CVarPickupLight(TEXT("ft.PickupLight"), 2.f, TEXT("Existing unshadowed pickup light intensity in candelas; 0 disables it. Off at Low effects quality."));
+	float PickupLightIntensity()
+	{
+		const IConsoleVariable* Quality = IConsoleManager::Get().FindConsoleVariable(TEXT("sg.EffectsQuality"));
+		return Quality && Quality->GetInt() == 0 ? 0.f : FMath::Max(0.f, CVarPickupLight.GetValueOnGameThread());
+	}
 	template <typename T> T* Load(const FString& Path)
 	{
 		return Cast<T>(StaticLoadObject(T::StaticClass(), nullptr, *Path, nullptr, LOAD_NoWarn | LOAD_Quiet));
 	}
+	/** A mesh loaded once and kept (rooted: a plain static cache is invisible to the GC, see MeshFor). */
+	UStaticMesh* Kept(const TCHAR* Path)
+	{
+		static TMap<FString, UStaticMesh*> Cache;
+		if (UStaticMesh** F = Cache.Find(Path)) return *F;
+		UStaticMesh* M = Load<UStaticMesh>(Path);
+		if (M) M->AddToRoot();
+		Cache.Add(Path, M);
+		return M;
+	}
+
+	// 3.3 where the moving bits sit on their models (ft_v33.py reports them; model space, cm)
+	const FVector HeliRotorHub(0.f, 0.f, 306.f);
+	const FVector HeliTailHub(-641.f, 18.f, 280.f);
+	const FVector HeliRope[2] = { FVector(8.f, -162.f, 203.f), FVector(8.f, 162.f, 203.f) };
+	const FVector TeslaTop(440.f - 625.f, 0.f, 880.f);
+	const FVector ClownProps[4] = { FVector(150.f - 625.f, -400.f, 620.f), FVector(150.f - 625.f, 400.f, 620.f), FVector(1090.f - 625.f, -400.f, 620.f), FVector(1090.f - 625.f, 400.f, 620.f) };
+	constexpr int32 NumClownProps = 4;
+	const FVector HenchHand(0.f, 0.f, 236.f);   // the henchman's raised hand on the rope
+
+	UStaticMeshComponent* MakeBit(AActor* Owner, USceneComponent* Parent)
+	{
+		UStaticMeshComponent* C = NewObject<UStaticMeshComponent>(Owner);
+		C->SetupAttachment(Parent);
+		C->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		C->SetGenerateOverlapEvents(false);
+		C->bAffectDistanceFieldLighting = false;   // 2.8 perf (see AFTEntityActor)
+		C->bAffectDynamicIndirectLighting = false;
+		C->SetMobility(EComponentMobility::Movable);
+		C->RegisterComponent();
+		Owner->AddInstanceComponent(C);
+		return C;
+	}
+
+	/** Content/Data/wheels.json (ft_v33.py): body mesh path -> its wheels [x, y, z, r, w]. */
+	const TMap<FString, TArray<AFTEntityActor::FWheelDef>>& WheelTable()
+	{
+		static TMap<FString, TArray<AFTEntityActor::FWheelDef>> T;
+		static bool bLoaded = false;
+		if (bLoaded) return T;
+		bLoaded = true;
+		FString Text;
+		const FString Path = FPaths::Combine(FPaths::ProjectContentDir(), TEXT("Data"), TEXT("wheels.json"));
+		TSharedPtr<FJsonObject> J;
+		if (!FFileHelper::LoadFileToString(Text, *Path) || !FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Text), J) || !J.IsValid())
+		{
+			UE_LOG(LogFT, Warning, TEXT("FT LOAD data=wheels.json result=missing path=%s"), *Path);
+			return T;
+		}
+		for (const TPair<FString, TSharedPtr<FJsonValue>>& P : J->Values)
+		{
+			const TArray<TSharedPtr<FJsonValue>>* Arr = nullptr;
+			if (!P.Value.IsValid() || !P.Value->TryGetArray(Arr)) continue;
+			TArray<AFTEntityActor::FWheelDef>& L = T.Add(P.Key);
+			for (const TSharedPtr<FJsonValue>& V : *Arr)
+			{
+				const TArray<TSharedPtr<FJsonValue>>* N = nullptr;
+				if (!V.IsValid() || !V->TryGetArray(N) || N->Num() < 5) continue;
+				AFTEntityActor::FWheelDef W;
+				W.C = FVector((*N)[0]->AsNumber(), (*N)[1]->AsNumber(), (*N)[2]->AsNumber());
+				W.R = (*N)[3]->AsNumber(); W.W = (*N)[4]->AsNumber();
+				L.Add(W);
+			}
+		}
+		UE_LOG(LogFT, Display, TEXT("FT LOAD data=wheels.json result=ok meshes=%d"), T.Num());
+		return T;
+	}
+
+	UNiagaraSystem* PickupSystem(EFTKind Kind)
+	{
+		static UNiagaraSystem* Systems[2] = {};
+		const int32 Index = Kind == EFTKind::Wrench ? 1 : 0;
+		if (!Systems[Index])
+		{
+			Systems[Index] = Load<UNiagaraSystem>(Index ? TEXT("/Game/FX/Pickups/NS_PickupRepair") : TEXT("/Game/FX/Pickups/NS_PickupMissile"));
+			if (Systems[Index]) Systems[Index]->AddToRoot();
+		}
+		return Systems[Index];
+	}
+}
+
+void AFTEntityActor::WarmPickups(AActor* Owner)
+{
+	if (!Owner || !Owner->GetWorld()) return;
+	// Submit the exact mesh and sprite vertex-factory PSOs during level setup, before pickups spawn.
+	for (EFTKind K : { EFTKind::Crate, EFTKind::Wrench })
+	{
+		UStaticMeshComponent* WarmMesh = NewObject<UStaticMeshComponent>(Owner);
+		Owner->AddInstanceComponent(WarmMesh);
+		WarmMesh->SetupAttachment(Owner->GetRootComponent());
+		WarmMesh->SetMobility(EComponentMobility::Movable);
+		WarmMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		WarmMesh->SetHiddenInGame(true);
+		WarmMesh->SetStaticMesh(MeshFor(K, 0, 0));
+		WarmMesh->RegisterComponent();
+		WarmMesh->PrecachePSOs();
+		if (UNiagaraSystem* System = PickupSystem(K))
+		{
+			UNiagaraComponent* WarmFX = NewObject<UNiagaraComponent>(Owner);
+			Owner->AddInstanceComponent(WarmFX);
+			WarmFX->SetupAttachment(Owner->GetRootComponent());
+			WarmFX->SetAutoActivate(false);
+			WarmFX->SetHiddenInGame(true);
+			WarmFX->SetAsset(System);
+			WarmFX->RegisterComponent();
+			WarmFX->PrecachePSOs();
+			// System PostLoad primes its configured pool; the world manager's helper is not an exported API.
+		}
+	}
+}
+
+void AFTEntityActor::PickupBurst(UWorld* World, EFTKind Kind, const FTransform& At)
+{
+	if (!World || (Kind != EFTKind::Crate && Kind != EFTKind::Wrench) || CVarPickupBurst.GetValueOnGameThread() == 0) return;
+	const IConsoleVariable* Quality = IConsoleManager::Get().FindConsoleVariable(TEXT("sg.EffectsQuality"));
+	if (Quality && Quality->GetInt() == 0) return;
+	if (UNiagaraSystem* System = PickupSystem(Kind))
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(World, System, At.TransformPosition(FVector(0, 0, 70)),
+			At.Rotator(), FVector::OneVector, true, true, ENCPoolMethod::AutoRelease);
 }
 
 UStaticMesh* AFTEntityActor::MeshFor(EFTKind Kind, int32 Variant, int32 Level)
@@ -106,7 +241,9 @@ AFTEntityActor::AFTEntityActor()
 void AFTEntityActor::Setup(EFTKind InKind, int32 InVariant, int32 Level)
 {
 	Kind = InKind; Variant = InVariant; Lvl = Level; AnimT = 0.f;
-	if (bTracerColoured) { Mesh->EmptyOverrideMaterials(); bTracerColoured = false; }
+	// 3.3 bug fix: SetGlow/SetTracer leave dynamic material instances on the slots; a pooled actor reused for another
+	// kind kept them, so a car could come back wearing the last one's paint. Any override goes on reuse.
+	if (bTracerColoured || Mesh->GetNumOverrideMaterials() > 0 || Kind == EFTKind::Crate || Kind == EFTKind::Wrench) { Mesh->EmptyOverrideMaterials(); bTracerColoured = false; }
 	Mesh->SetStaticMesh(MeshFor(Kind, Variant, Level));
 	Mesh->SetRelativeTransform(FTransform::Identity);
 	Mesh->SetCastShadow(Kind != EFTKind::Bullet && Kind != EFTKind::Missile);
@@ -115,7 +252,27 @@ void AFTEntityActor::Setup(EFTKind InKind, int32 InVariant, int32 Level)
 	Charge = 0.f; YetiPhase = 0.f;
 	Trail->Deactivate();
 	Light->SetVisibility(false);
+	Light->SetRelativeLocation(FVector::ZeroVector);
 	SetActorHiddenInGame(false);
+	// 3.3: whatever this pooled actor carried last time goes away
+	for (UStaticMeshComponent* C : Bits) if (C) { C->SetVisibility(false); C->EmptyOverrideMaterials(); C->SetRelativeTransform(FTransform::Identity); C->SetUsingAbsoluteLocation(false); C->SetUsingAbsoluteRotation(false); C->SetUsingAbsoluteScale(false); }
+	Extra->SetUsingAbsoluteLocation(false); Extra->SetUsingAbsoluteRotation(false); Extra->SetUsingAbsoluteScale(false);
+	Extra->EmptyOverrideMaterials();
+	WheelSpec.Reset();
+	for (UStaticMeshComponent* C : Wheels) if (C) C->SetVisibility(false);
+	for (UStaticMeshComponent* C : Struts) if (C) C->SetVisibility(false);
+	LastGlow = -1.f;
+	SRoll = SRollV = SPitch = SPitchV = SHeave = SHeaveV = 0.f; bSusInit = false; WheelSpin = 0.f; TeslaCharge = 0.f; PropSpin = 0.f; bGhostCar = false;
+	BumpPhase = FMath::FRandRange(0.f, 100.f);
+	// separate wheels on every car, truck and boss whose body was exported without them
+	if (Kind == EFTKind::Rammer || Kind == EFTKind::Suv || Kind == EFTKind::Truck || Kind == EFTKind::Civ || Kind == EFTKind::Ramp || Kind == EFTKind::Boss)
+		SetupWheels(Mesh->GetStaticMesh(), Kind == EFTKind::Civ);
+	auto Bit = [this](int32 I) -> UStaticMeshComponent*
+	{
+		while (Bits.Num() <= I) Bits.Add(MakeBit(this, Mesh));
+		Bits[I]->SetVisibility(true);
+		return Bits[I];
+	};
 	// 2.8: THE ABOMINABLE's arms are their own model, pivoting at the shoulders, so he can wave them over his head
 	if (Kind == EFTKind::Boss && Level == 5)
 	{
@@ -126,11 +283,37 @@ void AFTEntityActor::Setup(EFTKind InKind, int32 InVariant, int32 Level)
 			Extra->SetVisibility(true);
 		}
 	}
+	// 3.3 the Tesla truck (Chemical Works boss): the coil's top spins and glows; three arcs strike from it
+	if (Kind == EFTKind::Boss && Level == 1)
+	{
+		if (UStaticMesh* Top = Kept(TEXT("/Game/Characters/Bosses/SM_TeslaTop")))
+		{
+			UStaticMeshComponent* T = Bit(0);
+			T->SetStaticMesh(Top); T->SetRelativeLocation(TeslaTop); T->SetCastShadow(true);
+		}
+		for (int32 a = 0; a < 3; ++a)
+		{
+			UStaticMeshComponent* A = Bit(1 + a);
+			A->SetStaticMesh(Kept(TEXT("/Game/Characters/Bosses/SM_TeslaArc")));
+			A->SetCastShadow(false);
+			A->SetUsingAbsoluteLocation(true); A->SetUsingAbsoluteRotation(true); A->SetUsingAbsoluteScale(true);
+			A->SetVisibility(false);
+		}
+	}
+	// 3.3 MR. CHUCKLES flies: a propeller rig bolted on the clown car
+	if (Kind == EFTKind::Boss && Level == 4)
+	{
+		if (UStaticMesh* Rig = Kept(TEXT("/Game/Characters/Bosses/SM_ClownRig"))) { UStaticMeshComponent* R = Bit(0); R->SetStaticMesh(Rig); R->SetCastShadow(true); }
+		UStaticMesh* Prop = Kept(TEXT("/Game/Characters/Bosses/SM_ClownProp"));
+		for (int32 p = 0; p < NumClownProps && Prop; ++p) { UStaticMeshComponent* Pc = Bit(1 + p); Pc->SetStaticMesh(Prop); Pc->SetRelativeLocation(ClownProps[p]); Pc->SetCastShadow(false); }
+	}
 	if (Kind == EFTKind::Heli)
 	{
 		Extra->SetStaticMesh(Load<UStaticMesh>(TEXT("/Game/Characters/Choppers/SM_HeliRotor")));
-		Extra->SetRelativeLocation(FVector(40.f, 0.f, 330.f));
+		Extra->SetRelativeLocation(HeliRotorHub);
 		Extra->SetVisibility(true);
+		// 3.3: the tail rotor spins too
+		if (UStaticMesh* Tail = Kept(TEXT("/Game/Characters/Choppers/SM_HeliTailRotor"))) { UStaticMeshComponent* Tr = Bit(0); Tr->SetStaticMesh(Tail); Tr->SetRelativeLocation(HeliTailHub); Tr->SetCastShadow(false); }
 		Light->SetRelativeLocation(FVector(260.f, 0.f, 60.f));
 		Light->SetLightColor(FLinearColor(1.f, 0.95f, 0.85f));
 		Light->SetIntensity(900.f); Light->SetAttenuationRadius(2600.f);
@@ -138,10 +321,12 @@ void AFTEntityActor::Setup(EFTKind InKind, int32 InVariant, int32 Level)
 	}
 	else if (Kind == EFTKind::Henchman)
 	{
-		Extra->SetStaticMesh(Load<UStaticMesh>(TEXT("/Engine/BasicShapes/Cylinder.Cylinder")));
-		Extra->SetRelativeLocation(FVector(0, 0, 800.f));
-		Extra->SetRelativeScale3D(FVector(0.03f, 0.03f, 14.f));
+		// the rope: from his raised hand up to the chopper's door (SetRope places it each frame)
+		Extra->SetStaticMesh(Kept(TEXT("/Engine/BasicShapes/Cylinder.Cylinder")));
+		Extra->SetRelativeLocation(HenchHand + FVector(0, 0, 700.f));
+		Extra->SetRelativeScale3D(FVector(0.04f, 0.04f, 14.f));
 		Extra->SetVisibility(true);
+		if (UMaterialInterface* RopeM = Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, TEXT("/Game/Core/Palette/MI_1c1a26_g0_m10_r50"), nullptr, LOAD_NoWarn | LOAD_Quiet))) Extra->SetMaterial(0, RopeM);
 	}
 	else if (Kind == EFTKind::Missile)
 	{
@@ -165,9 +350,10 @@ void AFTEntityActor::Setup(EFTKind InKind, int32 InVariant, int32 Level)
 	else if (Kind == EFTKind::Crate || Kind == EFTKind::Wrench)
 	{
 		Light->SetLightColor(Kind == EFTKind::Crate ? FLinearColor(1.f, 0.55f, 0.15f) : FLinearColor(0.3f, 1.f, 0.5f));
-		Light->SetIntensity(250.f); Light->SetAttenuationRadius(700.f);
-		Light->SetRelativeLocation(FVector(0, 0, 120.f));
-		Light->SetVisibility(true);
+		Light->SetIntensity(PickupLightIntensity()); Light->SetAttenuationRadius(700.f);
+		// The former 250 cd source at Z120 intersected the new handle/noses and blew out their paint.
+		Light->SetRelativeLocation(FVector(0, 0, 220.f));
+		Light->SetVisibility(PickupLightIntensity() > 0.f);
 	}
 	else if (Kind == EFTKind::Boss)
 	{
@@ -182,13 +368,211 @@ void AFTEntityActor::Setup(EFTKind InKind, int32 InVariant, int32 Level)
 
 void AFTEntityActor::SetGlow(float Amount)
 {
+	// 3.3 perf: the game mode asks every frame for rammers, hogs and bosses; only touch the materials on a change
+	// (each call walks every slot and pushes new parameter data to the render thread)
+	if (FMath::IsNearlyEqual(Amount, LastGlow, 0.01f)) return;
+	LastGlow = Amount;
 	Mesh->SetScalarParameterValueOnMaterials(TEXT("Alert"), Amount);
 }
 
-void AFTEntityActor::Animate(float Dt, float Speed)
+const TArray<AFTEntityActor::FWheelDef>* AFTEntityActor::WheelsFor(const UStaticMesh* M)
+{
+	if (!M) return nullptr;
+	return WheelTable().Find(M->GetPackage()->GetName());
+}
+
+bool AFTEntityActor::SetupWheels(UStaticMesh* BodyMesh, bool bChrome)
+{
+	const TArray<FWheelDef>* L = WheelsFor(BodyMesh);
+	if (!L || L->Num() == 0) return false;
+	WheelSpec = *L;
+	UStaticMesh* WM = Kept(bChrome ? TEXT("/Game/Characters/Wheels/SM_FoeWheelChrome") : TEXT("/Game/Characters/Wheels/SM_FoeWheel"));
+	if (!WM) WM = Kept(TEXT("/Game/Characters/Wheels/SM_FoeWheel"));
+	UStaticMesh* SM = Kept(TEXT("/Game/Characters/Wheels/SM_FoeStrut"));
+	if (!WM) { WheelSpec.Reset(); return false; }
+	// struts only on cars (4 wheels): a truck's axles would double its draw calls for something you can't see
+	const bool bStruts = SM && WheelSpec.Num() <= 4;
+	for (int32 i = 0; i < WheelSpec.Num(); ++i)
+	{
+		while (Wheels.Num() <= i) Wheels.Add(MakeBit(this, RootComponent));
+		UStaticMeshComponent* W = Wheels[i];
+		// 3.3 perf (round 2): the wheels sit inside the body's own shadow; only a boss's big wheels cast one (every
+		// extra non-Nanite caster costs Virtual Shadow Map marking, and Bayshore already overflows that queue)
+		W->SetCastShadow(Kind == EFTKind::Boss);
+		const FWheelDef& D = WheelSpec[i];
+		if (W->GetStaticMesh() != WM) W->SetStaticMesh(WM);
+		// the wheel model is a left wheel, 50 cm radius and 40 wide: scaled to size, mirrored on the right
+		W->SetRelativeLocationAndRotation(D.C, FRotator::ZeroRotator);
+		W->SetRelativeScale3D(FVector(D.R / 50.f, (D.C.Y > 0.f ? -1.f : 1.f) * D.W / 40.f, D.R / 50.f));
+		W->SetVisibility(true);
+		if (bStruts)
+		{
+			while (Struts.Num() <= i) { UStaticMeshComponent* C = MakeBit(this, RootComponent); C->SetCastShadow(false); Struts.Add(C); }
+			if (Struts[i]->GetStaticMesh() != SM) Struts[i]->SetStaticMesh(SM);
+			Struts[i]->SetVisibility(true);
+		}
+	}
+	return true;
+}
+
+void AFTEntityActor::SetupGhostCar(AFTPlayerCar* From)
+{
+	if (!From) return;
+	Setup(EFTKind::None, 0, Lvl);
+	Mesh->SetStaticMesh(From->Body->GetStaticMesh());
+	for (int32 m = 0; m < From->Body->GetNumMaterials(); ++m) Mesh->SetMaterial(m, From->Body->GetMaterial(m));
+	// the reel records the chassis (the actor); the body hangs below it, and the wheels where they sit on the car
+	// (3.2 and before showed the body alone, without its wheels, 88 cm up in the air)
+	const FTransform ActInv = From->GetActorTransform().Inverse();
+	const FTransform BodyRel = From->Body->GetComponentTransform() * ActInv;
+	Mesh->SetRelativeTransform(FTransform(FRotator::ZeroRotator, BodyRel.GetLocation()));
+	for (int32 i = 0; i < From->WheelMeshes.Num(); ++i)
+	{
+		while (Wheels.Num() <= i) Wheels.Add(MakeBit(this, RootComponent));
+		UStaticMeshComponent* W = Wheels[i];
+		W->SetStaticMesh(From->WheelMeshes[i]->GetStaticMesh());
+		const FTransform Rel = From->WheelMeshes[i]->GetComponentTransform() * ActInv;
+		W->SetRelativeTransform(FTransform(FRotator::ZeroRotator, Rel.GetLocation(), From->WheelMeshes[i]->GetRelativeScale3D()));
+		W->SetVisibility(true);
+		FWheelDef D; D.C = Rel.GetLocation(); D.R = i < 2 ? 31.f : 40.f; D.W = 0.f;
+		WheelSpec.Add(D);
+	}
+	bGhostCar = true;
+}
+
+FVector AFTEntityActor::RopeAnchor(int32 Side) const
+{
+	return Mesh->GetComponentTransform().TransformPosition(HeliRope[Side ? 1 : 0]);
+}
+
+void AFTEntityActor::SetRope(const FVector& WorldTop)
+{
+	if (Kind != EFTKind::Henchman || !Extra) return;
+	const FVector Hand = GetActorTransform().TransformPosition(HenchHand);
+	const FVector Dv = WorldTop - Hand;
+	const float L = Dv.Size();
+	if (L < 10.f) { Extra->SetVisibility(false); return; }
+	Extra->SetUsingAbsoluteLocation(true); Extra->SetUsingAbsoluteRotation(true); Extra->SetUsingAbsoluteScale(true);
+	// the engine cylinder is 100 cm tall about its centre, along Z
+	Extra->SetWorldLocationAndRotation(Hand + Dv * 0.5f, FRotationMatrix::MakeFromZ(Dv / L).Rotator());
+	Extra->SetWorldScale3D(FVector(0.045f, 0.045f, L / 100.f));
+	Extra->SetVisibility(true);
+}
+
+void AFTEntityActor::SetTesla(float InCharge, const TArray<FVector>& ArcTo)
+{
+	if (Kind != EFTKind::Boss || Lvl != 1 || Bits.Num() < 4) return;
+	TeslaCharge = FMath::Clamp(InCharge, 0.f, 1.f);
+	UStaticMeshComponent* Top = Bits[0];
+	if (Top && Top->GetStaticMesh())
+	{
+		// the top glows up as it charges, and crackles (flicker) near full
+		const float Flick = TeslaCharge > 0.7f ? FMath::FRandRange(0.7f, 1.3f) : 1.f;
+		Top->SetScalarParameterValueOnMaterials(TEXT("Glow"), (0.25f + 3.2f * TeslaCharge * TeslaCharge) * Flick);
+	}
+	Light->SetLightColor(FLinearColor(0.45f, 0.8f, 1.f));
+	Light->SetRelativeLocation(TeslaTop);
+	Light->SetIntensity(400.f + 5200.f * TeslaCharge * TeslaCharge + (ArcTo.Num() ? 9000.f : 0.f));
+	Light->SetAttenuationRadius(3200.f);
+	Light->SetVisibility(true);
+	const FVector From = Top ? Top->GetComponentLocation() : GetActorTransform().TransformPosition(TeslaTop);
+	for (int32 a = 0; a < 3; ++a)
+	{
+		UStaticMeshComponent* A = Bits[1 + a];
+		if (!A || !A->GetStaticMesh() || !ArcTo.IsValidIndex(a)) { if (A) A->SetVisibility(false); continue; }
+		const FVector Dv = From - ArcTo[a];
+		const float L = Dv.Size();
+		if (L < 50.f) { A->SetVisibility(false); continue; }
+		// the bolt model runs from 0 down to -1000 along -Z: point its +Z from the target back up to the coil, and a
+		// new random twist and thickness every frame so it crackles
+		const FRotator R = FRotationMatrix::MakeFromZ(Dv / L).Rotator();
+		A->SetWorldLocationAndRotation(From, FQuat(R) * FQuat(FVector::UpVector, FMath::FRandRange(0.f, 2.f * PI)));
+		const float Th = FMath::FRandRange(1.6f, 3.2f);   // thick enough to read from 50 m back
+		A->SetWorldScale3D(FVector(Th, Th, L / 1000.f));
+		A->SetVisibility(true);
+	}
+}
+
+void AFTEntityActor::Animate(float Dt, float Speed, float Vx)
 {
 	if (Kind == EFTKind::Heli && Extra) Extra->AddLocalRotation(FRotator(0.f, 1900.f * Dt, 0.f));
+	if (Kind == EFTKind::Heli && Bits.Num() > 0 && Bits[0] && Bits[0]->IsVisible()) Bits[0]->AddLocalRotation(FRotator(2600.f * Dt, 0.f, 0.f));
+	// 3.3 propellers on the clown car, the Tesla coil's top turning faster as it charges
+	if (Kind == EFTKind::Boss && Lvl == 4) for (int32 p = 1; p <= NumClownProps && p < Bits.Num(); ++p) if (Bits[p]) Bits[p]->AddLocalRotation(FRotator(0.f, (p % 2 ? 1.f : -1.f) * 2200.f * Dt, 0.f));
+	if (Kind == EFTKind::Boss && Lvl == 1 && Bits.Num() > 0 && Bits[0]) Bits[0]->AddLocalRotation(FRotator(0.f, (25.f + 400.f * TeslaCharge) * Dt, 0.f));
 	AnimT += Dt;
+	// 3.3 the wheels roll on the road and the body rides its springs over them (roll out of a turn, squat and dive,
+	// a little road bounce): the owner's "the cars are so stiff, like they don't really attach to the road"
+	if (WheelSpec.Num() && !bGhostCar)
+	{
+		if (!bSusInit) { PrevSp = Speed; PrevVx = Vx; bSusInit = true; }
+		const float Idt = 1.f / FMath::Max(Dt, 1e-3f);
+		AccLat = FMath::FInterpTo(AccLat, FMath::Clamp((Vx - PrevVx) * Idt, -4000.f, 4000.f), Dt, 8.f);
+		AccLong = FMath::FInterpTo(AccLong, FMath::Clamp((Speed - PrevSp) * Idt, -4000.f, 4000.f), Dt, 8.f);
+		PrevSp = Speed; PrevVx = Vx;
+		const bool bBig = WheelSpec.Num() > 4 || Kind == EFTKind::Boss;
+		const float K = bBig ? 0.6f : 1.f;   // heavy trucks lean less
+		BumpPhase += Dt * FMath::Clamp(FMath::Abs(Speed) / 900.f, 0.f, 9.f);
+		const float Bump = 1.6f * FMath::Sin(BumpPhase * 1.7f) + 0.9f * FMath::Sin(BumpPhase * 4.3f + 1.f);
+		const float RollT = FMath::Clamp(-AccLat / 980.f * 4.5f * K, -6.f, 6.f) + 0.25f * FMath::Sin(BumpPhase * 2.9f);
+		const float PitchT = FMath::Clamp(AccLong / 980.f * 3.f * K, -4.f, 4.f) + 0.2f * FMath::Sin(BumpPhase * 2.3f + 0.5f);
+		auto Spring = [Dt](float& X, float& V, float T, float W, float Z)
+		{
+			V += (W * W * (T - X) - 2.f * Z * W * V) * Dt; X += V * Dt;
+			if (!FMath::IsFinite(X)) { X = 0.f; V = 0.f; }
+		};
+		Spring(SRoll, SRollV, RollT, 9.f, 0.3f);
+		Spring(SPitch, SPitchV, PitchT, 9.f, 0.3f);
+		Spring(SHeave, SHeaveV, Bump * K, 14.f, 0.4f);
+		// the yeti, the clown car, the shark and the limo animate their own bodies
+		const bool bOwnAnim = Kind == EFTKind::Boss && (Lvl == 4 || Lvl == 5 || Lvl == 6 || Lvl == 7);
+		if (!bOwnAnim)
+		{
+			const FRotator Rot(SPitch, 0.f, SRoll);
+			const FVector Pivot(0.f, 0.f, 50.f);
+			Mesh->SetRelativeLocationAndRotation(FVector(0.f, 0.f, SHeave) + Pivot - Rot.RotateVector(Pivot), Rot);
+		}
+		WheelSpin += Speed * Dt;   // cm rolled
+		// 3.3 perf: far down the road (a few pixels tall) the wheels update every third frame and the struts not at all
+		const bool bSkipWheels = bFar && (++FarTick % 3) != 0;
+		const FTransform BodyRel = Mesh->GetRelativeTransform();
+		for (int32 i = 0; !bSkipWheels && i < WheelSpec.Num() && i < Wheels.Num(); ++i)
+		{
+			const FWheelDef& D = WheelSpec[i];
+			// each wheel follows the road under it with its own little bump (out of phase with the body's)
+			const float Wb = 0.8f * FMath::Sin(BumpPhase * 3.1f + i * 1.9f);
+			const float Steer = (D.C.X > 0.f && !bBig) ? FMath::Clamp(Vx / 60.f, -14.f, 14.f) : 0.f;
+			Wheels[i]->SetRelativeLocationAndRotation(D.C + FVector(0, 0, Wb), FRotator(-FMath::RadiansToDegrees(WheelSpin / FMath::Max(D.R, 1.f)), Steer, 0.f));
+			if (!bFar && Struts.IsValidIndex(i) && Struts[i] && Struts[i]->IsVisible())
+			{
+				// from the hub (inboard) up to the body's wheel arch, wherever the body has rocked to
+				const float In = D.C.Y > 0.f ? -1.f : 1.f;
+				const FVector Hub = D.C + FVector(0.f, In * D.W * 0.55f, Wb);
+				const FVector Top = BodyRel.TransformPosition(FVector(D.C.X, D.C.Y + In * D.W * 0.75f, D.C.Z + D.R * 1.05f));
+				const FVector Dv = Top - Hub;
+				const float L = FMath::Max(Dv.Size(), 1.f);
+				Struts[i]->SetRelativeLocationAndRotation(Hub, FRotationMatrix::MakeFromZ(Dv / L).Rotator());
+				Struts[i]->SetRelativeScale3D(FVector(1.f, 1.f, L / 100.f));
+			}
+		}
+	}
+	else if (bGhostCar)
+	{
+		WheelSpin += Speed * Dt;
+		for (int32 i = 0; i < WheelSpec.Num() && i < Wheels.Num(); ++i)
+			Wheels[i]->SetRelativeRotation(FRotator(-FMath::RadiansToDegrees(WheelSpin / FMath::Max(WheelSpec[i].R, 1.f)), 0.f, 0.f));
+	}
+	if (Kind == EFTKind::Crate || Kind == EFTKind::Wrench)
+	{
+		// Visual component only: logical track position, hitbox, spawn schedule and RNG stay untouched.
+		const float Phase = (Kind == EFTKind::Wrench ? 1.7f : 0.f);
+		const bool bMotion = CVarPickupMotion.GetValueOnGameThread() != 0;
+		const float Intensity = PickupLightIntensity();
+		if (!FMath::IsNearlyEqual(Light->Intensity, Intensity)) Light->SetIntensity(Intensity);
+		if (Light->IsVisible() != (Intensity > 0.f)) Light->SetVisibility(Intensity > 0.f);
+		Mesh->SetRelativeLocationAndRotation(bMotion ? FVector(0, 0, 10.f + 6.f * FMath::Sin(AnimT * 2.1f + Phase)) : FVector::ZeroVector,
+			bMotion ? FRotator(0, 18.f * FMath::Sin(AnimT * 0.7f + Phase), 0) : FRotator::ZeroRotator);
+	}
 	// 2.5 bosses with a bit of life: the yeti lopes, the clown car bounces and wobbles, the limo hovers
 	if (Kind == EFTKind::Boss)
 	{
@@ -240,6 +624,23 @@ void AFTWreck::Launch(UStaticMesh* InMesh, const FTransform& At, const FVector& 
 	Mesh->SetPhysicsLinearVelocity(Velocity);
 	Mesh->SetPhysicsAngularVelocityInDegrees(Spin);
 	Mesh->SetScalarParameterValueOnMaterials(TEXT("Soot"), 0.9f);
+	// 3.3: the bodies are exported without wheels now; the wreck keeps its wheels (one of them comes off)
+	if (const TArray<AFTEntityActor::FWheelDef>* WL = AFTEntityActor::WheelsFor(InMesh))
+	{
+		UStaticMesh* WM = Kept(TEXT("/Game/Characters/Wheels/SM_FoeWheel"));
+		const int32 Lose = FMath::RandRange(0, WL->Num() - 1);
+		for (int32 i = 0; i < WL->Num() && WM; ++i)
+		{
+			if (i == Lose && WL->Num() > 2) continue;
+			const AFTEntityActor::FWheelDef& D = (*WL)[i];
+			UStaticMeshComponent* W = MakeBit(this, Mesh);
+			W->SetStaticMesh(WM);
+			W->SetRelativeLocationAndRotation(D.C, FRotator(FMath::FRandRange(0.f, 360.f), 0.f, 0.f));
+			W->SetRelativeScale3D(FVector(D.R / 50.f, (D.C.Y > 0.f ? -1.f : 1.f) * D.W / 40.f, D.R / 50.f));
+			W->SetScalarParameterValueOnMaterials(TEXT("Soot"), 0.9f);
+			Wheels.Add(W);
+		}
+	}
 	Fire->SetAsset(Cast<UNiagaraSystem>(StaticLoadObject(UNiagaraSystem::StaticClass(), nullptr, TEXT("/Game/FX/NS_Fire"), nullptr, LOAD_NoWarn | LOAD_Quiet)));
 	if (Fire->GetAsset()) { Fire->SetVariableFloat(TEXT("User.Size"), 1.4f); Fire->Activate(true); }
 }

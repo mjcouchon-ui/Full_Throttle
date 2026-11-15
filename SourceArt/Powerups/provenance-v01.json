@@ -1,0 +1,43 @@
+{
+  "version": "v01",
+  "date": "2026-11-14",
+  "stage": "Concepts approved by Justin: R1 + M2; runtime evidence is recorded separately.",
+  "generator": "built-in image_gen imagegen",
+  "model": "not exposed by tool",
+  "prompt": "PROMPTS.md",
+  "file": "concepts/powerups-directions-v01.png",
+  "sha256": "ED13FB4786AF433B4B7CC869ED75D6D9871A17BBFF7F1B02744703E85950CCF6",
+  "source_output": "C:\\Users\\valle\\.codex\\generated_images\\01a1dc2c-0091-7a80-8cc9-6f99dcf3c34b\\exec-cd809eb3-d9d6-4968-ac21-6a9adfaf7b68.png",
+  "references": [
+    {
+      "file": "references/01-current-missile-crate.png",
+      "source": "K:\\Full Throttle\\Level1_Asset_Sheet\\_work\\thumbs\\Game__Characters__Pickups__SM_Crate.png",
+      "sha256": "6321CB6E5392FC332A1BFB9FECB5C2E0DB265A7EEC89F40FDA6B33B454AE8A97",
+      "role": "Project-owned art reference approved by Justin; not an external licensed asset"
+    },
+    {
+      "file": "references/02-current-repair-kit.png",
+      "source": "K:\\Full Throttle\\Level1_Asset_Sheet\\_work\\thumbs\\Game__Characters__Pickups__SM_Wrench.png",
+      "sha256": "F7D566F9F3F9D0A1BAADCC21185694A8765E2F45956881FECF66D5AC5D809CED",
+      "role": "Project-owned art reference approved by Justin; not an external licensed asset"
+    },
+    {
+      "file": "references/03-kestrel-body.png",
+      "source": "K:\\Full Throttle\\Level1_Asset_Sheet\\_work\\thumbs\\Game__Characters__Kestrel__SM_Kestrel_Body.png",
+      "sha256": "3BD2F1F0E2ACDBD0E5F3B27513D898002B4573ABF2F7EA57F7D13B030437B294",
+      "role": "Project-owned art reference approved by Justin; not an external licensed asset"
+    },
+    {
+      "file": "references/04-bayshore-gameplay.png",
+      "source": "K:\\Full Throttle\\PowerupsReview\\baseline-local-20261114\\shots\\ft_L0_030.png",
+      "sha256": "288DD641352727A25DF0624BFE3DE56E2C69B4CD5EF1E48254863DEE522ACC38",
+      "role": "Project-owned art reference approved by Justin; not an external licensed asset"
+    },
+    {
+      "file": "references/05-night-repair-approach.png",
+      "source": "K:\\Full Throttle\\PowerupsReview\\baseline-local-20261114\\shots\\ft_L1_052.png",
+      "sha256": "17F76A31D9988CB714CCC014FFE7F1C96F09872F82DFFE1B34B0DDCDB8CB138E",
+      "role": "Project-owned art reference approved by Justin; not an external licensed asset"
+    }
+  ]
+}
