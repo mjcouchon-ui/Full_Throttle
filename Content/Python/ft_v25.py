@@ -128,9 +128,11 @@ def bolt(m, h=4000, seed=5):
 W_BOSS, L_BOSS = 64 * 9.14, 1250.0
 
 
-def fire_truck(m):
+def fire_truck(m, gear=False):
     """ENGINE 13: a big red fire engine. Cab at the front, lockers down the sides, a ladder on top, and at the back a
-    turret water cannon that throws fire, flames licking out of the nozzle. Chrome bumpers, a red-and-white light bar."""
+    turret water cannon that throws fire, flames licking out of the nozzle. Chrome bumpers, a red-and-white light bar.
+    Overhaul (15 Nov): the ladder and the cannon are moving parts of their own (ft_enemy_vehicles.fire_ladder,
+    fire_cannon), so the body is built without them; gear=True draws the 2.5 originals."""
     W, L = W_BOSS, L_BOSS
     hw = W / 2 - 16
     FR, FR_D = '#e8283c', '#b81c30'
@@ -156,18 +158,19 @@ def fire_truck(m):
         for k in range(5):
             m.box(FR_D, (L * 0.08 + k * L * 0.135, s * (hw + 2), 210), (L * 0.11, 3, 110))
         m.cyl(GOLD, (L * 0.68, s * (hw + 2), 260), 26, 6, rot=(0, 0, 90), steps=12, glow=0.4)
-    # the ladder on top
-    for s in (-1, 1):
-        m.box(CHROME, (L * 0.45, s * 70, 362), (L * 0.7, 12, 18))
-    for k in range(12):
-        m.box(CHROME, (L * 0.12 + k * L * 0.058, 0, 362), (8, 140, 8))
-    # the fire cannon at the back, pointing back at you
-    m.cyl(STEEL, (L * 0.08, 0, 340), 70, 60, steps=14)
-    m.cyl(CHROME, (L * 0.08, 0, 380), 22, 260, rot=(90, 0, 0), steps=10)
-    m.sphere(ORANGE, (L * 0.08 - 280, 0, 380), 46, steps=(5, 8), glow=2.5)
-    m.sphere(YEL, (L * 0.08 - 300, 0, 380), 30, steps=(4, 6), glow=3.5)
-    for k in range(4):
-        m.sphere(RED, (L * 0.08 - 330 - 26 * k, (k % 2 - 0.5) * 30, 380 + 10 * k), 28 - 4 * k, steps=(4, 6), glow=2.0)
+    if gear:
+        # the ladder on top
+        for s in (-1, 1):
+            m.box(CHROME, (L * 0.45, s * 70, 362), (L * 0.7, 12, 18))
+        for k in range(12):
+            m.box(CHROME, (L * 0.12 + k * L * 0.058, 0, 362), (8, 140, 8))
+        # the fire cannon at the back, pointing back at you
+        m.cyl(STEEL, (L * 0.08, 0, 340), 70, 60, steps=14)
+        m.cyl(CHROME, (L * 0.08, 0, 380), 22, 260, rot=(90, 0, 0), steps=10)
+        m.sphere(ORANGE, (L * 0.08 - 280, 0, 380), 46, steps=(5, 8), glow=2.5)
+        m.sphere(YEL, (L * 0.08 - 300, 0, 380), 30, steps=(4, 6), glow=3.5)
+        for k in range(4):
+            m.sphere(RED, (L * 0.08 - 330 - 26 * k, (k % 2 - 0.5) * 30, 380 + 10 * k), 28 - 4 * k, steps=(4, 6), glow=2.0)
     # hose reels on the back and the number board (two gold bars)
     for s in (-1, 1):
         m.cyl(WHITE, (-4, s * hw * 0.55, 190), 60, 30, rot=(0, 0, 90), steps=14)
@@ -176,9 +179,11 @@ def fire_truck(m):
     m.box(BLACK, (-8, 0, 280), (2, 46, 66))
 
 
-def clown_car(m):
+def clown_car(m, head=False, balloons=False):
     """MR. CHUCKLES: an overstuffed little car blown up to bus size, polka dots, a giant clown head through the
-    roof (white face, red nose, blue hair tufts, tiny hat), a horn, and a bunch of bomb balloons tied above."""
+    roof (white face, red nose, blue hair tufts, tiny hat), a horn, and a bunch of bomb balloons tied above.
+    Overhaul (15 Nov): the head and the balloons are moving parts of their own (ft_enemy_vehicles.clown_head,
+    clown_balloons), so the body is built without them; head=True / balloons=True draw the 2.5 originals."""
     W, L = W_BOSS, L_BOSS
     hw = W / 2 - 20
     for s in (-1, 1):
@@ -194,22 +199,23 @@ def clown_car(m):
         m.sphere(dots[k % 5], (x, math.cos(a) * hw * 1.0, 260 + math.sin(a) * 160), 40, scale=(1, 1, 1), steps=(4, 6))
     # the head
     hz = 520
-    m.sphere(WHITE, (L * 0.45, 0, hz), 200, steps=(8, 12))
-    m.sphere(RED, (L * 0.45 - 200, 0, hz), 56, steps=(6, 8), glow=0.6)
-    for s in (-1, 1):
-        m.sphere('#2e6bff', (L * 0.45, s * 210, hz + 60), 90, steps=(6, 8))
-        m.sphere(BLACK, (L * 0.45 - 170, s * 70, hz + 70), 22, steps=(4, 6))
-        m.box(BLACK, (L * 0.45 - 178, s * 70, hz + 120), (4, 60, 10), rot=(0, 0, s * 15))
-    m.box(RED, (L * 0.45 - 186, 0, hz - 90), (4, 180, 24))
-    m.cyl(BLACK, (L * 0.45, 0, hz + 190), 70, 90, steps=12)
-    m.cyl(BLACK, (L * 0.45, 0, hz + 190), 120, 12, steps=14)
-    m.sphere(MAG, (L * 0.45, 0, hz + 290), 22, steps=(4, 6), glow=0.8)
+    if head:
+        m.sphere(WHITE, (L * 0.45, 0, hz), 200, steps=(8, 12))
+        m.sphere(RED, (L * 0.45 - 200, 0, hz), 56, steps=(6, 8), glow=0.6)
+        for s in (-1, 1):
+            m.sphere('#2e6bff', (L * 0.45, s * 210, hz + 60), 90, steps=(6, 8))
+            m.sphere(BLACK, (L * 0.45 - 170, s * 70, hz + 70), 22, steps=(4, 6))
+            m.box(BLACK, (L * 0.45 - 178, s * 70, hz + 120), (4, 60, 10), rot=(0, 0, s * 15))
+        m.box(RED, (L * 0.45 - 186, 0, hz - 90), (4, 180, 24))
+        m.cyl(BLACK, (L * 0.45, 0, hz + 190), 70, 90, steps=12)
+        m.cyl(BLACK, (L * 0.45, 0, hz + 190), 120, 12, steps=14)
+        m.sphere(MAG, (L * 0.45, 0, hz + 290), 22, steps=(4, 6), glow=0.8)
     # the horn and the bumper
     m.cyl(GOLD, (L - 20, hw * 0.6, 420), 30, 160, rot=(90, 0, 0), steps=10, top_r=60)
     m.box(CHROME, (L + 6, 0, 120), (12, hw * 2, 40))
     m.box(RED, (-6, 0, 140), (8, hw * 1.6, 36), glow=1.0)
     # the balloons, tied to the back
-    cols = [RED, '#2e6bff', '#3dff6a', MAG, '#ffe14d', '#7b3bd6', ORANGE, CYAN]
+    cols = [RED, '#2e6bff', '#3dff6a', MAG, '#ffe14d', '#7b3bd6', ORANGE, CYAN] if balloons else []
     for k, c in enumerate(cols):
         a = k * 2 * math.pi / len(cols)
         bx, by, bz = L * 0.15 + math.cos(a) * 140, math.sin(a) * 230, 1150 + (k % 3) * 120
@@ -254,9 +260,11 @@ def yeti(m):
         m.sphere(SNOW, (x0 - 420 - k * 60, (k % 3 - 1) * 160, 60 + k * 20), 90 - k * 8, steps=(5, 7))
 
 
-def shark_car(m):
+def shark_car(m, fins=False):
     """THE GREAT WHITE: a hot rod built into a great white shark. Grey body tapering to a tail fin at the back,
-    a tall dorsal fin, gills, open jaws with teeth at the front, and two fish launchers aimed back at you."""
+    a tall dorsal fin, gills, open jaws with teeth at the front, and two fish launchers aimed back at you.
+    Overhaul (15 Nov): the tail, the dorsal fin and the lower jaw are moving parts (ft_enemy_vehicles.shark_tail,
+    shark_fin, shark_jaw), so the body is built without them; fins=True draws the 2.5 originals."""
     W, L = W_BOSS, L_BOSS
     hw = W / 2 - 20
     GREY, GREY_D, BELLY = '#7f8fa8', '#5a6a84', '#e8eef8'
@@ -266,8 +274,9 @@ def shark_car(m):
     m.sphere(GREY, (L * 0.52, 0, 250), 1, scale=(L * 0.5, hw, 170), steps=(10, 16))
     m.sphere(BELLY, (L * 0.55, 0, 170), 1, scale=(L * 0.42, hw * 0.9, 90), steps=(8, 12))
     # the dorsal fin and the tail
-    m.side(GREY_D, [(L * 0.42, 380), (L * 0.62, 400), (L * 0.46, 720)], -16, 16)
-    m.side(GREY_D, [(L * 0.06, 260), (-L * 0.08, 520), (-L * 0.02, 260), (-L * 0.1, 40)], -14, 14)
+    if fins:
+        m.side(GREY_D, [(L * 0.42, 380), (L * 0.62, 400), (L * 0.46, 720)], -16, 16)
+        m.side(GREY_D, [(L * 0.06, 260), (-L * 0.08, 520), (-L * 0.02, 260), (-L * 0.1, 40)], -14, 14)
     for s in (-1, 1):
         m.box(GREY_D, (L * 0.6, s * (hw + 30), 190), (220, 120, 14), rot=(0, s * 15, s * 20))
         for k in range(3):
@@ -278,7 +287,8 @@ def shark_car(m):
     for k in range(9):
         y = -hw * 0.6 + k * hw * 0.15
         m.cyl(WHITE, (L * 1.02, y, 290), 14, 50, rot=(180, 0, 0), steps=6, top_r=1)
-        m.cyl(WHITE, (L * 1.02, y + 20, 170), 14, 50, steps=6, top_r=1)
+        if fins:
+            m.cyl(WHITE, (L * 1.02, y + 20, 170), 14, 50, steps=6, top_r=1)
     # the fish launchers aimed back, glowing
     for s in (-1, 1):
         m.cyl(STEEL, (L * 0.2, s * 120, 400), 44, 260, rot=(90, 0, 0), steps=12)
@@ -286,10 +296,12 @@ def shark_car(m):
         m.box(RED, (-30, s * 120, 120), (4, 40, 26), glow=1.4)
 
 
-def limo(m):
+def limo(m, guns=False):
     """THE CHAIRMAN: a black executive stretch limo turned gunship. Long and low, gold trim and a hood ornament,
     tinted windows, four jet pods glowing underneath (it hovers), twin miniguns out of the sunroof and the boot,
-    and a little flag on the wing."""
+    and a little flag on the wing.
+    Overhaul (15 Nov): the two gun turrets are moving parts (ft_enemy_vehicles.limo_turret), so the body is built
+    without them; guns=True draws the 2.5 originals."""
     W, L = W_BOSS * 0.92, L_BOSS
     hw = W / 2 - 10
     LB, LB2 = '#16141e', '#24202e'
@@ -308,7 +320,7 @@ def limo(m):
     m.cyl(GOLD, (L * 0.97, 0, 186), 10, 50, steps=6)
     m.sphere(GOLD, (L * 0.97, 0, 240), 16, steps=(4, 6), glow=0.4)
     # the guns: a sunroof turret and a boot turret, barrels back at you
-    for (x, z) in ((L * 0.5, 300), (L * 0.06, 190)):
+    for (x, z) in ((L * 0.5, 300), (L * 0.06, 190)) if guns else ():
         m.cyl(STEEL, (x, 0, z), 60, 50, steps=12)
         for y in (-26, 26):
             m.cyl(BLACK, (x - 30, y, z + 34), 10, 230, rot=(90, 0, 0), steps=8)

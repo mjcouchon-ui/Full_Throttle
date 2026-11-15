@@ -45,6 +45,7 @@ struct FFTDrive
 	float DriftTargetLat = 0.f; // cm/s sideways slide wanted while drifting
 	bool bFrozen = false;     // cards, retake resets: hold still
 	bool bFlip = false;       // 3.3 half pipe air: the drift button rolls the car (a barrel roll)
+	int32 DriftLevel = 0;     // FX overhaul: the drift's charge (0 none, 1 blue, 2 orange, 3 pink), for its sparks: looks only
 };
 
 /** 3.3 half pipe: off the lip into the air (tricks), or grinding along the coping. */
@@ -72,6 +73,9 @@ public:
 	UPROPERTY(VisibleAnywhere, Category = "Car") TObjectPtr<UNiagaraComponent> SparksFX;
 	UPROPERTY(VisibleAnywhere, Category = "Car") TObjectPtr<UNiagaraComponent> TurboFX;
 	UPROPERTY(VisibleAnywhere, Category = "Car") TObjectPtr<UNiagaraComponent> DriftFX;
+	// FX overhaul: the drift's charge as sparks off the rear tyres, and the hot core of the turbo flame
+	UPROPERTY(VisibleAnywhere, Category = "Car") TObjectPtr<UNiagaraComponent> DriftSparkFX;
+	UPROPERTY(VisibleAnywhere, Category = "Car") TObjectPtr<UNiagaraComponent> BoostCoreFX;
 	UPROPERTY(VisibleAnywhere, Category = "Car") TObjectPtr<UAudioComponent> EngineAudio;
 	UPROPERTY(VisibleAnywhere, Category = "Car") TObjectPtr<UAudioComponent> SkidAudio;
 	UPROPERTY(VisibleAnywhere, Category = "Car") TArray<TObjectPtr<UStaticMeshComponent>> Henchmen;
@@ -146,6 +150,10 @@ public:
 	bool IsWrecked() const { return bWrecked; }
 	void SetLightsForLevel(int32 Level);
 	FTransform GunMuzzle(int32 Side) const;
+	/** FX overhaul (looks only): the turbo lighting, or a drift boost letting go: long flames out of the pipes and a ring. */
+	void BoostKick(float Scale);
+	/** FX overhaul (looks only): the car was hurt: its lights surge for a moment (0..1). */
+	void HitFlash(float Amount);
 
 	virtual void Tick(float Dt) override;
 	virtual void BeginPlay() override;
@@ -184,4 +192,13 @@ protected:
 	FVector AccF = FVector::ZeroVector;   // filtered acceleration in the car's frame
 	void TickBody(float Dt);
 	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> LooseParts;
+	// FX overhaul: the effects' own bookkeeping (nothing here is read by the race)
+	void TickFx(float Dt, const FVector& Velocity);
+	int32 SparkLevel = 0;                      // which drift sparks are on
+	float FxAirT = 0.f;                        // time off the wheels, for the landing
+	float AlertAmt = 0.f, AlertShown = 0.f;    // the hit flash on the car's lights
+	float WallHitCd = 0.f;
+	float ShedQuietT = -1.f;                   // parts put back on a car that starts damaged come off without sparks
+	int32 DamageStage = -1;                    // 0 clean, 1 smoking, 2 burning; -1 not looked at yet
+	bool bFxStage = false;                     // parked for a slate or hidden for the reel: a new scene
 };

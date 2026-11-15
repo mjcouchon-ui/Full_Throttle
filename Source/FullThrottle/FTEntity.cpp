@@ -16,6 +16,7 @@
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 #include "FTPlayerCar.h"
+#include "FTGameMode.h"   // overhaul: the boss's proxy asks whether it was wrecked when it is let go (GetActiveEntities)
 
 namespace
 {
@@ -212,6 +213,1054 @@ UStaticMesh* AFTEntityActor::MeshFor(EFTKind Kind, int32 Variant, int32 Level)
 	return M;
 }
 
+// ------------------------------------------------------------------------------------------ the bosses' rigs
+// Overhaul (15 Nov 2026): every boss is its body plus moving parts and effects, posed from the fight's own state.
+// The boss's function in FTGameMode.cpp says what is happening (BossState, BossWind, BossFire, SetTesla); the code
+// here turns that into motion. Nothing feeds back: no timer, speed, box or damage is ever read from a pose.
+// Parts are Bits slots (attached to the body mesh, so they ride its springs); their pivots are the generator's
+// (ft_enemy_vehicles.py, BOSS_PARTS), repeated here in the body's own space (cm). A ghost in the highlight reel is
+// never animated: Setup must leave every part in a pose that stands by itself.
+namespace
+{
+	inline UStaticMeshComponent* BitOf(AFTEntityActor& A, int32 I) { return A.Bits.IsValidIndex(I) ? A.Bits[I].Get() : nullptr; }
+	inline void Show(UStaticMeshComponent* C, bool bOn) { if (C && C->IsVisible() != bOn) C->SetVisibility(bOn); }
+	/** 1 at T = 0, gone after about 3 / Rate seconds. */
+	inline float Pulse(float T, float Rate) { return FMath::Exp(-FMath::Max(T, 0.f) * Rate); }
+	inline float Smooth(float U) { U = FMath::Clamp(U, 0.f, 1.f); return U * U * (3.f - 2.f * U); }
+	/** The rigs' own random numbers: looks only, never the generator the fights draw from (FMath's). */
+	FRandomStream RigRng(0xB055);
+	/** A push on the body's springs (degrees a second, cm a second): it rocks and settles by itself. */
+	void Kick(AFTEntityActor& A, float Pitch, float Roll, float Heave) { A.SPitchV += Pitch; A.SRollV += Roll; A.SHeaveV += Heave; }
+	/** A lightning bolt (SM_TeslaArc: 1000 cm down its own -Z) between two points on the body, crackling. */
+	void LocalArc(UStaticMeshComponent* Arc, const FVector& From, const FVector& To, float Thick)
+	{
+		if (!Arc) return;
+		const FVector Dv = From - To;
+		const float L = Dv.Size();
+		if (L < 20.f) { Show(Arc, false); return; }
+		Arc->SetRelativeLocationAndRotation(From, FQuat(FRotationMatrix::MakeFromZ(Dv / L).Rotator()) * FQuat(FVector::UpVector, RigRng.FRandRange(0.f, 2.f * PI)));
+		Arc->SetRelativeScale3D(FVector(Thick, Thick, L / 1000.f));
+		Show(Arc, true);
+	}
+	/** A piece that flies off when the boss dies: a wreck of its own (a rigid body, as the body's). Kick is in the
+	 *  boss's own axes (cm/s) on top of the speed it was doing. */
+	void ThrowPart(AFTEntityActor& A, UStaticMeshComponent* C, const FVector& Away, const FVector& Spin)
+	{
+		UWorld* W = A.GetWorld();
+		if (!W || !C || !C->GetStaticMesh() || !C->IsVisible()) return;
+		const FTransform T = C->GetComponentTransform();
+		const FTransform At = A.GetActorTransform();
+		FActorSpawnParameters SP; SP.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		if (AFTWreck* Wr = W->SpawnActor<AFTWreck>(AFTWreck::StaticClass(), T, SP))
+			Wr->Launch(C->GetStaticMesh(), FTransform(T.GetRotation(), T.GetLocation()), At.GetUnitAxis(EAxis::X) * A.LastSpeed * 0.85f + At.TransformVectorNoScale(Away), Spin, FMath::Abs(T.GetScale3D().Z));
+	}
+
+	// What every boss shares: where a hit shows and with what, and where it comes apart
+	struct FBossLook { const TCHAR* HurtFx; FVector HurtAt; const TCHAR* DefeatFx; FVector Heart; };
+	const FBossLook BossLooks[8] = {
+		{ TEXT("NS_BossHurtSparks"), FVector(-560.f, 0.f, 230.f), TEXT("NS_BossDefeat"), FVector(-200.f, 0.f, 260.f) },    // THE JUGGERNAUT
+		{ TEXT("NS_BossHurtZap"), FVector(-185.f, 0.f, 430.f), TEXT("NS_BossDefeatZap"), FVector(-185.f, 0.f, 700.f) },    // THE ALCHEMIST
+		{ TEXT("NS_BossHurtChips"), FVector(-520.f, 0.f, 300.f), TEXT("NS_BossDefeatChips"), FVector(-100.f, 0.f, 330.f) },   // THE BIG DEALER
+		{ TEXT("NS_BossHurtSparks"), FVector(-600.f, 0.f, 240.f), TEXT("NS_BossDefeatFire"), FVector(-205.f, 0.f, 360.f) },   // ENGINE 13
+		{ TEXT("NS_BossHurtConfetti"), FVector(-560.f, 0.f, 330.f), TEXT("NS_BossDefeatConfetti"), FVector(-100.f, 0.f, 460.f) },   // MR. CHUCKLES
+		{ TEXT("NS_BossHurtSnow"), FVector(-220.f, 0.f, 640.f), TEXT("NS_BossDefeatSnow"), FVector(0.f, 0.f, 620.f) },       // THE ABOMINABLE
+		{ TEXT("NS_BossHurtSpray"), FVector(-560.f, 0.f, 280.f), TEXT("NS_BossDefeatSplash"), FVector(-100.f, 0.f, 300.f) }, // THE GREAT WHITE
+		{ TEXT("NS_BossHurtBills"), FVector(-600.f, 0.f, 220.f), TEXT("NS_BossDefeatCash"), FVector(-150.f, 0.f, 240.f) },   // THE CHAIRMAN
+	};
+	inline const FBossLook& LookOf(const AFTEntityActor& A) { return BossLooks[FMath::Clamp(A.Lvl, 0, 7)]; }
+
+	// ---------------------------------------------------------------- THE JUGGERNAUT (level 1): the armoured hauler
+	// Bits: 0 the turret, 1-2 its rotary guns, 3-4 the roof shields (left, right), 5-6 the barrel bays' trays, 7-8
+	// the barrels on them (the game's own barrel mesh). BossFx: 0 smoke (damage 1), 1 fire (damage 2). RigA the guns'
+	// turn, RigB the turret's scan clock, RigE how far the trays are out, RigF its list, RigH the guns' heat.
+	// Wind kind 1: the fan of rounds. Cue[0]: the barrel drop's wind-up (it runs on its own timer). Fire kinds: 1 the
+	// fan, 2 the barrels.
+	const FVector JuggTurret(-200.f, 0.f, 300.f), JuggGun(-176.f, 64.f, 70.f), JuggShield(-600.f, 196.f, 321.f), JuggTray(-625.f, 180.f, 84.f);
+	void SetupJuggernaut(AFTEntityActor& A)
+	{
+		A.Part(0, TEXT("/Game/Characters/Bosses/SM_JuggTurret"), JuggTurret);
+		for (int32 s = 0; s < 2; ++s)
+		{
+			const float Y = s ? 1.f : -1.f;
+			A.Part(1 + s, TEXT("/Game/Characters/Bosses/SM_JuggGun"), JuggTurret + FVector(JuggGun.X, Y * JuggGun.Y, JuggGun.Z), false);
+			A.Part(3 + s, TEXT("/Game/Characters/Bosses/SM_JuggShield"), FVector(JuggShield.X, Y * JuggShield.Y, JuggShield.Z), false);
+			A.Part(5 + s, TEXT("/Game/Characters/Bosses/SM_JuggTray"), FVector(JuggTray.X, Y * JuggTray.Y, JuggTray.Z), false);
+			Show(A.Part(7 + s, TEXT("/Game/Characters/Pickups/SM_Barrel"), FVector(JuggTray.X + 50.f, Y * JuggTray.Y, JuggTray.Z), false), false);
+		}
+	}
+	void AnimJuggernaut(AFTEntityActor& A, float Dt)
+	{
+		const float W1 = A.WindKind == 1 ? A.Wind : 0.f, W2 = FMath::Clamp(A.Cue[0], 0.f, 1.f);
+		const float Recoil = A.FireKind == 1 ? Pulse(A.FireT, 7.f) : 0.f;
+		// the entrance: the turret comes up out of its ring and the shields swing up while he drops back onto his spot
+		// (done before his first fan winds up, a second after he appears)
+		const float In = A.bBossLive ? Smooth(A.IntroT / 1.0f) : 1.f;
+		if (W2 > 0.f && A.RigG <= 0.f) { UE_LOG(LogFT, Display, TEXT("FT BOSSRIG wind level=%d kind=2"), A.Lvl); }
+		A.RigG = W2;
+		// the turret scans the road while nothing is due, squares up on the car as its guns spin, and is thrown back by the fan
+		A.RigB += Dt;
+		const float Scan = 11.f * FMath::Sin(A.RigB * 0.9f) * (1.f - Smooth(W1 * 2.f)) * (1.f - Recoil);
+		const FQuat TQ(FRotator(3.f * W1 - 8.f * Recoil, Scan, 0.f));
+		const FVector TP = JuggTurret + FVector(24.f * Recoil, 0.f, -70.f * (1.f - In));
+		if (UStaticMeshComponent* T = BitOf(A, 0)) T->SetRelativeLocationAndRotation(TP, TQ);
+		// the guns turn only when a fan is coming: faster through its last 0.6 s, flat out as it goes, then they run down
+		A.RigA += 2100.f * FMath::Max(W1 * W1, A.FireKind == 1 ? Pulse(A.FireT, 2.2f) : 0.f) * Dt;
+		const float Heat = FMath::RoundToFloat((2.5f * W1 + 4.f * Recoil) * 4.f) * 0.25f;
+		for (int32 s = 0; s < 2; ++s)
+		{
+			const float Y = s ? 1.f : -1.f;
+			if (UStaticMeshComponent* G = BitOf(A, 1 + s))
+			{
+				G->SetRelativeLocationAndRotation(TP + TQ.RotateVector(FVector(JuggGun.X + 30.f * Recoil, Y * JuggGun.Y, JuggGun.Z)), TQ * FQuat(FRotator(0.f, 0.f, Y * A.RigA)));
+				if (Heat != A.RigH) G->SetScalarParameterValueOnMaterials(TEXT("Alert"), Heat);
+				if (Heat != A.RigH && s == 0) if (UStaticMeshComponent* Tur = BitOf(A, 0)) Tur->SetScalarParameterValueOnMaterials(TEXT("Alert"), Heat);
+			}
+			// a roof shield: up with the entrance, rattled by every hit and by the guns
+			if (UStaticMeshComponent* Sh = BitOf(A, 3 + s))
+				Sh->SetRelativeRotation(FRotator(-88.f * (1.f - In) + 5.f * Pulse(A.HurtT, 6.f) * A.HurtAmt * FMath::Sin(A.AnimT * 61.f + s) - 4.f * Recoil, 0.f, 0.f));
+		}
+		A.RigH = Heat;
+		// the barrel bays: the trays run out through the drop's wind-up with a barrel on each, let it go, and run back in
+		A.RigE = FMath::FInterpTo(A.RigE, Smooth(W2), Dt, 14.f);
+		for (int32 s = 0; s < 2; ++s)
+		{
+			const float Y = s ? 1.f : -1.f;
+			if (UStaticMeshComponent* Tr = BitOf(A, 5 + s)) Tr->SetRelativeLocation(FVector(JuggTray.X - 120.f * A.RigE, Y * JuggTray.Y, JuggTray.Z));
+			if (UStaticMeshComponent* Br = BitOf(A, 7 + s))
+			{
+				Show(Br, W2 > 0.06f && Br->GetStaticMesh() != nullptr);
+				Br->SetRelativeLocation(FVector(JuggTray.X - 120.f * A.RigE + 50.f, Y * JuggTray.Y, JuggTray.Z));
+			}
+		}
+		A.BossAlert = FMath::Max(1.1f * W2, 0.9f * W1);   // the bays' lamps, and every other light on the hull, as the barrels come out or the guns spin up
+		// worn down, it lists to the side that has lost its shield
+		A.RigF = FMath::FInterpTo(A.RigF, A.DmgState >= 2 ? 0.f : (A.DmgState == 1 ? -2.5f : 0.f), Dt, 2.f);
+		// (only on wheels: the body's springs write its rotation afresh every frame then, so this cannot add up)
+		if (A.WheelSpec.Num() && FMath::Abs(A.RigF) > 0.05f) A.Mesh->SetRelativeRotation(A.Mesh->GetRelativeRotation() + FRotator(0.f, 0.f, A.RigF));
+	}
+	void FireJuggernaut(AFTEntityActor& A)
+	{
+		if (A.FireKind == 1)
+		{
+			for (int32 s = 0; s < 2; ++s)
+				if (UStaticMeshComponent* G = BitOf(A, 1 + s)) FTFx::Attach(TEXT("NS_BossGunFlash"), G, FVector(-300.f, 0.f, 0.f), FRotator::ZeroRotator, 1.f, FTFx::Flash, true);
+			Kick(A, 60.f, 0.f, -220.f);
+		}
+		else
+		{
+			FTFx::Attach(TEXT("NS_BossDust"), A.Mesh, FVector(-800.f, 0.f, 20.f), FRotator::ZeroRotator, 1.f, FTFx::Extra, true);
+			Kick(A, -25.f, 0.f, 140.f);
+		}
+	}
+	void BreakJuggernaut(AFTEntityActor& A, int32 State)
+	{
+		// a roof shield is shot away: the left at damage 1, the right at 2
+		const int32 s = State == 1 ? 0 : 1;
+		if (UStaticMeshComponent* Sh = BitOf(A, 3 + s))
+		{
+			FTFx::Attach(TEXT("NS_BossBreak"), A.Mesh, FVector(JuggShield.X, (s ? 1.f : -1.f) * JuggShield.Y, JuggShield.Z + 90.f), FRotator::ZeroRotator, 0.7f, FTFx::Main, true);
+			Show(Sh, false);
+		}
+		if (State == 1) A.Loop(0, TEXT("NS_BossSmoke"), FVector(JuggShield.X + 60.f, -JuggShield.Y, JuggShield.Z + 20.f), true);
+		else A.Loop(1, TEXT("NS_BossFlame"), FVector(JuggShield.X + 60.f, JuggShield.Y, JuggShield.Z + 20.f), true);
+	}
+	void DefeatJuggernaut(AFTEntityActor& A)
+	{
+		// the turret is blown out of its ring, the guns off the turret, and whatever armour is left goes with them
+		ThrowPart(A, BitOf(A, 0), FVector(-200.f, RigRng.FRandRange(-300.f, 300.f), 1500.f), FVector(160.f, 240.f, 300.f));
+		for (int32 s = 0; s < 2; ++s)
+		{
+			ThrowPart(A, BitOf(A, 1 + s), FVector(-700.f, (s ? 1.f : -1.f) * 700.f, 900.f), FVector(300.f, 500.f, 200.f));
+			ThrowPart(A, BitOf(A, 3 + s), FVector(-300.f, (s ? 1.f : -1.f) * 1000.f, 700.f), FVector(400.f, 100.f, 100.f));
+		}
+	}
+
+	// ---------------------------------------------------------------- THE ALCHEMIST (level 2): the Tesla truck
+	// Bits: 0 the toroid (SM_TeslaTop, or SM_TeslaTopB once it has melted down), 1-3 the strikes (SetTesla),
+	// 4-6 the charge collars, 7-8 the arcs to its own electrodes. BossFx: 0 the crackle round the toroid,
+	// 1 smoke (damage 1), 2 fire (damage 2). RigA the toroid's spin, RigB its wobble, RigC since the last strike
+	// ended, RigD how much power the lights have (0..1: the entrance, the moment after a strike).
+	const FVector TeslaBall[2] = { FVector(-185.f, -336.f, 600.f), FVector(-185.f, 336.f, 600.f) };   // the spark gaps' electrodes (ft_v33.tesla_truck)
+	constexpr float CollarLow = 335.f, CollarHigh = 800.f;                                              // the winding the collars climb
+	void SetupAlchemist(AFTEntityActor& A)
+	{
+		for (int32 c = 0; c < 3; ++c) Show(A.Part(4 + c, TEXT("/Game/Characters/Bosses/SM_TeslaCollar"), FVector(TeslaTop.X, 0.f, CollarLow), false), false);
+		for (int32 s = 0; s < 2; ++s) Show(A.Part(7 + s, TEXT("/Game/Characters/Bosses/SM_TeslaArc"), TeslaTop, false), false);
+		Kept(TEXT("/Game/Characters/Bosses/SM_TeslaTopB"));   // (the meltdown's toroid: loaded now, not in the middle of the fight)
+		A.RigD = 1.f;
+	}
+	void AnimAlchemist(AFTEntityActor& A, float Dt)
+	{
+		const float Ch = A.TeslaCharge;
+		// the entrance: dead, then the lights stutter on; after a strike the coil is spent for a moment
+		const float Boot = A.bBossLive ? (A.IntroT < 0.35f ? 0.f : (A.IntroT < 1.15f ? (FMath::Sin(A.IntroT * 47.f) > -0.2f ? Smooth((A.IntroT - 0.35f) / 0.8f) : 0.f) : 1.f)) : 1.f;
+		const float Spent = (A.NumCharges == 0 && A.RigC < 0.5f) ? 1.f - Smooth(A.RigC / 0.5f) : 0.f;   // (never while another strike is charging)
+		A.RigD = Boot * (1.f - 0.75f * Spent);
+		// the collars: one for each strike still charging, climbing the winding at the pace of its own warning
+		for (int32 c = 0; c < 3; ++c)
+		{
+			UStaticMeshComponent* C = BitOf(A, 4 + c);
+			const bool bOn = C && c < A.NumCharges && A.Charges[c] > 0.02f;
+			Show(C, bOn);
+			if (!bOn) continue;
+			const float U = A.Charges[c];
+			C->SetRelativeLocation(FVector(TeslaTop.X, 0.f, FMath::Lerp(CollarLow, CollarHigh, U)));
+			C->SetRelativeScale3D(FVector(1.f + 0.35f * U, 1.f + 0.35f * U, 1.f + 0.8f * U));
+			C->SetScalarParameterValueOnMaterials(TEXT("Glow"), (1.f + 4.5f * U) * (U > 0.75f ? RigRng.FRandRange(0.75f, 1.25f) : 1.f));
+		}
+		// the toroid: spins up with the charge, rises a little, kicks flat as it lets go, and wobbles once it is damaged
+		if (UStaticMeshComponent* Top = BitOf(A, 0))
+		{
+			A.RigA = FMath::Fmod(A.RigA + (25.f + 400.f * Ch) * Boot * Dt, 360.f);
+			A.RigB = FMath::Fmod(A.RigB + (70.f + 110.f * A.DmgState) * Dt, 360.f);
+			const float Tilt = (A.DmgState == 1 ? 4.f : (A.DmgState >= 2 ? 9.f : 0.f)) + 8.f * Pulse(A.HurtT, 7.f) * A.HurtAmt;
+			const float Squash = Pulse(A.FireT, 8.f);
+			const FQuat Q = FQuat(FVector::UpVector, FMath::DegreesToRadians(A.RigB)) * FQuat(FVector::ForwardVector, FMath::DegreesToRadians(Tilt))
+				* FQuat(FVector::UpVector, FMath::DegreesToRadians(A.RigA - A.RigB));
+			Top->SetRelativeLocationAndRotation(TeslaTop + FVector(0.f, 0.f, 12.f * Ch - 30.f * Squash), Q);
+			Top->SetRelativeScale3D(FVector(1.f + 0.05f * Ch + 0.16f * Squash, 1.f + 0.05f * Ch + 0.16f * Squash, 1.f - 0.32f * Squash));
+		}
+		// arcs from the toroid to its own two electrodes for the first instant of a strike
+		const bool bSide = A.FireT < 0.14f && A.NumArcs > 0;
+		for (int32 s = 0; s < 2; ++s)
+		{
+			if (bSide) LocalArc(BitOf(A, 7 + s), TeslaTop, TeslaBall[s], RigRng.FRandRange(1.1f, 1.9f));
+			else Show(BitOf(A, 7 + s), false);
+		}
+		// every lit part of the truck follows the charge (the winding, the capacitor towers, the eyes): hot as it
+		// peaks, dark for a moment after it has let go, and never quite steady once it is melting down
+		A.BossAlert = FMath::Lerp(-0.4f, 1.5f * Ch * Ch + (A.DmgState >= 2 ? 0.5f : 0.f), A.RigD);
+		// the crackle is the charge's (full size from 30 %); once it is melting down a small one never stops
+		A.Loop(0, TEXT("NS_BossZapCrackle"), TeslaTop, A.bBossLive && (Ch > 0.3f || A.DmgState >= 2), FRotator::ZeroRotator, Ch > 0.3f ? 1.f : 0.5f);
+	}
+	void FireAlchemist(AFTEntityActor& A)
+	{
+		// the strike: a flash and a spray of arcs at the toroid, and the truck sits down under it
+		FTFx::Attach(TEXT("NS_BossZapFlash"), A.Mesh, TeslaTop, FRotator::ZeroRotator, 1.f, FTFx::Flash, true);
+		FTFx::Attach(TEXT("NS_BossZapSpray"), A.Mesh, TeslaTop, FRotator::ZeroRotator, 1.f, FTFx::Extra, true);
+		Kick(A, 20.f, 0.f, -500.f);
+	}
+	void BreakAlchemist(AFTEntityActor& A, int32 State)
+	{
+		if (State == 1) A.Loop(1, TEXT("NS_BossSmoke"), FVector(-555.f, 186.f, 520.f), true);
+		else
+		{
+			// the meltdown: a bite out of the toroid, the hot core showing; a capacitor tower burns
+			// (SetTesla has left a dynamic instance of the whole toroid's material in every slot; the broken one has other slots)
+			if (UStaticMeshComponent* Top = BitOf(A, 0)) if (UStaticMesh* Broken = Kept(TEXT("/Game/Characters/Bosses/SM_TeslaTopB"))) { Top->EmptyOverrideMaterials(); Top->SetStaticMesh(Broken); }
+			A.Loop(2, TEXT("NS_BossFlame"), FVector(-555.f, -186.f, 500.f), true);
+		}
+		FTFx::Attach(TEXT("NS_BossZapSpray"), A.Mesh, TeslaTop, FRotator::ZeroRotator, 1.3f, FTFx::Main, true);
+	}
+	void DefeatAlchemist(AFTEntityActor& A)
+	{
+		// the coil lets go of everything at once and the toroid is blown clear
+		ThrowPart(A, BitOf(A, 0), FVector(-500.f, RigRng.FRandRange(-500.f, 500.f), 1700.f), FVector(RigRng.FRandRange(-260.f, 260.f), 340.f, RigRng.FRandRange(-200.f, 200.f)));
+	}
+
+	// ---------------------------------------------------------------- THE BIG DEALER (level 3): the bike carrier
+	// A launcher: the middle lane of each deck sends the riders. Bits: 0 the top deck's lift, 1-2 the air brakes
+	// (left, right), 3-4 the dice, 5 the bike at the lower gate, 6 the bike on the lift, 7-9 the gate's launch
+	// lights (amber, amber, green), 10-12 the lift's. BossFx: 0-1 tyre smoke while the brake check comes back at the
+	// car, 2 smoke (damage 1), 3 fire (damage 2). RigA / RigB seconds since the gate / the lift sent a rider, RigD
+	// how far the air brakes are out, RigE the dice's tumble. Wind kinds: 1 the gate, 2 the lift, 3 both.
+	const FVector CarrierLift(30.f, 0.f, 314.f), CarrierGate(-230.f, 0.f, 116.f);
+	const FVector CarrierDie[2] = { FVector(540.f, -120.f, 700.f), FVector(540.f, 120.f, 700.f) };
+	constexpr float CarrierLiftUp = 183.f;   // a jumper leaves from 497 cm over the road (TickBoss); the top deck is at 314
+	void SetupDealer(AFTEntityActor& A)
+	{
+		A.Part(0, TEXT("/Game/Characters/Bosses/SM_CarrierLift"), CarrierLift);
+		for (int32 s = 0; s < 2; ++s)
+		{
+			A.Part(1 + s, TEXT("/Game/Characters/Bosses/SM_CarrierFlap"), FVector(-164.f, (s ? 1.f : -1.f) * 286.5f, 400.f));
+			A.Part(3 + s, TEXT("/Game/Characters/Bosses/SM_CarrierDie"), CarrierDie[s])->SetRelativeRotation(FRotator(s ? 20.f : -20.f, 30.f, 15.f));
+		}
+		A.Part(5, TEXT("/Game/Characters/SnakeEyes/SM_Hog"), CarrierGate, false);
+		A.Part(6, TEXT("/Game/Characters/SnakeEyes/SM_Hog2"), CarrierLift, false);
+		static const float LampZ[6] = { 234.f, 192.f, 150.f, 440.f, 398.f, 356.f };
+		for (int32 l = 0; l < 6; ++l)
+		{
+			// (seen from 58 m a lamp is a pixel or two: each is drawn tall and burning, so the count is a column that grows)
+			UStaticMeshComponent* Lamp = A.Part(7 + l, l % 3 == 2 ? TEXT("/Game/Characters/Bosses/SM_CarrierLampG") : TEXT("/Game/Characters/Bosses/SM_CarrierLampA"), FVector(-477.f, 0.f, LampZ[l]), false);
+			Lamp->SetRelativeScale3D(FVector(1.f, 1.f, 1.9f));
+			Lamp->SetScalarParameterValueOnMaterials(TEXT("Glow"), 7.f);
+			Show(Lamp, false);
+		}
+		A.RigA = A.RigB = 9.f;
+	}
+	void AnimDealer(AFTEntityActor& A, float Dt)
+	{
+		A.RigA += Dt; A.RigB += Dt;
+		const float W1 = (A.WindKind == 1 || A.WindKind == 3) ? A.Wind : 0.f;
+		const float W2 = (A.WindKind == 2 || A.WindKind == 3) ? A.Wind : 0.f;
+		const float Rev = FMath::Sin(A.AnimT * 52.f);
+		// the gate: the next rider rolls back to the ramp's lip while his lights count down, tips onto the ramp, and is
+		// gone (the real rider appears at the ramp's foot that instant); the slot stands empty a moment, then the next
+		if (UStaticMeshComponent* G = BitOf(A, 5))
+		{
+			Show(G, A.RigA > 0.55f && G->GetStaticMesh() != nullptr);
+			// (he stops at the lip, front wheel lifting: where on the road the real rider comes out, up to 365 cm to either
+			// side, is only known as he goes, so nothing is shown riding down the middle of the ramp)
+			const float Lip = Smooth(W1 / 0.8f), Tip = Smooth((W1 - 0.8f) / 0.2f);
+			G->SetRelativeScale3D(FVector(FMath::Max(Smooth((A.RigA - 0.55f) / 0.25f), 0.01f)));
+			G->SetRelativeLocationAndRotation(FVector(CarrierGate.X - 240.f * Lip, 0.f, CarrierGate.Z + 2.f * Rev * W1 + 10.f * Tip),
+				FRotator(9.f * Tip + 2.5f * Rev * W1, 0.f, 0.f));
+		}
+		// the lift: it carries the next jumper up through his wind-up (he leaves from 183 cm over the deck), holds a
+		// moment after he has gone, and drops for the next
+		const float Up = FMath::Max(Smooth(W2), A.RigB < 0.3f ? 1.f : 1.f - Smooth((A.RigB - 0.3f) / 0.45f));
+		if (UStaticMeshComponent* L = BitOf(A, 0)) L->SetRelativeLocation(CarrierLift + FVector(0.f, 0.f, CarrierLiftUp * Up));
+		if (UStaticMeshComponent* J = BitOf(A, 6))
+		{
+			Show(J, A.RigB > 0.95f && J->GetStaticMesh() != nullptr);
+			J->SetRelativeScale3D(FVector(FMath::Max(Smooth((A.RigB - 0.95f) / 0.25f), 0.01f)));
+			J->SetRelativeLocationAndRotation(CarrierLift + FVector(-30.f * Up, 0.f, CarrierLiftUp * Up + 2.f * Rev * W2), FRotator(14.f * Smooth(W2) + 2.5f * Rev * W2, 0.f, 0.f));
+		}
+		// the launch lights: two ambers count a rider down, green as he leaves
+		const float Wd[2] = { W1, W2 }, Since[2] = { A.RigA, A.RigB };
+		for (int32 d = 0; d < 2; ++d)
+		{
+			Show(BitOf(A, 7 + d * 3), Wd[d] > 0.3f);
+			Show(BitOf(A, 8 + d * 3), Wd[d] > 0.65f);
+			Show(BitOf(A, 9 + d * 3), Since[d] < 0.45f);
+		}
+		// the brake check: the air brakes swing out with its warning and stay out while he comes back at the car, tyres smoking
+		const bool bBrake = A.Lunge > 0.02f;
+		A.RigD = FMath::FInterpTo(A.RigD, bBrake ? 1.f : 0.f, Dt, bBrake ? 9.f : 4.f);
+		for (int32 s = 0; s < 2; ++s)
+			if (UStaticMeshComponent* F = BitOf(A, 1 + s))
+				F->SetRelativeRotation(FRotator(0.f, (s ? -1.f : 1.f) * (72.f * A.RigD + (A.bLunge ? 3.f * FMath::Sin(A.AnimT * 37.f + s) : 0.f)), 0.f));
+		A.Loop(0, TEXT("NS_BossTyreSmoke"), FVector(-335.f, -235.f, 30.f), A.bLunge);
+		A.Loop(1, TEXT("NS_BossTyreSmoke"), FVector(-335.f, 235.f, 30.f), A.bLunge);
+		// the dice tumble: lazily, faster as a rider winds up, a spin as he goes and when the carrier is hit
+		// (the entrance: he rolls them as he drops back onto his spot)
+		const float Roll = A.bBossLive ? 1.f - Smooth(A.IntroT / 2.6f) : 0.f;
+		A.RigE += (40.f + 1500.f * Roll + 420.f * FMath::Max(W1, W2) + 900.f * Pulse(FMath::Min(A.RigA, A.RigB), 2.5f) + 500.f * Pulse(A.HurtT, 5.f) * A.HurtAmt) * Dt;
+		for (int32 s = 0; s < 2; ++s)
+			if (UStaticMeshComponent* D = BitOf(A, 3 + s))
+				D->SetRelativeRotation(FQuat(FVector(s ? 0.3f : 0.5f, s ? 1.f : -0.6f, 0.7f).GetSafeNormal(), FMath::DegreesToRadians(A.RigE * (s ? 1.f : -1.3f) + (s ? 40.f : 0.f))));
+	}
+	void FireDealer(AFTEntityActor& A)
+	{
+		if (A.FireKind == 2)
+		{
+			A.RigB = 0.f;   // off the lift
+			FTFx::Attach(TEXT("NS_BossLaunch"), A.Mesh, CarrierLift + FVector(0.f, 0.f, CarrierLiftUp), FRotator::ZeroRotator, 1.f, FTFx::Flash, true);
+			Kick(A, 40.f, 0.f, -300.f);
+		}
+		else
+		{
+			A.RigA = 0.f;   // down the ramp: dust where the real rider is (Cue 3: how far to the side of the carrier he came out)
+			FTFx::Attach(TEXT("NS_BossDust"), A.Mesh, FVector(-800.f, FMath::Clamp(A.Cue[3], -420.f, 420.f), 20.f), FRotator::ZeroRotator, 1.5f, FTFx::Extra, true);
+			Kick(A, -30.f, 0.f, 160.f);
+		}
+	}
+	void BreakDealer(AFTEntityActor& A, int32 State)
+	{
+		if (State == 1) A.Loop(2, TEXT("NS_BossSmoke"), FVector(-460.f, 266.f, 480.f), true);
+		else
+		{
+			// he is losing: one of his dice is shot off its mast, and the lift's ram burns
+			if (UStaticMeshComponent* D = BitOf(A, 4)) { FTFx::Attach(TEXT("NS_BossBreak"), A.Mesh, CarrierDie[1], FRotator::ZeroRotator, 0.6f, FTFx::Main, true); Show(D, false); }
+			A.Loop(3, TEXT("NS_BossFlame"), FVector(30.f, 0.f, 330.f), true);
+		}
+	}
+	void DefeatDealer(AFTEntityActor& A)
+	{
+		// the house loses: the dice, the air brakes and the lift go their own ways
+		for (int32 s = 0; s < 2; ++s)
+		{
+			ThrowPart(A, BitOf(A, 3 + s), FVector(-200.f, (s ? 1.f : -1.f) * 600.f, 1300.f), FVector(300.f, 200.f * (s ? 1.f : -1.f), 260.f));
+			ThrowPart(A, BitOf(A, 1 + s), FVector(-600.f, (s ? 1.f : -1.f) * 900.f, 500.f), FVector(120.f, 80.f, (s ? 1.f : -1.f) * 400.f));
+		}
+		ThrowPart(A, BitOf(A, 0), FVector(-300.f, 0.f, 1500.f), FVector(200.f, 320.f, 60.f));
+	}
+
+	// ---------------------------------------------------------------- ENGINE 13 (level 4): the fire engine
+	// Bits: 0 the fire cannon on its turntable, 1 the ladder (carried raised over the tail; its tip holds the second
+	// nozzle). BossFx: 0 the cannon's jet, 1 the ladder's jet, 2 smoke (damage 1), 3 fire (damage 2). RigA / RigB the
+	// cannon's turn and tip, RigD / RigE the ladder's swing and raise, RigG whether the hose was burning last frame,
+	// RigH what the throats' glow was set to, RigN whether this wind-up has blown its steam.
+	// Wind kinds: 1 the hose filling (the lane's own warning), 2 the hose burning (the lane is live), 3 fireballs
+	// about to be lobbed; AimX = where the lane is across the road from him. Cue[1], Cue[2]: the second lane (five
+	// alarms): where, and how far along (0 none, up to 1 warning, 2 live). Fire kinds: 3 the fireballs, 4 a barrel.
+	const FVector FireCannonAt(-495.f, 0.f, 352.f), FireLadderAt(275.f, 0.f, 372.f), FireMuzzle(-232.f, 0.f, 96.f), FireTip(-858.f, 0.f, -68.f);
+	const FVector EngineHatch(-205.f, 0.f, 440.f);   // the roof tank's hatch: the fireballs are lobbed from 420 cm up, over the truck's middle
+	void SetupEngine(AFTEntityActor& A)
+	{
+		A.Part(0, TEXT("/Game/Characters/Bosses/SM_FireCannon"), FireCannonAt);
+		A.Part(1, TEXT("/Game/Characters/Bosses/SM_FireLadder"), FireLadderAt)->SetRelativeRotation(FRotator(-25.f, 0.f, 0.f));
+		A.RigE = -25.f;
+	}
+	void AnimEngine(AFTEntityActor& A, float Dt)
+	{
+		const bool bHose = (A.WindKind == 1 || A.WindKind == 2) && A.Wind > 0.f, bLive = A.WindKind == 2 && A.Wind > 0.5f;
+		// (Lob: the fireballs' wind-up, whatever the hose is doing; Mortar: what of it the cannon is free to show)
+		const float Lob = FMath::Clamp(A.Cue[3], 0.f, 1.f);
+		const float Fill = A.WindKind == 1 ? A.Wind : (bLive ? 1.f : 0.f), Mortar = bHose ? 0.f : Lob;
+		const float Thump = (A.FireKind == 3 && !bHose) ? Pulse(A.FireT, 6.f) : 0.f;   // (not while it is hosing: the jet stays on its lane)
+		const float Rattle = Pulse(A.HurtT, 5.f) * A.HurtAmt * FMath::Sin(A.AnimT * 50.f);
+		// the cannon turns at the lane it is about to burn and follows it when the hose sweeps; it tips up to lob
+		// fireballs and is kicked back as they go; with nothing due it looks the road over
+		A.RigA = FMath::FInterpTo(A.RigA, bHose ? -FMath::RadiansToDegrees(FMath::Atan2(A.AimX, 3500.f)) : 7.f * FMath::Sin(A.AnimT * 0.8f), Dt, bHose ? 8.f : 2.f);
+		A.RigB = FMath::FInterpTo(A.RigB, -34.f * FMath::Max(Smooth(Mortar), Thump) + 5.f * Fill, Dt, 10.f);
+		// (the entrance: it comes round from facing up the road to face the car, and the ladder goes up)
+		const float In = A.bBossLive ? Smooth(A.IntroT / 1.4f) : 1.f;
+		const FQuat CQ(FRotator(A.RigB + (bLive ? 1.5f * FMath::Sin(A.AnimT * 43.f) : 0.f) + 2.f * Rattle, A.RigA + 180.f * (1.f - In), 0.f));
+		const FVector CP = FireCannonAt + CQ.RotateVector(FVector(26.f * Thump + (bLive ? 7.f : 0.f), 0.f, 0.f));
+		if (UStaticMeshComponent* C = BitOf(A, 0)) C->SetRelativeLocationAndRotation(CP, CQ);
+		A.Loop(0, TEXT("NS_BossFlameJet"), CP + CQ.RotateVector(FireMuzzle), bLive, CQ.Rotator());
+		// the ladder rides raised over the tail and sways; at five alarms its nozzle burns the second lane
+		const bool bSecond = A.Cue[2] > 0.f, bLive2 = A.Cue[2] > 1.5f;
+		A.RigD = FMath::FInterpTo(A.RigD, bSecond ? -FMath::RadiansToDegrees(FMath::Atan2(A.Cue[1], 3500.f)) : 0.f, Dt, bSecond ? 8.f : 2.f);
+		A.RigE = FMath::FInterpTo(A.RigE, -25.f - 9.f * FMath::Max(Smooth(Mortar), Thump) + 2.5f * FMath::Sin(A.AnimT * 1.7f), Dt, 6.f);
+		const FQuat LQ(FRotator(A.RigE * In + 2.f * Rattle, A.RigD, 5.f * A.DmgState));   // (knocked askew as he is worn down)
+		if (UStaticMeshComponent* L = BitOf(A, 1)) L->SetRelativeLocationAndRotation(FireLadderAt, LQ);
+		A.Loop(1, TEXT("NS_BossFlameJet"), FireLadderAt + LQ.RotateVector(FireTip), bLive2, (LQ * FQuat(FRotator(45.f, 0.f, 0.f))).Rotator(), 0.8f);
+		// pressure: the two throats and the tank's sight glass burn brighter as the hose fills or the mortar loads
+		const float Second = bLive2 ? 1.f : FMath::Clamp(A.Cue[2], 0.f, 1.f);
+		const float Heat = FMath::RoundToFloat((2.6f * FMath::Max3(Fill, Lob, Second) + (bLive || bLive2 ? 2.f : 0.f)) * 4.f) * 0.25f;
+		if (Heat != A.RigH)
+		{
+			A.RigH = Heat;
+			for (int32 b = 0; b < 2; ++b) if (UStaticMeshComponent* C = BitOf(A, b)) C->SetScalarParameterValueOnMaterials(TEXT("Alert"), Heat);
+		}
+		A.BossAlert = 1.2f * FMath::Max3(Fill, Lob, Second);
+		// the fireballs' own sign: a pilot flame stands on the roof tank through their wind-up, taller as it runs out
+		A.Loop(4, TEXT("NS_BossFlameJet"), EngineHatch, Lob > 0.04f, FRotator(-90.f, 0.f, 0.f), 0.22f + 0.3f * Lob);
+		// a wind-up starts with the safety valve blowing off; the hose catching kicks the truck
+		const float W = FMath::Max3(Fill, Lob, Second);
+		if (W > 0.05f && A.RigN == 0) { A.RigN = 1; FTFx::Attach(TEXT("NS_BossSteam"), A.Mesh, FVector(-205.f, 0.f, 430.f), FRotator::ZeroRotator, 1.f, FTFx::Extra, true); }
+		else if (W < 0.02f) A.RigN = 0;
+		if (bLive && A.RigG < 0.5f) Kick(A, 45.f, 0.f, -200.f);
+		A.RigG = bLive ? 1.f : 0.f;
+	}
+	void FireEngine(AFTEntityActor& A)
+	{
+		if (A.FireKind == 3)
+		{
+			// the fireballs go: a ring where they leave from (the cannon's mouth if it was free to tip up, else the tank's hatch)
+			const bool bHose = (A.WindKind == 1 || A.WindKind == 2) && A.Wind > 0.f;
+			UStaticMeshComponent* C = bHose ? nullptr : BitOf(A, 0);
+			if (C) FTFx::Attach(TEXT("NS_BossMortar"), C, FireMuzzle, FRotator::ZeroRotator, 1.f, FTFx::Flash, true);
+			else FTFx::Attach(TEXT("NS_BossMortar"), A.Mesh, EngineHatch, FRotator::ZeroRotator, 1.f, FTFx::Flash, true);
+			Kick(A, 70.f, 0.f, -260.f);
+		}
+		else FTFx::Attach(TEXT("NS_BossDust"), A.Mesh, FVector(-800.f, 0.f, 20.f), FRotator::ZeroRotator, 0.8f, FTFx::Extra, true);
+	}
+	void BreakEngine(AFTEntityActor& A, int32 State)
+	{
+		// the fuel tank on the roof is holed, then alight
+		if (State == 1) A.Loop(2, TEXT("NS_BossSmoke"), FVector(-205.f, 60.f, 420.f), true);
+		else A.Loop(3, TEXT("NS_BossFlame"), FVector(-205.f, -40.f, 420.f), true);
+	}
+	void DefeatEngine(AFTEntityActor& A)
+	{
+		// the tank goes up: the cannon is blown off its turntable and the ladder over the side
+		ThrowPart(A, BitOf(A, 0), FVector(-600.f, RigRng.FRandRange(-300.f, 300.f), 1400.f), FVector(200.f, 380.f, 120.f));
+		ThrowPart(A, BitOf(A, 1), FVector(200.f, 900.f, 1000.f), FVector(160.f, 60.f, 260.f));
+	}
+
+	// ---------------------------------------------------------------- MR. CHUCKLES (level 5): the flying clown car
+	// He flies: the car hangs off the road under the rig, nose down, its wheels dangling. Bits: 0 the rig, 1-4 the
+	// propellers (as 3.3), 5 the bomb balloons (SM_ClownBalloons; B at damage 1, C at 2), 6 the head on its spring,
+	// 7 the jaw, 8 the pie oven's lid, 9 the pies in it. BossFx: 0 smoke off the coughing motor (damage 1), 1 fire on
+	// it (damage 2). RigA / RigF / RigG the propellers' turn (the good ones, rear left, front right), RigB the laugh
+	// he has left, RigD the oven's lid, RigE how far he hangs off the road, RigH the nose's glow.
+	// Wind kinds: 1 bombs, 2 pies, 3 the bomb carpet. The same model is the coaster's flyer (TickFlyer): it gets no
+	// cues, only the flight.
+	const FVector ClownNeck(-62.5f, 0.f, 330.f), ClownWinch(-437.5f, 0.f, 424.f), ClownHinge(-608.f, 0.f, 334.f), ClownOven(-618.f, 0.f, 286.f);
+	const FVector ClownChute(-668.f, 0.f, 150.f);   // where the pies leave from: behind the tail, 150 cm over the road (Z is over the ROAD here)
+	/** The wheels of a boss that has left the road hang from its body (they are the actor's, not the body's). */
+	void HangWheels(AFTEntityActor& A, float Droop, float Turn)
+	{
+		const FTransform Body = A.Mesh->GetRelativeTransform();
+		for (int32 i = 0; i < A.WheelSpec.Num() && i < A.Wheels.Num(); ++i)
+			if (UStaticMeshComponent* W = A.Wheels[i])
+				W->SetRelativeLocationAndRotation(Body.TransformPosition(A.WheelSpec[i].C - FVector(0.f, 0.f, Droop)), Body.GetRotation() * FQuat(FRotator(-Turn, 0.f, 0.f)));
+	}
+	void SetupChuckles(AFTEntityActor& A)
+	{
+		A.Part(5, TEXT("/Game/Characters/Bosses/SM_ClownBalloons"), ClownWinch)->SetRelativeRotation(FRotator(12.f, 0.f, 0.f));
+		A.Part(6, TEXT("/Game/Characters/Bosses/SM_ClownHead"), ClownNeck);
+		A.Part(7, TEXT("/Game/Characters/Bosses/SM_ClownJaw"), ClownNeck, false);
+		A.Part(8, TEXT("/Game/Characters/Bosses/SM_ClownLid"), ClownHinge, false);
+		Kept(TEXT("/Game/Characters/Bosses/SM_ClownBalloonsB")); Kept(TEXT("/Game/Characters/Bosses/SM_ClownBalloonsC"));   // (loaded now, not as they burst)
+		Show(A.Part(9, TEXT("/Game/Characters/Bosses/SM_ClownPies"), ClownOven, false), false);
+		// a pose that stands by itself (the reel's ghost is never animated): in the air, the discs leaning into their work
+		for (int32 p = 0; p < NumClownProps; ++p) if (UStaticMeshComponent* Pc = BitOf(A, 1 + p)) Pc->SetRelativeRotation(FRotator(-24.f, 40.f * p, 0.f));
+		A.RigE = 95.f;
+		A.Mesh->SetRelativeTransform(FTransform(FRotator(-5.f, 0.f, 0.f), FVector(0.f, 0.f, A.RigE)));
+		HangWheels(A, 22.f, 0.f);
+	}
+	void AnimChuckles(AFTEntityActor& A, float Dt, float Vx)
+	{
+		const float T = A.AnimT;
+		const float W1 = (A.WindKind == 1 || A.WindKind == 3) ? A.Wind : 0.f, W2 = A.WindKind == 2 ? A.Wind : 0.f, W = FMath::Max(W1, W2);
+		const float Hit = Pulse(A.HurtT, 5.f) * A.HurtAmt;
+		// flight: lower and listing as the motors go, knocked down by a hit; in the fight he comes down out of the sky
+		const float Target = A.DmgState == 0 ? 95.f : (A.DmgState == 1 ? 78.f : 48.f);
+		A.RigE = FMath::FInterpTo(A.RigE, Target - 45.f * Hit, Dt, 3.f);
+		const float Drop = A.bBossLive ? 900.f * FMath::Square(1.f - Smooth(A.IntroT / 2.2f)) : 0.f;
+		const float List = A.DmgState >= 2 ? 9.f : (A.DmgState == 1 ? 3.5f : 0.f);
+		const float Cough = A.DmgState >= 1 ? FMath::Max(0.f, FMath::Sin(T * 5.3f)) * FMath::Max(0.f, FMath::Sin(T * 1.7f)) : 0.f;   // the bad motor
+		const FRotator Rot(-5.f + 3.f * FMath::Sin(T * 2.7f) - 5.f * W1 + 7.f * Pulse(A.FireT, 5.f), 2.5f * FMath::Sin(T * 1.3f),
+			6.f * FMath::Sin(T * 1.9f) + FMath::Clamp(Vx / 70.f, -10.f, 10.f) + List + 5.f * Cough);
+		const float Height = A.RigE + Drop + 20.f * FMath::Sin(T * 2.3f) + 8.f * FMath::Sin(T * 5.1f) - 14.f * Cough;
+		A.Mesh->SetRelativeTransform(FTransform(Rot, FVector(0.f, 0.f, Height)));
+		HangWheels(A, 22.f, T * 140.f);
+		// how hard the motors are working: a hit, the bad motor's cough, arming the bombs, and climbing back to his height
+		const float Strain = FMath::Clamp(1.2f * Hit + 0.6f * Cough + 0.5f * W1 + FMath::Max(0.f, Target - A.RigE) / 40.f, 0.f, 1.5f);
+		A.RigC += 2.f * Strain * Dt;   // (the discs' wobble has its own clock: it runs up to three times as fast under strain)
+		// the rig flexes over the car: it stays nearer level while the car swings under it, and lifts as the motors strain
+		const FVector RigPivot(0.f, 0.f, 470.f);
+		const FQuat RigQ(FRotator(-0.35f * (Rot.Pitch + 5.f), 0.f, -0.45f * (Rot.Roll - List)));
+		const FVector RigAt = RigPivot - RigQ.RotateVector(RigPivot) + FVector(0.f, 0.f, 5.f + 9.f * Strain);
+		if (UStaticMeshComponent* Rg = BitOf(A, 0)) Rg->SetRelativeLocationAndRotation(RigAt, RigQ);
+		// his downwash blows the road clear under him (the fight's boss only: the coaster's flyer has no road beneath)
+		A.Loop(2, TEXT("NS_BossTyreSmoke"), FVector(0.f, 0.f, 12.f - Height), A.bBossLive && Height < 420.f, FRotator::ZeroRotator, 1.7f);
+		// the propellers: each disc leans into its work and they never quite agree (the rig is fighting to hold him
+		// up); the rear left coughs at damage 1 and stops at 2, when the front right starts to cough
+		const float Rpm = 2200.f * (1.f + 0.5f * Strain);   // (the good motors race when he strains)
+		A.RigA += Rpm * Dt;
+		A.RigF += Rpm * Dt * (A.DmgState >= 2 ? 0.03f : (A.DmgState == 1 ? 0.3f + 0.6f * (1.f - Cough) : 1.f));
+		A.RigG += Rpm * Dt * (A.DmgState >= 2 ? 0.3f + 0.6f * (1.f - Cough) : 1.f);
+		for (int32 p = 0; p < NumClownProps; ++p)
+			if (UStaticMeshComponent* Pc = BitOf(A, 1 + p))
+			{
+				const float Turn = (p == 0 ? A.RigF : (p == 3 ? A.RigG : A.RigA)) * (p % 2 ? 1.f : -1.f);
+				const float Lean = -24.f - (7.f + 4.f * Strain) * FMath::Sin(A.RigC * 3.1f + p * 1.7f) - 8.f * W1 + 10.f * Hit;
+				const float Side = (p % 2 ? -1.f : 1.f) * (4.f + (3.f + 3.f * Strain) * FMath::Sin(A.RigC * 2.3f + p));
+				Pc->SetRelativeLocationAndRotation(RigAt + RigQ.RotateVector(ClownProps[p]), RigQ * FQuat(FRotator(Lean, 0.f, Side)) * FQuat(FVector::UpVector, FMath::DegreesToRadians(Turn)));
+			}
+		A.Loop(0, TEXT("NS_BossSmoke"), RigAt + RigQ.RotateVector(ClownProps[0] + FVector(0.f, 0.f, -30.f)), A.DmgState >= 1);
+		A.Loop(1, TEXT("NS_BossFlame"), RigAt + RigQ.RotateVector(ClownProps[0] + FVector(0.f, 0.f, -50.f)), A.DmgState >= 2);
+		// the bomb balloons stream back off their winch and stay upright while the car swings; the bunch strains up
+		// as the bombs arm and jumps as they go
+		if (UStaticMeshComponent* Bl = BitOf(A, 5))
+		{
+			const float Jump = (A.FireKind == 1 || A.FireKind == 3) ? Pulse(A.FireT, 6.f) : 0.f;
+			Bl->SetRelativeRotation(FRotator(12.f - 9.f * W1 + 4.f * FMath::Sin(T * 1.6f), 0.f, 6.f * FMath::Sin(T * 1.1f) - Rot.Roll));
+			Bl->SetRelativeScale3D(FVector(1.f, 1.f, 1.f + 0.07f * W1 + 0.12f * Jump));
+		}
+		// the head rides its spring: it wags against the car's swing, glares down at the car through a wind-up with
+		// its nose burning brighter, and rears back to laugh as the attack leaves (the jaw drops for the laugh, and
+		// when he is hit)
+		A.RigB = FMath::Max(0.f, A.RigB - Dt);
+		const float Laugh = FMath::Min(1.f, A.RigB / 0.25f);
+		const FRotator HeadRot(4.f * FMath::Sin(T * 3.3f) + 9.f * W - 16.f * Laugh + 5.f * Laugh * FMath::Sin(T * 38.f) + 14.f * Hit, 6.f * FMath::Sin(T * 0.9f), -1.4f * Rot.Roll);
+		const float Open = FMath::Max(Laugh * (0.6f + 0.4f * FMath::Abs(FMath::Sin(T * 19.f))), FMath::Max(0.55f * Hit, 0.35f * W));
+		if (UStaticMeshComponent* H = BitOf(A, 6))
+		{
+			H->SetRelativeRotation(HeadRot);
+			const float Nose = FMath::RoundToFloat(4.f * W) * 0.55f;
+			if (Nose != A.RigH) { A.RigH = Nose; H->SetScalarParameterValueOnMaterials(TEXT("Alert"), Nose); }
+		}
+		if (UStaticMeshComponent* J = BitOf(A, 7)) J->SetRelativeLocationAndRotation(ClownNeck + HeadRot.RotateVector(FVector(0.f, 0.f, -62.f * Open)), HeadRot);
+		// the pie oven: its lid swings up through the wind-up of a fan of pies and shows them racked; shut once they have gone
+		A.RigD = FMath::FInterpTo(A.RigD, W2 > 0.05f ? 1.f : 0.f, Dt, W2 > 0.05f ? 7.f : 5.f);
+		if (UStaticMeshComponent* Ld = BitOf(A, 8)) Ld->SetRelativeRotation(FRotator(-112.f * A.RigD, 0.f, 0.f));
+		if (UStaticMeshComponent* Pies = BitOf(A, 9))
+		{
+			// (the real pies leave from 150 cm over the road: the rack comes down out of the oven to that height as the
+			// wind-up runs out, so they go from where it is)
+			Show(Pies, W2 > 0.12f && A.RigD > 0.3f && Pies->GetStaticMesh() != nullptr);
+			const float Out = Smooth((W2 - 0.3f) / 0.6f);
+			Pies->SetRelativeLocation(FVector(FMath::Lerp(float(ClownOven.X), float(ClownChute.X), Out), 0.f, FMath::Lerp(float(ClownOven.Z), float(ClownChute.Z) - A.RigE, Out)));
+		}
+	}
+	void FireChuckles(AFTEntityActor& A)
+	{
+		A.RigB = 0.7f;   // he laughs
+		if (A.FireKind == 2) FTFx::Attach(TEXT("NS_BossPieBlast"), A.Mesh, FVector(ClownChute.X - 30.f, 0.f, ClownChute.Z - A.RigE), FRotator::ZeroRotator, 1.f, FTFx::Flash, true);
+		else FTFx::Attach(TEXT("NS_BossConfetti"), A.Mesh, ClownWinch + FVector(-150.f, 0.f, 900.f), FRotator::ZeroRotator, A.FireKind == 3 ? 1.5f : 1.f, FTFx::Extra, true);
+	}
+	void BreakChuckles(AFTEntityActor& A, int32 State)
+	{
+		// balloons burst: eight, then five, then three
+		if (UStaticMeshComponent* Bl = BitOf(A, 5))
+			if (UStaticMesh* Fewer = Kept(State == 1 ? TEXT("/Game/Characters/Bosses/SM_ClownBalloonsB") : TEXT("/Game/Characters/Bosses/SM_ClownBalloonsC"))) Bl->SetStaticMesh(Fewer);
+		for (int32 k = 0; k < 3; ++k)
+			FTFx::Attach(TEXT("NS_BossPop"), A.Mesh, ClownWinch + FVector(-150.f + 90.f * k, -200.f + 200.f * k, 880.f + 60.f * k), FRotator::ZeroRotator, 1.f, FTFx::Main, true);
+	}
+	void DefeatChuckles(AFTEntityActor& A)
+	{
+		// the rig lets go: the four propellers spin off their motors, and his head goes up off its spring
+		for (int32 p = 0; p < NumClownProps; ++p)
+			ThrowPart(A, BitOf(A, 1 + p), FVector(p < 2 ? -700.f : 500.f, (p % 2 ? 1.f : -1.f) * 900.f, 1000.f), FVector(100.f, 80.f, (p % 2 ? 1.f : -1.f) * 900.f));
+		ThrowPart(A, BitOf(A, 6), FVector(-300.f, 0.f, 2000.f), FVector(420.f, 60.f, 90.f));
+		for (int32 k = 0; k < 3; ++k)
+			FTFx::Burst(&A, TEXT("NS_BossPop"), A.Mesh->GetComponentTransform().TransformPosition(ClownWinch + FVector(-150.f + 90.f * k, -200.f + 200.f * k, 880.f + 60.f * k)), FRotator::ZeroRotator, 1.3f, FTFx::Main);
+	}
+
+	// ---------------------------------------------------------------- THE ABOMINABLE (level 6): the yeti
+	// His two arms move on their own now. Bits: 0 the left arm (-Y), 1 the right (their shoulders are 285 cm either
+	// side of the old pivot), 2-4 the ice he wears (left shoulder, right shoulder, the back of his neck), 5 the
+	// snowball he packs. BossFx: 0 the snow he kicks up when he runs at the car. RigH what his eyes' glow was set to.
+	// Wind kinds: 1 snowballs, 2 the ground pound, 3 the avalanche (his roar). He faces the car (-X) through the fight.
+	const FVector YetiShoulder[2] = { FVector(0.f, -285.f, AFTEntityActor::YetiShoulderZ), FVector(0.f, 285.f, AFTEntityActor::YetiShoulderZ) };
+	const FVector YetiIceAt[3] = { FVector(20.f, -270.f, 960.f), FVector(20.f, 270.f, 960.f), FVector(110.f, 0.f, 1090.f) };
+	void SetupYeti(AFTEntityActor& A)
+	{
+		UStaticMeshComponent* L = A.Part(0, TEXT("/Game/Characters/Bosses/SM_YetiArmL"), YetiShoulder[0]);
+		UStaticMeshComponent* R = A.Part(1, TEXT("/Game/Characters/Bosses/SM_YetiArmR"), YetiShoulder[1]);
+		// (without the two new meshes he keeps the 2.8 arms: one mesh, one pivot)
+		const bool bTwo = L->GetStaticMesh() && R->GetStaticMesh();
+		if (bTwo) A.Extra->SetVisibility(false);
+		Show(L, bTwo); Show(R, bTwo);
+		for (int32 i = 0; i < 3; ++i)
+		{
+			UStaticMeshComponent* Ice = A.Part(2 + i, TEXT("/Game/Characters/Bosses/SM_YetiIce"), YetiIceAt[i], false);
+			Ice->SetRelativeRotation(i == 2 ? FRotator(-30.f, 0.f, 0.f) : FRotator(0.f, 0.f, i == 0 ? -18.f : 18.f));
+			if (i == 2) Ice->SetRelativeScale3D(FVector(1.35f));
+		}
+		Show(A.Part(5, TEXT("/Game/Characters/Projectiles/SM_Snowball"), FVector(0.f, 0.f, 1500.f), false), false);
+	}
+	void AnimYeti(AFTEntityActor& A, float Dt)
+	{
+		A.YetiPhase += Dt * (1.f + 0.7f * A.Charge);
+		const float P = A.YetiPhase;
+		const float W1 = A.WindKind == 1 ? Smooth(A.Wind) : 0.f, W2 = A.WindKind == 2 ? Smooth(A.Wind) : 0.f, W3 = A.WindKind == 3 ? Smooth(A.Wind) : 0.f;
+		const float Hit = Pulse(A.HurtT, 5.f) * A.HurtAmt;
+		const float Throw = A.FireKind == 1 ? Pulse(A.FireT, 4.f) : 0.f;
+		// the pound: his fists go down as the ice starts along the lane and stay down while it runs (about its warning)
+		// (down for as long as the ice he made is on the road, Cue 0; arms wide for as long as his avalanche is, Cue 1)
+		A.RigD = FMath::FInterpTo(A.RigD, A.Cue[0] > 0.f ? 1.f : 0.f, Dt, A.Cue[0] > 0.f ? 16.f : 5.f);
+		A.RigE = FMath::FInterpTo(A.RigE, A.Cue[1] > 0.f ? 1.f : 0.f, Dt, 6.f);
+		const float Slam = Smooth(A.RigD);
+		const float Roar = FMath::Max(W3, Smooth(A.RigE));
+		const float Plant = FMath::Max3(FMath::Max(W1, W2), Slam, Roar);              // he plants his feet for all of these
+		const bool bWayIn = A.Cue[2] > 0.5f;                                            // the chase in from behind (he faces down the run): the fight's own state
+		// the body: the lope (as 2.8) unless his feet are planted; reared back to wind up, bent double by the slam,
+		// leaning at the car when he charges, flinching from a hit
+		const FRotator Body(-5.f * FMath::Sin(P * 6.f) * (1.f - Plant) + A.Charge * (bWayIn ? -9.f : 11.f) - 9.f * FMath::Max(W1, W2) + 17.f * Slam + 12.f * Throw - 7.f * Roar - 8.f * Hit,
+			0.f, 5.f * FMath::Sin(P * 3.f) * (1.f - Plant));
+		A.Mesh->SetRelativeTransform(FTransform(Body, FVector(0.f, 0.f, 90.f * FMath::Abs(FMath::Sin(P * 3.f)) * (1.f - 0.8f * Plant) - 50.f * Slam)));
+		if (A.Extra->IsVisible())
+			A.Extra->SetRelativeRotation(FRotator(14.f * FMath::Sin(P * 6.f + 0.8f) + 12.f * A.Charge, 0.f, 16.f * FMath::Sin(P * 3.f + 0.4f)));   // (the 2.8 arms)
+		// the arms: they pump as he runs; both go back to pack a snowball and over to throw it; right back and then
+		// all the way over and down for the pound; wide for the roar; out at the car when he charges
+		const float Both = -40.f * W1 + 88.f * Throw - 30.f * W2 + 148.f * Slam - 10.f * Roar + 40.f * A.Charge * (bWayIn ? 0.f : 1.f) - 16.f * Hit;
+		for (int32 s = 0; s < 2; ++s)
+			if (UStaticMeshComponent* Arm = BitOf(A, s))
+			{
+				const float Out = (s ? 1.f : -1.f);
+				const float Pump = 16.f * FMath::Sin(P * 6.f + 0.8f + (s ? PI : 0.f)) * (1.f - Plant);
+				Arm->SetRelativeRotation(FRotator(Pump + Both, 0.f, Out * (8.f + 6.f * FMath::Sin(P * 3.f + s) * (1.f - Plant) + 52.f * Roar - 12.f * W1 * (1.f - Throw))));
+			}
+		// the snowball: it grows between his hands through the wind-up and is gone as he throws (the real ones fly then)
+		if (UStaticMeshComponent* Ball = BitOf(A, 5))
+		{
+			const bool bOn = W1 > 0.08f && Ball->GetStaticMesh() != nullptr;
+			Show(Ball, bOn);
+			if (bOn)
+			{
+				Ball->SetRelativeLocation(FVector(0.f, 0.f, AFTEntityActor::YetiShoulderZ) + FRotator(-40.f * W1, 0.f, 0.f).RotateVector(FVector(-70.f, 0.f, 800.f)));
+				Ball->SetRelativeScale3D(FVector(0.5f + 1.0f * W1));
+			}
+		}
+		// his eyes: they burn when he charges, as he winds up, and all the time once the ice is off him
+		const float Eyes = FMath::RoundToFloat((2.2f * FMath::Max(A.Charge, FMath::Max3(W1, W2, W3)) + (A.DmgState >= 2 ? 2.2f : 0.f)) * 4.f) * 0.25f;
+		A.BossAlert = Eyes;
+		A.Loop(0, TEXT("NS_BossSnowKick"), FVector(120.f, 0.f, 40.f), A.Charge > 0.4f);
+	}
+	void FireYeti(AFTEntityActor& A)
+	{
+		if (A.FireKind == 2) FTFx::Attach(TEXT("NS_BossSnowSlam"), A.Mesh, FVector(-420.f, 0.f, 60.f), FRotator::ZeroRotator, 1.f, FTFx::Main, true);
+		else if (A.FireKind == 3) FTFx::Attach(TEXT("NS_BossSnowSlam"), A.Mesh, FVector(0.f, 0.f, 700.f), FRotator::ZeroRotator, 1.6f, FTFx::Extra, true);
+	}
+	void BreakYeti(AFTEntityActor& A, int32 State)
+	{
+		// the ice is shot off him: the left shoulder at damage 1, the right and the neck at 2. After that he is berserk
+		for (int32 i = (State == 1 ? 0 : 1); i < (State == 1 ? 1 : 3); ++i)
+			if (UStaticMeshComponent* Ice = BitOf(A, 2 + i))
+			{
+				FTFx::Attach(TEXT("NS_BossIceBreak"), A.Mesh, YetiIceAt[i] + FVector(0.f, 0.f, 80.f), FRotator::ZeroRotator, 1.f, FTFx::Main, true);
+				Show(Ice, false);
+			}
+	}
+	void DefeatYeti(AFTEntityActor& A)
+	{
+		// what ice is left on him goes flying (the rest is snow: his own burst)
+		for (int32 i = 0; i < 3; ++i) ThrowPart(A, BitOf(A, 2 + i), FVector(-300.f, (i == 0 ? -700.f : (i == 1 ? 700.f : 0.f)), 1200.f), FVector(300.f, 200.f, 260.f));
+	}
+
+	// ---------------------------------------------------------------- THE GREAT WHITE (level 7): the shark car
+	// It swims. Bits: 0 the tail, 1 the dorsal fin (SM_SharkFin; SM_SharkFinB, torn, from damage 1), 2 the lower jaw.
+	// BossFx: 0 smoke (damage 1), 1 fire (damage 2). RigA the swim's phase, RigB how far it has turned on the car
+	// (the lunge: 0..1 = 0..180 degrees), RigD how far the jaw is down.
+	// Wind kinds: 1 the fan of swordfish, 2 the lobbed flying fish. BossLunge: the lunge.
+	const FVector SharkTailAt(-565.f, 0.f, 255.f), SharkFinAt(25.f, 0.f, 392.f), SharkJawAt(462.f, 0.f, 178.f);
+	void SetupShark(AFTEntityActor& A)
+	{
+		A.Part(0, TEXT("/Game/Characters/Bosses/SM_SharkTail"), SharkTailAt)->SetRelativeRotation(FRotator(0.f, 18.f, 0.f));
+		A.Part(1, TEXT("/Game/Characters/Bosses/SM_SharkFin"), SharkFinAt);
+		A.Part(2, TEXT("/Game/Characters/Bosses/SM_SharkJaw"), SharkJawAt, false)->SetRelativeRotation(FRotator(-6.f, 0.f, 0.f));
+		Kept(TEXT("/Game/Characters/Bosses/SM_SharkFinB"));   // (the bitten fin: loaded now)
+	}
+	void AnimShark(AFTEntityActor& A, float Dt)
+	{
+		const float W1 = A.WindKind == 1 ? Smooth(A.Wind) : 0.f, W2 = A.WindKind == 2 ? Smooth(A.Wind) : 0.f;
+		const float Hit = Pulse(A.HurtT, 5.f) * A.HurtAmt;
+		const bool bJaws = A.Lunge > 0.02f;
+		// it swims: the body snakes and rolls and the tail beats behind it; harder when it lunges, a thrash when it is hit
+		A.RigA += Dt * (5.f + 4.f * A.Lunge + 7.f * Hit);
+		// the lunge: it whips round on the car as the warning starts, jaws wide, and comes back at it snapping
+		A.RigB = FMath::FInterpTo(A.RigB, bJaws ? 1.f : 0.f, Dt, bJaws ? 7.f : 3.5f);
+		const float Whip = A.FireKind == 1 ? Pulse(A.FireT, 5.f) : 0.f, Buck = A.FireKind == 2 ? Pulse(A.FireT, 5.f) : 0.f;
+		// (the entrance: one leap clear of the road, nose up and then down, as it drops back onto its spot)
+		const float Air = A.bBossLive ? FMath::Clamp(A.IntroT / 1.1f, 0.f, 1.f) : 1.f;
+		const float Leap = 230.f * FMath::Sin(PI * Air), Dive = 22.f * FMath::Sin(2.f * PI * Air);
+		A.Mesh->SetRelativeTransform(FTransform(FRotator(-5.f * W2 + 8.f * Buck + Dive, 180.f * Smooth(A.RigB) + 5.f * FMath::Sin(A.RigA) * (1.f - 0.6f * W1) + 8.f * Hit * FMath::Sin(A.AnimT * 31.f),
+			4.f * FMath::Sin(A.RigA * 0.5f + 1.f) + (A.DmgState >= 2 ? 12.f : 0.f)), FVector(0.f, 0.f, 6.f * FMath::Sin(A.RigA * 0.5f) + Leap)));
+		if (Air < 1.f) HangWheels(A, 0.f, A.AnimT * 600.f);   // (its wheels leave the road with it)
+		// the tail: it beats with the swim, is held hard over while a fan of swordfish winds up, and whips across as they go
+		if (UStaticMeshComponent* T = BitOf(A, 0)) T->SetRelativeRotation(FRotator(0.f, FMath::Lerp(26.f * FMath::Sin(A.RigA - 0.9f), -36.f, W1) + 72.f * Whip, 0.f));
+		// the jaw: wide through the warning, snapping as it comes
+		const float Chomp = A.bLunge ? 0.3f + 0.7f * FMath::Abs(FMath::Sin(A.AnimT * 9.f)) : 1.f;
+		A.RigD = FMath::FInterpTo(A.RigD, bJaws ? Chomp : 0.f, Dt, 14.f);
+		if (UStaticMeshComponent* J = BitOf(A, 2)) J->SetRelativeRotation(FRotator(-6.f - 30.f * A.RigD, 0.f, 0.f));
+		A.BossAlert = 1.6f * FMath::Max(W1, W2);   // the launchers' mouths burn brighter as either load winds up
+	}
+	void FireShark(AFTEntityActor& A)
+	{
+		if (A.FireKind == 1)
+		{
+			// out of the two launchers on its back, or, when it has turned on the car, out of its mouth
+			if (A.RigB > 0.5f) FTFx::Attach(TEXT("NS_BossFishFlash"), A.Mesh, FVector(640.f, 0.f, 230.f), FRotator::ZeroRotator, 1.3f, FTFx::Flash, true);
+			else for (int32 s = 0; s < 2; ++s) FTFx::Attach(TEXT("NS_BossFishFlash"), A.Mesh, FVector(-640.f, s ? 120.f : -120.f, 400.f), FRotator::ZeroRotator, 1.f, FTFx::Flash, true);
+		}
+		else FTFx::Attach(TEXT("NS_BossSpray"), A.Mesh, FVector(25.f, 0.f, 430.f), FRotator::ZeroRotator, 1.f, FTFx::Extra, true);
+	}
+	void BreakShark(AFTEntityActor& A, int32 State)
+	{
+		if (State == 1)
+		{
+			// a bite out of its own fin
+			if (UStaticMeshComponent* Fin = BitOf(A, 1)) if (UStaticMesh* Torn = Kept(TEXT("/Game/Characters/Bosses/SM_SharkFinB"))) Fin->SetStaticMesh(Torn);
+			A.Loop(0, TEXT("NS_BossSmoke"), FVector(-420.f, 120.f, 450.f), true);
+		}
+		else A.Loop(1, TEXT("NS_BossFlame"), FVector(-420.f, -120.f, 440.f), true);   // a launcher burns, and it lists
+		FTFx::Attach(TEXT("NS_BossSpray"), A.Mesh, SharkFinAt + FVector(0.f, 0.f, 150.f), FRotator::ZeroRotator, 1.4f, FTFx::Main, true);
+	}
+	void DefeatShark(AFTEntityActor& A)
+	{
+		ThrowPart(A, BitOf(A, 0), FVector(-900.f, RigRng.FRandRange(-500.f, 500.f), 800.f), FVector(200.f, 100.f, 600.f));
+		ThrowPart(A, BitOf(A, 1), FVector(-200.f, RigRng.FRandRange(-400.f, 400.f), 1600.f), FVector(500.f, 200.f, 100.f));
+		ThrowPart(A, BitOf(A, 2), FVector(600.f, 0.f, 900.f), FVector(100.f, 600.f, 100.f));
+	}
+
+	// ---------------------------------------------------------------- THE CHAIRMAN (level 8): the limo gunship
+	// Bits: 0 the boot's turret, 1 the sunroof's turret (it comes up in phase 1: "he's opened the sunroof guns"),
+	// 2-3 the rocket bays in the rear wings (left, right: the right one is the same mesh mirrored). BossFx: 0-1 the
+	// rear jets, 2 the sunroof guns' fire, 3 smoke (damage 1), 4 fire (damage 2). RigA / RigB the two turrets' turn,
+	// RigD how far the sunroof's turret is up, RigE how far the bays are open, RigH / RigG what the turrets' heat was set to.
+	// Wind kinds: 1 the wall of shots, 2 the aimed bursts (AimX: the car), 3 the rockets. Cue[0]: where the stream is
+	// aimed across the road from him; Cue[1]: 1 while the stream runs.
+	const FVector LimoBoot(-550.f, 0.f, 185.f), LimoRoof(0.f, 0.f, 292.f), LimoBay(-550.f, 250.f, 187.f), LimoMuzzle(-266.f, 30.f, 44.f);
+	void SetupChairman(AFTEntityActor& A)
+	{
+		A.Part(0, TEXT("/Game/Characters/Bosses/SM_LimoTurret"), LimoBoot);
+		Show(A.Part(1, TEXT("/Game/Characters/Bosses/SM_LimoTurret"), LimoRoof - FVector(0.f, 0.f, 90.f)), false);
+		for (int32 s = 0; s < 2; ++s)
+		{
+			UStaticMeshComponent* Bay = A.Part(2 + s, TEXT("/Game/Characters/Bosses/SM_LimoPod"), FVector(LimoBay.X, (s ? 1.f : -1.f) * LimoBay.Y, LimoBay.Z), false);
+			if (s) Bay->SetRelativeScale3D(FVector(1.f, -1.f, 1.f));
+		}
+	}
+	void AnimChairman(AFTEntityActor& A, float Dt, float Vx)
+	{
+		const float T = A.AnimT;
+		const float W1 = A.WindKind == 1 ? Smooth(A.Wind) : 0.f, W2 = A.WindKind == 2 ? Smooth(A.Wind) : 0.f, W3 = A.WindKind == 3 ? Smooth(A.Wind) : 0.f;
+		const float Hit = Pulse(A.HurtT, 5.f) * A.HurtAmt;
+		const bool bStream = A.Cue[1] >= 1.f && A.DmgState >= 1;                          // the stream's shots are leaving now
+		const float StreamUp = A.DmgState >= 1 ? FMath::Clamp(A.Cue[1], 0.f, 1.f) : 0.f;   // its first shot is 0.6 s off or less
+		if (A.Cue[2] != A.RigF) { A.RigF = A.Cue[2]; A.RigC = 0.f; }                       // a volley of the aimed bursts has just left
+		const bool bVolley = A.RigC <= 0.f;
+		// it hovers on its jets (as 2.5), banks into its weave, drops when it is hit, and lists once a jet is failing
+		const float List = A.DmgState >= 2 ? 6.f + 2.f * FMath::Sin(T * 7.f) : 0.f;
+		A.Mesh->SetRelativeTransform(FTransform(FRotator(2.f * FMath::Sin(T * 1.3f) - 3.f * Hit, 0.f, 3.f * FMath::Sin(T * 1.7f) + FMath::Clamp(Vx / 80.f, -9.f, 9.f) + List),
+			FVector(0.f, 0.f, 40.f * FMath::Sin(T * 2.f) - 55.f * Hit)));
+		// the boot's turret: it looks the road over; squares up and heats as a wall of shots winds up and rakes across
+		// as it fires; turns on the car for the aimed bursts and kicks with each of the three
+		const float In = A.bBossLive ? Smooth((A.IntroT - 0.3f) / 0.9f) : 1.f;   // the entrance: a limousine, until the turret comes up out of the boot
+		const float Volley = A.RigF > 0.f ? Pulse(A.RigC, 9.f) : 0.f;
+		const float Rake = A.FireKind == 1 ? Pulse(A.FireT, 3.5f) : 0.f;
+		const bool bOnCar = A.WindKind == 2 && (A.Wind > 0.f || (A.FireKind == 2 && A.FireT < 0.9f));
+		const float Want0 = Rake > 0.05f ? 40.f * FMath::Sin(A.FireT * 21.f) * Rake : (bOnCar || (A.FireKind == 2 && A.FireT < 0.9f) ? -FMath::RadiansToDegrees(FMath::Atan2(A.AimX, 5200.f)) : 14.f * FMath::Sin(T * 0.8f) * (1.f - W1));
+		A.RigA = FMath::FInterpTo(A.RigA, Want0, Dt, Rake > 0.05f ? 30.f : 9.f);
+		if (UStaticMeshComponent* Tu = BitOf(A, 0))
+		{
+			const FQuat Q(FRotator(0.f, A.RigA, 0.f));
+			Show(Tu, In > 0.01f && Tu->GetStaticMesh() != nullptr);   // (a limousine and nothing else until it starts to come up)
+			Tu->SetRelativeLocationAndRotation(LimoBoot + FVector(0.f, 0.f, -70.f * (1.f - In)) + Q.RotateVector(FVector(14.f * FMath::Max(Rake, Volley), 0.f, 0.f)), Q);
+			const float Heat = FMath::RoundToFloat((2.4f * FMath::Max(W1, W2) + 3.f * FMath::Max(Rake, Volley)) * 4.f) * 0.25f;
+			if (Heat != A.RigH) { A.RigH = Heat; Tu->SetScalarParameterValueOnMaterials(TEXT("Alert"), Heat); }
+			// each volley of an aimed burst flashes at the guns as it leaves (TickBossLimo's own timers say when: Cue 2)
+			if (bVolley)
+				for (int32 g = 0; g < 2; ++g) FTFx::Attach(TEXT("NS_BossGunFlash"), Tu, FVector(LimoMuzzle.X, g ? LimoMuzzle.Y : -LimoMuzzle.Y, LimoMuzzle.Z), FRotator::ZeroRotator, 0.7f, FTFx::Flash, true);
+		}
+		// the sunroof's turret: up through the roof when the fight reaches phase 1, and on the stream from then on: it
+		// follows where the stream is aimed (which trails the car), shaking as it fires
+		A.RigD = FMath::FInterpTo(A.RigD, A.DmgState >= 1 ? 1.f : 0.f, Dt, 2.5f);
+		if (UStaticMeshComponent* Tu = BitOf(A, 1))
+		{
+			Show(Tu, A.RigD > 0.02f && Tu->GetStaticMesh() != nullptr);
+			A.RigB = FMath::FInterpTo(A.RigB, bStream ? -FMath::RadiansToDegrees(FMath::Atan2(A.Cue[0], 5700.f)) : 0.f, Dt, 9.f);
+			const FQuat Q(FRotator(0.f, A.RigB, 0.f));
+			Tu->SetRelativeLocationAndRotation(LimoRoof + FVector(0.f, 0.f, -90.f * (1.f - Smooth(A.RigD))) + Q.RotateVector(FVector(bStream ? 5.f * FMath::Sin(T * 60.f) : 0.f, 0.f, 0.f)), Q);
+			const float Heat = bStream ? 2.5f : FMath::RoundToFloat(2.f * StreamUp * 4.f) * 0.25f;   // (they heat as the stream's first shot comes due)
+			if (Heat != A.RigG) { A.RigG = Heat; Tu->SetScalarParameterValueOnMaterials(TEXT("Alert"), Heat); }
+			A.Loop(2, TEXT("NS_BossGunStream"), LimoRoof + Q.RotateVector(FVector(LimoMuzzle.X, 0.f, LimoMuzzle.Z)), bStream && A.RigD > 0.9f, Q.Rotator());
+		}
+		// the rocket bays: they tip up out of the rear wings through the rockets' wind-up, fire, and shut
+		A.RigE = FMath::FInterpTo(A.RigE, (W3 > 0.02f || (A.FireKind == 3 && A.FireT < 0.55f)) ? 1.f : 0.f, Dt, 8.f);
+		for (int32 s = 0; s < 2; ++s)
+			if (UStaticMeshComponent* Bay = BitOf(A, 2 + s)) Bay->SetRelativeRotation(FRotator(0.f, 0.f, (s ? 1.f : -1.f) * 62.f * A.RigE));
+		// the jets: two flames at the rear; one coughs once he is nearly done
+		A.Loop(0, TEXT("NS_BossJet"), FVector(-602.f, -299.f, 60.f), true);
+		A.Loop(1, TEXT("NS_BossJet"), FVector(-602.f, 299.f, 60.f), A.DmgState < 2 || FMath::Sin(T * 7.f) > -0.2f);
+		A.BossAlert = 1.2f * FMath::Max3(W1, W2, W3);   // the fins' lights and the tail flare with every wind-up
+	}
+	void FireChairman(AFTEntityActor& A)
+	{
+		if (A.FireKind == 1)
+		{
+			if (UStaticMeshComponent* Tu = BitOf(A, 0))
+				for (int32 g = 0; g < 2; ++g) FTFx::Attach(TEXT("NS_BossGunFlash"), Tu, FVector(LimoMuzzle.X, g ? LimoMuzzle.Y : -LimoMuzzle.Y, LimoMuzzle.Z), FRotator::ZeroRotator, 1.f, FTFx::Flash, true);
+		}
+		else if (A.FireKind == 3)
+			for (int32 s = 0; s < 2; ++s) FTFx::Attach(TEXT("NS_BossRocketUp"), A.Mesh, FVector(LimoBay.X, (s ? 1.f : -1.f) * 200.f, LimoBay.Z + 40.f), FRotator::ZeroRotator, 1.f, FTFx::Main, true);
+	}
+	void BreakChairman(AFTEntityActor& A, int32 State)
+	{
+		// the money starts to go; then a jet
+		if (State == 1) A.Loop(3, TEXT("NS_BossSmoke"), FVector(-560.f, 0.f, 230.f), true);
+		else A.Loop(4, TEXT("NS_BossFlame"), FVector(-600.f, 299.f, 110.f), true);
+		FTFx::Attach(TEXT("NS_BossHurtBills"), A.Mesh, FVector(-560.f, 0.f, 260.f), FRotator::ZeroRotator, 2.f, FTFx::Main, true);
+	}
+	void DefeatChairman(AFTEntityActor& A)
+	{
+		ThrowPart(A, BitOf(A, 0), FVector(-600.f, RigRng.FRandRange(-300.f, 300.f), 1300.f), FVector(200.f, 400.f, 160.f));
+		ThrowPart(A, BitOf(A, 1), FVector(100.f, RigRng.FRandRange(-300.f, 300.f), 1700.f), FVector(300.f, 200.f, 300.f));
+	}
+
+	// ---------------------------------------------------------------- every boss
+	/** The effects a boss's rig uses, loaded as he appears (FTFx::System keeps them): never from disk in the middle of his fight. */
+	void RigPreload(int32 Lvl)
+	{
+		static const TCHAR* Shared[] = { TEXT("NS_BossBreak"), TEXT("NS_BossBreakShards"), TEXT("NS_BossSmoke"), TEXT("NS_BossFlame") };
+		static const TCHAR* Own[8][7] = {
+			{ TEXT("NS_BossHurtSparks"), TEXT("NS_BossDefeat"), TEXT("NS_BossGunFlash"), TEXT("NS_BossDust"), nullptr, nullptr, nullptr },
+			{ TEXT("NS_BossHurtZap"), TEXT("NS_BossDefeatZap"), TEXT("NS_BossZapCrackle"), TEXT("NS_BossZapFlash"), TEXT("NS_BossZapSpray"), nullptr, nullptr },
+			{ TEXT("NS_BossHurtChips"), TEXT("NS_BossDefeatChips"), TEXT("NS_BossLaunch"), TEXT("NS_BossDust"), TEXT("NS_BossTyreSmoke"), nullptr, nullptr },
+			{ TEXT("NS_BossHurtSparks"), TEXT("NS_BossDefeatFire"), TEXT("NS_BossFlameJet"), TEXT("NS_BossSteam"), TEXT("NS_BossMortar"), TEXT("NS_BossDust"), nullptr },
+			{ TEXT("NS_BossHurtConfetti"), TEXT("NS_BossDefeatConfetti"), TEXT("NS_BossConfetti"), TEXT("NS_BossPop"), TEXT("NS_BossPieBlast"), TEXT("NS_BossTyreSmoke"), nullptr },
+			{ TEXT("NS_BossHurtSnow"), TEXT("NS_BossDefeatSnow"), TEXT("NS_BossSnowKick"), TEXT("NS_BossSnowSlam"), TEXT("NS_BossIceBreak"), nullptr, nullptr },
+			{ TEXT("NS_BossHurtSpray"), TEXT("NS_BossDefeatSplash"), TEXT("NS_BossFishFlash"), TEXT("NS_BossSpray"), nullptr, nullptr, nullptr },
+			{ TEXT("NS_BossHurtBills"), TEXT("NS_BossDefeatCash"), TEXT("NS_BossGunFlash"), TEXT("NS_BossGunStream"), TEXT("NS_BossRocketUp"), TEXT("NS_BossJet"), nullptr },
+		};
+		for (const TCHAR* N : Shared) FTFx::System(N);
+		for (const TCHAR* N : Own[FMath::Clamp(Lvl, 0, 7)]) if (N) FTFx::System(N);
+	}
+	void RigSetup(AFTEntityActor& A)
+	{
+		RigPreload(A.Lvl);
+		switch (A.Lvl)
+		{
+		case 0: SetupJuggernaut(A); break;
+		case 1: SetupAlchemist(A); break;
+		case 2: SetupDealer(A); break;
+		case 3: SetupEngine(A); break;
+		case 4: SetupChuckles(A); break;
+		case 5: SetupYeti(A); break;
+		case 6: SetupShark(A); break;
+		case 7: SetupChairman(A); break;
+		default: break;
+		}
+	}
+	void RigFire(AFTEntityActor& A)
+	{
+		switch (A.Lvl)
+		{
+		case 0: FireJuggernaut(A); break;
+		case 1: FireAlchemist(A); break;
+		case 2: FireDealer(A); break;
+		case 3: FireEngine(A); break;
+		case 4: FireChuckles(A); break;
+		case 5: FireYeti(A); break;
+		case 6: FireShark(A); break;
+		case 7: FireChairman(A); break;
+		default: break;
+		}
+	}
+	/** A new damage state (1 at two thirds of its armour, 2 at one third): it shows, and it stays. */
+	void RigBreak(AFTEntityActor& A, int32 State)
+	{
+		const FBossLook& L = LookOf(A);
+		A.Mesh->SetScalarParameterValueOnMaterials(TEXT("Soot"), State == 1 ? 0.14f : 0.3f);
+		FTFx::Attach(TEXT("NS_BossBreak"), A.Mesh, L.Heart, FRotator::ZeroRotator, 1.f, FTFx::Main, true);
+		FTFx::Attach(TEXT("NS_BossBreakShards"), A.Mesh, L.Heart, FRotator::ZeroRotator, 1.f, FTFx::Extra, true);
+		Kick(A, 110.f, (RigRng.FRand() < 0.5f) ? 140.f : -140.f, 420.f);
+		switch (A.Lvl)
+		{
+		case 0: BreakJuggernaut(A, State); break;
+		case 1: BreakAlchemist(A, State); break;
+		case 2: BreakDealer(A, State); break;
+		case 3: BreakEngine(A, State); break;
+		case 4: BreakChuckles(A, State); break;
+		case 5: BreakYeti(A, State); break;
+		case 6: BreakShark(A, State); break;
+		case 7: BreakChairman(A, State); break;
+		default: break;
+		}
+	}
+	void RigAnimate(AFTEntityActor& A, float Dt, float Speed, float Vx)
+	{
+		A.LastSpeed = Speed;
+		A.IntroT += Dt; A.HurtT += Dt; A.HurtFxT += Dt; A.DmgT += Dt; A.FireT += Dt; A.RigC += Dt;
+		if (!A.bWindSet) { A.Wind = FMath::FInterpTo(A.Wind, 0.f, Dt, 9.f); if (A.Wind < 0.01f) A.Wind = 0.f; }
+		if (!A.bLungeSet) { A.Lunge = FMath::FInterpTo(A.Lunge, 0.f, Dt, 6.f); if (A.Lunge < 0.01f) A.Lunge = 0.f; A.bLunge = false; }
+		A.bWindSet = A.bLungeSet = false;
+		switch (A.Lvl)
+		{
+		case 0: AnimJuggernaut(A, Dt); break;
+		case 1: AnimAlchemist(A, Dt); break;
+		case 2: AnimDealer(A, Dt); break;
+		case 3: AnimEngine(A, Dt); break;
+		case 4: AnimChuckles(A, Dt, Vx); break;
+		case 5: AnimYeti(A, Dt); break;
+		case 6: AnimShark(A, Dt); break;
+		case 7: AnimChairman(A, Dt, Vx); break;
+		default: break;
+		}
+		// the lit parts of the body: the game's own warning glow (SetGlow) plus what the rig adds and the flinch of
+		// a hit, written to the materials only when it changes
+		const float Hit = Pulse(A.HurtT, 14.f) * A.HurtAmt;
+		const float BodyHit = A.HurtAmt > 0.35f ? Hit : 0.f;   // a missile or a damage state flashes the body's materials; a single round flashes the light, the sparks and the kick
+		// quarter steps: a write per step, not per frame (3.3 perf: each write walks every material slot)
+		const float Want = FMath::Max(-0.4f, FMath::RoundToFloat((FMath::Max(A.LastGlow, 0.f) + A.BossAlert + 0.9f * BodyHit) * 4.f) * 0.25f);
+		if (Want != A.AlertSet) { A.AlertSet = Want; A.Mesh->SetScalarParameterValueOnMaterials(TEXT("Alert"), Want); }
+		if (A.Lvl != 1) A.Light->SetIntensity(1500.f + 1800.f * FMath::Clamp(A.LastGlow, 0.f, 1.f) + 2600.f * Hit);   // (the Tesla truck's light is SetTesla's)
+	}
+	/** The boss's proxy is being let go. Only a wreck (its armour gone) comes apart; an escape or a restart is quiet. */
+	void RigRelease(AFTEntityActor& A)
+	{
+		bool bWrecked = false;
+		if (const UWorld* W = A.GetWorld())
+			if (const AFTGameMode* GM = W->GetAuthGameMode<AFTGameMode>())
+				for (const FFTEnt& E : GM->GetActiveEntities()) if (E.Proxy.Get() == &A) { bWrecked = E.Hp <= 0.f; break; }
+		if (bWrecked)
+		{
+			const FBossLook& L = LookOf(A);
+			const FVector At = A.Mesh->GetComponentTransform().TransformPosition(L.Heart);
+			FTFx::Burst(&A, L.DefeatFx, At, A.GetActorRotation(), 1.f, FTFx::Main);
+			FTFx::Burst(&A, TEXT("NS_BossBreakShards"), At, A.GetActorRotation(), 1.6f, FTFx::Extra);
+			switch (A.Lvl)
+			{
+			case 0: DefeatJuggernaut(A); break;
+			case 1: DefeatAlchemist(A); break;
+			case 2: DefeatDealer(A); break;
+			case 3: DefeatEngine(A); break;
+			case 4: DefeatChuckles(A); break;
+			case 5: DefeatYeti(A); break;
+			case 6: DefeatShark(A); break;
+			case 7: DefeatChairman(A); break;
+			default: break;
+			}
+			UE_LOG(LogFT, Display, TEXT("FT BOSSRIG defeat level=%d speed=%.0f"), A.Lvl, A.LastSpeed);
+		}
+		for (UNiagaraComponent* N : A.BossFx) if (N && N->IsActive()) N->Deactivate();
+	}
+}
+
+void AFTEntityActor::BossState(float HpFrac, int32 Phase)
+{
+	if (Kind != EFTKind::Boss) return;
+	if (!bBossLive) { bBossLive = true; BossHp = HpFrac; UE_LOG(LogFT, Display, TEXT("FT BOSSRIG live level=%d bits=%d"), Lvl, Bits.Num()); }
+	if (HpFrac < BossHp - 1e-5f)
+	{
+		// a hit: how hard by how much armour it took (one round is well under a percent, a missile about six). A
+		// stream of rounds is a shiver: the pushes do not add up
+		const float Hard = FMath::Clamp((BossHp - HpFrac) * 22.f, 0.3f, 1.f);
+		const float Fresh = FMath::Clamp(HurtT / 0.12f, 0.f, 1.f);
+		HurtAmt = FMath::Max(HurtAmt * Pulse(HurtT, 6.f), Hard);
+		Kick(*this, 70.f * Hard * Fresh, RigRng.FRandRange(-80.f, 80.f) * Hard * Fresh, 300.f * Hard * Fresh);
+		HurtT = 0.f;
+		if (HurtFxT > 0.16f)
+		{
+			HurtFxT = 0.f;
+			const FBossLook& L = LookOf(*this);
+			FTFx::Attach(L.HurtFx, Mesh, L.HurtAt + FVector(0.f, RigRng.FRandRange(-120.f, 120.f), RigRng.FRandRange(-40.f, 60.f)), FRotator::ZeroRotator, 0.7f + 0.6f * Hard, FTFx::Extra, true);
+		}
+	}
+	BossHp = HpFrac; BossPhase = Phase;
+	while (DmgState < FMath::Clamp(Phase, 0, 2))
+	{
+		++DmgState; DmgT = 0.f; HurtAmt = 1.f; HurtT = 0.f;   // (a damage state is also the hardest flinch he has)
+		RigBreak(*this, DmgState);
+		UE_LOG(LogFT, Display, TEXT("FT BOSSRIG damage level=%d state=%d hp=%.2f"), Lvl, DmgState, HpFrac);
+	}
+}
+
+void AFTEntityActor::BossWind(int32 InKind, float Amount, float InAimX)
+{
+	if (Kind != EFTKind::Boss) return;
+	// (one line as each wind-up starts: the film scripts wait for it)
+	if (Amount > 0.f && (InKind != WindKind || Wind <= 0.f)) { UE_LOG(LogFT, Display, TEXT("FT BOSSRIG wind level=%d kind=%d"), Lvl, InKind); }
+	WindKind = InKind; Wind = FMath::Clamp(Amount, 0.f, 1.f); AimX = InAimX; bWindSet = true;
+}
+
+void AFTEntityActor::BossLunge(float Amount, bool bGoing)
+{
+	if (Kind != EFTKind::Boss) return;
+	if (Amount > 0.f && Lunge <= 0.f) { UE_LOG(LogFT, Display, TEXT("FT BOSSRIG lunge level=%d warn=1"), Lvl); }
+	if (bGoing && !bLunge) { UE_LOG(LogFT, Display, TEXT("FT BOSSRIG lunge level=%d go=1"), Lvl); }
+	Lunge = FMath::Clamp(Amount, 0.f, 1.f); bLunge = bGoing; bLungeSet = true;
+}
+
+void AFTEntityActor::BossFire(int32 InKind, int32 Count)
+{
+	if (Kind != EFTKind::Boss) return;
+	FireKind = InKind; FireCount = Count; FireT = 0.f;
+	RigFire(*this);
+	UE_LOG(LogFT, Display, TEXT("FT BOSSRIG fire level=%d kind=%d n=%d"), Lvl, InKind, Count);
+}
+
+UStaticMeshComponent* AFTEntityActor::Part(int32 I, const TCHAR* MeshPath, const FVector& At, bool bShadow)
+{
+	while (Bits.Num() <= I) Bits.Add(MakeBit(this, Mesh));
+	UStaticMeshComponent* C = Bits[I];
+	UStaticMesh* M = Kept(MeshPath);
+	if (C->GetStaticMesh() != M) C->SetStaticMesh(M);
+	C->SetRelativeLocation(At);
+	C->SetCastShadow(bShadow);
+	C->SetVisibility(M != nullptr);
+	return C;
+}
+
+UNiagaraComponent* AFTEntityActor::Loop(int32 I, const TCHAR* Name, const FVector& At, bool bOn, const FRotator& Rot, float Scale)
+{
+	while (BossFx.Num() <= I)
+	{
+		UNiagaraComponent* N = NewObject<UNiagaraComponent>(this);
+		N->SetupAttachment(Mesh);
+		N->SetAutoActivate(false);
+		N->RegisterComponent();
+		AddInstanceComponent(N);
+		BossFx.Add(N);
+	}
+	UNiagaraComponent* N = BossFx[I];
+	if (!bOn) { if (N->IsActive()) N->Deactivate(); return N; }
+	// (the Extra layer: a rig's smoke, crackle and jets are not shown at Low effects quality)
+	UNiagaraSystem* Sys = FTFx::Shows(this, FTFx::Extra) ? FTFx::System(Name) : nullptr;
+	if (N->GetAsset() != Sys) N->SetAsset(Sys);
+	N->SetRelativeLocationAndRotation(At, Rot);
+	N->SetRelativeScale3D(FVector(Scale));
+	if (Sys && !N->IsActive()) N->Activate(true);
+	return N;
+}
+
 AFTEntityActor::AFTEntityActor()
 {
 	PrimaryActorTick.bCanEverTick = false;
@@ -286,6 +1335,12 @@ void AFTEntityActor::Setup(EFTKind InKind, int32 InVariant, int32 Level)
 	for (UStaticMeshComponent* C : Wheels) if (C) C->SetVisibility(false);
 	for (UStaticMeshComponent* C : Struts) if (C) C->SetVisibility(false);
 	LastGlow = -1.f;
+	// overhaul: a boss's rig starts from rest, and whatever this pooled actor's last life left running is stopped
+	for (UNiagaraComponent* N : BossFx) if (N) N->Deactivate();
+	bBossLive = false; BossHp = 1.f; BossPhase = 0; HurtT = HurtFxT = DmgT = FireT = RigC = 9.f; HurtAmt = 0.f; DmgState = 0;
+	WindKind = FireKind = FireCount = 0; Wind = AimX = IntroT = BossAlert = RigA = RigB = RigD = RigE = 0.f; AlertSet = -9.f; bWindSet = false;
+	NumCharges = NumArcs = 0; LastSpeed = 0.f; RigF = RigG = RigH = Lunge = 0.f; RigN = 0; bLunge = bLungeSet = false;
+	Cue[0] = Cue[1] = Cue[2] = Cue[3] = 0.f;
 	SRoll = SRollV = SPitch = SPitchV = SHeave = SHeaveV = 0.f; bSusInit = false; WheelSpin = 0.f; TeslaCharge = 0.f; PropSpin = 0.f; bGhostCar = false;
 	BumpPhase = FMath::FRandRange(0.f, 100.f);
 	// separate wheels on every car, truck and boss whose body was exported without them
@@ -411,6 +1466,7 @@ void AFTEntityActor::Setup(EFTKind InKind, int32 InVariant, int32 Level)
 		Light->SetIntensity(1500.f); Light->SetAttenuationRadius(2500.f);
 		Light->SetRelativeLocation(FVector(-600.f, 0, 300.f));
 		Light->SetVisibility(true);
+		RigSetup(*this);   // overhaul: this boss's own moving parts
 	}
 }
 
@@ -419,7 +1475,8 @@ void AFTEntityActor::SetGlow(float Amount)
 	// 3.3 perf: the game mode asks every frame for rammers, hogs and bosses; only touch the materials on a change
 	// (each call walks every slot and pushes new parameter data to the render thread)
 	if (FMath::IsNearlyEqual(Amount, LastGlow, 0.01f)) return;
-	Mesh->SetScalarParameterValueOnMaterials(TEXT("Alert"), Amount);
+	// (overhaul: a boss's lit parts are written by its rig, which adds its own to this glow: RigAnimate)
+	if (Kind != EFTKind::Boss) Mesh->SetScalarParameterValueOnMaterials(TEXT("Alert"), Amount);
 	// 3.1: the wind-up also shows as a flare when it starts and as a red light while it lasts. Both follow the same
 	// Glow the attack's own timers drive, so neither can start before the warning or outstay it
 	const bool bOn = Amount > 0.5f, bWas = LastGlow > 0.5f;
@@ -494,6 +1551,8 @@ void AFTEntityActor::HideLandingMark()
 
 void AFTEntityActor::SetActorHiddenInGame(bool bNewHidden)
 {
+	// overhaul: the fight's boss is being let go (Release): if it was wrecked it comes apart its own way, before it goes
+	if (bNewHidden && Kind == EFTKind::Boss && bBossLive) { bBossLive = false; RigRelease(*this); }
 	Super::SetActorHiddenInGame(bNewHidden);
 	// back to the pool: a landing mark of the last life may not show on the next. The second trail is left alone,
 	// as the first is (Setup stops both when the actor is used again): the highlight reel hides every ghost each
@@ -596,20 +1655,29 @@ void AFTEntityActor::KickBike()
 	if (Kind == EFTKind::Moto || Kind == EFTKind::Hog) BikeHit = 1.f;
 }
 
-void AFTEntityActor::SetTesla(float InCharge, const TArray<FVector>& ArcTo)
+void AFTEntityActor::SetTesla(float InCharge, const TArray<FVector>& ArcTo, const TArray<float>* Rising)
 {
 	if (Kind != EFTKind::Boss || Lvl != 1 || Bits.Num() < 4) return;
 	TeslaCharge = FMath::Clamp(InCharge, 0.f, 1.f);
+	// overhaul: each strike still charging is a collar on the coil; a strike going live is the release, and the coil
+	// is spent for a moment when the last one has ended (AnimAlchemist)
+	const int32 WasCharging = NumCharges;
+	NumCharges = 0;
+	if (Rising) for (float R : *Rising) if (NumCharges < 3) Charges[NumCharges++] = FMath::Clamp(R, 0.f, 1.f);
+	if (NumCharges > 0 && WasCharging == 0) { UE_LOG(LogFT, Display, TEXT("FT BOSSRIG wind level=%d kind=1"), Lvl); }
+	if (ArcTo.Num() > NumArcs) BossFire(1, ArcTo.Num());
+	else if (ArcTo.Num() == 0 && NumArcs > 0) RigC = 0.f;
+	NumArcs = ArcTo.Num();
 	UStaticMeshComponent* Top = Bits[0];
 	if (Top && Top->GetStaticMesh())
 	{
 		// the top glows up as it charges, and crackles (flicker) near full
 		const float Flick = TeslaCharge > 0.7f ? FMath::FRandRange(0.7f, 1.3f) : 1.f;
-		Top->SetScalarParameterValueOnMaterials(TEXT("Glow"), (0.25f + 3.2f * TeslaCharge * TeslaCharge) * Flick);
+		Top->SetScalarParameterValueOnMaterials(TEXT("Glow"), (0.25f + 3.2f * TeslaCharge * TeslaCharge) * Flick * FMath::Max(RigD, 0.04f));
 	}
 	Light->SetLightColor(FLinearColor(0.45f, 0.8f, 1.f));
 	Light->SetRelativeLocation(TeslaTop);
-	Light->SetIntensity(400.f + 5200.f * TeslaCharge * TeslaCharge + (ArcTo.Num() ? 9000.f : 0.f));
+	Light->SetIntensity((400.f + 5200.f * TeslaCharge * TeslaCharge) * RigD + (ArcTo.Num() ? 9000.f : 0.f) + 2600.f * Pulse(HurtT, 14.f) * HurtAmt);
 	Light->SetAttenuationRadius(3200.f);
 	Light->SetVisibility(true);
 	const FVector From = Top ? Top->GetComponentLocation() : GetActorTransform().TransformPosition(TeslaTop);
@@ -635,9 +1703,8 @@ void AFTEntityActor::Animate(float Dt, float Speed, float Vx, float BikeWindup)
 	if (Kind == EFTKind::Heli && Extra) Extra->AddLocalRotation(FRotator(0.f, 1900.f * Dt, 0.f));
 	if (Kind == EFTKind::Heli && Bits.Num() > 0 && Bits[0] && Bits[0]->IsVisible()) Bits[0]->AddLocalRotation(FRotator(2600.f * Dt, 0.f, 0.f));
 	// 3.3 propellers on the clown car, the Tesla coil's top turning faster as it charges
-	if (Kind == EFTKind::Boss && Lvl == 4) for (int32 p = 1; p <= NumClownProps && p < Bits.Num(); ++p) if (Bits[p]) Bits[p]->AddLocalRotation(FRotator(0.f, (p % 2 ? 1.f : -1.f) * 2200.f * Dt, 0.f));
-	if (Kind == EFTKind::Boss && Lvl == 1 && Bits.Num() > 0 && Bits[0]) Bits[0]->AddLocalRotation(FRotator(0.f, (25.f + 400.f * TeslaCharge) * Dt, 0.f));
-	AnimT += Dt;
+	// (overhaul: the clown car's propellers are turned by MR. CHUCKLES' rig, below: AnimChuckles)
+	AnimT += Dt;   // (overhaul: the Tesla coil's top is posed by the Alchemist's rig, below)
 	if (Kind == EFTKind::Moto || Kind == EFTKind::Hog)
 	{
 		if (!bSusInit) { PrevSp = Speed; bSusInit = true; }
@@ -670,9 +1737,13 @@ void AFTEntityActor::Animate(float Dt, float Speed, float Vx, float BikeWindup)
 		const float Bump = 1.6f * FMath::Sin(BumpPhase * 1.7f) + 0.9f * FMath::Sin(BumpPhase * 4.3f + 1.f);
 		const float RollT = FMath::Clamp(-AccLat / 980.f * 4.5f * K, -6.f, 6.f) + 0.25f * FMath::Sin(BumpPhase * 2.9f);
 		const float PitchT = FMath::Clamp(AccLong / 980.f * 3.f * K, -4.f, 4.f) + 0.2f * FMath::Sin(BumpPhase * 2.3f + 0.5f);
+		// overhaul: in steps of a sixtieth at most. One long frame (a loading stall, a screenshot) used to throw the
+		// body metres off its wheels: this explicit step is only stable under about a tenth of a second
 		auto Spring = [Dt](float& X, float& V, float T, float W, float Z)
 		{
-			V += (W * W * (T - X) - 2.f * Z * W * V) * Dt; X += V * Dt;
+			const int32 Steps = FMath::Clamp(FMath::CeilToInt(Dt * 60.f - 0.05f), 1, 12);
+			const float H = FMath::Min(Dt, 0.2f) / Steps;
+			for (int32 k = 0; k < Steps; ++k) { V += (W * W * (T - X) - 2.f * Z * W * V) * H; X += V * H; }
 			if (!FMath::IsFinite(X)) { X = 0.f; V = 0.f; }
 		};
 		Spring(SRoll, SRollV, RollT, 9.f, 0.3f);
@@ -745,19 +1816,9 @@ void AFTEntityActor::Animate(float Dt, float Speed, float Vx, float BikeWindup)
 	// 2.5 bosses with a bit of life: the yeti lopes, the clown car bounces and wobbles, the limo hovers
 	if (Kind == EFTKind::Boss)
 	{
-		if (Lvl == 5)
-		{
-			// 2.8: a big loping bound with a sway, both arms up over his head and flailing; faster and leaning in
-			// when he charges at you
-			YetiPhase += Dt * (1.f + 0.7f * Charge);
-			const float A = YetiPhase;
-			Mesh->SetRelativeTransform(FTransform(FRotator(-5.f * FMath::Sin(A * 6.f) - 9.f * Charge, 0.f, 5.f * FMath::Sin(A * 3.f)), FVector(0, 0, 90.f * FMath::Abs(FMath::Sin(A * 3.f)))));
-			if (Extra->IsVisible())
-				Extra->SetRelativeRotation(FRotator(14.f * FMath::Sin(A * 6.f + 0.8f) + 12.f * Charge, 0.f, 16.f * FMath::Sin(A * 3.f + 0.4f)));
-		}
-		else if (Lvl == 4) Mesh->SetRelativeTransform(FTransform(FRotator(0.f, 0.f, 7.f * FMath::Sin(AnimT * 4.f)), FVector(0, 0, 35.f * FMath::Abs(FMath::Sin(AnimT * 8.f)))));
-		else if (Lvl == 7) Mesh->SetRelativeTransform(FTransform(FRotator(2.f * FMath::Sin(AnimT * 1.3f), 0.f, 3.f * FMath::Sin(AnimT * 1.7f)), FVector(0, 0, 40.f * FMath::Sin(AnimT * 2.f))));
-		else if (Lvl == 6) Mesh->SetRelativeTransform(FTransform(FRotator(0.f, 3.f * FMath::Sin(AnimT * 5.f), 0.f), FVector::ZeroVector));
+		// (overhaul: the yeti's lope, the clown car's flight, the shark's swim and the limo's hover are in their rigs now:
+		// AnimYeti, AnimChuckles, AnimShark, AnimChairman, where the same motion also answers the fight)
+		RigAnimate(*this, Dt, Speed, Vx);   // overhaul: the boss's moving parts, its damage and its lights
 	}
 	// fish wiggle on their way in
 	if (Kind == EFTKind::Bullet && Variant == 1) Mesh->SetRelativeRotation(FRotator(0.f, 18.f * FMath::Sin(AnimT * 18.f), 0.f));
@@ -786,6 +1847,15 @@ AFTWreck::AFTWreck()
 	Smoke->SetupAttachment(Mesh);
 	Smoke->SetAutoActivate(false);
 	InitialLifeSpan = 9.f;
+	// FX overhaul: the fire and the smoke keep the world's own up while the wreck tumbles under them. Attached with
+	// the wreck's rotation, every flame and puff swung round with the body like a flag on a stick
+	Fire->SetUsingAbsoluteRotation(true);
+	Smoke->SetUsingAbsoluteRotation(true);
+	// FX overhaul: and they sort with the blasts' fire and smoke (FTFx.cpp: -20 and -30), under everything left at 0: a
+	// foe's flare, muzzle star, streak or landing mark is never under a wreck's column. (Ten wrecks can burn at once,
+	// for six seconds each: these are the longest-lived effects of a fight.)
+	Fire->SetTranslucentSortPriority(-20);
+	Smoke->SetTranslucentSortPriority(-30);
 }
 
 void AFTWreck::Launch(UStaticMesh* InMesh, const FTransform& At, const FVector& Velocity, const FVector& Spin, float Scale)
@@ -815,7 +1885,12 @@ void AFTWreck::Launch(UStaticMesh* InMesh, const FTransform& At, const FVector& 
 			Wheels.Add(W);
 		}
 	}
-	Fire->SetAsset(FTFx::System(TEXT("NS_Fire")));
+	// FX overhaul: a wreck burns as the effects sheet draws it, in banded flames with pointed tongues (NS_WreckFire;
+	// NS_Fire's white-hot puffs on a build without it), sized to what is burning: a truck's fire is not a bike's
+	UNiagaraSystem* FireSys = FTFx::System(TEXT("NS_WreckFire"));
+	const float Burn = InMesh ? FMath::Clamp((float)InMesh->GetBounds().BoxExtent.X / 230.f, 0.75f, 2.2f) : 1.f;
+	Fire->SetAsset(FireSys ? FireSys : FTFx::System(TEXT("NS_Fire")));
+	Fire->SetRelativeScale3D(FVector(FireSys ? Burn : 1.f));
 	if (Fire->GetAsset()) { Fire->SetVariableFloat(TEXT("User.Size"), 1.4f); Fire->Activate(true); }
 	// 3.1: and it smokes (the Extra layer: not at Low)
 	if (FTFx::Shows(this, FTFx::Extra))
@@ -873,6 +1948,11 @@ AFTHazard::AFTHazard()
 	ThingTrail->SetupAttachment(RootComponent);
 	ThingTrail->SetUsingAbsoluteLocation(true); ThingTrail->SetUsingAbsoluteRotation(true); ThingTrail->SetUsingAbsoluteScale(true);
 	ThingTrail->SetAutoActivate(false);
+	// FX overhaul: a road marker draws after every effect, whatever is nearer the camera. The overhaul's smoke,
+	// fire and scorch sort below zero (FTFx.cpp); this puts the marker above anything left at zero as well. A
+	// warning is never under smoke
+	Plane->SetTranslucentSortPriority(20);
+	RightPlane->SetTranslucentSortPriority(20);
 }
 
 void AFTHazard::SetThing(UStaticMesh* M, const FTransform& WorldT)
@@ -889,8 +1969,11 @@ void AFTHazard::SetThing(UStaticMesh* M, const FTransform& WorldT)
 	{
 		const FString N = M->GetName();
 		const bool bMain = N.Contains(TEXT("Fireball")) || N.Contains(TEXT("Missile"));
+		// FX overhaul: a rocket coming down on its mark keeps the line of smoke it has had since 3.1, as a system of its own
+		// (NS_RocketTrail). NS_MissileTrail, which drew it, is now the short hot core at the tail of the KESTREL's
+		// missiles; those lay their smoke in the world (FTFx::Trail), which a thing whose mark rides with the car cannot do
 		const TCHAR* TrailName = N.Contains(TEXT("Bomb")) ? TEXT("NS_FuseTrail") : (N.Contains(TEXT("Snow")) ? TEXT("NS_SnowTrail") : (N.Contains(TEXT("Fireball")) ? TEXT("NS_FireballTrail")
-			: (N.Contains(TEXT("Fish")) ? TEXT("NS_FishTrail") : (N.Contains(TEXT("Missile")) ? TEXT("NS_MissileTrail") : nullptr))));
+			: (N.Contains(TEXT("Fish")) ? TEXT("NS_FishTrail") : (N.Contains(TEXT("Missile")) ? TEXT("NS_RocketTrail") : nullptr))));
 		ThingTrail->SetAsset(TrailName && FTFx::Shows(this, bMain ? FTFx::Main : FTFx::Extra) ? FTFx::System(TrailName) : nullptr);
 		if (ThingTrail->GetAsset()) ThingTrail->Activate(true); else ThingTrail->Deactivate();
 		LastThingAt = Rel;
@@ -964,12 +2047,14 @@ void AFTHazard::SetLook(const FLinearColor& Colour, float Intensity)
 
 void AFTEntityActor::SetTracer(const FLinearColor& Colour, float Width, bool bSpecial)
 {
+	// FX overhaul: every round of the KESTREL's is a longer streak (the mesh is stretched along its flight: looks
+	// only, the round's box is the game mode's). Setup puts a pooled actor's scale back
+	Mesh->SetRelativeScale3D(FVector(bSpecial ? 1.5f : 1.35f, Width, Width));
 	if (!bSpecial) return;
 	const FLinearColor Lin = Colour;
 	Mesh->SetVectorParameterValueOnMaterials(TEXT("Color"), FVector(Lin.R, Lin.G, Lin.B));
 	Mesh->SetVectorParameterValueOnMaterials(TEXT("Tint"), FVector(Lin.R, Lin.G, Lin.B));
 	bTracerColoured = true;
-	Mesh->SetRelativeScale3D(FVector(1.f, Width, Width));
 	Light->SetLightColor(Colour);
 	Light->SetIntensity(260.f); Light->SetAttenuationRadius(600.f);
 	Light->SetRelativeLocation(FVector::ZeroVector);

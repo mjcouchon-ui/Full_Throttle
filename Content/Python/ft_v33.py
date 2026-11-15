@@ -729,8 +729,9 @@ def split_jobs():
         (C + 'Syndicate/SM_Truck', lambda m: ft_fleet.truck(m), (-450, 0, 0)),
         (C + 'Traffic/SM_Bus', lambda m: ft_fleet.bus(m), (-550, 0, 0)),
         (C + 'Traffic/SM_CarCarrier', lambda m: ft_fleet.ramp(m), (-565, 0, 0)),
-        (C + 'Bosses/SM_Juggernaut', lambda m: ft_fleet.truck(m, True), (-625, 0, 0)),
-        (C + 'Bosses/SM_Carrier', lambda m: ft_desert.carrier(m), (-500, 0, 0)),
+        # (overhaul: the turret and the middle lane's bikes are moving parts now; a late import, ft_enemy_vehicles imports this file)
+        (C + 'Bosses/SM_Juggernaut', lambda m: __import__('ft_enemy_vehicles').juggernaut_body(m), (-625, 0, 0)),
+        (C + 'Bosses/SM_Carrier', lambda m: __import__('ft_enemy_vehicles').carrier_body(m), (-500, 0, 0)),
     ]
     civ = [('SM_Sedan0', '#fff1d6', 'sedan'), ('SM_Sedan1', '#8fe3ff', 'sedan'), ('SM_Sedan2', '#ffe14d', 'sedan'),
            ('SM_Hatch', '#7fe3c4', 'hatch'), ('SM_Hatch1', '#b9a4ff', 'hatch'), ('SM_Van', '#ff9ec7', 'van'), ('SM_Van1', '#ffc59e', 'van')]
@@ -919,26 +920,62 @@ def tesla_truck(m):
         m.box(ARC if k % 2 else '#fff1c0', (L * 0.9 + 14, -hw * 0.6 + k * hw * 0.24, 324), (4, 30, 14), glow=1.4)
 
 
-def tesla_top(m):
-    """The toroid and the top of the coil, centred on the toroid's centre (spins about Z, its glow pulses)."""
-    R, r = 160.0, 50.0
-    torus(m, '#bfe4ff', (0, 0, 0), R, r, major=28, minor=10, glow=0.12)
+def tesla_top(m, broken=False):
+    """The toroid and the top of the coil, centred on the toroid's centre (spins about Z, its glow pulses).
+    Overhaul (15 Nov): a fatter ring under a crown of discharge horns, so the spin reads from behind and the top is
+    the truck's focal point; broken=True is the meltdown's version (SM_TeslaTopB): a bite out of the ring, its ends
+    scorched and the hot core showing. The game swaps to it at a third of the armour (FTEntity.cpp, BreakAlchemist)."""
+    R, r = 172.0, 56.0
+    SHELL = '#bfe4ff'
+    n = 16
+    gone = (9, 10, 11) if broken else ()
+    if not broken:
+        torus(m, SHELL, (0, 0, 0), R, r, major=28, minor=10, glow=0.12)
+        torus(m, ARC, (0, 0, 0), R + r - 5, 9, major=28, minor=6, glow=1.6)                # the belt round its widest part
+    else:
+        ring = [(math.cos(2 * math.pi * k / n) * R, math.sin(2 * math.pi * k / n) * R, 0.0) for k in range(n + 1)]
+        for k in range(n):
+            if k in gone:
+                continue
+            rod(m, SHELL, ring[k], ring[k + 1], r, steps=10, glow=0.12)
+            m.sphere(SHELL, ring[k], r, steps=(5, 10), glow=0.12)
+        for k, way in ((gone[0], 1), (gone[-1] + 1, -1)):                                    # the two torn ends
+            e = ring[k]
+            m.sphere('#2a2632', e, r * 1.04, scale=(1, 1, 1), steps=(5, 10))
+            m.sphere('#ffd23f', e, r * 0.62, steps=(4, 8), glow=3.0)
+            a = 2 * math.pi * (k + 0.9 * way) / n
+            rod(m, COPPER, e, (math.cos(a) * (R - 10), math.sin(a) * (R - 10), -18), 14, steps=6, glow=0.8)   # a winding hanging out
+    # a crown of discharge horns on the ring's shoulder, an arc ball on each: the spin and the pulse read on them
+    for k in range(8):
+        if broken and k in (4, 5):
+            continue
+        a = math.radians(k * 45 + 22.5)
+        ca, sa = math.cos(a), math.sin(a)
+        tip = (ca * (R + r + 40), sa * (R + r + 40), r + 62)
+        cone(m, CHROME, (ca * (R + r * 0.3), sa * (R + r * 0.3), r * 0.7), tip, 31, steps=6, tip=7)
+        m.sphere(ARC, tip, 16, steps=(4, 6), glow=3.0)
     # four spokes from the hub to the ring, a top dome with a breakout point
     for k in range(4):
-        a = k * 90 + 45
-        rod(m, STEEL, (0, 0, 0), (math.cos(math.radians(a)) * (R - 30), math.sin(math.radians(a)) * (R - 30), 0), 8, steps=8)
+        a = math.radians(k * 90 + 45)
+        tilt_box(m, STEEL, (0, 0, 0), (math.cos(a) * (R - 26), math.sin(a) * (R - 26), 0), 24, 14)
     m.cyl(STEEL, (0, 0, -20), 74, 30, steps=18)
-    m.sphere('#bfe4ff', (0, 0, 10), 80, scale=(1, 1, 0.45), steps=(6, 18), glow=0.12)
-    rod(m, CHROME, (0, 0, 40), (0, 0, 90), 6, steps=8)
-    m.sphere(ARC, (0, 0, 98), 16, steps=(5, 8), glow=3.0)
+    m.sphere(SHELL, (0, 0, 10), 84, scale=(1, 1, 0.5), steps=(6, 18), glow=0.12)
+    rod(m, CHROME, (0, 0, 44), (0, 0, 100), 8, steps=8)
+    m.sphere(ARC, (0, 0, 112), 22, steps=(5, 8), glow=3.0)
     # the top of the winding (the column below it ends at TOP_Z - 60)
     m.cyl(COPPER_D, (0, 0, -60), 66, 40, steps=18)
     for k in range(3):
         m.cyl(COPPER, (0, 0, -58 + k * 13), 68, 8, steps=18, glow=0.6)
-    # glowing studs round the ring: the pulse reads on them
-    for k in range(8):
-        a = math.radians(k * 45)
-        m.sphere(ARC, (math.cos(a) * R, math.sin(a) * R, r - 4), 9, steps=(4, 6), glow=2.5)
+
+
+def tesla_collar(m):
+    """A charge collar (overhaul): a glowing ring round the secondary winding (radius 68), centred on its own middle.
+    The game slides one up the coil for each strike that is still charging and sets its glow (FTEntity.cpp,
+    AnimAlchemist): the telegraph of the strike is the coil itself filling up."""
+    torus(m, '#bff6ff', (0, 0, 0), 94, 16, major=20, minor=6, glow=2.5)
+    for k in range(6):
+        a = math.radians(k * 60)
+        m.box('#f4ffff', (math.cos(a) * 94, math.sin(a) * 94, 0), (24, 24, 34), rot=(0, k * 60, 0), glow=3.0)
 
 
 def tesla_arc(m, h=1000.0, seed=9):
@@ -967,9 +1004,10 @@ def export_tesla():
     d = load_wheels_json()
     d[B + 'SM_Tanker'] = split_vehicle(B + 'SM_Tanker', tesla_truck, (-625, 0, 0))
     write_wheels_json(d)
-    mm = ft_art.Model('top'); tesla_top(mm); save(mm, B + 'SM_TeslaTop')
-    mm = ft_art.Model('arc'); tesla_arc(mm); save(mm, B + 'SM_TeslaArc')
-    return [B + 'SM_Tanker', B + 'SM_TeslaTop', B + 'SM_TeslaArc', 'top at %s' % (TESLA_TOP,)]
+    # overhaul: the truck's moving parts are exported with the other bosses' (ft_enemy_vehicles.BOSS_PARTS)
+    import ft_enemy_vehicles
+    parts = ft_enemy_vehicles.rebuild_bosses(('alchemist',), bodies=False)
+    return [B + 'SM_Tanker'] + parts + ['top at %s' % (TESLA_TOP,)]
 
 
 # =============================================================================================== CLOWN RIG

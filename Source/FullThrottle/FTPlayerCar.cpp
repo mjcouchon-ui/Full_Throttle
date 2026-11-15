@@ -13,6 +13,7 @@
 #include "Sound/SoundBase.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "HAL/IConsoleManager.h"
+#include "FTFx.h"
 
 // which arcade assists run on top of Chaos (bits): 1 speed governor, 2 grip, 4 yaw, 8 anti-flip, 16 track gravity, 32 air control,
 // 64 road glue (2.4 downforce)
@@ -181,6 +182,9 @@ AFTPlayerCar::AFTPlayerCar()
 	SparksFX = FX(TEXT("SparksFX"), FVector(-210, 0, 8));
 	TurboFX = FX(TEXT("TurboFX"), FVector(-232, 0, 30));
 	DriftFX = FX(TEXT("DriftFX"), FVector(-133, 0, 10));
+	// FX overhaul: sparks off the rear tyres in the drift charge's colour; the hot core of the turbo flame
+	DriftSparkFX = FX(TEXT("DriftSparkFX"), FVector(-133, 0, 12));
+	BoostCoreFX = FX(TEXT("BoostCoreFX"), FVector(-232, 0, 30));
 
 	EngineAudio = CreateDefaultSubobject<UAudioComponent>(TEXT("EngineAudio"));
 	EngineAudio->SetupAttachment(Body);
@@ -239,6 +243,7 @@ void AFTPlayerCar::BeginPlay()
 	SetFX(SparksFX, TEXT("/Game/FX/NS_Sparks"));
 	SetFX(TurboFX, TEXT("/Game/FX/NS_TurboFlame"));
 	SetFX(DriftFX, TEXT("/Game/FX/NS_TyreSmoke"));
+	SetFX(BoostCoreFX, TEXT("/Game/FX/NS_TurboCore"));   // FX overhaul (the drift sparks' system is picked by the charge, in TickFx)
 	if (!EngineAudio->Sound) EngineAudio->SetSound(Load<USoundBase>(TEXT("/Game/Audio/SFX/S_EngineLoop")));
 	if (!SkidAudio->Sound) SkidAudio->SetSound(Load<USoundBase>(TEXT("/Game/Audio/SFX/S_Skid")));
 	if (UPhysicalMaterial* PM = Load<UPhysicalMaterial>(TEXT("/Game/Core/Physics/PM_CarBody"))) Chassis->SetPhysMaterialOverride(PM);
@@ -315,6 +320,11 @@ void AFTPlayerCar::PlaceOnTrack(float InD, float InX, float InSpeed)
 	Half = EFTHalf::None;
 	bPrevVel = false;
 	bWrecked = false;
+	// FX overhaul: Wreck() puts the underglow and the headlights out and nothing put them back, so every take after
+	// the first wreck drove on without them. And the effects' counters start again with the car
+	if (!Underglow->IsVisible()) { Underglow->SetVisibility(true); HeadL->SetVisibility(true); HeadR->SetVisibility(true); }
+	FxAirT = 0.f;
+	ShedQuietT = GetWorld() ? GetWorld()->GetTimeSeconds() + 0.5f : -1.f;
 	Chassis->SetSimulatePhysics(true);
 }
 
@@ -346,6 +356,20 @@ void AFTPlayerCar::SetDamageLook(float Hp)
 	}
 	Body->SetScalarParameterValueOnMaterials(TEXT("Soot"), FMath::Clamp((85.f - Hp) / 85.f * 0.8f, 0.f, 0.8f));
 	for (UStaticMeshComponent* P : Parts) P->SetScalarParameterValueOnMaterials(TEXT("Soot"), FMath::Clamp((85.f - Hp) / 85.f * 0.8f, 0.f, 0.8f));
+	// FX overhaul: the step itself shows as the armour drops into smoking and into burning: a cough of smoke off
+	// the engine deck, then the fire catching with a pop and sparks. Not on a repair, and not when a take starts
+	// with the car already in that state
+	const int32 Stage = bFire ? 2 : (bSmoke ? 1 : 0);
+	if (DamageStage >= 0 && Stage > DamageStage && !bWrecked)
+	{
+		if (Stage == 2)
+		{
+			FTFx::Attach(TEXT("NS_FxFireball"), Body, FVector(-115.f, 0.f, 96.f), FRotator::ZeroRotator, 0.3f, FTFx::Main, true);
+			FTFx::Attach(TEXT("NS_RamSparks"), Body, FVector(-115.f, 0.f, 96.f), FRotator(60.f, 180.f, 0.f), 0.7f, FTFx::Extra, true);
+		}
+		else FTFx::Attach(TEXT("NS_MissileBackblast"), Body, FVector(-110.f, 0.f, 112.f), FRotator(-30.f, 0.f, 0.f), 0.6f, FTFx::Extra, true);
+	}
+	DamageStage = Stage;
 }
 
 int32 AFTPlayerCar::NumPartsOn() const
@@ -361,6 +385,9 @@ void AFTPlayerCar::ShedPart(int32 Index)
 	UStaticMeshComponent* P = Parts[Index];
 	if (P->GetAttachParent() != Body || !P->GetStaticMesh()) return;
 	const FVector V = Chassis->GetPhysicsLinearVelocity();
+	// FX overhaul: it comes off with sparks where it was bolted on (not the parts a damaged take starts without)
+	if (GetWorld() && GetWorld()->GetTimeSeconds() > ShedQuietT)
+		FTFx::Attach(TEXT("NS_RamSparks"), Body, P->GetRelativeLocation(), FRotator(25.f, 180.f, 0.f), 0.6f, FTFx::Extra, true);
 	P->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 	P->SetCollisionProfileName(TEXT("PhysicsActor"));
 	P->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
@@ -384,6 +411,7 @@ void AFTPlayerCar::RestoreParts()
 		if (PartRest.IsValidIndex(i)) P->SetRelativeTransform(PartRest[i]);
 	}
 	LooseParts.Reset();
+	ShedQuietT = GetWorld() ? GetWorld()->GetTimeSeconds() + 0.5f : -1.f;   // FX overhaul: a repair puts them back and sheds again by the armour left: quietly
 }
 
 void AFTPlayerCar::SetHenchmenForLevel(int32 Level)
@@ -460,6 +488,15 @@ void AFTPlayerCar::OnBodyHit(UPrimitiveComponent* HitComp, AActor* Other, UPrimi
 void AFTPlayerCar::Tick(float Dt)
 {
 	Super::Tick(Dt);
+	{
+		// FX overhaul: the effects' own frame (blasts that roll on, their delayed layers), and a clean start for every
+		// new scene. Parked for a slate (a retake, the title, PRE-PRODUCTION) or hidden for the highlight reel, nothing
+		// of the scene before is left burning or smoking: FTFx::ClearWorld stops it and logs what it stopped
+		const bool bStage = Drive.bFrozen || IsHidden();
+		if (bStage && !bFxStage) FTFx::ClearWorld(this, IsHidden() ? TEXT("reel") : TEXT("slate"));
+		bFxStage = bStage;
+		FTFx::Tick(this, Dt);
+	}
 	if (!Track || !Track->IsBuilt() || !Chassis->IsSimulatingPhysics()) return;
 
 	float Xl, Hl;
@@ -610,6 +647,7 @@ void AFTPlayerCar::Tick(float Dt)
 		if (bSlide && !DriftFX->IsActive()) DriftFX->Activate(true);
 		if (!bSlide && DriftFX->IsActive()) DriftFX->Deactivate();
 	}
+	TickFx(Dt, V);
 	if (EngineAudio->IsPlaying())
 	{
 		const float S = FMath::Clamp(FMath::Abs(Speed) / 9600.f, 0.f, 1.f);
@@ -620,6 +658,87 @@ void AFTPlayerCar::Tick(float Dt)
 	if (SkidAudio->IsPlaying()) SkidAudio->SetVolumeMultiplier(bSlide ? 0.7f : 0.f);
 }
 
+void AFTPlayerCar::BoostKick(float Scale)
+{
+	// FX overhaul (looks only): long flames out of the pipes and a ring round them, riding on the car
+	FTFx::Attach(TEXT("NS_BoostKick"), Body, FVector(-232.f, 0.f, 30.f), FRotator::ZeroRotator, Scale, FTFx::Main, true);
+	FTFx::Attach(TEXT("NS_BoostRing"), Body, FVector(-240.f, 0.f, 36.f), FRotator::ZeroRotator, Scale, FTFx::Extra | FTFx::Flash, true);
+}
+
+void AFTPlayerCar::HitFlash(float Amount)
+{
+	AlertAmt = FMath::Max(AlertAmt, FMath::Clamp(Amount, 0.f, 1.f));
+}
+
+void AFTPlayerCar::TickFx(float Dt, const FVector& Velocity)
+{
+	// FX overhaul. Looks only: nothing here moves the car or is read by the race.
+	// The barrier: a hard hit throws a burst of sparks back from where it struck, over the scrape's stream
+	WallHitCd -= Dt;
+	if ((bWallLeft || bWallRight) && WallImpact > 300.f && WallHitCd <= 0.f && !bWrecked && FMath::Abs(Speed) > 1500.f)
+	{
+		WallHitCd = 0.5f;
+		FTFx::Attach(TEXT("NS_RamSparks"), Body, FVector(60.f, bWallLeft ? -128.f : 128.f, 45.f), FRotator(10.f, 180.f, 0.f), 0.9f, FTFx::Extra, true);
+	}
+	// the turbo flame's hot core (not at Low)
+	if (BoostCoreFX->GetAsset())
+	{
+		const bool bCore = Drive.bHot && !bWrecked && FTFx::Shows(this, FTFx::Extra);
+		if (bCore && !BoostCoreFX->IsActive()) BoostCoreFX->Activate(true);
+		if (!bCore && BoostCoreFX->IsActive()) BoostCoreFX->Deactivate();
+	}
+	// Tyre smoke and drift sparks stream back along the way the car is really going: a drifting car points 24 degrees
+	// off its line, and both emitters throw along their own -X
+	const bool bSlide = Drive.DriftDir != 0 && bGrounded;
+	const FVector Flat = Velocity - RoadUp * FVector::DotProduct(Velocity, RoadUp);
+	if (bSlide && Flat.SizeSquared() > FMath::Square(500.f))
+	{
+		const FRotator Way = FRotationMatrix::MakeFromXZ(Flat.GetSafeNormal(), RoadUp).Rotator();
+		DriftFX->SetWorldRotation(Way);
+		DriftSparkFX->SetWorldRotation(Way);
+	}
+	// The drift's charge had no look in the world (only the HUD said BLUE, ORANGE, PINK): sparks off the rear tyres
+	// in its colour, and a ring as each charge is reached
+	const int32 Charge = bSlide && !bWrecked ? FMath::Clamp(Drive.DriftLevel, 0, 3) : 0;
+	if (Charge != SparkLevel)
+	{
+		static const TCHAR* Sparks[3] = { TEXT("NS_DriftSparks1"), TEXT("NS_DriftSparks2"), TEXT("NS_DriftSparks3") };
+		static const TCHAR* Pop[3] = { TEXT("NS_DriftPop1"), TEXT("NS_DriftPop2"), TEXT("NS_DriftPop3") };
+		if (Charge > 0)
+		{
+			UNiagaraSystem* Sys = FTFx::System(Sparks[Charge - 1]);
+			if (DriftSparkFX->GetAsset() != Sys) DriftSparkFX->SetAsset(Sys);
+			if (Sys) DriftSparkFX->Activate(true);
+			if (Charge > SparkLevel) FTFx::Attach(Pop[Charge - 1], Body, FVector(-133.f, 0.f, 40.f), FRotator::ZeroRotator, 1.f, FTFx::Extra, true);
+		}
+		else if (DriftSparkFX->IsActive()) DriftSparkFX->Deactivate();
+		SparkLevel = Charge;
+	}
+	// A landing: sparks off the belly and dust thrown out flat from under the car, by how long it flew. (On the
+	// coaster's rails the wheels never touch anything: that is not a flight.)
+	if (!bGrounded && !bRailInit && Half != EFTHalf::Grind) FxAirT += Dt;
+	else if (FxAirT > 0.f)
+	{
+		if (FxAirT > 0.3f && bGrounded && !bWrecked && !Drive.bFrozen)
+		{
+			const float K = FMath::Clamp(0.65f + FxAirT * 0.45f, 0.75f, 1.5f);
+			FTFx::Attach(TEXT("NS_LandSparks"), Body, FVector(-40.f, 0.f, 12.f), FRotator::ZeroRotator, K, FTFx::Main, true);
+			FTFx::Attach(TEXT("NS_LandDust"), Body, FVector(0.f, 0.f, 14.f), FRotator::ZeroRotator, K, FTFx::Extra, true);
+		}
+		FxAirT = 0.f;
+	}
+	// A hit: the car's lights surge and fall back (the paint's Alert, which only its glowing parts answer to)
+	if (AlertAmt > 0.f || AlertShown > 0.f)
+	{
+		AlertAmt = FMath::Max(0.f, AlertAmt - Dt * 5.f);
+		if (FMath::Abs(AlertAmt - AlertShown) > 0.03f || AlertAmt <= 0.f)
+		{
+			AlertShown = AlertAmt;
+			Body->SetScalarParameterValueOnMaterials(TEXT("Alert"), AlertShown);
+			for (UStaticMeshComponent* P : Parts) if (P->GetAttachParent() == Body) P->SetScalarParameterValueOnMaterials(TEXT("Alert"), AlertShown);
+		}
+	}
+}
 void AFTPlayerCar::TickBody(float Dt)
 {
 	// 3.3 "the cars are so stiff": the body rides its springs over the wheels. Sideways acceleration rolls it to the

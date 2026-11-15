@@ -122,9 +122,11 @@ def yeti(m):
         m.sphere(WHITE, (260 + k * 70, (k % 3 - 1) * 170, 50 + k * 22), 92 - k * 9, steps=(5, 7))
 
 
-def yeti_arms(m):
-    """Both arms thrown up over his head, big hands, black claws. Origin = the middle of the shoulder line."""
-    for s in (-1, 1):
+def yeti_arms(m, sides=(-1, 1)):
+    """Both arms thrown up over his head, big hands, black claws. Origin = the middle of the shoulder line.
+    Overhaul (15 Nov): sides=(-1,) or (1,) draws one arm, for the two arms that move on their own
+    (SM_YetiArmL / SM_YetiArmR, each exported with its shoulder at the origin)."""
+    for s in sides:
         sh = (0, s * 285, 0)
         el = (-70, s * 470, 300)
         wr = (-60, s * 430, 610)

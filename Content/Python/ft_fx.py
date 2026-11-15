@@ -3,6 +3,11 @@
 The emitter stacks can't be edited from Python, so this uses the project's editor tool
 (UFTEditorTools.SetPath) to set the stateless modules' properties by reflection, then recompiles.
 Run over the Unreal MCP connector:  import ft_fx; ft_fx.build_all()
+
+The combat-effects overhaul (15 Nov 2026): M_FX_Toon and its instances are built here too (toon_materials): the fireball, the
+flame, the smoke that erodes as the camera nears it, debris and the scorch a blast leaves on the road. The systems the
+overhaul added or redrew are in overhaul_definitions() and marked "FX overhaul" where an older one was changed in place.
+DevLog/jam/overhaul/fx/notes.md has the effect-by-effect table and the counts.
 """
 import unreal
 
@@ -45,6 +50,16 @@ def make(name, base, cfg):
         idx = mods[mname]
         for k, v in props.items():
             _set(s, 'Modules[%d].%s' % (idx, k), v)
+    for mname, props in cfg.get('soft', {}).items():
+        # FX overhaul: a module this build may not take as written. The system is still built, without it, and says so
+        try:
+            _set(s, 'Modules[%d].bModuleEnabled' % mods[mname], 'True')
+            for k, v in props.items():
+                _set(s, 'Modules[%d].%s' % (mods[mname], k), v)
+        except Exception as e:  # noqa
+            print('JAM SOFT %s: %s not set (%s)' % (name, mname, repr(e)[:200]))
+            if mname in mods:
+                T.set_path(s, E + 'Modules[%d].bModuleEnabled' % mods[mname], 'False')
     for k, v in cfg.get('emitter', {}).items():
         _set(s, k, v)
     for k, v in cfg.get('renderer', {}).items():
@@ -118,15 +133,194 @@ def heat(*keys):
     return [(c[0], c[1], c[2], h) for c, h in keys]
 
 
+# ---------------------------------------------------------------------------------------------- FX overhaul: the toon sprites
+# M_FX_Toon: the overhaul's own sprite material, beside M_FX_Cel (ft_attackfx.py) and in its language: flat bands, hard
+# edges, no soft fades. As there, the particle's alpha is heat (1 = new, 0 = gone). What is new:
+#   Shape 0 fire     a billowing blob (scalloped like a cartoon blast cloud, Spike < 0) or a flame with pointed tongues
+#                    on its upper side (Spike > 0, Up). Its bands are temperature: they cool from the middle outwards as
+#                    the heat falls, cream to yellow, orange, red, maroon and soot, so a fireball turns to dark smoke
+#                    before it goes. Pal 1 uses the effects sheet's own fire colours; Pal 0 works the bands out of the
+#                    particle's colour (the SFX DEPT's blue and toxic wrecks).
+#   Shape 1 smoke    a faceted two-tone puff with a dark belly, as on the sheet
+#   Shape 2 chunk    a flat piece of debris, three to five sides, with an ember edge while it is hot
+#   Shape 3 scorch   the soot a blast leaves on the road (drawn on a ground-facing sprite)
+# Every shape goes the same way: it shrinks, notches cut in from the rim until it is separate lumps, and a hole opens
+# in the middle (Break). And every shape does the same as the camera nears it (NearA..NearB, cm from the lens): its
+# heat is scaled down, so it breaks up and is gone before the lens reaches it. Smoke never fills the screen, never
+# stands between the chase camera and the car, and the road just ahead of the car is always clear of it.
+TOON_HLSL = r"""
+float2 q = (UV - 0.5) * 2.0;
+float r = length(q);
+float a = atan2(q.y, q.x);
+float rnd = Rand;
+float nearK = saturate((Depth - NearA) / max(NearB - NearA, 1.0));
+float heat = saturate(PC.a) * nearK;
+float3 mid = PC.rgb;
+float aa = max(fwidth(r) * 1.2, 0.006);
+float3 warm = pow(max(mid, 0.0001), 0.5);
+float3 hot = lerp(warm, float3(1.0, 0.95, 0.80), 0.75) * CoreGain;
+float3 rimc = pow(max(mid, 0.0001), 1.6) * 0.75;
+float3 edgec = rimc * 0.55;
+float3 soot = lerp(edgec * 0.4, float3(0.09, 0.07, 0.11), 0.7);
+if (Pal > 0.5)
+{
+    // the effects sheet's own fire bands (linear): cream, yellow, orange, red, maroon, soot
+    hot = float3(1.0, 0.87, 0.53) * CoreGain;
+    warm = float3(1.0, 0.58, 0.05);
+    mid = float3(1.0, 0.27, 0.02);
+    rimc = float3(0.70, 0.045, 0.03);
+    edgec = float3(0.22, 0.03, 0.05);
+    soot = float3(0.07, 0.045, 0.085);
+}
+float3 col = mid;
+float op = 0.0;
+// the outline every shape is cut from: a polygon (Sides) or a round blob, with slow lobes
+float seg = 6.2831853 / max(Sides, 3.0);
+float ap = fmod(a + rnd * 6.2831853 + 62.831853, seg) - seg * 0.5;
+float poly = Sides > 2.5 ? cos(seg * 0.5) / max(cos(ap), 0.2) : 1.0;
+float lob = 1.0 + Lobe * (0.105 * sin(a * 5.0 + rnd * 40.0) + 0.075 * sin(a * 3.0 - rnd * 17.0) + 0.05 * sin(a * 9.0 + rnd * 9.0));
+// how it goes: it shrinks, notches cut in from the rim until it is separate lumps, a hole opens in the middle
+float nN = 3.0 + step(0.5, frac(rnd * 7.31));
+float notch = pow(saturate(0.5 + 0.5 * sin(a * nN + rnd * 31.0)), 3.0);
+float late = 1.0 - smoothstep(0.0, 0.55, heat);
+float shrink = 0.45 + 0.55 * smoothstep(0.0, 0.5, heat);
+float R = Body * poly * lob * shrink * (1.0 - Break * late * notch);
+float holeR = Break * (1.0 - smoothstep(0.0, 0.35, heat)) * 0.5 * Body;
+if (Shape < 0.5)
+{
+    float nT = 6.0 + floor(frac(rnd * 3.7) * 3.99);
+    float sw = abs(sin(a * nT * 0.5 + rnd * 50.0));
+    float edge = Spike < 0.0 ? pow(sw, 0.6) : 1.0 - sw;
+    float sUp = -q.y / max(r, 0.001);
+    float w = lerp(1.0, smoothstep(-0.3, 0.5, sUp), saturate(Up * 4.0));
+    float Rf = R * (1.0 - abs(Spike) * w * (1.0 - edge)) * (1.0 + Up * (sUp - 0.25));
+    float d = r / max(Rf, 0.001);
+    float da = aa / max(Rf, 0.05);
+    float temp = heat * (1.30 - 1.20 * d);
+    col = temp > 0.78 ? hot : (temp > 0.58 ? warm : (temp > 0.40 ? mid : (temp > 0.24 ? rimc : (temp > 0.10 ? edgec : soot))));
+    if (d > 1.0 - Ink) col = edgec * 0.5;
+    op = (1.0 - smoothstep(1.0 - da, 1.0 + da, d)) * smoothstep(holeR - aa, holeR + aa, r);
+}
+else if (Shape < 1.5)
+{
+    float d = r / max(R, 0.001);
+    float da = aa / max(R, 0.05);
+    op = (1.0 - smoothstep(1.0 - da, 1.0 + da, d)) * smoothstep(holeR - aa, holeR + aa, r);
+    float lit = step(0.0, -q.y * 0.85 - q.x * 0.35 + 0.16 + 0.10 * sin(a * 4.0 + rnd * 23.0));
+    float belly = step(0.52, q.y * 0.9 + q.x * 0.2 + 0.12 * sin(a * 3.0 + rnd * 11.0));
+    col = lerp(mid * 0.72, mid * 1.24, lit);
+    col = lerp(col, mid * 0.46, belly);
+    if (d > 1.0 - Ink) col = mid * 0.40;
+}
+else if (Shape < 2.5)
+{
+    float cn = 3.0 + floor(frac(rnd * 5.3) * 2.99);
+    float cseg = 6.2831853 / cn;
+    float cap = fmod(a + rnd * 6.2831853 + 62.831853, cseg) - cseg * 0.5;
+    float d = r * cos(cap) / cos(cseg * 0.5) / max(Body, 0.05);
+    float da = aa / max(Body, 0.05);
+    op = 1.0 - smoothstep(1.0 - da, 1.0 + da, d);
+    float lit = step(0.0, q.x * cos(rnd * 12.0) + q.y * sin(rnd * 12.0));
+    col = lerp(mid * 0.7, mid * 1.5, lit);
+    float glow = smoothstep(0.45, 0.85, heat);
+    if (d > 0.84) col = lerp(col, float3(1.0, 0.33, 0.04), glow);
+}
+else
+{
+    float sN = 9.0 + floor(frac(rnd * 4.1) * 4.99);
+    float ray = pow(saturate(0.5 + 0.5 * sin(a * sN + rnd * 21.0)), 2.5) * (0.6 + 0.4 * sin(a * 2.0 + rnd * 5.0));
+    float Rs = Body * shrink * (0.52 + 0.40 * ray + 0.08 * sin(a * 3.0 + rnd * 13.0));
+    float d = r / max(Rs, 0.001);
+    float da = aa / max(Rs, 0.05);
+    op = 1.0 - smoothstep(1.0 - da, 1.0 + da, d);
+    col = r < 0.30 * Body * shrink ? mid * 0.55 : mid;
+}
+op *= smoothstep(0.0, 0.06, heat);
+return float4(col * Gain, op * Opacity);
+"""
+
+TOON_PARAMS = [('Shape', 0.0), ('Sides', 0.0), ('Body', 0.84), ('Lobe', 0.8), ('Spike', -0.26), ('Up', 0.0), ('Break', 0.75), ('Ink', 0.07),
+               ('Pal', 0.0), ('Gain', 1.05), ('CoreGain', 1.25), ('Opacity', 1.0), ('NearA', 250.0), ('NearB', 700.0)]
+# the instances the systems use: name -> scalar overrides. NearA..NearB (cm from the lens): fire only gives way when it
+# is about to hit the lens; world smoke opens up from 20 m and is gone at 8 m (the car sits 8 to 11 m from the chase
+# camera); SmokeCar is for what rides on the car itself (a backblast, landing dust) and only clears the lens.
+TOON_INSTANCES = {
+    'Fire': {'Pal': 1.0},
+    'FireTint': {'Pal': 0.0},
+    'Flame': {'Pal': 1.0, 'Body': 0.56, 'Lobe': 0.5, 'Spike': 0.55, 'Up': 0.55, 'Break': 0.6},
+    'Smoke': {'Shape': 1.0, 'Sides': 8.0, 'Body': 0.80, 'Lobe': 0.45, 'Break': 0.8, 'Ink': 0.0, 'Gain': 1.0, 'CoreGain': 1.0, 'Opacity': 0.92,
+              'NearA': 800.0, 'NearB': 2000.0},
+    'SmokeCar': {'Shape': 1.0, 'Sides': 8.0, 'Body': 0.80, 'Lobe': 0.45, 'Break': 0.8, 'Ink': 0.0, 'Gain': 1.0, 'CoreGain': 1.0, 'Opacity': 0.80,
+                 'NearA': 200.0, 'NearB': 520.0},
+    'Chunk': {'Shape': 2.0, 'Body': 0.9, 'Gain': 1.0, 'NearA': 150.0, 'NearB': 400.0},
+    'Scorch': {'Shape': 3.0, 'Body': 0.95, 'Gain': 1.0, 'Opacity': 0.82, 'NearA': 0.0, 'NearB': 1.0},
+}
+
+
+def toon(kind):
+    return "/Script/Engine.MaterialInstanceConstant'/Game/FX/MI_FX_Toon%s.MI_FX_Toon%s'" % (kind, kind)
+
+
+def toon_materials():
+    """M_FX_Toon and its instances. Returns the pixel-shader instruction count (0 = it did not compile)."""
+    import ft_mats
+    MEL = unreal.MaterialEditingLibrary
+    m = ft_mats.new_material('/Game/FX', 'M_FX_Toon', blend=unreal.BlendMode.BLEND_TRANSLUCENT, shading=unreal.MaterialShadingModel.MSM_UNLIT, two_sided=True)
+    for flag in ('used_with_niagara_sprites', 'used_with_particle_sprites'):
+        # the cooked game falls back to the default material without the usage flag (README: material usage flags)
+        m.set_editor_property(flag, True)
+    X = -1100
+    uv = ft_mats.expr(m, unreal.MaterialExpressionTextureCoordinate, x=X, y=-580)
+    pc = ft_mats.expr(m, unreal.MaterialExpressionParticleColor, x=X, y=-500)
+    rnd = ft_mats.expr(m, unreal.MaterialExpressionParticleRandom, x=X, y=-420)
+    ins = [('UV', uv, ''), ('PC', pc, 'RGBA'), ('Rand', rnd, '')]
+    code = TOON_HLSL
+    depth = getattr(unreal, 'MaterialExpressionPixelDepth', None)
+    if depth is not None:
+        ins.append(('Depth', ft_mats.expr(m, depth, x=X, y=-340), ''))
+    else:
+        # no node for it in this build's Python: the same value, read in the custom node itself
+        code = '\nfloat Depth = GetScreenPosition(Parameters).w;' + TOON_HLSL
+    y = -240
+    for nm, v in TOON_PARAMS:
+        ins.append((nm, ft_mats.sparam(m, nm, v, x=X, y=y), ''))
+        y += 70
+    cu = ft_mats.custom(m, code, ins, out_type=unreal.CustomMaterialOutputType.CMOT_FLOAT4, x=-500, y=0, desc='ToonFX')
+    rgb = ft_mats.expr(m, unreal.MaterialExpressionComponentMask, x=-200, y=-60)
+    for ch, on in (('r', True), ('g', True), ('b', True), ('a', False)):
+        rgb.set_editor_property(ch, on)
+    alpha = ft_mats.expr(m, unreal.MaterialExpressionComponentMask, x=-200, y=80)
+    for ch, on in (('r', False), ('g', False), ('b', False), ('a', True)):
+        alpha.set_editor_property(ch, on)
+    MEL.connect_material_expressions(cu, '', rgb, '')
+    MEL.connect_material_expressions(cu, '', alpha, '')
+    MEL.connect_material_property(rgb, '', unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    MEL.connect_material_property(alpha, '', unreal.MaterialProperty.MP_OPACITY)
+    MEL.layout_material_expressions(m)
+    MEL.recompile_material(m)
+    AL.save_loaded_asset(m)
+    for name, scalars in TOON_INSTANCES.items():
+        ft_mats.mi(m, '/Game/FX', 'MI_FX_Toon' + name, scalars=scalars)
+    try:
+        return MEL.get_statistics(m).get_editor_property('num_pixel_shader_instructions')
+    except Exception:  # noqa
+        return -1
+
+
 def fx(n=None, rate=None, life=(0.2, 0.3), size=((50, 50), (80, 80)), mat=None, ramp=None, grow=None, speed=None, cone=180.0, axis=(0, 0, 1),
        inner=0.0, world=False, drag=None, gravity=None, sphere=None, box=None, rot=False, spin=None, stretch=None, align=False, sort=False,
-       owner=True, pool=None, bounds=BIG):
+       owner=True, pool=None, bounds=BIG, curl=None, ring=None, shape_scale=None, facing=None, toward=None):
     """One stateless emitter as a make() config. n = a burst of n sprites (the system ends by itself), rate = sprites a
     second for as long as the component is active. speed/cone/axis: a cone of velocity (cm/s, half-angle in degrees,
     direction in the emitter's own space, or in the world's with world=True: smoke off a tumbling wreck still rises).
     Every emitter here is local space (the engine's stateless emitters always are): sprites of a moving emitter travel
     with it, so a 'trail' is a fast cone straight back, and anything short-lived on a car is spawned attached to it.
-    stretch = (speed at which, times) lengthens velocity-aligned sprites; sort for the translucent cel shapes."""
+    stretch = (speed at which, times) lengthens velocity-aligned sprites; sort for the translucent cel shapes.
+    FX overhaul: curl = (strength cm/s, frequency) is the engine's curl noise (smoke that wanders and curls); ring = (radius,
+    coverage 0..1) spawns on a ring or disc in the emitter's XY plane; shape_scale squashes the spawn shape; facing =
+    (x, y, z) lays every sprite flat against that direction of the emitter's own space instead of facing the camera
+    (a ring or a scorch on the road: spawn the system turned to the road's frame and give (0, 0, 1)); toward = cm draws
+    every sprite that much nearer the camera than it is (fire that starts inside a wreck's body is seen in front of it)."""
     em = {'FixedBounds': bounds}
     if rate is not None:
         em['SpawnInfos'] = '((Type=Rate,Rate=(Min=%f,Max=%f)))' % (rate, rate)
@@ -140,6 +334,10 @@ def fx(n=None, rate=None, life=(0.2, 0.3), size=((50, 50), (80, 80)), mat=None, 
         mods['ShapeLocation'] = {'ShapePrimitive': 'Sphere', 'SphereRadius': rng(0, sphere)}
     elif box is not None:
         mods['ShapeLocation'] = {'ShapePrimitive': 'Box', 'BoxSize': vconst(*box)}
+    elif ring is not None:
+        mods['ShapeLocation'] = {'ShapePrimitive': 'Ring', 'RingRadius': const(ring[0]), 'DiscCoverage': const(ring[1])}
+    if shape_scale is not None and 'ShapeLocation' in mods:
+        mods['ShapeLocation']['ShapeScale'] = vconst(*shape_scale)
     if speed is not None:
         mods['AddVelocity'] = {'VelocityType': 'InCone', 'ConeAngle': '%f' % cone, 'InnerCone': '%f' % inner, 'ConeVelocityDistribution': rng(*speed),
                                'ConeRotationType': 'Direction', 'ConeDirection': vconst(*axis), 'CoordinateSpace': 'World' if world else 'Local'}
@@ -147,7 +345,9 @@ def fx(n=None, rate=None, life=(0.2, 0.3), size=((50, 50), (80, 80)), mat=None, 
         mods['Drag'] = {'DragDistribution': const(drag)}
     if gravity is not None:
         mods['GravityForce'] = {'GravityDistribution': vconst(0, 0, gravity)}
-    if speed is not None or drag is not None or gravity is not None:
+    if curl is not None:
+        mods['CurlNoiseForce'] = {'NoiseStrength': '%f' % curl[0], 'NoiseFrequency': '%f' % curl[1]}
+    if speed is not None or drag is not None or gravity is not None or curl is not None:
         mods['SolveVelocitiesAndForces'] = {}
     if ramp:
         mods['ScaleColor'] = {'ScaleDistribution': colors(*ramp)}
@@ -161,6 +361,11 @@ def fx(n=None, rate=None, life=(0.2, 0.3), size=((50, 50), (80, 80)), mat=None, 
         mods['ApplyOwnerScaleToAttributes'] = {}
     cfg = {'emitter': em, 'modules': mods,
            'renderer': {'Material': mat, 'Alignment': 'VelocityAligned' if align else 'Unaligned', 'SortMode': 'ViewDepth' if sort else 'None'}}
+    if facing is not None:
+        mods['SpriteFacingAndAlignment'] = {'bSpriteFacingEnabled': 'True', 'bSpriteAlignmentEnabled': 'False', 'SpriteFacing': vconst(*facing)}
+        cfg['renderer']['FacingMode'] = 'CustomFacingVector'
+    if toward is not None:
+        cfg['soft'] = {'CameraOffset': {'CameraOffsetDistribution': '(Mode=UniformConstant,ChannelConstantsAndRanges=(%f),Values=(%f))' % (toward, toward)}}
     if pool:
         cfg['pool'] = pool
     return cfg
@@ -183,6 +388,10 @@ C_SMOKE = (0.26, 0.23, 0.33)   # the sheet's lavender-grey
 C_SMOKE_L = (0.36, 0.32, 0.44)
 C_SMOKE_D = (0.15, 0.13, 0.20)
 C_DUST = (0.42, 0.36, 0.34)
+C_CHUNK = (0.10, 0.09, 0.13)   # FX overhaul: debris, flat and dark with an ember edge
+C_SOOT = (0.05, 0.04, 0.07)    # FX overhaul: the scorch a blast leaves on the road
+C_EXHAUST = (0.95, 0.70, 0.45)  # FX overhaul: smoke still lit by the flame it came out of
+C_DRIFT = ((0.25, 0.75, 1.0), (1.0, 0.55, 0.10), (1.0, 0.35, 0.75))   # FX overhaul: the drift's three charges: blue, orange, pink
 
 
 def definitions():
@@ -252,25 +461,29 @@ def definitions():
         },
         'renderer': {'Material': mat('/Game/FX/M_FX_Fire.M_FX_Fire')},
     }))
+    # FX overhaul: the damaged KESTREL's smoke as 2.4 set it (ft_cel.car_smoke: smaller, thinner, shorter-lived). The spec here
+    # was still 2.0's, whose puffs grew to 3.7 m and stood as a dark wall between the chase camera and the road, and
+    # every rebuild of this file put that back over 2.4's fix. Both generators now say the same thing
     made.append(('NS_Smoke', LOOP, {
-        'emitter': {'SpawnInfos': '((Type=Rate,Rate=(Min=16,Max=16)))', 'FixedBounds': BIG},
+        'emitter': {'SpawnInfos': '((Type=Rate,Rate=(Min=12,Max=12)))', 'FixedBounds': BIG},
         'modules': {
-            'InitializeParticle': {'LifetimeDistribution': rng(1.2, 2.2), 'SpriteSizeDistribution': v2rng((60, 60), (110, 110)), 'SpriteRotationDistribution': rng(0, 360)},
+            'InitializeParticle': {'LifetimeDistribution': rng(0.8, 1.4), 'SpriteSizeDistribution': v2rng((45, 40), (86, 70)), 'SpriteRotationDistribution': rng(0, 360)},
             'ShapeLocation': {'ShapePrimitive': 'Sphere'},
-            'AddVelocity': {'VelocityType': 'InCone', 'ConeAngle': '25.0', 'ConeVelocityDistribution': rng(150, 320)},
+            'AddVelocity': {'VelocityType': 'InCone', 'ConeAngle': '25.0', 'ConeVelocityDistribution': rng(150, 300)},
             'Drag': {'DragDistribution': const(0.8)},
             'SolveVelocitiesAndForces': {},
-            'ScaleColor': {'ScaleDistribution': colors((0.08, 0.07, 0.08, 0), (0.05, 0.045, 0.05, 0.55), (0.03, 0.03, 0.035, 0))},
-            'ScaleSpriteSize': {'ScaleDistribution': sizes(0.6, 2.0, 3.4)},
+            'ScaleColor': {'ScaleDistribution': colors((0.08, 0.07, 0.08, 0), (0.06, 0.055, 0.06, 0.32), (0.04, 0.04, 0.045, 0))},
+            'ScaleSpriteSize': {'ScaleDistribution': sizes(0.6, 1.3, 1.9)},
             'SpriteRotationRate': {'RotationRateDistribution': rng(-30, 30)},
         },
         'renderer': {'Material': mat('/Game/FX/M_FX_Smoke.M_FX_Smoke')},
     }))
     # ---- scraping the barrier, impacts
     made.append(('NS_Sparks', LOOP, {
-        'emitter': {'SpawnInfos': '((Type=Rate,Rate=(Min=240,Max=240)))', 'FixedBounds': BIG},
+        # FX overhaul: fewer and fatter (240 a second of 4 cm sparks was a haze at 120 mph): each one now reads as a streak
+        'emitter': {'SpawnInfos': '((Type=Rate,Rate=(Min=150,Max=150)))', 'FixedBounds': BIG},
         'modules': {
-            'InitializeParticle': {'LifetimeDistribution': rng(0.14, 0.40), 'SpriteSizeDistribution': v2rng((4, 7), (8, 13))},
+            'InitializeParticle': {'LifetimeDistribution': rng(0.14, 0.40), 'SpriteSizeDistribution': v2rng((6, 10), (11, 18))},
             # 3.1: ConeRotationType. The template turns the cone with a rotator and ignores ConeDirection unless told
             # otherwise, so until now these sparks (and the turbo flame below) left along the emitter's +Z, straight up
             'AddVelocity': {'VelocityType': 'InCone', 'ConeAngle': '55.0', 'ConeVelocityDistribution': rng(500, 1500),
@@ -306,38 +519,49 @@ def definitions():
         'renderer': {'Material': mat('/Game/FX/M_FX_Glow.M_FX_Glow')},
     }))
     # ---- driving: turbo flame from the quad pipes, tyre smoke while drifting, missile trail
+    # FX overhaul: a longer flame that tapers (it was a 60 cm tuft behind a 4.8 m car): same count, each sprite lives a little
+    # longer, leaves faster and thins to a point. The six nitro colours copy this spec (ft_v26.make_tints)
     made.append(('NS_TurboFlame', LOOP, {
         'emitter': {'SpawnInfos': '((Type=Rate,Rate=(Min=108,Max=108)))', 'FixedBounds': BIG},
         'modules': {
-            'InitializeParticle': {'LifetimeDistribution': rng(0.075, 0.14), 'SpriteSizeDistribution': v2rng((25, 23), (55, 50)), 'SpriteRotationDistribution': rng(0, 360)},
+            'InitializeParticle': {'LifetimeDistribution': rng(0.085, 0.16), 'SpriteSizeDistribution': v2rng((30, 27), (62, 56)), 'SpriteRotationDistribution': rng(0, 360)},
             'ShapeLocation': {'ShapePrimitive': 'Box', 'BoxSize': vconst(4, 110, 8)},
-            'AddVelocity': {'VelocityType': 'InCone', 'ConeAngle': '8.0', 'ConeVelocityDistribution': rng(500, 900),
+            'AddVelocity': {'VelocityType': 'InCone', 'ConeAngle': '6.0', 'ConeVelocityDistribution': rng(700, 1250),
                             'ConeRotationType': 'Direction', 'ConeDirection': vconst(-1, 0, 0)},
             'SolveVelocitiesAndForces': {},
             'ScaleColor': {'ScaleDistribution': colors((4.5, 7.2, 10.5, 1), (2.4, 5.2, 10, 0.82), (5.1, 2.0, 0.36, 0.49), (2.5, 0.42, 0.06, 0))},
-            'ScaleSpriteSize': {'ScaleDistribution': sizes(1.0, 0.4)},
+            'ScaleSpriteSize': {'ScaleDistribution': sizes(1.0, 0.62, 0.28)},
         },
         'renderer': {'Material': mat('/Game/FX/M_FX_Fire.M_FX_Fire')},
     }))
+    # FX overhaul: tyre smoke that streams back low from the rear tyres (the sheet: "keep drift smoke low and let the car
+    # silhouette stay readable"). It was a slow ball of puffs growing to 3.4 m round the back of the car, straight
+    # between the chase camera and the car. The emitter is local space, so "left behind" is a fast narrow cone back
+    # along the emitter's -X, and the car turns the emitter to face the way it is really travelling (a drifting car
+    # points 24 degrees off its line). The four smoke colours copy this spec (ft_v26.make_tints)
     made.append(('NS_TyreSmoke', LOOP, {
-        'emitter': {'SpawnInfos': '((Type=Rate,Rate=(Min=55,Max=55)))', 'FixedBounds': BIG},
+        'emitter': {'SpawnInfos': '((Type=Rate,Rate=(Min=46,Max=46)))', 'FixedBounds': BIG},
         'modules': {
-            'InitializeParticle': {'LifetimeDistribution': rng(0.56, 1.12), 'SpriteSizeDistribution': v2rng((78, 52), (135, 99)), 'SpriteRotationDistribution': rng(0, 360)},
-            'ShapeLocation': {'ShapePrimitive': 'Box', 'BoxSize': vconst(40, 230, 10)},
-            'AddVelocity': {'VelocityType': 'InCone', 'ConeAngle': '40.0', 'ConeVelocityDistribution': rng(60, 200)},
-            'Drag': {'DragDistribution': const(1.5)},
+            'InitializeParticle': {'LifetimeDistribution': rng(0.30, 0.55), 'SpriteSizeDistribution': v2rng((50, 40), (84, 66)), 'SpriteRotationDistribution': rng(0, 360)},
+            'ShapeLocation': {'ShapePrimitive': 'Box', 'BoxSize': vconst(30, 230, 8)},
+            'AddVelocity': {'VelocityType': 'InCone', 'ConeAngle': '14.0', 'ConeVelocityDistribution': rng(500, 1100),
+                            'ConeRotationType': 'Direction', 'ConeDirection': vconst(-1, 0, 0.12)},
+            'Drag': {'DragDistribution': const(2.2)},
             'SolveVelocitiesAndForces': {},
-            'ScaleColor': {'ScaleDistribution': colors((0.5, 0.45, 0.55, 0), (0.45, 0.42, 0.5, 0.32), (0.4, 0.4, 0.45, 0))},
-            'ScaleSpriteSize': {'ScaleDistribution': sizes(0.73, 1.64, 2.54)},
+            'ScaleColor': {'ScaleDistribution': colors((0.5, 0.45, 0.55, 0), (0.45, 0.42, 0.5, 0.36), (0.4, 0.4, 0.45, 0))},
+            'ScaleSpriteSize': {'ScaleDistribution': sizes(0.6, 1.3, 1.9)},
             'SpriteRotationRate': {'RotationRateDistribution': rng(-40, 40)},
         },
         'renderer': {'Material': mat('/Game/FX/M_FX_Smoke.M_FX_Smoke')},
     }))
-    # 3.1: a trail that trails. The emitter is local space, so its old sprites (20-80 cm/s, any direction) rode along
-    # as a ball round the missile. Now a fast narrow cone straight back: a line of puffs 6-12 m long, as on the sheet
-    made.append(('NS_MissileTrail', LOOP, fx(rate=46, life=(0.22, 0.36), size=((26, 26), (40, 40)), mat=cel('Puff'),
-                                             ramp=heat((C_SMOKE_L, 1.0), (C_SMOKE, 0.7), (C_SMOKE, 0.0)), grow=(0.5, 1.4, 2.2),
-                                             speed=(2400, 3400), cone=5.0, axis=(-1, 0, 0), sort=True, owner=False)))
+    # FX overhaul: the missile's hot exhaust core, on the missile (this slot is its Main layer: it shows at every quality).
+    # The smoke is no longer a cone of puffs that rode along behind the missile: it is laid in the WORLD, where the
+    # missile has been (NS_MissileSmoke below, dropped by FTFx::Trail), so it hangs, spreads and breaks up after it.
+    # A rocket seen from the chase camera is seen from behind: the core is short, wide and nearly white, so it reads
+    # as a hot point inside the orange taper (NS_MissileFlame)
+    made.append(('NS_MissileTrail', LOOP, fx(rate=64, life=(0.05, 0.085), size=((26, 70), (36, 104)), mat=cel('Shard'),
+                                             ramp=heat(((1.0, 0.97, 0.82), 1.0), ((1.0, 0.80, 0.30), 0.6), ((1.0, 0.5, 0.1), 0.0)),
+                                             speed=(1300, 2100), cone=4.0, axis=(-1, 0, 0), stretch=(1200, 1.5), align=True, sort=True, owner=False)))
     return made
 
 
@@ -357,9 +581,10 @@ def attack_definitions():
                               grow=(0.55, 1.0, 1.15), rot=True, sort=True, pool=(4, 12)))
     add('NS_MuzzleStarHE', fx(n=1, life=(0.055, 0.07), size=((98, 98), (120, 120)), mat=cel('Burst'), ramp=heat((C_HE, 1.0), (C_HE, 0.6), (C_EMBER, 0.0)),
                               grow=(0.55, 1.0, 1.2), rot=True, sort=True, pool=(4, 12)))
-    add('NS_MuzzleTongue', fx(n=3, life=(0.045, 0.08), size=((16, 46), (24, 70)), mat=cel('Shard'),
+    # FX overhaul: four tongues, longer: at the chase camera's distance three 46 cm ones were lost under the star
+    add('NS_MuzzleTongue', fx(n=4, life=(0.045, 0.08), size=((18, 56), (26, 84)), mat=cel('Shard'),
                               ramp=heat(((1.0, 0.9, 0.6), 1.0), ((1.0, 0.6, 0.15), 0.5), ((1.0, 0.3, 0.05), 0.0)),
-                              speed=(1500, 3000), cone=9.0, axis=(1, 0, 0), stretch=(1500, 2.2), align=True, sort=True, pool=(4, 12)))
+                              speed=(1500, 3000), cone=9.0, axis=(1, 0, 0), stretch=(1500, 2.6), align=True, sort=True, pool=(4, 12)))
     # ---- what a round does where it lands (attached to what it hit; +X = the round's way)
     add('NS_ImpactStar', fx(n=1, life=(0.09, 0.12), size=((95, 95), (125, 125)), mat=cel('Burst'),
                             ramp=heat((C_STD, 1.0), (C_STD, 0.6), (C_FIRE, 0.25), (C_FIRE, 0.0)), grow=(0.5, 1.0, 1.25), rot=True, sort=True, pool=(4, 12)))
@@ -371,8 +596,9 @@ def attack_definitions():
     add('NS_ImpactPierce', fx(n=5, life=(0.07, 0.12), size=((10, 60), (16, 110)), mat=cel('Shard'), ramp=heat((C_WHITE, 1.0), (C_AP, 0.5), (C_AP, 0.0)),
                               speed=(2600, 4600), cone=7.0, axis=(1, 0, 0), stretch=(2500, 2.5), align=True, sort=True))
     # armour: nothing goes in, sparks come back off the plate
-    add('NS_ImpactArmor', fx(n=14, life=(0.10, 0.26), size=((5, 10), (9, 16)), mat=SPARK, ramp=[(9, 10, 12, 1), (6, 5, 3, 1), (2, 0.6, 0.1, 0)],
-                             speed=(900, 2600), cone=75.0, axis=(-1, 0, 0.35), gravity=-900.0, stretch=(1200, 9.0), align=True, pool=(2, 8)))
+    # FX overhaul: a ricochet you can see: nine long steel-white shards thrown back off the plate (it was fourteen 5 cm sparks)
+    add('NS_ImpactArmor', fx(n=9, life=(0.10, 0.22), size=((8, 46), (13, 96)), mat=cel('Shard'), ramp=heat((C_WHITE, 1.0), ((0.75, 0.86, 1.0), 0.6), ((0.9, 0.7, 0.3), 0.0)),
+                             speed=(1500, 3600), cone=66.0, axis=(-1, 0, 0.45), gravity=-700.0, stretch=(1500, 2.2), align=True, sort=True, pool=(2, 8)))
     add('NS_ImpactRing', fx(n=1, life=(0.11, 0.13), size=((150, 150), (170, 170)), mat=cel('Ring'), ramp=heat((C_WHITE, 1.0), ((0.8, 0.9, 1.0), 0.0)),
                             grow=(0.35, 1.0), sort=True))
     add('NS_Fizzle', fx(n=3, life=(0.08, 0.14), size=((12, 12), (20, 20)), mat=GLOW, ramp=[(6, 5, 3, 1), (2, 1, 0.4, 0)], speed=(100, 400)))
@@ -396,14 +622,18 @@ def attack_definitions():
     add('NS_PieTrail', fx(rate=18, life=(0.25, 0.4), size=((16, 16), (30, 30)), mat=cel('Puff'), ramp=heat(((1.0, 0.95, 0.88), 1.0), ((1.0, 0.86, 0.9), 0.6), ((1.0, 0.8, 0.86), 0.0)),
                           speed=(250, 650), cone=30.0, axis=(-1, 0, 0), gravity=-500.0, sort=True, owner=False))
     # ---- missiles: a flash and a kick of smoke at launch, a flame at the tail, shrapnel on the way through
-    add('NS_MissileFlame', fx(rate=70, life=(0.05, 0.09), size=((22, 50), (34, 84)), mat=cel('Shard'),
-                              ramp=heat(((1.0, 0.95, 0.7), 1.0), ((1.0, 0.6, 0.12), 0.6), ((1.0, 0.25, 0.05), 0.0)),
-                              speed=(900, 1600), cone=6.0, axis=(-1, 0, 0), stretch=(900, 1.6), align=True, sort=True, owner=False))
-    add('NS_MissileLaunch', fx(n=1, life=(0.09, 0.11), size=((230, 230), (270, 270)), mat=cel('Flash'), ramp=heat((C_WHITE, 1.0), (C_HE, 0.55), (C_HE, 0.0)),
+    # FX overhaul: the tapered flame round the core (NS_MissileTrail): orange to red, each shard thinning to a point as it
+    # falls back, 2.5 m long where it was 60 cm
+    add('NS_MissileFlame', fx(rate=52, life=(0.10, 0.17), size=((44, 90), (64, 140)), mat=cel('Shard'),
+                              ramp=heat(((1.0, 0.62, 0.14), 1.0), ((1.0, 0.36, 0.06), 0.6), ((0.8, 0.12, 0.05), 0.0)), grow=(1.0, 0.6, 0.22),
+                              speed=(1500, 2500), cone=7.0, axis=(-1, 0, 0), stretch=(1400, 1.5), align=True, sort=True, owner=False))
+    add('NS_MissileLaunch', fx(n=1, life=(0.09, 0.11), size=((300, 300), (340, 340)), mat=cel('Flash'), ramp=heat((C_WHITE, 1.0), (C_HE, 0.55), (C_HE, 0.0)),
                                grow=(0.5, 1.0, 1.1), rot=True, sort=True, pool=(2, 6)))
-    add('NS_MissileBackblast', fx(n=7, life=(0.35, 0.6), size=((60, 60), (110, 110)), mat=cel('Puff'), ramp=heat((C_SMOKE_L, 1.0), (C_SMOKE, 0.7), (C_SMOKE, 0.0)),
-                                  grow=(0.6, 1.5, 2.0), speed=(500, 1500), cone=28.0, axis=(-1, 0, 0.15), drag=3.0, sort=True))
-    add('NS_MissileHit', fx(n=22, life=(0.16, 0.36), size=((12, 40), (20, 80)), mat=cel('Shard'), ramp=heat((C_WHITE, 1.0), (C_HE, 0.6), (C_EMBER, 0.0)),
+    # FX overhaul: smaller, shorter and thrown up as well as back, clear of the roof: seven puffs growing to 2.2 m sat
+    # between the chase camera and the car for half a second. The smoke that opens up at the lens (SmokeCar)
+    add('NS_MissileBackblast', fx(n=6, life=(0.28, 0.45), size=((40, 40), (70, 70)), mat=toon('SmokeCar'), ramp=heat((C_EXHAUST, 1.0), (C_SMOKE_L, 0.7), (C_SMOKE, 0.0)),
+                                  grow=(0.6, 1.4, 1.8), speed=(500, 1400), cone=30.0, axis=(-1, 0, 0.5), drag=3.0, rot=True, sort=True))
+    add('NS_MissileHit', fx(n=16, life=(0.16, 0.36), size=((12, 40), (20, 80)), mat=cel('Shard'), ramp=heat((C_WHITE, 1.0), (C_HE, 0.6), (C_EMBER, 0.0)),
                             speed=(1200, 3000), cone=55.0, axis=(1, 0, 0.2), gravity=-700.0, stretch=(1500, 2.0), align=True, sort=True, pool=(2, 6)))
     # ---- lobbed things: each leaves its own trail (the emitter is turned to face back along its flight)
     add('NS_FuseTrail', fx(rate=44, life=(0.12, 0.26), size=((4, 8), (7, 13)), mat=SPARK, ramp=[(12, 10, 5, 1), (8, 4, 0.6, 1), (2, 0.4, 0.05, 0)],
@@ -473,8 +703,125 @@ def attack_definitions():
     add('NS_RevSmoke', fx(n=8, life=(0.35, 0.6), size=((60, 60), (100, 100)), mat=cel('Puff'), ramp=heat((C_DUST, 1.0), (C_DUST, 0.6), (C_DUST, 0.0)),
                           grow=(0.6, 1.5, 2.0), speed=(300, 900), cone=40.0, axis=(-1, 0, 0.3), drag=3.0, box=(20, 150, 6), sort=True))
     # ---- what is left: a wreck smokes as it tumbles
-    add('NS_WreckSmoke', fx(rate=9, life=(0.8, 1.3), size=((80, 80), (130, 130)), mat=cel('Puff'), ramp=heat((C_SMOKE_D, 1.0), (C_SMOKE, 0.6), (C_SMOKE, 0.0)),
-                            grow=(0.6, 1.5, 2.1), speed=(220, 430), cone=18.0, world=True, drag=0.8, sort=True, owner=False))
+    # FX overhaul: it climbs faster (clear of the chase camera's eye line in under half a second), curls, and is the smoke
+    # that opens up as the camera nears it: a wreck you drive past no longer wipes a grey puff across the screen
+    add('NS_WreckSmoke', fx(rate=8, life=(0.9, 1.5), size=((80, 80), (130, 130)), mat=toon('Smoke'),
+                            ramp=heat((C_SMOKE_D, 1.0), (C_SMOKE, 0.75), (C_SMOKE_L, 0.45), (C_SMOKE_L, 0.0)),
+                            grow=(0.6, 1.5, 2.1), speed=(380, 640), cone=14.0, world=True, drag=0.7, curl=(60.0, 50.0), rot=True, sort=True, owner=False))
+    return d
+
+
+def overhaul_definitions():
+    """The combat-effects overhaul: what a missile, a blast, a ram and the KESTREL's own driving show now
+    (DevLog/jam/overhaul/fx/notes.md has the table, the counts and what each replaced). FTFx.cpp spawns them: a blast
+    is a recipe of these layers by what blew up (FTFx::Explosion), a missile's smoke is laid in the world behind it
+    (FTFx::Trail). One emitter each, as everywhere here. Directions: +X is the way of the hit or of travel, +Z is up
+    off the road (the blast layers are spawned turned to the road's frame)."""
+    d = []
+
+    def add(name, cfg):
+        d.append((name, LOOP if 'Type=Rate' in cfg['emitter']['SpawnInfos'] else BURST, cfg))
+
+    fire = heat((C_FIRE, 1.0), (C_FIRE, 0.86), (C_FIRE, 0.62), (C_FIRE, 0.36), (C_FIRE, 0.0))
+    # ---- a blast's fire. The fireball: seven billowing banded lobes that roll out, cool from the middle and break up
+    # (it replaces the stock additive fireball in Explode, which washed the screen white and had no shape)
+    ball = dict(n=8, life=(0.38, 0.62), size=((170, 170), (280, 280)), grow=(0.42, 0.95, 1.12, 1.2), speed=(240, 680), cone=115.0, drag=3.0, gravity=220.0,
+                sphere=55.0, rot=True, spin=40.0, sort=True, pool=(8, 24), toward=220.0)
+    add('NS_FxFireball', fx(mat=toon('Fire'), ramp=fire, **ball))
+    for tint, c in (('s_blue_fire', (0.12, 0.45, 1.0)), ('s_toxic_blast', (0.25, 0.9, 0.12))):
+        # the SFX DEPT's wreck colours: the same fireball, its bands worked out of the one colour
+        add('NS_FxFireball_' + tint, fx(mat=toon('FireTint'), ramp=heat((c, 1.0), (c, 0.86), (c, 0.62), (c, 0.36), (c, 0.0)), **ball))
+    # the roll: fire thrown on along the hit (a car hit from behind burns forward, a missile's blast goes on its way)
+    add('NS_FxFireRoll', fx(n=5, life=(0.30, 0.50), size=((150, 150), (240, 240)), mat=toon('Fire'), ramp=fire, grow=(0.5, 1.0, 1.15),
+                            speed=(700, 1500), cone=24.0, axis=(1, 0, 0.22), drag=2.6, gravity=150.0, sphere=30.0, rot=True, spin=40.0, sort=True, pool=(4, 12),
+                            toward=180.0))
+    # the jet: a column of flame straight up (a fuel drum, the last blast of a boss)
+    add('NS_FxFireJet', fx(n=6, life=(0.32, 0.52), size=((120, 160), (180, 240)), mat=toon('Flame'), ramp=fire, grow=(0.5, 1.0, 1.2),
+                           speed=(500, 1500), cone=13.0, drag=2.2, sphere=30.0, sort=True, pool=(2, 8), toward=150.0))
+    # the flash: one spiky star for a frame or two (the Flash layer: not with Reduced Motion). It replaces the additive
+    # glow ball, which is what turned a blast you drove through into a white frame
+    add('NS_FxFlash', fx(n=1, life=(0.07, 0.09), size=((380, 380), (440, 440)), mat=cel('Flash'), ramp=heat((C_WHITE, 1.0), ((1.0, 0.85, 0.45), 0.55), (C_HE, 0.0)),
+                         grow=(0.45, 1.0, 1.1), rot=True, sort=True, pool=(6, 16), toward=260.0))
+    # streaks: the sheet's "short bright streaks from the impact centre" (twenty, where seventy 7 cm sparks were)
+    add('NS_FxStreaks', fx(n=20, life=(0.16, 0.40), size=((10, 60), (16, 120)), mat=cel('Shard'), ramp=heat((C_WHITE, 1.0), (C_HE, 0.6), (C_EMBER, 0.0)),
+                           speed=(1300, 3400), cone=120.0, gravity=-500.0, stretch=(1500, 2.2), align=True, sort=True, pool=(8, 20)))
+    # debris: dark chunks with ember edges, thrown on along the hit and falling (+X is the hit's way)
+    chunk = heat((C_CHUNK, 1.0), (C_CHUNK, 0.7), (C_CHUNK, 0.45), (C_CHUNK, 0.3), (C_CHUNK, 0.0))
+    add('NS_FxDebris', fx(n=9, life=(0.7, 1.2), size=((20, 20), (44, 44)), mat=toon('Chunk'), ramp=chunk,
+                          speed=(900, 2300), cone=34.0, axis=(1, 0, 0.35), gravity=-1500.0, drag=0.2, rot=True, spin=520.0, sort=True, pool=(8, 20)))
+    # ---- a blast's smoke. It goes UP: born dark in the fire, over the chase camera's eye line (3 m) in half a
+    # second, lavender as it thins. Nothing is left standing on the road where the next thing is coming from
+    smoke = heat((C_SMOKE_D, 1.0), (C_SMOKE, 0.9), (C_SMOKE_L, 0.7), (C_SMOKE_L, 0.45), (C_SMOKE_L, 0.0))
+    add('NS_FxSmokeRise', fx(n=7, life=(1.1, 1.9), size=((120, 120), (200, 200)), mat=toon('Smoke'), ramp=smoke, grow=(0.5, 1.2, 1.7, 2.0),
+                             speed=(380, 760), cone=24.0, drag=1.3, gravity=120.0, sphere=70.0, curl=(90.0, 50.0), rot=True, spin=25.0, sort=True, pool=(8, 20)))
+    # the ball: an airburst's smoke (a chopper), which has nowhere to climb from
+    add('NS_FxSmokeBall', fx(n=7, life=(1.0, 1.7), size=((140, 140), (220, 220)), mat=toon('Smoke'), ramp=smoke, grow=(0.5, 1.3, 1.8, 2.1),
+                             speed=(150, 520), drag=2.2, gravity=60.0, sphere=80.0, curl=(80.0, 50.0), rot=True, spin=25.0, sort=True, pool=(2, 6)))
+    # the column: a boss's last blast, tall and slow
+    add('NS_FxSmokeColumn', fx(n=10, life=(1.6, 2.8), size=((180, 180), (300, 300)), mat=toon('Smoke'), ramp=smoke, grow=(0.5, 1.2, 1.7, 2.1),
+                               speed=(500, 1500), cone=12.0, drag=1.1, gravity=140.0, sphere=90.0, curl=(110.0, 40.0), rot=True, spin=20.0, sort=True, pool=(1, 3)))
+    # ---- what a blast does to the road: a ring flat on it out to the blast's real reach (it ends 100 cm from the
+    # middle at scale 1: spawn it at radius / 100, as NS_BlastRing), and the scorch it leaves
+    add('NS_FxGroundRing', fx(n=1, life=(0.24, 0.28), size=((200, 200), (200, 200)), mat=cel('Ring'), ramp=heat(((1.0, 0.9, 0.6), 1.0), (C_FIRE, 0.55), (C_EMBER, 0.0)),
+                              grow=(0.3, 0.85, 1.0), facing=(0, 0, 1), sort=True, pool=(6, 16)))
+    add('NS_FxScorch', fx(n=1, life=(3.6, 4.4), size=((260, 260), (300, 300)), mat=toon('Scorch'),
+                          ramp=heat((C_SOOT, 1.0), (C_SOOT, 1.0), (C_SOOT, 0.8), (C_SOOT, 0.5), (C_SOOT, 0.0)), grow=(0.75, 1.0, 1.0, 1.0),
+                          facing=(0, 0, 1), rot=True, sort=True, pool=(8, 32)))
+    # embers that climb with the smoke (eight, where sixteen hung in the air)
+    add('NS_FxEmbers', fx(n=8, life=(0.9, 1.8), size=((7, 7), (13, 13)), mat=GLOW, ramp=[(9, 5, 1.2, 1), (6, 2, 0.3, 0.9), (2, 0.3, 0.05, 0)],
+                          speed=(250, 700), cone=30.0, drag=1.2, gravity=60.0, sphere=70.0, pool=(6, 16)))
+    # ---- the missile. Its smoke, laid in the world in 8 m lengths as it flies (FTFx::Trail turns each length along
+    # the flight): born small and warm from the flame, it spreads to three times the size, wanders, breaks into lumps
+    # and is gone. Near is the same smoke with a short life, for the lengths the car is about to drive through
+    exhaust = heat((C_EXHAUST, 1.0), (C_SMOKE_L, 0.92), (C_SMOKE_L, 0.82), (C_SMOKE, 0.68), (C_SMOKE, 0.5), (C_SMOKE, 0.28), (C_SMOKE, 0.0))
+    trail = dict(n=8, size=((54, 54), (82, 82)), mat=toon('Smoke'), ramp=exhaust, speed=(30, 130), cone=60.0, drag=1.0, box=(800, 26, 26),
+                 curl=(70.0, 50.0), rot=True, spin=35.0, sort=True, owner=False)
+    add('NS_MissileSmoke', fx(life=(1.0, 1.5), grow=(0.6, 1.5, 2.2, 2.6), pool=(32, 96), **trail))
+    # a lock-on rocket coming down on its mark (a hazard: FTEntity.cpp, AFTHazard::SetThing) keeps the line of smoke it
+    # has had since 3.1. It rides with the rocket (the mark rides with the car, so world smoke would be wrong there)
+    add('NS_RocketTrail', fx(rate=46, life=(0.22, 0.36), size=((26, 26), (40, 40)), mat=cel('Puff'), ramp=heat((C_SMOKE_L, 1.0), (C_SMOKE, 0.7), (C_SMOKE, 0.0)),
+                             grow=(0.5, 1.4, 2.2), speed=(2400, 3400), cone=5.0, axis=(-1, 0, 0), sort=True, owner=False))
+    add('NS_MissileSmokeNear', fx(life=(0.42, 0.62), grow=(0.6, 1.4, 1.9), pool=(8, 32), **trail))
+    # ignition: the motor lights on the rail, a short hard jet of flame back off it (on the car)
+    add('NS_MissileIgnite', fx(n=6, life=(0.08, 0.14), size=((20, 60), (32, 100)), mat=cel('Shard'),
+                               ramp=heat(((1.0, 0.97, 0.82), 1.0), ((1.0, 0.7, 0.2), 0.55), ((1.0, 0.3, 0.05), 0.0)),
+                               speed=(900, 1900), cone=20.0, axis=(-1, 0, 0.1), stretch=(900, 1.8), align=True, sort=True, pool=(2, 6)))
+    # ---- the KESTREL's rounds: a streak of the load's own colour behind each one (the foes' rounds have had theirs
+    # since 3.1; the player's were a bare tracer)
+    for name, r in (('NS_TracerTrail', [(12, 8, 2, 1), (8, 4, 0.6, 0.8), (2, 0.5, 0.05, 0)]), ('NS_TracerTrailAP', [(5, 9, 14, 1), (2, 5, 10, 0.8), (0.3, 1, 3, 0)]),
+                    ('NS_TracerTrailHE', [(14, 5, 1, 1), (9, 2.4, 0.3, 0.8), (2, 0.3, 0.05, 0)])):
+        add(name, fx(rate=60, life=(0.05, 0.09), size=((10, 50), (14, 74)), mat=SPARK, ramp=r, speed=(2000, 2800), cone=3.0, axis=(-1, 0, 0),
+                     stretch=(2000, 1.6), align=True, owner=False))
+    # ---- a ram: paint and trim knocked off where the two cars meet
+    add('NS_RamChips', fx(n=5, life=(0.35, 0.6), size=((12, 12), (26, 26)), mat=toon('Chunk'), ramp=heat((C_CHUNK, 0.5), (C_CHUNK, 0.4), (C_CHUNK, 0.0)),
+                          speed=(500, 1400), cone=60.0, axis=(0.3, 0, 1), gravity=-1400.0, rot=True, spin=600.0, sort=True))
+    # ---- the drift. The charge had no look in the world (only the HUD said BLUE, ORANGE, PINK): sparks off the rear
+    # tyres in the charge's colour, and a ring that pops as each charge is reached
+    for i, c in enumerate(C_DRIFT):
+        add('NS_DriftSparks%d' % (i + 1), fx(rate=44, life=(0.12, 0.22), size=((6, 30), (10, 56)), mat=cel('Shard'), ramp=heat((C_WHITE, 1.0), (c, 0.6), (c, 0.0)),
+                                             speed=(500, 1300), cone=32.0, axis=(-1, 0, 0.4), gravity=-900.0, box=(16, 236, 4), stretch=(700, 1.8),
+                                             align=True, sort=True, owner=False))
+        add('NS_DriftPop%d' % (i + 1), fx(n=1, life=(0.16, 0.20), size=((170, 170), (190, 190)), mat=cel('Ring'), ramp=heat((C_WHITE, 1.0), (c, 0.55), (c, 0.0)),
+                                          grow=(0.3, 0.85, 1.0), sort=True))
+    # ---- the boost and the turbo's punch: a kick of long flame out of the pipes and a ring, as it lets go
+    add('NS_BoostKick', fx(n=8, life=(0.16, 0.26), size=((34, 130), (52, 210)), mat=cel('Shard'),
+                           ramp=heat(((1.0, 0.95, 0.8), 1.0), ((1.0, 0.6, 0.15), 0.55), ((1.0, 0.25, 0.05), 0.0)),
+                           speed=(1600, 3000), cone=10.0, axis=(-1, 0, 0.04), box=(4, 110, 8), stretch=(1500, 1.8), align=True, sort=True, toward=90.0))
+    add('NS_BoostRing', fx(n=1, life=(0.18, 0.22), size=((190, 190), (210, 210)), mat=cel('Ring'), ramp=heat((C_WHITE, 1.0), ((1.0, 0.75, 0.3), 0.55), (C_FIRE, 0.0)),
+                           grow=(0.3, 0.9, 1.0), sort=True, toward=90.0))
+    # the flame's hot core while the turbo or a boost burns: white going blue, so it sits under any nitro colour
+    add('NS_TurboCore', fx(rate=40, life=(0.05, 0.08), size=((14, 46), (20, 70)), mat=cel('Shard'),
+                           ramp=heat(((1.0, 0.98, 0.9), 1.0), ((0.9, 0.95, 1.0), 0.6), ((0.6, 0.8, 1.0), 0.0)),
+                           speed=(900, 1500), cone=5.0, axis=(-1, 0, 0), box=(4, 110, 8), stretch=(900, 1.5), align=True, sort=True, owner=False))
+    # ---- a landing: dust thrown out flat from under the car, sparks off its belly
+    add('NS_LandDust', fx(n=9, life=(0.26, 0.42), size=((56, 56), (92, 92)), mat=toon('SmokeCar'), ramp=heat((C_DUST, 1.0), (C_DUST, 0.6), (C_DUST, 0.0)),
+                          grow=(0.6, 1.4, 1.8), speed=(600, 1300), cone=82.0, inner=35.0, axis=(-1, 0, 0.1), drag=3.5, box=(260, 200, 6), rot=True, sort=True))
+    add('NS_LandSparks', fx(n=14, life=(0.12, 0.30), size=((5, 10), (9, 16)), mat=SPARK, ramp=[(11, 8, 3, 1), (6, 2, 0.4, 1), (2, 0.3, 0.05, 0)],
+                            speed=(700, 2200), cone=50.0, axis=(-1, 0, 0.25), gravity=-900.0, box=(300, 180, 4), stretch=(1300, 9.0), align=True))
+    # ---- a wreck burns as the sheet draws it: banded flames with pointed tongues (it was NS_Fire's white-hot puffs).
+    # It takes its owner's scale: AFTWreck sizes the fire to what is burning (a truck's is twice a car's)
+    add('NS_WreckFire', fx(rate=13, life=(0.30, 0.48), size=((90, 120), (140, 190)), mat=toon('Flame'), ramp=heat((C_FIRE, 1.0), (C_FIRE, 0.8), (C_FIRE, 0.5), (C_FIRE, 0.0)),
+                           grow=(0.7, 1.1, 0.8), speed=(180, 380), cone=14.0, world=True, sphere=45.0, sort=True, toward=140.0))
     return d
 
 
@@ -483,7 +830,8 @@ def build_all():
         # the cel sprite material's instances come first (several systems here point at them)
         import ft_attackfx
         ft_attackfx.cel_materials()
-    made = [make(name, base, cfg) for name, base, cfg in definitions() + attack_definitions()]
+    toon_materials()   # FX overhaul: M_FX_Toon and its instances (several systems below point at them)
+    made = [make(name, base, cfg) for name, base, cfg in definitions() + attack_definitions() + overhaul_definitions()]
     for p in ('_probe_FountainLightweight', '_probe_DirectionalBurstLightweight', '_probe_MinimalLightweight'):
         if AL.does_asset_exist(FX + p):
             AL.delete_asset(FX + p)

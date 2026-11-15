@@ -1,7 +1,11 @@
 """FULL THROTTLE sound effects, synthesized like the 1.x Web Audio ones (original sounds, no samples).
 
 Writes 16-bit mono WAVs to Saved/SFXWav; the editor imports them to /Game/Audio/SFX.
-Usage: python sfx_synth.py <out_dir>
+Usage: python sfx_synth.py <out_dir>          (needs numpy: Blender's Python has it, the PC's own does not)
+
+The overhaul of 15 Nov 2026 (the block at the end) adds the menus' and results' cues and puts weight into the blasts,
+the missile, hits, rams, landings and the bosses' cues. It writes <out_dir>/overhaul.txt, the names it made;
+`import ft_audio; ft_audio.build(<out_dir>)` in the editor (Content/Python/ft_audio.py) imports exactly those.
 """
 import os, sys, wave
 import numpy as np
@@ -154,4 +158,396 @@ rot = lp_fast(noise(d), 420) * (0.35 + 0.65 * (0.5 + 0.5 * np.sin(2 * np.pi * 11
 write('Rotor', rot, 0.7, loop=True)
 skid = hp(lp_fast(noise(d), 2600), 900) * (0.8 + 0.2 * np.sin(2 * np.pi * 23 * tt))
 write('Skid', skid, 0.5, loop=True)
+
+
+# ================================================================================================ the overhaul (15 Nov 2026)
+# Menus, results and the HUD's own motion get their ticks, sweeps and stings; the sounds of the things the effects pass
+# made heavier (the missile, blasts, hits, rams, landings, the bosses' cues) get weight. Rules of this block:
+#   - each sound has its own noise, seeded by its name (gen): adding or changing one never changes another, and none of
+#     the 2.x sounds above changes (they still draw from the one generator, in their old order);
+#   - a sound that replaces a 2.x one keeps the 2.x layers, to the same recipe, and adds to them: the game keeps its
+#     voice and gains body. The weight is put between 80 and 250 Hz and in the tail, where small speakers still speak
+#     (the 2.x blast was a 105-to-29 Hz sine under quiet noise: all but silent on a laptop);
+#   - peaks are rounded off (soft) rather than left sharp: louder for the same peak, and nothing is ever over the line;
+#   - a few of the busiest cues have takes (S_Explode, S_Explode_B, S_Explode_C): AFTGameMode::Sfx picks one at random.
+# The names written here are listed in <out_dir>/overhaul.txt; Content/Python/ft_audio.py imports exactly that list.
+# (Same vocabulary as the nights' cues, beat-em-up-unreal/ArtSource/tools/brawl_combat_sources.py: noise bursts,
+# sines that fall in pitch, short exponential tails.)
+import zlib
+
+OVERHAUL = []
+
+
+def gen(name):
+    return np.random.default_rng(zlib.crc32(name.encode('ascii')))
+
+
+def nz(g, d):
+    return g.uniform(-1.0, 1.0, int(SR * d))
+
+
+def unit(x):
+    return x / (np.max(np.abs(x)) or 1.0)
+
+
+def fir(x, lo=None, hi=None, taps=None):
+    """A linear-phase band filter (windowed sinc). lo and hi in Hz; either may be None."""
+    edge = min(v for v in (lo, hi) if v is not None)
+    if taps is None:
+        taps = int(min(2047, max(255, 5.0 * SR / edge))) | 1
+    n = np.arange(taps) - (taps - 1) / 2.0
+    w = np.blackman(taps)
+
+    def low(fc):
+        h = np.sinc(2.0 * fc / SR * n) * w
+        return h / h.sum()
+
+    if lo is not None and hi is not None:
+        h = low(hi) - low(lo)
+    elif hi is not None:
+        h = low(hi)
+    else:
+        h = -low(lo)
+        h[(taps - 1) // 2] += 1.0
+    return np.convolve(x, h, 'same')
+
+
+def dec(d, tau):
+    return np.exp(-t(d) / tau)
+
+
+def glide(f0, f1, d, tau):
+    """A sine whose pitch goes from f0 to f1 (time constant tau): a thump falls, a ricochet climbs."""
+    tt = t(d)
+    f = f1 + (f0 - f1) * np.exp(-tt / tau)
+    return np.sin(2 * np.pi * np.cumsum(f) / SR)
+
+
+def tri(f, d):
+    """A soft triangle: the sine and two odd partials."""
+    tt = t(d)
+    return np.sin(2 * np.pi * f * tt) - np.sin(2 * np.pi * 3 * f * tt) / 9.0 + np.sin(2 * np.pi * 5 * f * tt) / 25.0
+
+
+def at(total, *parts):
+    """Mix parts into one buffer of total seconds: (start seconds, signal, gain)."""
+    out = np.zeros(int(SR * total))
+    for start, sig, gain in parts:
+        i = int(SR * start)
+        k = min(len(sig), len(out) - i)
+        if k > 0:
+            out[i:i + k] += sig[:k] * gain
+    return out
+
+
+def soft(x, drive=1.5):
+    """Round the peaks off: louder for the same peak, and never over it."""
+    return np.tanh(unit(x) * drive) / np.tanh(drive)
+
+
+def over(name, x, gain):
+    x = np.asarray(x, dtype=np.float64)
+    write(name, x - np.mean(x), gain)
+    OVERHAUL.append('S_' + name)
+
+
+# ---- menus: a tick for a move, two notes up for a choice, two down for going back, a buzz for a refusal
+def ui_tick():
+    g = gen('UiTick')
+    d = 0.05
+    tt = t(d)
+    return (np.sin(2 * np.pi * 1320 * tt) * np.exp(-tt / 0.008) + 0.22 * np.sin(2 * np.pi * 2640 * tt) * np.exp(-tt / 0.004)
+            + 0.35 * fir(nz(g, d), 2500, 9000) * np.exp(-tt / 0.0012))
+
+
+def two_notes(f1, f2, gap=0.05, tau=0.03, d=0.2):
+    rise = np.minimum(1.0, t(d) / 0.002)
+    return at(d + gap, (0, tri(f1, d) * dec(d, tau) * rise, 1.0), (gap, tri(f2, d) * dec(d, tau * 1.3) * rise, 1.0))
+
+
+def ui_deny():
+    def buzz(f, d):
+        e = np.minimum(1.0, t(d) / 0.003) * np.minimum(1.0, (d - t(d)) / 0.012)
+        return fir(sweep(f, f, d, 'square'), None, 1500) * e
+    return at(0.22, (0, buzz(165, 0.07), 1.0), (0.095, buzz(147, 0.11), 1.0))
+
+
+def ui_tab():
+    g = gen('UiTab')
+    d = 0.035
+    swish = fir(nz(g, d), 1500, 7000) * np.sin(np.pi * np.linspace(0, 1, int(SR * d))) ** 2
+    tick = np.sin(2 * np.pi * 1760 * t(0.06)) * dec(0.06, 0.012)
+    return at(0.1, (0, unit(swish), 0.6), (0.028, tick, 1.0))
+
+
+def ui_open():
+    """A screen arriving: a short rising whoosh (three bands of noise, each loudest a little later than the last)."""
+    g = gen('UiOpen')
+    d = 0.28
+    u = np.linspace(0, 1, int(SR * d))
+
+    def band(lo, hi, c):
+        return unit(fir(nz(g, d), lo, hi)) * np.exp(-((u - c) / 0.2) ** 2)
+
+    whoosh = band(350, 900, 0.3) * 0.9 + band(900, 2200, 0.5) + band(2200, 5000, 0.68) * 0.7
+    tone = np.sin(2 * np.pi * np.cumsum(280 + 300 * u ** 1.5) / SR) * np.sin(np.pi * u) ** 2 * 0.3
+    return (whoosh + tone) * np.sin(np.pi * np.clip(u * 1.02, 0, 1)) ** 0.5
+
+
+over('UiTick', ui_tick(), 0.7)
+over('UiSelect', two_notes(880.0, 1318.5), 0.7)
+over('UiBack', two_notes(987.8, 659.3), 0.65)
+over('UiDeny', ui_deny(), 0.38)
+over('UiTab', ui_tab(), 0.65)
+over('UiOpen', ui_open(), 0.5)
+
+
+# ---- results: the rating's stamp, the money counting, a level gained, CUT!, a splice in the reel
+def stamp(name='Stamp'):
+    g = gen(name)
+    d = 0.4
+    thud = glide(150, 50, d, 0.035) * dec(d, 0.075)
+    knock = unit(fir(nz(g, 0.08), 250, 1500) * dec(0.08, 0.010))
+    slap = unit(fir(nz(g, 0.08), 3000, 9000) * dec(0.08, 0.011))
+    board = unit(fir(nz(g, 0.3), 120, 700) * dec(0.3, 0.06))
+    return soft(at(d, (0, thud, 1.0), (0, knock, 1.0), (0.003, slap, 0.6), (0.008, board, 0.35)), 1.4)
+
+
+def stamp_gold():
+    """BLOCKBUSTER and LEGENDARY DIRECTOR: the stamp, and a bright chord rings off it."""
+    d = 1.0
+    tt = t(d)
+    ring = sum(a * (np.sin(2 * np.pi * f * tt) + 0.5 * np.sin(2 * np.pi * f * 1.004 * tt)) * np.exp(-tt / tau)
+               for f, a, tau in ((1046.5, 1.0, 0.34), (1318.5, 0.8, 0.30), (1568.0, 0.7, 0.26), (2093.0, 0.45, 0.2)))
+    ring = unit(ring * np.minimum(1.0, tt / 0.004))
+    return at(d, (0, stamp('StampGold'), 1.0), (0.02, ring, 0.3))
+
+
+def cash_tick(f=2400.0, g=None):
+    g = g or gen('CashTick')
+    d = 0.035
+    tt = t(d)
+    return (np.sin(2 * np.pi * f * tt) * np.exp(-tt / 0.005) + 0.4 * np.sin(2 * np.pi * f * 1.5 * tt) * np.exp(-tt / 0.003)
+            + 0.4 * unit(fir(nz(g, d), 4000, 12000)) * np.exp(-tt / 0.0009))
+
+
+def cash_roll():
+    """A total counting up for 0.55 s: a counter's ticks, quick at first and slowing, as the figure does on screen
+    (FTHUD.cpp counts with an ease-out cubic; the ticks fall on equal steps of that count)."""
+    g = gen('CashRoll')
+    total, n = 0.55, 22
+    parts = []
+    for k in range(n):
+        when = total * (1.0 - (1.0 - (k + 0.5) / n) ** (1.0 / 3.0))
+        parts.append((when, cash_tick(2100.0 + 32.0 * k, g), 0.55 + 0.45 * k / n))
+    return at(total + 0.04, *parts)
+
+
+def cash_total():
+    """The total lands: a till's drawer and its bell."""
+    g = gen('CashTotal')
+    d = 0.8
+    tt = t(d)
+    thunk = glide(170, 85, 0.2, 0.03) * dec(0.2, 0.045)
+    knock = unit(fir(nz(g, 0.06), 200, 1400) * dec(0.06, 0.008))
+    bell = sum(a * np.sin(2 * np.pi * f * tt) * np.exp(-tt / tau)
+               for f, a, tau in ((2093.0, 1.0, 0.30), (2637.0, 0.55, 0.24), (3136.0, 0.5, 0.2), (4186.0, 0.3, 0.13), (5274.0, 0.15, 0.08)))
+    bell = unit(bell * np.minimum(1.0, tt / 0.002))
+    coins = at(d, *[(0.07 + 0.03 * k + 0.01 * g.random(), unit(fir(nz(g, 0.03), 5000, 11000) * dec(0.03, 0.004)), 0.5 - 0.06 * k) for k in range(6)])
+    return at(d, (0, thunk, 0.9), (0, knock, 0.6), (0.012, bell, 0.5), (0, coins, 0.25))
+
+
+def level_up():
+    d = 0.9
+
+    def note(f, tau, dd):
+        tt = t(dd)
+        return (tri(f, dd) + 0.3 * np.sin(2 * np.pi * 2 * f * tt)) * np.exp(-tt / tau) * np.minimum(1.0, tt / 0.005)
+
+    last = note(1046.5, 0.28, 0.65) + 0.25 * np.sin(2 * np.pi * 2093.0 * 1.004 * t(0.65)) * dec(0.65, 0.3)
+    return at(d, (0, note(523.25, 0.08, 0.3), 1.0), (0.07, note(659.25, 0.08, 0.3), 1.0), (0.14, note(783.99, 0.08, 0.3), 1.0), (0.21, last, 1.0))
+
+
+def cut_slam():
+    """CUT!: the slate shut hard (the 2.x clap, to the same recipe), with the thump of the card landing and a short room."""
+    g = gen('CutSlam')
+    d = 0.55
+    crack = unit(fir(nz(g, 0.12), 1200, 10000) * dec(0.12, 0.007) * 2.0 + 0.5 * sweep(2200, 900, 0.12, 'sin') * dec(0.12, 0.006))
+    thump = glide(140, 55, 0.3, 0.035) * dec(0.3, 0.07)
+    room = unit(fir(nz(g, 0.5), 300, 2600) * dec(0.5, 0.075))
+    return soft(at(d, (0, crack, 1.0), (0, thump, 0.7), (0.012, room, 0.3)), 1.3)
+
+
+def reel_click():
+    g = gen('ReelClick')
+
+    def click():
+        return unit(fir(nz(g, 0.02), 2000, 9000) * dec(0.02, 0.0012))
+
+    low = np.sin(2 * np.pi * 140 * t(0.05)) * dec(0.05, 0.01)
+    return at(0.09, (0, click(), 1.0), (0, low, 0.4), (0.038, click(), 0.7))
+
+
+over('Stamp', stamp(), 0.9)
+over('StampGold', stamp_gold(), 0.9)
+over('CashTick', cash_tick(), 0.6)
+over('CashRoll', cash_roll(), 0.5)
+over('CashTotal', cash_total(), 0.8)
+over('LevelUp', level_up(), 0.7)
+over('CutSlam', cut_slam(), 0.9)
+over('ReelClick', reel_click(), 0.5)
+
+
+# ---- weight: the blasts
+def explode(name, d=1.9, cut=900.0, sub=48.0, debris=1.0):
+    g = gen(name)
+    n = int(SR * d)
+    tt = t(d)
+    # the 2.x blast, layer for layer (boom): the fireball's body, the thump that falls through the floor, the crack
+    body = unit(lp_fast(nz(g, d), cut) * env(n, 0.002, None, 2.2))
+    thump = sweep(sub * 2.2, sub * 0.6, d, 'sin', 0.4) * env(n, 0.002, None, 4.0)
+    crack = unit(hp(nz(g, d), 2000) * env(n, 0.001, None, 30.0))
+    # added: the punch a small speaker can speak (190 to 70 Hz), a second push of air a moment behind the bang, more
+    # of the fireball's roar, a low tail that rolls on, and debris coming down through it
+    punch = glide(190, 70, 0.35, 0.05) * dec(0.35, 0.10)
+    push = glide(90, 40, 0.6, 0.10) * dec(0.6, 0.18)
+    roar = unit(fir(nz(g, d), 180, 1400) * np.exp(-tt / 0.28) * np.minimum(1.0, tt / 0.004))
+    rumble = unit(lp_fast(nz(g, d), 170) * np.exp(-tt / 0.55))
+    fall = (g.random(n) < 0.004 * debris * np.exp(-tt / 0.45)) * g.uniform(0.3, 1.0, n) * (tt > 0.1)
+    crackle = unit(fir(fall, 900, 6000))
+    return soft(thump * 1.1 + body * 1.0 + crack * 0.6 + at(d, (0, punch, 0.9), (0.03, push, 0.5)) + roar * 1.1 + rumble * 0.3 + crackle * 0.25, 1.5)
+
+
+def wreck():
+    """The KESTREL's own wreck: the big blast (2.x: boom(2.2, 700, 40)), with the car in it: panels, then glass."""
+    g = gen('WreckMetal')
+    d = 2.6
+
+    def clang(f, tau, dd=0.5):
+        tt = t(dd)
+        return unit(sum(a * np.sin(2 * np.pi * f * r * tt) * np.exp(-tt * r / tau) for r, a in ((1.0, 1.0), (1.59, 0.7), (2.71, 0.5), (4.13, 0.3))))
+
+    glass = at(1.2, *[(g.uniform(0, 0.9), unit(fir(nz(g, 0.05), 5000, 12000) * dec(0.05, 0.006)), g.uniform(0.3, 1.0)) for _ in range(14)])
+    return soft(at(d, (0, explode('Wreck', 2.4, 700.0, 40.0, 1.6), 1.0), (0.03, clang(310.0, 0.09), 0.45), (0.16, clang(470.0, 0.07), 0.33),
+                   (0.33, clang(260.0, 0.1), 0.27), (0.08, glass, 0.2)), 1.2)
+
+
+def heli_down():
+    """2.x: a falling whine, then the blast. The whine now beats like a rotor running down."""
+    d1 = 0.8
+    tt = t(d1)
+    fall = sweep(500, 80, d1, 'saw') * env(int(d1 * SR), 0.01, None, 1.0) * (0.7 + 0.3 * np.sin(2 * np.pi * np.cumsum(14.0 - 9.0 * tt / d1) / SR))
+    return seq([fall * 0.3, explode('HeliDown', 1.8, 800.0, 44.0, 1.4)])
+
+
+over('Explode', explode('Explode'), 0.9)
+over('Explode_B', explode('Explode_B', 1.8, 800.0, 44.0, 1.3), 0.9)
+over('Explode_C', explode('Explode_C', 2.0, 1000.0, 52.0, 0.8), 0.9)
+over('Wreck', wreck(), 0.92)
+over('HeliDown', heli_down(), 0.92)
+
+
+# ---- weight: the missile, hits, rams, landings
+def missile():
+    g = gen('Missile')
+    d = 1.0
+    tt = t(d)
+    e = np.minimum(1.0, tt / 0.02) * (1.0 - tt / d) ** 1.8
+    roar = unit(lp_fast(nz(g, d), 2500) * e)                         # 2.x: the rocket's roar ...
+    whine = unit(sweep(200, 900, d, 'saw') * e)                      # ... and its rising whine
+    crack = unit(fir(nz(g, 0.06), 2500, 12000) * dec(0.06, 0.006))   # added: ignition,
+    kick = glide(170, 55, 0.3, 0.05) * dec(0.3, 0.08)                # the kick off the rail,
+    hiss = unit(fir(nz(g, d), 3500, 11000) * np.exp(-tt / 0.3) * np.minimum(1.0, tt / 0.03))   # and the exhaust it leaves
+    return soft(roar + whine * 0.6 + at(d, (0, crack, 0.9), (0, kick, 1.0)) + hiss * 0.25, 1.4)
+
+
+def hit(name, ping):
+    """A round landing on a car that lives: the 2.x tick, and the metal it struck rings (three takes, three pitches)."""
+    g = gen(name)
+    d = 0.07
+    tt = t(d)
+    old = unit((hp(nz(g, 0.06), 1500) + sweep(1400, 600, 0.06, 'square') * 0.4) * env(int(0.06 * SR), 0.001, None, 4))
+    tink = unit(np.sin(2 * np.pi * ping * tt) * np.exp(-tt / 0.012) + 0.5 * np.sin(2 * np.pi * ping * 1.48 * tt) * np.exp(-tt / 0.008))
+    return at(d, (0, old, 1.0), (0, tink, 0.35))
+
+
+def armor_hit():
+    """A round skipping off armour (for FTFlow.cpp BulletHit's armour branch: not wired yet, see the overhaul notes)."""
+    g = gen('ArmorHit')
+    d = 0.16
+    tt = t(d)
+    ping = np.sin(2 * np.pi * np.cumsum(1900.0 + 900.0 * (tt / d) ** 0.5) / SR) * np.exp(-tt / 0.03)
+    ring = 0.4 * np.sin(2 * np.pi * 3350.0 * tt) * np.exp(-tt / 0.02)
+    spark = unit(fir(nz(g, 0.03), 3000, 11000) * dec(0.03, 0.004))
+    return at(d, (0, unit(ping + ring), 1.0), (0, spark, 0.6))
+
+
+def player_hit():
+    g = gen('PlayerHit')
+    d = 0.32
+    old = unit((lp_fast(nz(g, 0.25), 1200) + sweep(160, 60, 0.25, 'square') * 0.8) * env(int(0.25 * SR), 0.001, None, 3))
+    sub = glide(110, 42, d, 0.05) * dec(d, 0.09)
+    crunch = unit(fir(nz(g, 0.12), 700, 3200) * dec(0.12, 0.02) * (0.6 + 0.4 * np.sign(np.sin(2 * np.pi * 38 * t(0.12)))))
+    return soft(at(d, (0, old, 1.0), (0, sub, 0.8), (0.004, crunch, 0.5)), 1.4)
+
+
+def bump():
+    g = gen('Bump')
+    d = 0.28
+    tt = t(0.2)
+    old = unit((lp_fast(nz(g, 0.2), 600) + sweep(110, 50, 0.2, 'sin')) * env(int(0.2 * SR), 0.001, None, 3))
+    clank = unit(sum(a * np.sin(2 * np.pi * f * tt) * np.exp(-tt / tau) for f, a, tau in ((523.0, 1.0, 0.035), (831.0, 0.7, 0.028), (1340.0, 0.4, 0.018))))
+    scrape = unit(fir(nz(g, 0.1), 1800, 6000) * dec(0.1, 0.02))
+    return soft(at(d, (0, old, 1.0), (0, clank, 0.6), (0.002, scrape, 0.3)), 1.3)
+
+
+def land():
+    g = gen('Land')
+    d = 0.42
+    old = unit((lp_fast(nz(g, 0.3), 500) + sweep(90, 40, 0.3, 'sin')) * env(int(0.3 * SR), 0.001, None, 3))
+    second = glide(75, 36, 0.25, 0.04) * dec(0.25, 0.07)             # the springs come back
+    rattle = unit(fir(nz(g, 0.15), 1500, 5000) * dec(0.15, 0.03) * (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 55 * t(0.15)))))
+    return soft(at(d, (0, old, 1.0), (0.085, second, 0.6), (0.01, rattle, 0.35)), 1.3)
+
+
+over('Missile', missile(), 0.75)
+over('Hit', hit('Hit', 2100.0), 0.5)
+over('Hit_B', hit('Hit_B', 2480.0), 0.5)
+over('Hit_C', hit('Hit_C', 1850.0), 0.5)
+over('ArmorHit', armor_hit(), 0.5)
+over('PlayerHit', player_hit(), 0.85)
+over('Bump', bump(), 0.85)
+over('Land', land(), 0.88)
+
+
+# ---- weight: the bosses' cues (the 2.x chords and sweep, with a drum under each and a sub an octave down)
+def drum(g):
+    return unit(glide(120, 45, 0.35, 0.04) * dec(0.35, 0.09) + 0.5 * unit(fir(nz(g, 0.35), 200, 1500) * dec(0.35, 0.012)))
+
+
+def boss_intro():
+    g = gen('BossIntro')
+    old = unit(seq([tone([110, 165], 0.5, 'saw', 0.5), tone([104, 156], 0.5, 'saw', 0.5), tone([98, 147], 1.0, 'saw', 1.2)]))
+
+    def sub(f, dd, curve):
+        return np.sin(2 * np.pi * f * t(dd)) * env(int(dd * SR), 0.01, None, curve)
+
+    return soft(at(len(old) / SR, (0, old, 1.0), (0, sub(55.0, 0.5, 0.5), 0.4), (0.5, sub(52.0, 0.5, 0.5), 0.4), (1.0, sub(49.0, 1.0, 1.2), 0.45),
+                   (0, drum(g), 0.8), (0.5, drum(g), 0.8), (1.0, drum(g), 1.0)), 1.3)
+
+
+def boss_phase():
+    g = gen('BossPhase')
+    d = 0.9
+    tt = t(0.4)
+    old = unit((sweep(80, 400, 0.8, 'saw') + sweep(82, 404, 0.8, 'square') * 0.5) * env(int(0.8 * SR), 0.01, None, 1.2))
+    clang = unit(sum(a * np.sin(2 * np.pi * 233.0 * r * tt) * np.exp(-tt * r / 0.12) for r, a in ((1.0, 1.0), (1.59, 0.7), (2.71, 0.5), (4.13, 0.3))))
+    return soft(at(d, (0, old, 1.0), (0, drum(g), 0.9), (0, clang, 0.25)), 1.3)
+
+
+over('BossIntro', boss_intro(), 0.8)
+over('BossPhase', boss_phase(), 0.7)
+
+with open(os.path.join(OUT, 'overhaul.txt'), 'wb') as f:
+    f.write(('\n'.join(OVERHAUL) + '\n').encode('ascii'))
 print('wrote', len(os.listdir(OUT)), 'files to', OUT)

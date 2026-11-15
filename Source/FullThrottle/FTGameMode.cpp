@@ -70,6 +70,18 @@ namespace
 	const FLinearColor CYellow(1.f, 0.82f, 0.25f), CPink(1.f, 0.31f, 0.65f), CCyan(0.21f, 0.95f, 1.f), CRed(1.f, 0.25f, 0.25f), CGreen(0.4f, 1.f, 0.5f), CWhite(1, 1, 1);
 	constexpr float CarW = 256.f, CarL = 480.f;
 	const int32 HenchSideLeft = 0;
+	// FX overhaul: what the next Explode is the blast OF. Explode's callers know (a barrel, a truck, a missile on its way
+	// through), Explode's signature is the header's: whoever knows writes it here just before the call, and Explode
+	// reads it and clears it. Looks only. Left alone, a blast is the plain one
+	struct FFTBlastHint
+	{
+		FTFx::EBlast Kind = FTFx::EBlast::Generic;
+		FVector Dir = FVector::ZeroVector;   // world: the way the hit was travelling
+		FVector Vel = FVector::ZeroVector;   // world: the speed of what blew up
+		float Reach = 0.f;                   // cm: the blast's real reach across the road (its ring), 0 = none of its own
+		bool bAir = false, bLight = false;
+	};
+	FFTBlastHint GBlastHint;
 }
 
 AFTGameMode::AFTGameMode()
@@ -1761,10 +1773,13 @@ void AFTGameMode::TickPlayer(float Dt)
 				if (To > Su) Car->Shove(Car->GetActorForwardVector(), (To - Su) * DU * 0.6f);
 				UE_LOG(LogFT, Display, TEXT("FT TURBO punch=%.0f to=%.0f sling=%d"), To - Su, To, bSling ? 1 : 0);
 				if (const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this); CS && CS->Worn(TEXT("exhaust")) == TEXT("s-dragon-breath"))
-					if (UNiagaraSystem* Ex = Load<UNiagaraSystem>(TEXT("/Game/FX/NS_Explosion")))
-						UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, Ex, Car->GetActorLocation() - Car->GetActorForwardVector() * 260.f + Car->GetActorUpVector() * 40.f, FRotator::ZeroRotator, FVector(0.35f), true, true, ENCPoolMethod::AutoRelease);
+					// FX overhaul: the banded fireball (the stock one was a white additive ball between the chase camera and the car)
+					FTFx::Burst(this, TEXT("NS_FxFireball"), Car->GetActorLocation() - Car->GetActorForwardVector() * 260.f + Car->GetActorUpVector() * 40.f, FRotator::ZeroRotator, 0.35f);
 			}
 			Sfx(TEXT("Turbo")); Say(TEXT("turbo"), 1, 12.f);
+			// FX overhaul: the turbo lights with a kick of flame out of the pipes and a ring (bigger when the punch fires: TurboOffT is
+			// still the time it was off, it is cleared below)
+			Car->BoostKick(TurboOffT >= Stats.PunchOff ? 1.2f : 0.85f);
 			UE_LOG(LogFT, Display, TEXT("FT TURBO state=on tank=%.0f"), Turbo);
 		}
 		if (Turbo <= 0.f) { UE_LOG(LogFT, Display, TEXT("FT TURBO tank=0 state=empty")); }
@@ -1834,6 +1849,7 @@ void AFTGameMode::TickPlayer(float Dt)
 				Turbo = FMath::Min(Stats.TurboTank, Turbo + Refill);
 				if (Car->Speed < 640.f * DU) Car->Shove(Car->GetActorForwardVector(), (50.f + 30.f * DriftLevel) * DU * 0.6f);
 				Sfx(TEXT("Boost"));
+				Car->BoostKick(0.8f + 0.2f * DriftLevel);   // FX overhaul: the release shows: flame and a ring out of the pipes, bigger with the charge
 				if (DriftLevel >= 2) { Say(TEXT("boost"), 1, 6.f); Stunt(DriftLevel == 2 ? TEXT("POWER DRIFT") : TEXT("ULTRA DRIFT"), DriftLevel == 2 ? 300 : 600, DriftLevel == 2 ? TEXT("Look at that slide! Gorgeous!") : TEXT("Sideways at that speed?! Print it!"), DriftLevel == 2 ? 2.f : 4.f); Shout(TEXT("DRIFT!")); }
 			}
 			bDrifting = false; DriftDir = 0; DriftCharge = 0.f; DriftLevel = 0;
@@ -1856,6 +1872,7 @@ void AFTGameMode::TickPlayer(float Dt)
 	Dr.Accel = (bHot ? Stats.AccelHot : Stats.Accel) * DU;
 	Dr.bHot = bHot;
 	Dr.DriftDir = bDrifting && Car->bGrounded ? DriftDir : 0;
+	Dr.DriftLevel = bDrifting && Car->bGrounded ? DriftLevel : 0;   // FX overhaul: the charge the HUD names (blue, orange, pink), for the sparks off the rear tyres
 	Dr.DriftTargetLat = -DriftDir * FMath::Abs(Car->Speed) * 0.36f;
 	// 3.3 half pipe air: steer spins the car, drift rolls it
 	Dr.bFlip = In.bDrift && Car->Half == EFTHalf::Air;
@@ -1948,7 +1965,8 @@ void AFTGameMode::TickPlayer(float Dt)
 	// barrier sparks: the director loves them
 	if ((Car->bWallLeft || Car->bWallRight) && Car->Speed > 2000.f)
 	{
-		if (NoRailT > 0.5f) { Say(TEXT("rail"), 1, 5.f); Sfx(TEXT("Rail"), 0.5f); }
+		// FX overhaul: hitting the barrier is felt, by how hard (it made a sound and a line, and shook nothing)
+		if (NoRailT > 0.5f) { Say(TEXT("rail"), 1, 5.f); Sfx(TEXT("Rail"), 0.5f); Shake(FMath::Clamp(0.25f + Car->WallImpact / 1500.f, 0.25f, 0.7f)); }
 		NoRailT = 0.f;
 	}
 
@@ -2045,6 +2063,7 @@ void AFTGameMode::HurtPlayer(float Dmg, const TCHAR* LineKey, float PushX)
 	}
 	Sfx(TEXT("PlayerHit")); Duck(0.7f, 0.2f);
 	Shake(0.4f + Dmg * 0.03f);
+	if (Dmg > 0.f) Car->HitFlash(FMath::Clamp(0.5f + Dmg * 0.04f, 0.5f, 1.f));   // FX overhaul: the hit shows on the car itself
 	if (bDrifting) DriftCharge = FMath::Max(0.f, DriftCharge - (0.6f + Dmg * 0.02f));
 	if (PushX != 0.f) Car->Shove(Track->Sample(Car->D).Right, PushX);
 	if (HpPct() < 35.f) Say(TEXT("lowHp"), 2, 6.f);
@@ -2296,6 +2315,12 @@ void AFTGameMode::FireBullet(int32 InOwner, float D, float X, float H, float VD,
 			// tracers: STANDARD yellow as today, AP blue-white #9fe8ff (thinner, brighter), HE orange #ff7a1a
 			static const FLinearColor TC[3] = { FLinearColor(1.f, 0.82f, 0.25f), FTData::Hex(TEXT("9fe8ff")), FTData::Hex(TEXT("ff7a1a")) };
 			A->SetTracer(TC[FMath::Clamp(LoadIdx, 0, 2)], LoadIdx == 1 ? 0.7f : 1.f, LoadIdx > 0);
+			// FX overhaul: and a streak of the load's own colour behind it (the foes' rounds have had theirs since 3.1; the player's
+			// were a bare tracer). The Extra layer: not at Low. Release stops it, Setup stops it again on the actor's next use
+			static const TCHAR* Streak[3] = { TEXT("NS_TracerTrail"), TEXT("NS_TracerTrailAP"), TEXT("NS_TracerTrailHE") };
+			A->Trail->SetAsset(FTFx::Shows(this, FTFx::Extra) ? FTFx::System(Streak[FMath::Clamp(LoadIdx, 0, 2)]) : nullptr);
+			A->Trail->SetRelativeLocation(FVector(-60.f, 0.f, 0.f));
+			if (A->Trail->GetAsset()) A->Trail->Activate(true);
 		}
 	}
 	if (Variant == 1 || Variant == 2) { B.W = 90.f; B.H = FMath::Min(H, 120.f); }
@@ -2330,6 +2355,10 @@ void AFTGameMode::FireMissile()
 	const FTransform Mt = EntTransform(M);
 	FTFx::Attach(TEXT("NS_MissileLaunch"), Car->GetRootComponent(), Mt.GetLocation(), Mt.Rotator(), 1.f, FTFx::Flash);
 	FTFx::Attach(TEXT("NS_MissileBackblast"), Car->GetRootComponent(), Mt.GetLocation(), Mt.Rotator(), 1.f, FTFx::Extra);
+	// FX overhaul: the motor lights: a short hard jet of flame back off the rail (the Main layer: the launch reads at Low and
+	// with Reduced Motion, when the star above is off), and the car feels it go
+	FTFx::Attach(TEXT("NS_MissileIgnite"), Car->GetRootComponent(), Mt.GetLocation(), Mt.Rotator());
+	Shake(0.22f);
 }
 
 void AFTGameMode::DropPickup(const FFTEnt& E, EFTKind K)
@@ -2453,18 +2482,30 @@ void AFTGameMode::Kill(FFTEnt& E, int32 Cause)
 				Shatter(TEXT("/Game/FX/Destruction/GC_Crate"), FTransform(FRotator(0.f, k * 30.f, 0.f), T.GetLocation() + Fr.Up * (180.f + k * 120.f) - Fr.Fwd * (300.f + k * 90.f)), Vel * 0.8f, 1100.f);
 	}
 
+	{
+		// FX overhaul: the blast is this victim's own (FTFx::Explosion, through Explode): what it was, the speed it had (its
+		// fire rolls on with it instead of standing where it died while the car drives into it) and the way the hit
+		// came. The KESTREL's guns, missiles and rams come from where the car is; anything else has no side
+		const FFTFrame Bf = Track->Sample(E.D);
+		GBlastHint = FFTBlastHint();
+		GBlastHint.Kind = E.Kind == EFTKind::Barrel ? FTFx::EBlast::Barrel : (E.Kind == EFTKind::Heli ? FTFx::EBlast::Heli : (E.Kind == EFTKind::Boss ? FTFx::EBlast::Boss
+			: ((E.Kind == EFTKind::Truck || (E.Kind == EFTKind::Civ && E.bBig)) ? FTFx::EBlast::Truck
+			: ((E.Kind == EFTKind::Rammer || E.Kind == EFTKind::Suv || E.Kind == EFTKind::Civ) ? FTFx::EBlast::Car : FTFx::EBlast::Bike))));
+		GBlastHint.Vel = Bf.Fwd * E.Sp + Bf.Right * E.Vx;
+		if (Cause != 3 && Cause != 6)
+		{
+			const FVector Way = At - Car->GetActorLocation();
+			GBlastHint.Dir = (Way - Bf.Up * FVector::DotProduct(Way, Bf.Up)).GetSafeNormal();
+			if (GBlastHint.Dir.IsNearlyZero()) GBlastHint.Dir = Bf.Fwd;
+		}
+		GBlastHint.bAir = E.bAir;
+		if (E.Kind == EFTKind::Barrel) GBlastHint.Reach = 60.f * XU;   // its real reach (60 px across), for the ring on the road
+	}
 	Explode(At, ExSize, bSyn && Cause != 3 && Cause != 6 && E.Kind != EFTKind::Boss);
-	// 3.1: a barrel throws burning scrap and a ring out to its real reach (60 px across)
-	if (E.Kind == EFTKind::Barrel)
-	{
-		FTFx::Burst(this, TEXT("NS_BarrelBurst"), At, FRotator::ZeroRotator, 1.f, FTFx::Extra);
-		FTFx::Burst(this, TEXT("NS_BlastRing"), At, FRotator::ZeroRotator, 60.f * XU / 100.f, FTFx::Extra);
-	}
-	if (E.Kind == EFTKind::Heli)
-	{
-		FTimerHandle H; const FVector A2 = At + FVector(0, 0, -800.f);
-		GetWorldTimerManager().SetTimer(H, FTimerDelegate::CreateWeakLambda(this, [this, A2]() { Explode(A2, 1.8f); }), 0.7f, false);
-	}
+	// 3.1: a barrel throws burning scrap. FX overhaul: its ring lies on the road now, out to the same real reach
+	// (FTFx::Explosion draws it from the Reach above; NS_BlastRing here faced the camera)
+	if (E.Kind == EFTKind::Barrel) FTFx::Burst(this, TEXT("NS_BarrelBurst"), At, FRotator::ZeroRotator, 1.f, FTFx::Extra);
+	AFTWreck* Fallen = nullptr;
 	// the burning wreck: a real rigid body
 	if (E.Kind != EFTKind::Barrel && E.Kind != EFTKind::Henchman)
 	{
@@ -2475,9 +2516,24 @@ void AFTGameMode::Kill(FFTEnt& E, int32 Cause)
 			{
 				const FFTFrame F = Track->Sample(E.D);
 				const FVector V = F.Fwd * E.Sp * 0.85f + F.Up * R(500.f, 1100.f) * (E.bBig ? 0.6f : 1.f) + F.Right * (E.Vx + R(-400.f, 400.f));
-				W->Launch(M, T, V, FVector(R(-200, 200), R(-260, 260), R(-150, 150)) * (E.bBig ? 0.4f : 1.f));
+				W->Launch(M, T, V, FVector(R(-200, 200), R(-260, 260), R(-150, 150)) * (E.bBig ? 0.4f : 1.f)); Fallen = W;
 			}
 		}
+	}
+	if (E.Kind == EFTKind::Heli)
+	{
+		// FX overhaul: the chopper's second blast is its wreck coming down, where the wreck is by then. It was set off 8 m
+		// under where the chopper had been: by then 30 m behind its own wreck. Same size, same 0.7 s
+		FTimerHandle H; const FVector A2 = At + FVector(0, 0, -800.f);
+		const TWeakObjectPtr<AFTWreck> Falling = Fallen;
+		GetWorldTimerManager().SetTimer(H, FTimerDelegate::CreateWeakLambda(this, [this, A2, Falling]()
+		{
+			const AFTWreck* Wk = Falling.Get();
+			GBlastHint = FFTBlastHint();
+			GBlastHint.Kind = FTFx::EBlast::HeliCrash;
+			if (Wk) GBlastHint.Vel = Wk->GetVelocity();
+			Explode(Wk ? Wk->GetActorLocation() : A2, 1.8f);
+		}), 0.7f, false);
 	}
 	if (Pts < 0) { AddScore(Pts, 3); }
 	else if (Pts > 0 && E.Kind != EFTKind::Boss)
@@ -2531,8 +2587,7 @@ void AFTGameMode::Kill(FFTEnt& E, int32 Cause)
 					FTimerHandle Hc; const FVector Up = At + FVector(0, 0, 350.f * k);
 					GetWorldTimerManager().SetTimer(Hc, FTimerDelegate::CreateWeakLambda(this, [this, Up, k]()
 					{
-						if (UNiagaraSystem* S = Load<UNiagaraSystem>(TEXT("/Game/FX/NS_Explosion")))
-							UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, S, Up, FRotator::ZeroRotator, FVector(2.4f - 0.25f * k), true, true, ENCPoolMethod::AutoRelease);
+						FTFx::Burst(this, TEXT("NS_FxFireball"), Up, FRotator::ZeroRotator, 2.4f - 0.25f * k);   // FX overhaul: the banded fireball, as every blast now
 					}), 0.35f + 0.12f * k, false);
 				}
 			if (!Finisher.IsNone()) { UE_LOG(LogFT, Display, TEXT("FT SHOP finisher=%s"), *Finisher.ToString()); }
@@ -2551,15 +2606,27 @@ void AFTGameMode::Explode(const FVector& At, float Size, bool bPlayerWreck, int3
 	const float Sz = FMath::Max(0.6f, Size);
 	if (Look == 0)
 	{
-		FTFx::Burst(this, *(TEXT("NS_Explosion") + Tint), At, FRotator::ZeroRotator, Size);
-		// 3.1: the effects sheet's banded burst in front of the fireball (the readable shape, at every quality), then
-		// what Low goes without: the flash, sparks, a ring, smoke that lingers and embers that hang in the air.
-		// A blast right beside the camera gets neither the burst nor the ring: flat shapes that close would fill
-		// the screen (first captures), and the pass adds no screen-filling flash
-		const bool bNearCam = FVector::DistSquared(At, CamLoc) < FMath::Square(1400.f);
-		if (!bNearCam) FTFx::Burst(this, *(TEXT("NS_BlastCore") + Tint), At, FRotator::ZeroRotator, Sz);
-		for (const TCHAR* Extra : { TEXT("NS_ExplosionFlash"), TEXT("NS_ExplosionSparks"), TEXT("NS_ExplosionSmoke"), TEXT("NS_ShockRing"), TEXT("NS_ExplosionEmbers") })
-			if (!bNearCam || FCString::Strcmp(Extra, TEXT("NS_ShockRing")) != 0) FTFx::Burst(this, Extra, At, FRotator::ZeroRotator, Sz, FTFx::Extra);
+		// FX overhaul: the blast by what blew up (FTFx::Explosion has the recipes): a fireball of banded lobes that rolls on with
+		// the victim's speed, cools and breaks up; debris and fire thrown on along the hit; smoke that climbs clear of
+		// the road; a ring and a scorch on the road itself. It replaces the stock additive fireball, glow and sparks,
+		// which washed the screen white and stood where the victim died while the car drove into them. Low keeps the
+		// fire (the Main layers); the star is the Flash layer. Nothing flat is drawn right beside the camera, as in 3.1
+		const FFTBlastHint Hint = GBlastHint;
+		GBlastHint = FFTBlastHint();
+		FTFx::FBlast B;
+		B.At = At; B.Size = Size; B.Kind = Hint.Kind; B.Dir = Hint.Dir; B.Vel = Hint.Vel; B.Reach = Hint.Reach; B.bLight = Hint.bLight; B.Cam = CamLoc;
+		if (bTinted) B.Tint = *Tint;
+		// the KESTREL's own wreck (AFTGameMode::Wreck sets the phase, then calls this at the car)
+		if (Phase == EFTPhase::Wreck && Hint.Kind == FTFx::EBlast::Generic && FVector::DistSquared(At, Car->GetActorLocation()) < 1.f) { B.Kind = FTFx::EBlast::Player; B.Vel = Car->GetVelocity(); }
+		// the road under it: the blast's frame, and whether it has a road to mark (not in the air, on a rail or over a gap)
+		float Bx = 0.f, Bh = 0.f;
+		const float Bd = Track->Locate(At, Car->D, Bx, Bh);
+		const uint16 Bfl = Track->FlagsAt(Bd);
+		const float Bs = (Bfl & FTFlag::HalfPipe) ? Track->SurfaceH(Bd, Bx) : 0.f;
+		B.Road = Track->TransformAt(Bd, Bx, 0.f).GetRotation();
+		B.Ground = Track->ToWorld(Bd, Bx, Bs);
+		B.bGround = !Hint.bAir && !(Bfl & (FTFlag::Coaster | FTFlag::Gap)) && Bh - Bs < 320.f && Bh - Bs > -120.f && FMath::Abs(Bx) < FT::Edge;
+		FTFx::Explosion(this, B);
 	}
 	else
 	{
@@ -2936,7 +3003,17 @@ void AFTGameMode::TickEnts(float Dt)
 		case EFTKind::Missile:
 		{
 			E.T1 -= Dt;
-			if (E.T1 <= 0.f) { Explode(EntTransform(E).GetLocation(), 0.6f); Release(E); break; }
+			if (E.T1 <= 0.f)
+			{
+				// FX overhaul: out of fuel: a small burst in the air, carrying on the way it was going
+				const FTransform Mt = EntTransform(E);
+				GBlastHint = FFTBlastHint();
+				GBlastHint.Kind = FTFx::EBlast::MissileFizz; GBlastHint.bAir = true;
+				GBlastHint.Vel = Mt.GetUnitAxis(EAxis::X) * E.Sp;
+				Explode(Mt.GetLocation(), 0.6f);
+				Release(E);
+				break;
+			}
 			E.Dmg = FMath::Min(980.f * DU, E.Dmg + 1500.f * DU * Dt);
 			// home on the foe ahead with the lowest 2|dx| + dy
 			FFTEnt* Tgt = nullptr; float Best = 1e12f;
@@ -2956,12 +3033,32 @@ void AFTGameMode::TickEnts(float Dt)
 			}
 			E.Sp = Vp + E.Dmg * FMath::Cos(E.Heading);
 			E.X += E.Dmg * FMath::Sin(E.Heading) * Dt;
+			{
+				// FX overhaul: its smoke is laid in the world, where it has been (it rode along behind it as a cone of puffs). FTFx
+				// lays it by distance flown; the lengths the car is about to reach get a short life
+				const FTransform Mt = EntTransform(E);
+				FTFx::Trail(this, E.Id, Mt.TransformPosition(FVector(-90.f, 0.f, 0.f)), Mt.GetUnitAxis(EAxis::Z), CamLoc, Vp);
+			}
 			for (FFTEnt& O : Ents)
 			{
 				if (O.bDead || &O == &E || O.Kind == EFTKind::Bullet || O.Kind == EFTKind::Missile || O.Kind == EFTKind::Crate || O.Kind == EFTKind::Wrench || O.Kind == EFTKind::Ramp) continue;
 				if (FMath::Abs(O.X - E.X) < O.W / 2 + 60.f && FMath::Abs(O.D - E.D) < O.L / 2 + 120.f)
 				{
 					const float Mx = E.X, Md = E.D;
+					{
+						// FX overhaul: the missile's own blast: on along its flight, rolling on with what it hit, and its ring on the road at
+						// the splash's real reach (the Rr below). When the hit kills (it does 9, as below), the victim's blast is the
+						// fireball and this is only the punch through it
+						const FTransform Mt = EntTransform(E);
+						const FFTFrame Mf = Track->Sample(O.D);
+						GBlastHint = FFTBlastHint();
+						GBlastHint.Kind = FTFx::EBlast::Missile;
+						GBlastHint.Dir = Mt.GetUnitAxis(EAxis::X);
+						GBlastHint.Vel = Mf.Fwd * O.Sp + Mf.Right * O.Vx;
+						GBlastHint.Reach = (Stats.Has(TEXT("DEM3")) ? 64.f : 46.f) * XU;
+						GBlastHint.bLight = O.Hp <= 9.f;
+						GBlastHint.bAir = O.bAir;
+					}
 					Explode(EntTransform(E).GetLocation(), 0.9f);
 					HurtEnt(O, 9.f, 1);
 					const bool bCluster = Stats.Has(TEXT("DEM3"));
@@ -2970,7 +3067,8 @@ void AFTGameMode::TickEnts(float Dt)
 						// 3.1: shrapnel on along the missile's way, and a ring out to the splash's real reach
 						const FTransform Mt = EntTransform(E);
 						FTFx::Burst(this, TEXT("NS_MissileHit"), Mt.GetLocation(), Mt.Rotator());
-						FTFx::Burst(this, TEXT("NS_BlastRing"), Mt.GetLocation(), FRotator::ZeroRotator, Rr * XU / 100.f, FTFx::Extra);
+						// FX overhaul: on the road the ring is the blast's own now, flat on the tarmac (the hint above); in the air it faces the camera as before
+						if (O.bAir) FTFx::Burst(this, TEXT("NS_BlastRing"), Mt.GetLocation(), FRotator::ZeroRotator, Rr * XU / 100.f, FTFx::Extra);
 					}
 					for (FFTEnt& S : Ents)
 						if (!S.bDead && &S != &O && S.Kind != EFTKind::Bullet && S.Kind != EFTKind::Missile && S.Kind != EFTKind::Crate && S.Kind != EFTKind::Wrench && S.Kind != EFTKind::Ramp
@@ -3063,6 +3161,9 @@ void AFTGameMode::TickEnts(float Dt)
 						const FRotator Way = Track->TransformAt(Pd, Px, 0.f).Rotator();
 						if (bHot) FTFx::Attach(TEXT("NS_RamBurst"), Car->GetRootComponent(), Hit, Way, 1.f, FTFx::Flash);
 						FTFx::Attach(TEXT("NS_RamSparks"), Car->GetRootComponent(), Hit, Way, bHot ? 1.f : 0.6f, bHot ? FTFx::Main : FTFx::Extra);
+						// FX overhaul: paint and trim come off where they meet, and a turbo ram is felt (it shook nothing unless it hurt the car)
+						FTFx::Attach(TEXT("NS_RamChips"), Car->GetRootComponent(), Hit, Way, bHot ? 1.f : 0.7f, FTFx::Extra);
+						if (bHot) Shake(0.45f);
 					}
 					if (HenchOn[HitSide] && E.Kind != EFTKind::Boss)
 					{
@@ -3177,6 +3278,9 @@ void AFTGameMode::TickEnts(float Dt)
 		}
 	}
 	Ents.RemoveAll([](const FFTEnt& E) { return E.bDead; });
+	// FX overhaul: nothing runs on a proxy that is back in the pool. Release stops its first trail; a missile's flame (its
+	// second) ran on, hidden, until the actor's next use. (The reel's ghosts are not in this pool.)
+	for (AFTEntityActor* P : Pool) if (P && P->Kind == EFTKind::None && P->IsHidden() && P->Trail2 && P->Trail2->IsActive()) P->Trail2->Deactivate();
 	RampAirT -= Dt;
 
 	if (Rotor)
@@ -3192,12 +3296,17 @@ void AFTGameMode::TickBoss(FFTEnt& B, float Dt)
 	BossT += Dt;
 	BossHpFrac = FMath::Clamp(B.Hp / B.MaxHp, 0.f, 1.f);
 	const int32 Ph = BossHpFrac > 0.66f ? 0 : (BossHpFrac > 0.33f ? 1 : 2);
+	// overhaul: the boss's model is told what the fight is doing (hits and damage states here; wind-ups and releases
+	// where each attack is timed below). Looks only: nothing comes back from it
+	AFTEntityActor* Rig = B.Proxy.Get();
+	if (Rig) Rig->BossState(BossHpFrac, Ph);
 	float Want = B.Ta;
 	if (Level == 0)
 	{
 		Want += 26.f * DU * FMath::Sin(0.7f * B.T);
 		B.X = FMath::FInterpTo(B.X, 74.f * XU * FMath::Sin(0.55f * B.T), Dt, 2.f);
 		B.T1 -= Dt;
+		if (Rig) Rig->BossWind(1, 1.f - B.T1 / 0.6f);   // overhaul (looks): the turret's guns spin up through the last 0.6 s
 		if (B.T1 <= 0.f && Ahead < B.Ta + 2000.f)
 		{
 			const bool bHard = BossHpFrac < 0.5f;
@@ -3209,12 +3318,15 @@ void AFTGameMode::TickBoss(FFTEnt& B, float Dt)
 				FireBullet(1, B.D - B.L / 2, B.X, 200.f, Vp - FMath::Cos(A) * 300.f * DU, FMath::Sin(A) * 300.f * DU);
 			}
 			Sfx(TEXT("EShotBig"));
+			if (Rig) Rig->BossFire(1, N);   // (looks) the fan leaves the guns
 		}
 		B.T2 -= Dt;
+		if (Rig) Rig->BossCue(0, 1.f - B.T2 / 0.6f);   // overhaul (looks): the barrel bays' trays run out through the drop's last 0.6 s
 		if (B.T2 <= 0.f)
 		{
 			B.T2 = BossHpFrac < 0.5f ? 2.2f : 3.f;
 			for (int32 s = -1; s <= 1; s += 2) { FFTEnt& Bb = Spawn(EFTKind::Barrel, B.D - B.L / 2 - 200.f - Pd, B.X + s * 22.f * XU); Bb.Sp = 0.f; }
+			if (Rig) Rig->BossFire(2);   // (looks) the barrels are let go
 		}
 		if (BossHpFrac < 0.66f && B.Step == 0) { B.Step = 1; SpawnGroup({ EFTKind::Moto, EFTKind::Moto }); SayText(TEXT("He's calling in the bikers! Hold your line!"), 3); Caption = TEXT("HE'S CALLING IN THE BIKERS!"); CaptionT = RealClock; }
 		if (BossHpFrac < 0.45f && BossLineStep == 0) { BossLineStep = 1; SayText(TEXT("He's cracking! Pour it on!"), 3); }
@@ -3290,10 +3402,11 @@ void AFTGameMode::TickBoss(FFTEnt& B, float Dt)
 		TeslaWarnT += Dt;
 		float Ch = 0.12f + 0.06f * FMath::Sin(B.T * 9.f);
 		TArray<FVector> Arcs;
+		TArray<float> Rising;   // overhaul: each strike still charging, 0..1 through its own warning (a collar climbs the coil for each)
 		for (const FFTHazardState& Hz : Hazards)
 		{
 			if (!Hz.bTesla || Hz.bDone) continue;
-			if (Hz.T < Hz.Warn) Ch = FMath::Max(Ch, FMath::Clamp(Hz.T / FMath::Max(Hz.Warn, 0.05f), 0.f, 1.f));
+			if (Hz.T < Hz.Warn) { Ch = FMath::Max(Ch, FMath::Clamp(Hz.T / FMath::Max(Hz.Warn, 0.05f), 0.f, 1.f)); Rising.Add(Hz.T / FMath::Max(Hz.Warn, 0.05f)); }
 			else if (Arcs.Num() < 3 && (Hz.Type != 2 || Hz.T < Hz.Warn + 0.5f))
 			{
 				Ch = 1.f;
@@ -3302,7 +3415,7 @@ void AFTGameMode::TickBoss(FFTEnt& B, float Dt)
 				else Arcs.Add(Track->ToWorld(Pd + Hz.D, R(-900.f, 900.f), 20.f));
 			}
 		}
-		if (AFTEntityActor* BA = B.Proxy.Get()) BA->SetTesla(Ch, Arcs);
+		if (AFTEntityActor* BA = B.Proxy.Get()) BA->SetTesla(Ch, Arcs, &Rising);
 		static int32 ArcLog = 0;
 		if (Arcs.Num() && TeslaWarnT > 0.f) { TeslaWarnT = -100.f; if (ArcLog++ < 20) { UE_LOG(LogFT, Display, TEXT("FT TESLA arcs=%d charge=%.2f"), Arcs.Num(), Ch); } }
 		if (Arcs.Num() && FMath::FRand() < Dt * 6.f) Shake(0.15f);
@@ -3326,6 +3439,14 @@ void AFTGameMode::TickBoss(FFTEnt& B, float Dt)
 		}
 		int32 Hogs = 0; for (const FFTEnt& E : Ents) if (!E.bDead && E.Kind == EFTKind::Hog) Hogs++;
 		B.T2 -= Dt;
+		// overhaul (looks): the carrier counts the next rider out through the last 0.7 s of his timer: the lower gate
+		// (1), the top deck's lift (2) or, when the whole truck empties, both (3). The same test as bJump below, one
+		// count ahead. With the road full it stands ready (the lights stay on) and sends him when there is room
+		if (Rig)
+		{
+			const bool bNextJump = (Ph == 1 && (B.Count + 1) % 3 == 0) || (Ph == 2 && (B.Count + 1) % 2 == 0);
+			Rig->BossWind(bNextJump ? (Ph == 2 ? 3 : 2) : 1, 1.f - B.T2 / 0.7f);
+		}
 		if (B.T2 <= 0.f && Hogs < 4 + Ph && Ahead < B.Ta + 2500.f)
 		{
 			B.T2 = Ph == 0 ? 2.6f : (Ph == 1 ? 2.1f : 1.6f);
@@ -3335,6 +3456,7 @@ void AFTGameMode::TickBoss(FFTEnt& B, float Dt)
 			{
 				FFTEnt& H = Spawn(EFTKind::Hog, B.D - B.L / 2 - 200.f - Pd, B.X + R(-40.f, 40.f) * XU, FMath::RandRange(0, 1));
 				H.State = 9; H.T1 = 0.55f; H.Vh = R(-40.f, 40.f) * XU; H.Side = FMath::RandBool() ? 1 : -1; H.T2 = R(1.f, 2.f);
+				if (Rig) { Rig->BossCue(3, H.X - B.X); Rig->BossFire(1); }   // overhaul (looks): down the ramp, where he really comes out
 			};
 			if (bJump)
 			{
@@ -3344,6 +3466,7 @@ void AFTGameMode::TickBoss(FFTEnt& B, float Dt)
 			}
 			else RampRider();
 			if (Ph == 2) RampRider();
+			if (Rig && bJump) Rig->BossFire(2);   // overhaul (looks): off the lift
 		}
 		// brake check
 		if (Ph >= 1)
@@ -3354,6 +3477,7 @@ void AFTGameMode::TickBoss(FFTEnt& B, float Dt)
 			{
 				B.T1 += Dt; B.Glow = 1.f;
 				if (B.T1 > 0.8f) Want = B.Ta - 150.f * DU * 1.4f;
+				if (Rig) Rig->BossLunge(B.T1 / 0.8f, B.T1 > 0.8f);   // overhaul (looks): the air brakes go out with the warning
 				if (B.T1 > 2.3f) { B.State = 0; B.Glow = 0.f; B.T3 = Ph == 2 ? 5.f : 7.5f; }
 			}
 		}
@@ -3442,7 +3566,40 @@ void AFTGameMode::TickBossFire(FFTEnt& B, float Dt, int32 Ph, float& Want)
 				Lob(3, Ahead, B.X, 420.f, R(-200.f, 600.f), Px + (k == 0 ? 0.f : R(-110.f, 110.f) * XU), 1.25f + 0.15f * k, 340.f, 900.f, 14.f);
 			Say(TEXT("lobWarn"), 2); Sfx(TEXT("EShotBig"), 0.8f, 0.8f);
 			B.T1 = Gap + 0.3f;
+			if (AFTEntityActor* Rig = B.Proxy.Get()) Rig->BossFire(3, N);   // overhaul (looks): the cannon lobs them
 		}
+	}
+	// overhaul (looks): the cannon is on the lane it burns: filling through the lane's own warning (1), the jet
+	// while it is live (2), turned at wherever the lane is now (it sweeps). A second lane (five alarms) is the
+	// ladder's nozzle. With no lane up and fireballs next (the same test as above, on the step they will use), it
+	// tips up through the last 0.6 s of their timer (3)
+	if (AFTEntityActor* Rig = B.Proxy.Get())
+	{
+		// the two youngest lanes (the cannon takes the younger; of two made together, the first): a pair keeps its
+		// nozzles for its whole life, and a new pair takes them over from one that is still alight
+		const FFTHazardState* Lane1 = nullptr;
+		const FFTHazardState* Lane2 = nullptr;
+		for (const FFTHazardState& Hz : Hazards)
+		{
+			if (Hz.Type != 4 || Hz.bDone) continue;
+			if (!Lane1 || Hz.T < Lane1->T) { Lane2 = Lane1; Lane1 = &Hz; }
+			else if (!Lane2 || Hz.T < Lane2->T) Lane2 = &Hz;
+		}
+		if (Lane1)
+		{
+			const bool bLive = Lane1->T >= Lane1->Warn;
+			Rig->BossWind(bLive ? 2 : 1, bLive ? 1.f : Lane1->T / FMath::Max(Lane1->Warn, 0.05f), Lane1->X - B.X);
+		}
+		if (Lane2)
+		{
+			const bool bLive = Lane2->T >= Lane2->Warn;
+			Rig->BossCue(1, Lane2->X - B.X);
+			Rig->BossCue(2, bLive ? 2.f : FMath::Max(0.01f, Lane2->T / FMath::Max(Lane2->Warn, 0.05f)));
+		}
+		else Rig->BossCue(2, 0.f);
+		if (!Lane1 && B.Step % 3 == 2) Rig->BossWind(3, 1.f - B.T1 / 0.6f);
+		// (from phase 1 a lane is still burning when the fireballs are due: their wind-up has a sign of its own)
+		Rig->BossCue(3, B.Step % 3 == 2 ? 1.f - B.T1 / 0.6f : 0.f);
 	}
 	// burning barrels off the back in the last phase
 	B.T2 -= Dt;
@@ -3450,6 +3607,7 @@ void AFTGameMode::TickBossFire(FFTEnt& B, float Dt, int32 Ph, float& Want)
 	{
 		B.T2 = Ph == 2 ? 2.4f : 3.4f;
 		FFTEnt& Bb = Spawn(EFTKind::Barrel, B.D - B.L / 2 - 200.f - Car->D, B.X); Bb.Sp = 0.f;
+		if (AFTEntityActor* Rig = B.Proxy.Get()) Rig->BossFire(4);   // overhaul (looks)
 	}
 	if (BossHpFrac < 0.2f && BossLineStep == 0) { BossLineStep = 1; SayText(TEXT("He's running dry! Finish him!"), 3); }
 }
@@ -3464,10 +3622,15 @@ void AFTGameMode::TickBossClown(FFTEnt& B, float Dt, int32 Ph, float& Want)
 	BossPhaseLine(B, Ph, TEXT("More balloons! Watch the shadows!"), TEXT("HE'S LETTING THE BALLOONS GO!"),
 		TEXT("It's raining bombs! Find the empty lane!"), TEXT("BOMB PARADE!"));
 	B.T1 -= Dt;
+	// overhaul (looks): what comes next winds up through the last 0.6 s of its timer: bombs (1: the balloons strain),
+	// pies (2: the oven opens) or the carpet (3). The same tests as the attack below, on the step it will use
+	AFTEntityActor* Rig = B.Proxy.Get();
+	if (Rig) Rig->BossWind((Ph == 2 && B.Step % 2 == 0) ? 3 : (B.Step % 3 == 2 ? 2 : 1), 1.f - B.T1 / 0.6f);
 	if (B.T1 <= 0.f && Ahead < B.Ta + 3000.f)
 	{
 		const int32 Step = B.Step++;
 		const float Gap = Ph == 0 ? 2.4f : (Ph == 1 ? 2.0f : 1.8f);
+		if (Rig) Rig->BossFire((Ph == 2 && Step % 2 == 0) ? 3 : (Step % 3 == 2 ? 2 : 1));   // (looks) it leaves him now
 		if (Ph == 2 && Step % 2 == 0)
 		{
 			// bomb carpet: every lane but one
@@ -3503,6 +3666,7 @@ void AFTGameMode::TickBossYeti(FFTEnt& B, float Dt, int32 Ph, float& Want)
 {
 	const float Px = Car->X, Ahead = B.D - Car->D;
 	AFTEntityActor* YA = B.Proxy.Get();
+	if (YA) YA->BossCue(2, B.State >= 10 ? 1.f : 0.f);   // overhaul (looks): the way in (he runs down the road, facing away, until he has turned)
 	// 2.8: the chase in. He comes down the run behind you, gaining (~17 m/s faster than you), bounds past in the
 	// next lane, then spins round to face you, arms up, and the fight starts
 	if (B.State == 10)
@@ -3549,17 +3713,35 @@ void AFTGameMode::TickBossYeti(FFTEnt& B, float Dt, int32 Ph, float& Want)
 		B.X = FMath::FInterpTo(B.X, Px, Dt, B.T2 < 0.8f ? 0.6f : 1.6f);
 		if (B.T2 > 0.8f) Want = B.Ta - 170.f * DU * 1.4f;
 		if (YA) YA->Charge = FMath::Min(1.f, B.T2 / 0.5f);
+		if (YA) YA->BossLunge(B.T2 / 0.8f, B.T2 > 0.8f);   // overhaul (looks)
 		if (B.T2 > 2.4f) { B.State = 0; B.Glow = 0.f; B.T3 = Ph == 0 ? 9.f : (Ph == 1 ? 7.f : 5.5f); }
 	}
 	else if (YA) YA->Charge = FMath::FInterpTo(YA->Charge, 0.f, Dt, 3.f);
 	BossPhaseLine(B, Ph, TEXT("Avalanche! Find the gap in the snow!"), TEXT("HE'S STARTING AVALANCHES!"),
 		TEXT("He's going berserk! Snow everywhere!"), TEXT("THE YETI IS BERSERK!"));
 	B.T1 -= Dt;
+	// overhaul (looks): what is next winds up through the last 0.7 s of its timer: snowballs (1: he packs one over his
+	// head), the ground pound (2: both arms go right back) or the avalanche (3: the roar). The same test as Kind below
+	if (YA) YA->BossWind((Ph == 0 ? (B.Step % 2) : (B.Step % 3)) + 1, 1.f - B.T1 / 0.7f);
+	// (and his fists stay down, or his arms wide, for as long as the ice or the avalanche he made is on the road:
+	// 0 none, up to 1 through its warning, 2 once it is live)
+	if (YA)
+	{
+		float Pound = 0.f, Roar = 0.f;
+		for (const FFTHazardState& Hz : Hazards)
+		{
+			if (Hz.bDone || Hz.Style != 1 || (Hz.Type != 0 && Hz.Type != 2)) continue;
+			const float Through = Hz.T >= Hz.Warn ? 2.f : FMath::Max(0.01f, Hz.T / FMath::Max(Hz.Warn, 0.05f));
+			if (Hz.Type == 0) Pound = FMath::Max(Pound, Through); else Roar = FMath::Max(Roar, Through);
+		}
+		YA->BossCue(0, Pound); YA->BossCue(1, Roar);
+	}
 	if (B.T1 <= 0.f && Ahead < B.Ta + 3000.f)
 	{
 		const int32 Step = B.Step++;
 		const float Gap = Ph == 0 ? 2.4f : (Ph == 1 ? 2.0f : 1.7f);
 		const int32 Kind = Ph == 0 ? (Step % 2) : (Step % 3);
+		if (YA) YA->BossFire(Kind + 1);   // (looks) the throw, the slam, the roar
 		if (Kind == 0)
 		{
 			const int32 N = 2 + Ph;
@@ -3601,10 +3783,15 @@ void AFTGameMode::TickBossShark(FFTEnt& B, float Dt, int32 Ph, float& Want)
 	BossPhaseLine(B, Ph, TEXT("It's lunging! Watch the jaws!"), TEXT("FEEDING TIME!"),
 		TEXT("Feeding frenzy! Fish everywhere!"), TEXT("FEEDING FRENZY!"));
 	B.T1 -= Dt;
+	// overhaul (looks): the swordfish (1: the tail is held hard over) or the flying fish (2) wind up through the last
+	// 0.6 s of their timer. The same test as below, on the step it will use
+	AFTEntityActor* Rig = B.Proxy.Get();
+	if (Rig) Rig->BossWind(B.Step % 2 == 0 ? 1 : 2, 1.f - B.T1 / 0.6f);
 	if (B.T1 <= 0.f && Ahead < B.Ta + 3000.f)
 	{
 		const int32 Step = B.Step++;
 		const float Gap = Ph == 0 ? 2.3f : (Ph == 1 ? 1.9f : 1.6f);
+		if (Rig) Rig->BossFire(Step % 2 == 0 ? 1 : 2);   // (looks) they leave it
 		if (Step % 2 == 0)
 		{
 			BulletFan(B, Ph == 0 ? 7 : 9, 0.075f, FMath::RandRange(1, Ph == 0 ? 4 : 6), 300.f * DU, Px);
@@ -3629,6 +3816,7 @@ void AFTGameMode::TickBossShark(FFTEnt& B, float Dt, int32 Ph, float& Want)
 		{
 			B.T2 += Dt; B.Glow = 1.f;
 			if (B.T2 > 0.9f) Want = B.Ta - 160.f * DU * 1.4f;
+			if (Rig) Rig->BossLunge(B.T2 / 0.9f, B.T2 > 0.9f);   // overhaul (looks): it turns on the car, jaws wide, for the whole lunge
 			if (B.T2 > 2.3f) { B.State = 0; B.Glow = 0.f; B.T3 = Ph == 2 ? 5.f : 7.f; }
 		}
 	}
@@ -3659,11 +3847,26 @@ void AFTGameMode::TickBossLimo(FFTEnt& B, float Dt, int32 Ph, float& Want)
 		}
 	}
 	B.T1 -= Dt;
+	// overhaul (looks): the sunroof's guns follow the stream (where it is aimed, which trails the car); the boot's
+	// turret winds up what is next through the last 0.6 s of its timer: the wall (1), the aimed bursts (2: it turns on
+	// the car) or the rockets (3: the bays in the rear wings tip up). The same test as Pick below
+	AFTEntityActor* Rig = B.Proxy.Get();
+	if (Rig)
+	{
+		// the stream: 1 = it is running (its first shot has gone, the next is due inside its own gap and he is in
+		// range); under 1 = its first shot's timer through its last 0.6 s (the guns heat, nothing fires yet)
+		const bool bStream = Ph >= 1 && B.Tx != 0.f && B.T3 <= 0.21f && Ahead < B.Ta + 3000.f;
+		Rig->BossCue(0, B.Tx == 0.f ? 0.f : B.Tx - B.X);
+		Rig->BossCue(1, bStream ? 1.f : ((Ph >= 1 && B.Tx == 0.f) ? FMath::Clamp(1.f - B.T3 / 0.6f, 0.f, 0.95f) : 0.f));
+		const int32 Next = B.Step % (Ph == 0 ? 3 : 4);
+		Rig->BossWind((Next == 0 || Next == 3) ? 1 : (Next == 1 ? 2 : 3), 1.f - B.T1 / 0.6f, Px - B.X);
+	}
 	if (B.T1 <= 0.f && Ahead < B.Ta + 3000.f)
 	{
 		const int32 Step = B.Step++;
 		const float Gap = Ph == 0 ? 2.2f : (Ph == 1 ? 1.9f : 1.6f);
 		const int32 Pick = Step % (Ph == 0 ? 3 : 4);
+		if (Rig) Rig->BossFire((Pick == 0 || Pick == 3) ? 1 : (Pick == 1 ? 2 : 3));   // (looks) it leaves him
 		if (Pick == 0 || Pick == 3)
 		{
 			// a wall of shots across the whole road with one gap
@@ -3679,7 +3882,11 @@ void AFTGameMode::TickBossLimo(FFTEnt& B, float Dt, int32 Ph, float& Want)
 				FTimerHandle Th;
 				GetWorldTimerManager().SetTimer(Th, FTimerDelegate::CreateWeakLambda(this, [this, Id = B.Id]()
 				{
-					if (FFTEnt* Bp = FindEnt(Id)) if (!Bp->bDead && Phase == EFTPhase::Play) { BulletFan(*Bp, 3, 0.05f, -1, 340.f * DU, Car->X); Sfx(TEXT("EShot"), 0.7f); }
+					if (FFTEnt* Bp = FindEnt(Id)) if (!Bp->bDead && Phase == EFTPhase::Play)
+					{
+						BulletFan(*Bp, 3, 0.05f, -1, 340.f * DU, Car->X); Sfx(TEXT("EShot"), 0.7f);
+						if (AFTEntityActor* Rg = Bp->Proxy.Get()) Rg->BossCue(2, Rg->Cue[2] + 1.f);   // overhaul (looks): this volley's flash, as it leaves
+					}
 				}), 0.05f + v * 0.32f, false);
 			}
 			B.T1 = Gap;
