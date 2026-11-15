@@ -227,12 +227,12 @@ Zone(TEXT("The gondola over the valley"), 8.32f, 8.33f);
 // Crash padding right behind the barrier (third pass): three lengths a slot a side for the first 9 km, alternate slots a
 // side after that; the banked bends and the pipes too (the land beside a bend is not cut: the padding stands on its lip, over the cutting).
 Zone(TEXT("Crash padding"), 0.f, 9.f);
-	Site(TEXT("PadsL"), -1, 18, 1, 0, 0.95f);
-	Site(TEXT("PadsR"), 1, 18, 1, 0, 0.95f);
+	Site(TEXT("PadsL"), -1, 19.5f, 1, 0, 0.95f);
+	Site(TEXT("PadsR"), 1, 19.5f, 1, 0, 0.95f);
 
 Zone(TEXT("Crash padding, the finale"), 9.f, 99.f);     // alternate slots a side
-	Site(TEXT("PadsL"), -1, 18, 2, 0, 0.95f);
-	Site(TEXT("PadsR"), 1, 18, 2, 1, 0.95f);
+	Site(TEXT("PadsL"), -1, 19.5f, 2, 0, 0.95f);
+	Site(TEXT("PadsR"), 1, 19.5f, 2, 1, 0.95f);
 
 // Under the corkscrews and the loops the camera looks at the land, and Scatter and Site are left out there: so the
 // resort's ground (rink, terrain park, car park) is written as Far rules with the land's own drop, one piece a side
@@ -792,3 +792,61 @@ Zone(TEXT("Cut banks"), 0.f, 99.f);
 	Bank(TEXT("SM_CutIce"), 4, 3, 1, 1.f, 5.5f);
 	Bank(TEXT("SM_CutIce2"), 4, 3, 2, 1.f, 5.5f);
 	Bank(TEXT("SM_CutSnow"), 4, 1, 0, 1.f, 2.4f, 5.5f);
+
+// ---- ROUND THREE (15 Nov 2026): the built world in motion. Everything of this round is APPENDED here, after the cut
+// banks, so that no older rule's place in the table (which seeds its random stream) moves; in place, numbers only:
+// the crash pads' four rules from 18 m to 19.5 m (in bends they came as near as 15.8 m).
+//  - A rack railway climbing the slope (SM_RackTrain: red trains up and down 170 m of track, its foot 96 m out).
+//  - Groomers at work on the pistes (SM_GroomerRun: a groomed strip 120 m up the slope, two groomers, 84 m out).
+//  - A snow-plough convoy on a far road (SM_PloughConvoy: 335 m out and more, 30 m up, along the near ridge's foot).
+//  - Cloud drifting past the summits (SM_CloudDrift: 900 m out and more, 260 m up).
+//  - No rule is needed for the rest of the round: the far lift line's cabins travel (SM_RidgeLiftLine is a moving
+//    prop now), the middle range avalanches on a clock, the ranges are taller with bigger banners.
+// None of these casts a shadow: they stand beyond 70 m or are Far.
+Zone(TEXT("Round three: the rack railway, the top"), 0.3f, 1.19f);
+	Scatter(TEXT("SM_RackTrain"), 96, 102, 9, 3, 1.f, 1.f, 0.f, 1, 6.f);
+
+Zone(TEXT("Round three: the rack railway, the half pipe"), 1.19f, 2.43f);
+	Scatter(TEXT("SM_RackTrain"), 96, 102, 9, 5, 1.f, 1.f, 0.f, -1, 6.f);
+
+Zone(TEXT("Round three: the rack railway, the whiteout"), 5.65f, 7.3f);
+	Scatter(TEXT("SM_RackTrain"), 96, 102, 9, 0, 1.f, 1.f, 0.f, 1, 6.f);
+
+Zone(TEXT("Round three: the rack railway, the valley run"), 7.3f, 8.94f);
+	Scatter(TEXT("SM_RackTrain"), 96, 102, 9, 7, 1.f, 1.f, 0.f, 1, 6.f);
+
+Zone(TEXT("Round three: the rack railway, the white ridge"), 11.6f, 14.3f);
+	Scatter(TEXT("SM_RackTrain"), 96, 102, 10, 0, 1.f, 1.f, 0.f, -1, 6.f);
+	Scatter(TEXT("SM_RackTrain"), 96, 102, 10, 5, 1.f, 1.f, 0.f, 1, 6.f);
+
+Zone(TEXT("Round three: the rack railway, the high ridge"), 19.7f, 22.4f);
+	Scatter(TEXT("SM_RackTrain"), 96, 102, 10, 3, 1.f, 1.f, 0.f, -1, 6.f);
+	Scatter(TEXT("SM_RackTrain"), 96, 102, 10, 8, 1.f, 1.f, 0.f, 1, 6.f);
+
+Zone(TEXT("Round three: groomers, the top"), 0.26f, 1.19f);
+	Scatter(TEXT("SM_GroomerRun"), 84, 90, 7, 1, 1.f, 1.f, 0.f, 1, 10.f);
+
+Zone(TEXT("Round three: groomers, the half pipe"), 1.19f, 2.43f);
+	Scatter(TEXT("SM_GroomerRun"), 84, 90, 7, 4, 1.f, 1.f, 0.f, 1, 10.f);
+
+Zone(TEXT("Round three: groomers, Black diamond"), 4.02f, 5.65f);
+	Scatter(TEXT("SM_GroomerRun"), 84, 90, 7, 2, 1.f, 1.f, 0.f, -1, 10.f);
+	Scatter(TEXT("SM_GroomerRun"), 84, 90, 7, 5, 1.f, 1.f, 0.f, 1, 10.f);
+
+Zone(TEXT("Round three: groomers, the whiteout"), 5.65f, 7.3f);
+	Scatter(TEXT("SM_GroomerRun"), 84, 90, 7, 3, 1.f, 1.f, 0.f, -1, 10.f);
+
+Zone(TEXT("Round three: groomers, the valley run"), 7.3f, 8.94f);
+	Scatter(TEXT("SM_GroomerRun"), 84, 90, 7, 6, 1.f, 1.f, 0.f, 1, 10.f);
+
+Zone(TEXT("Round three: groomers, the resort"), 14.3f, 17.f);
+	Scatter(TEXT("SM_GroomerRun"), 84, 90, 8, 3, 1.f, 1.f, 0.f, 1, 10.f);
+
+Zone(TEXT("Round three: groomers, the last lifts"), 22.4f, 99.f);
+	Scatter(TEXT("SM_GroomerRun"), 84, 90, 8, 5, 1.f, 1.f, 0.f, 1, 10.f);
+
+Zone(TEXT("Round three: the far road and the cloud"), 0.f, 99.f);
+	Far(TEXT("SM_PloughConvoy"), 335, 360, 33, 4, 1.f, 1.f, 0.f, -1, -30.f, 3.f);
+	Far(TEXT("SM_PloughConvoy"), 335, 360, 33, 20, 1.f, 1.f, 0.f, 1, -30.f, 3.f);
+	Far(TEXT("SM_CloudDrift"), 900, 1100, 30, 7, 1.f, 1.f, 0.2f, -1, -260.f, 0.f);
+	Far(TEXT("SM_CloudDrift"), 900, 1100, 30, 22, 1.f, 1.f, 0.2f, 1, -260.f, 0.f);

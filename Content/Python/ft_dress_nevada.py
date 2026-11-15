@@ -683,10 +683,16 @@ def far_town(m, seed=0):
         nc = r.choice(neon)
         m.box(col, (x + w / 2.0, y + 800, h / 2.0), (w, 1600, h))
         z = 600
+        k = 0
         while z < h - 500:
-            m.box(r.choice(['#ffe9a8', '#9ff0ff', '#ffc0e8']), (x + w / 2.0, y - 4, z), (w * 0.74, 8, 150), glow=0.7)
+            lit = r.choice(['#ffe9a8', '#9ff0ff', '#ffc0e8'])
+            m.box(lit, (x + w / 2.0, y - 4, z), (w * 0.74, 8, 150), glow=0.7)
+            if k % 2 == 0:                                  # third pass: every second floor on the back as well
+                m.box(lit, (x + w / 2.0, y + 1604, z), (w * 0.74, 8, 150), glow=0.7)
             z += 620
-        m.box(nc, (x + w / 2.0, y - 6, h - 150), (w + 30, 10, 200), glow=1.4)
+            k += 1
+        for yy in (y - 6, y + 1606):                        # the neon crown on both faces
+            m.box(nc, (x + w / 2.0, yy, h - 150), (w + 30, 10, 200), glow=1.4)
         x += w + r.choice([300, 700, 1200])
     pz(m, '#3a2a6a', 9600, 600, 0, 9500, 260, steps=10, top_r=120)
     m.sphere(CYAN, (9600, 600, 9300), 800, scale=(1, 1, 0.3), steps=(6, 12), glow=0.9)
@@ -993,6 +999,7 @@ def life(build=True):
     n += A(D + 'SM_FarTown', 'Light', glows(0.7), **ft_life._windows(620.0, rate=0.08, off=0.2, low=0.3))
     n += A(D + 'SM_FarTown', 'Light', glows(1.4), **dict(ft_life.PULSE, LightRate=0.2, LightMin=0.6))
     n += life3(A, D)
+    n += life4(A, D)
     unreal.log('FTDRESS nevada life: %d slots animated' % n)
     return n
 
@@ -1653,6 +1660,513 @@ def life3(A, D):
     return n
 
 
+
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# The fourth pass (15 Nov, "the built world in motion"): traffic that is not the chase (a frontage road), a train on a
+# trestle, a rocket going up from the Syndicate's range, a record car on the salt, fountains, an airship. Every piece is
+# built with ft_life.Kit; nothing is a figure or an animal (another machine makes those; the level's own tumbleweeds,
+# dust devils and buzzards are FTTrackLife.cpp's). All of it stands 72 m and more from the road or is placed by a Far
+# rule, so by the track's shadow rule (within 70 m AND over 2.5 m) none of it casts a shadow.
+def frontage_road(k, L=27146.0):
+    """271 m of the old two-lane road that runs beside the highway (six slots) with its traffic: a pickup, a bus and a
+    tanker one way at 22 m a second, two pickups and a camper the other way at 18, drawn half as big again as life
+    (they are 75 m off). Right-hand traffic whichever side of the highway it stands on: the far lane runs towards +X,
+    the near lane towards -X. The vehicles are parts sent along the road and round again; they shrink to nothing in
+    its last eight metres, behind the hoarding that stands at each end between the highway and the old road. Telegraph
+    poles along its far side. Every length keeps its own time."""
+    s = k.group()
+    s.box(ASPH, (0, 0, 14), (L, 780, 28))
+    nd = 18
+    for i in range(nd):
+        s.box(YEL, (-L / 2.0 + L * (i + 0.5) / nd, 0, 30), (L / nd * 0.45, 18, 4))
+    for y in (-360, 360):
+        s.box(ASPH_L, (0, y, 30), (L, 12, 4))
+    for i in range(6):
+        x = -L / 2.0 + L * (i + 0.5) / 6
+        pz(s, BARK, x, 620, 0, 860, 17, steps=6)
+        s.box(BARK_D, (x, 620, 790), (14, 220, 14))
+    for sx in (-1, 1):                                                   # a hoarding at each end, facing the highway
+        x = sx * (L / 2.0 - 760.0)
+        for dx in (-560, 560):
+            s.box(BARK_D, (x + dx, -640, 300), (44, 44, 600))
+        s.box(CREAM, (x, -640, 760), (1640, 30, 620))
+        s.box(TEAL, (x, -658, 910), (1460, 8, 150))
+        s.box(RED, (x - sx * 200, -658, 650), (900, 8, 180))
+        s.box(YEL, (x + sx * 520, -658, 650), (300, 8, 180))
+    s.box(MIDLAND, (0, 0, -40), (L, 780, 80))
+
+    def pickup(m, d, col):
+        m.box(col, (0, 0, 150), (760, 290, 130))
+        m.box(col, (d * 90, 0, 265), (300, 280, 110))
+        m.box(GLASS, (d * 90, 0, 272), (306, 250, 76))
+        m.box(BLACK, (0, 0, 55), (680, 280, 70))
+
+    def bus(m, d, col):
+        m.box(col, (0, 0, 290), (1600, 360, 400))
+        m.box(GLASS, (0, 0, 360), (1460, 366, 130))
+        m.box(CREAM, (0, 0, 498), (1540, 340, 18))
+        m.box(BLACK, (0, 0, 60), (1460, 330, 80))
+
+    def tanker(m, d, col):
+        m.box(RED, (d * 640, 0, 250), (380, 350, 340))
+        m.box(GLASS, (d * 700, 0, 330), (270, 356, 110))
+        x0, x1 = (-860.0, 380.0) if d > 0 else (-380.0, 860.0)            # the tank, behind the cab
+        px(m, col, x0, x1, 0, 290, 175, steps=8)
+        m.box(BLACK, (0, 0, 60), (1700, 320, 80))
+
+    def camper(m, d, col):
+        m.box(col, (0, 0, 250), (1000, 330, 330))
+        m.box(TEAL, (0, 0, 250), (1004, 334, 60))
+        m.box(GLASS, (d * 400, 0, 310), (210, 336, 110))
+        m.box(BLACK, (0, 0, 60), (900, 300, 80))
+
+    lanes = ((1.0, 180.0, 0.081, ((0.08, lambda m: pickup(m, 1.0, RUST)), (0.41, lambda m: bus(m, 1.0, CHROME)), (0.77, lambda m: tanker(m, 1.0, CHROME)))),
+             (-1.0, -180.0, 0.066, ((0.20, lambda m: pickup(m, -1.0, TEAL)), (0.55, lambda m: camper(m, -1.0, CREAM)), (0.90, lambda m: pickup(m, -1.0, PURP)))))
+    for d, y, rate, cars in lanes:
+        g = k.group('Conveyor', ConvStart=(-d * L / 2.0, y, 30.0), ConvDir=(d, 0.0, 0.0), ConvLen=L, ConvRate=rate, ConvRand=1.0)
+        for a, fn in cars:
+            g.piece(fn, a=a)
+    return dict(grow=(0.0, 0.0, 0.0), grow_down=(0.0, 0.0, 0.0))
+
+
+def trestle(k, L=22620.0, Z=2200.0):
+    """THE TRESTLE: 226 m of timber trestle 22 m tall (five slots) between two heads of red rock, and an ore train
+    crossing it: a rust-red engine and six hoppers at 14 m a second, out of one tunnel mouth and into the other, round
+    again every 17 s (the wagons are parts sent along the line; they shrink to nothing inside the rock). The table
+    stands ONE, 120 m out on the outside of the bend where the road leaves the dry wash, so that the driver looks at
+    it for the whole of the wash's last straight. It works on either side."""
+    s = k.group()
+    s.box(BARK_D, (0, 0, Z - 30), (L, 320, 60))
+    for y in (-76, 76):
+        s.box(STEEL, (0, y, Z + 8), (L, 14, 16))
+    nb = 20
+    for i in range(nb + 1):
+        x = -L / 2.0 + L * i / nb
+        for sy in (-1, 1):
+            tilt_box(s, BARK, (x, sy * 420, 0), (x, sy * 120, Z - 60), 54)
+        s.box(BARK, (x, 0, Z - 90), (60, 360, 60))
+        s.box(BARK_D, (x, 0, Z * 0.36), (40, 660, 40))
+        s.box(BARK_D, (x, 0, Z * 0.68), (40, 480, 40))
+        if i % 2 == 0:
+            tilt_box(s, BARK_D, (x, -300, Z * 0.36), (x, 190, Z * 0.68), 26)
+        else:
+            tilt_box(s, BARK_D, (x, 300, Z * 0.36), (x, -190, Z * 0.68), 26)
+    for sy in (-1, 1):
+        for zf, yy in ((0.36, 330.0), (0.68, 240.0)):
+            s.box(BARK_D, (0, sy * yy, Z * zf), (L, 26, 34))
+    r = random.Random(23)
+    for sx in (-1, 1):                                                   # the two heads of rock, a tunnel mouth in each
+        x0 = sx * (L / 2.0 + 1500.0)
+        s.box(SANDST, (x0, 0, (Z + 900) / 2.0), (3400, 3000, Z + 900))
+        s.box(SANDST_D, (x0 + sx * 300, 200, Z + 1300), (2600, 2400, 900))
+        s.box(ROCK_R, (x0, 0, Z * 0.45), (3440, 3040, 260))
+        s.box(SANDST_L, (x0 - sx * 200, -300, Z + 1900), (1500, 1500, 420))
+        for j in range(4):
+            s.box(SANDST_D, (x0 + r.uniform(-1300, 1300), -1500 - r.uniform(0, 500), r.uniform(200, 700)), (r.uniform(500, 1100), 700, r.uniform(500, 1300)))
+        s.box(SYN, (sx * (L / 2.0 - 198.0), 0, Z + 260), (40, 440, 480))
+        s.box(BARK, (sx * (L / 2.0 - 222.0), 0, Z + 520), (40, 560, 60))
+        s.box(MIDLAND, (x0, 0, -300), (3400, 3000, 600))
+    span = L + 1200.0
+    conv = dict(ConvStart=(span / 2.0, 0.0, Z + 16.0), ConvDir=(-1.0, 0.0, 0.0), ConvLen=span, ConvRate=14.0 * 100.0 / span, ConvRand=1.0)
+    t = k.group('Conveyor', **conv)
+
+    def engine(m):
+        m.box(RUST, (0, 0, 230), (1300, 280, 300))
+        m.box(SYN, (360, 0, 430), (420, 270, 150))
+        m.box(GLASS, (360, 0, 440), (424, 230, 70))
+        m.box(YEL, (-560, 0, 250), (190, 286, 120))
+        m.box(BLACK, (0, 0, 45), (1200, 240, 90))
+
+    def hopper(m, col):
+        m.side(col, [(-600, 420), (600, 420), (470, 110), (-470, 110)], -135, 135)
+        m.box(SANDST_L, (0, 0, 430), (1040, 220, 50))
+        m.box(BLACK, (0, 0, 45), (1100, 230, 90))
+
+    head = 0.55
+    t.piece(engine, a=head)
+    for i, col in enumerate((SANDST_D, BARK, RUST, SANDST_D, '#5a7a9a', BARK)):
+        t.piece(lambda m, col=col: hopper(m, col), a=(head - (i + 1) * 1380.0 / span) % 1.0)
+    return dict(grow=(0.0, 0.0, 0.0), grow_down=(0.0, 0.0, 0.0))
+
+
+def rocket(k, H=90000.0):
+    """THE RANGE: a launch pad out on the Syndicate's range with its gantry and tanks, and a rocket going UP: 45 m of
+    white rocket on a flame, a column of smoke 150 m long under it, 30 m a second, out of sight at 900 m; the next one
+    leaves 30 s later (the rocket is one part sent up a line and round again; it leaves out of the steam that stands
+    on the pad and shrinks to nothing at the top). For the horizon only: a Far rule stands it 700 m and more from the
+    road, where it is plainly nobody's attack: far, slow and going straight up."""
+    s = k.group()
+    s.box(CONC, (0, 0, 2600), (5200, 5200, 200))                         # the pad's table (a Far rule's z = 0 is 25 m down)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            s.box(CONC, (sx * 2200, sy * 2200, 1250), (500, 500, 2500))
+    gx = 1500.0                                                          # the gantry
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            s.box(RUST, (gx + sx * 300, sy * 300, 2700 + 2600), (150, 150, 5200))
+    for i in range(6):
+        s.box(SYN, (gx, 0, 2700 + 400 + i * 900), (700, 700, 50))
+    s.box(RUST, (gx - 600, 0, 2700 + 3700), (900, 90, 90))
+    for i, (x, y, rr) in enumerate(((-2600, 1500, 500), (-2600, -1500, 500), (-3600, 0, 650))):
+        s.sphere(CREAM, (x, y, 2700 + rr), rr, steps=(5, 8))
+        pz(s, GREY, x, y, 2700, 2700 + rr * 0.5, rr * 0.5, steps=6)
+    st = k.group('Breathe', far=True, rough=0.95, BreatheAmp=60.0, BreatheRate=0.7, BreatheVar=1.5)
+    for i, (x, y, z, rr) in enumerate(((0, 0, 2900, 900), (700, 500, 3100, 760), (-800, 300, 3000, 820), (200, -800, 3050, 800),
+                                       (-400, -500, 3700, 700), (500, 0, 3900, 640))):
+        st.sphere(CREAM if i % 2 else WHITE, (x, y, z), rr, scale=(1.2, 1.2, 0.8), steps=(4, 7))
+    conv = dict(ConvStart=(0.0, 0.0, 3000.0), ConvDir=(0.0, 0.0, 1.0), ConvLen=H, ConvRate=1.0 / 30.0, ConvRand=1.0)
+    g = k.group('Conveyor', far=True, rough=0.5, **conv)
+
+    def craft(m):
+        pz(m, WHITE, 0, 0, 0, 3300, 240, steps=10)
+        m.cyl(RED, (0, 0, 3300), 240, 800, steps=10, top_r=12)
+        pz(m, SYN, 0, 0, 1500, 1720, 246, steps=10)
+        pz(m, RED, 0, 0, 2400, 2520, 246, steps=10)
+        for a_deg in (0, 90, 180, 270):
+            a = math.radians(a_deg)
+            m.box(RED, (math.cos(a) * 330, math.sin(a) * 330, 330), (360, 40, 660), rot=(0, a_deg, 0))
+        for j in range(10):                                              # the smoke under it: rounder and paler the further down
+            rr = 150.0 + j * 42.0
+            m.sphere((CREAM, '#ead8c8', '#dcc4b8')[j % 3], (0, 0, -1500.0 - j * 1450.0), rr, scale=(1, 1, 1.5), steps=(4, 6))
+
+    g.piece(craft, a=0.0)
+    fl = k.group('Conveyor', far=True, rough=0.9, **conv)
+    fl.piece(lambda m: m.cyl('#ffd23f', (0, 0, -1300), 40, 1300, steps=8, top_r=210, glow=3.0), a=0.0)
+    fl.piece(lambda m: m.cyl('#ff8a2a', (0, 0, -900), 110, 900, steps=8, top_r=250, glow=2.2), a=0.0)
+    return dict(grow=(600.0, 600.0, H + 4500.0), grow_down=(600.0, 600.0, 0.0))
+
+
+def fountain(k):
+    """A casino's fountain: a round basin 18 m across with a rim of light, a centre jet 15 m tall that plays for six
+    seconds in every ten and a ring of six lesser jets that play in turn round it (each jet is a column of round drops
+    sent up and spreading a little; every fountain keeps its own time). Stands 72 m and more from the road in the
+    casinos' forecourts."""
+    s = k.group()
+    pz(s, CREAM, 0, 0, 0, 90, 900, steps=14)
+    pz(s, POOLB, 0, 0, 90, 100, 840, steps=14)
+    pz(s, CREAM, 0, 0, 90, 260, 150, steps=8)
+    pz(s, GOLD, 0, 0, 260, 300, 190, steps=8)
+    s.box(MIDLAND, (0, 0, -150), (1900, 1900, 300))
+    rim = k.group('Light', rough=0.5, LightAxis=(1.0, 0.0, 0.0), LightLen=900.0, LightRate=0.3, LightDuty=0.5, LightSoft=0.3, LightMin=0.6, LightRand=1.0)
+    for i in range(12):
+        a = 2 * math.pi * i / 12
+        rim.box('#9ff0ff', (math.cos(a) * 905, math.sin(a) * 905, 60), (16, 380, 40), rot=(0, math.degrees(a), 0), glow=0.6)
+    jets = [((0.0, 0.0, 300.0), 1500.0, 46.0, 0.6, 0.0)]
+    for i in range(6):
+        a = 2 * math.pi * i / 6
+        jets.append(((math.cos(a) * 560, math.sin(a) * 560, 110.0), 800.0, 34.0, 0.34, i / 6.0))
+    top = 0.0
+    for base, rise, rr, duty, ph in jets:
+        p = k.group('Plume', rough=0.3, PlumeBase=base, PlumeRise=rise, PlumeDrift=40.0, PlumeSize0=0.8, PlumeSize1=1.9, PlumeRate=0.7,
+                    PlumeCycle=0.1, PlumeDuty=duty, PlumeSpread=40.0, PlumeEase=0.55)
+        for j in range(5):
+            p.piece(lambda m, rr=rr, j=j: m.sphere(WHITE if j % 2 else '#bfe9ff', (0, 0, 0), rr, steps=(3, 6), glow=0.25), a=j / 5.0,
+                    b=0.8 + 0.4 * ((j * 3) % 4) / 3.0, c=j * 0.37 + ph)
+        top = max(top, base[2] + rise + rr * 2.0)
+    return dict(grow=(200.0, 200.0, top), grow_down=(200.0, 200.0, 0.0))
+
+
+def blimp(k, R=32000.0, H=14500.0):
+    """An airship on its round over the city's approach: 70 m of cream hull with a teal band and a sign of running
+    bulbs along its flank, one circle 640 m across in three and a half minutes (9 m a second), 120 m over the road's
+    level (a Far rule stands z = 0 25 m under it). One mesh: the whole ship is one group turned about the circle's
+    middle. For the horizon only."""
+    spin = dict(SpinPivot=(0.0, 0.0, H), SpinAxis=(0.0, 0.0, 1.0), SpinRate=0.03, SpinRand=1.0)
+    g = k.group('Spin', far=True, rough=0.6, **spin)
+    g.sphere(CREAM, (R, 0, H), 1000, scale=(1.0, 3.5, 1.0), steps=(8, 12))
+    g.sphere(TEAL, (R, 0, H - 40), 1010, scale=(1.0, 3.3, 0.36), steps=(6, 12))
+    g.box(SYN, (R, 300, H - 1080), (360, 900, 260))                       # the car
+    g.box(GLASS, (R, 560, H - 1060), (366, 300, 120))
+    for a_deg in (0, 90, 180, 270):                                       # the fins
+        a = math.radians(a_deg)
+        g.box(RED, (R + math.cos(a) * 760, -2900, H + math.sin(a) * 760), (40 if a_deg % 180 else 700, 900, 700 if a_deg % 180 else 40))
+    sg = k.group(('Spin', 'Light'), far=True, rough=0.6, LightAxis=(0.0, 1.0, 0.0), LightLen=1400.0, LightRate=0.6, LightDuty=0.5, LightSoft=0.1,
+                 LightMin=0.3, LightRand=0.0, **spin)
+    for sx in (-1, 1):
+        for i in range(9):
+            sg.box(YEL, (R + sx * 1004, -1600 + i * 400, H + 60), (16, 230, 300), glow=1.0)
+    bc = k.group(('Spin', 'Light'), far=True, rough=0.6, LightRate=0.7, LightDuty=0.45, LightSoft=0.06, LightMin=0.12, LightRand=1.0, **spin)
+    bc.sphere(RED, (R, -3460, H), 70, steps=(4, 6), glow=1.4)
+    bc.sphere(RED, (R, 0, H - 1240), 60, steps=(4, 6), glow=1.4)
+    reach = R + 3800.0
+    return dict(grow=(0.0, reach, 0.0), grow_down=(2.0 * R + 1200.0, reach, 0.0))
+
+
+def sky_plane(k, banner=True, L=200000.0, H=15000.0, arc=0.0):
+    """A light aircraft crossing the sky: 2 km in fifty seconds and round again (one part sent along a line; it shrinks
+    to nothing at the line's two ends, a kilometre from the middle). With banner=True it tows a streamer 26 m long that
+    ripples (cream with a red and a teal band and a row of dark blocks where the words would be: no words). With an
+    arc it climbs away from the ground at one end, tops out in the middle and comes down again at the other: circuits
+    off the Syndicate's strip. Drawn half as big again as life. For the horizon only (a Far rule)."""
+    conv = dict(ConvStart=(-L / 2.0, 0.0, H), ConvDir=(1.0, 0.0, 0.0), ConvLen=L, ConvRate=40.0 * 100.0 / L, ConvArc=arc, ConvRand=1.0)
+    g = k.group('Conveyor', far=True, rough=0.5, **conv)
+
+    def craft(m):
+        m.box(CREAM, (0, 0, 0), (900, 150, 160))
+        m.box(RED, (130, 0, 70), (230, 1500, 26))
+        m.box(RED, (-400, 0, 120), (130, 30, 230))
+        m.box(RED, (-400, 0, 40), (140, 500, 18))
+        m.box(GLASS, (240, 0, 80), (210, 140, 76))
+        m.box(SYN, (460, 0, 0), (12, 280, 280))
+
+    g.piece(craft, a=0.0)
+    if banner:
+        f = k.group(('Conveyor', 'Flutter'), far=True, rough=0.8, FlutterPin=(-700.0, 0.0, 0.0), FlutterAxis=(-1.0, 0.0, 0.0), FlutterDir=(0.0, 1.0, 0.0),
+                    FlutterSpan=2600.0, FlutterLen=2200.0, FlutterRate=5.0, FlutterAmp=70.0, **conv)
+
+        def flag(m):
+            m.box(SYN, (-575, 0, 0), (250, 8, 8))
+            m.box(CREAM, (-2000, 0, 0), (2600, 12, 420))
+            m.box(RED, (-2000, 0, 165), (2600, 16, 90))
+            m.box(TEAL, (-2000, 0, -165), (2600, 16, 90))
+            for i in range(7):
+                m.box(SYN, (-1000 - i * 330, 0, 0), (210, 18, 170))
+
+        f.piece(flag, a=0.0)
+    return dict(grow=(L / 2.0 + 3600.0, 400.0, H + arc + 800.0), grow_down=(L / 2.0 + 3600.0, 400.0, 0.0))
+
+
+def roof_coaster(k, L=13000.0, A=2600.0, Z=2300.0):
+    """A casino with a coaster on its roof: a purple block 146 m long with lit floors and a gold crown, and over it a
+    red camelback hill 26 m high with a five-car train running over it at 16 m a second from one station to the other
+    (the cars are parts sent along the track; they follow the hill and vanish into the stations at its ends). The
+    table stands them on the Strip, 72 m and more from the road."""
+    s = k.group()
+    s.box(PURP, (0, 600, Z / 2.0), (L + 1600, 2600, Z))
+    for i in range(4):
+        s.box(WARM, (0, -704, 500 + i * 450), ((L + 1600) * 0.86, 8, 150), glow=0.5)
+    s.box(GOLD, (0, -706, Z - 110), (L + 1640, 10, 160), glow=1.0)
+    s.box(MIDLAND, (0, 600, -300), (L + 1600, 2600, 600))
+    n = 16
+    zt = lambda f: Z + 300.0 + A * math.sin(math.pi * f)                  # the track's height at f along it
+    for i in range(n):
+        f0, f1 = i / float(n), (i + 1) / float(n)
+        x0, x1 = -L / 2.0 + L * f0, -L / 2.0 + L * f1
+        for sy in (-1, 1):
+            tilt_box(s, RED, (x0, 600 + sy * 80, zt(f0)), (x1, 600 + sy * 80, zt(f1)), 26, 40)
+        if i % 2 == 1:
+            s.box(CREAM, (x0, 600, (Z + zt(f0)) / 2.0), (50, 50, zt(f0) - Z))
+    for sx in (-1, 1):
+        s.box(TEAL, (sx * (L / 2.0 - 250.0), 600, Z + 300), (1000, 520, 600))
+        s.box(CREAM, (sx * (L / 2.0 - 250.0), 600, Z + 620), (1100, 620, 40))
+    g = k.group('Conveyor', ConvStart=(-L / 2.0, 600.0, Z + 340.0), ConvDir=(1.0, 0.0, 0.0), ConvLen=L, ConvArc=A, ConvRate=16.0 * 100.0 / L, ConvRand=1.0)
+
+    def car(m):
+        m.box(YEL, (0, 0, 60), (380, 210, 120))
+        m.box(SYN, (-60, 0, 150), (140, 180, 60))
+        m.box(RED, (150, 0, 110), (60, 214, 60))
+
+    for i in range(5):
+        g.piece(car, a=(0.5 - i * 430.0 / L) % 1.0)
+    return dict(grow=(0.0, 0.0, 200.0), grow_down=(0.0, 0.0, 0.0))
+
+
+def tri_board(k, W=2600.0, H=1100.0, Z0=950.0, n=12):
+    """A hoarding of turning slats: twelve three-sided prisms, a red, a cream and a teal face each, turning together
+    about their own axes, so the whole board changes colour every four seconds (no words, no picture). Each slat is a
+    part set at its place along the board (a Conveyor that does not travel) and turned (Spin about its own middle).
+    Not lit. It reads the same from both sides. The table stands them 72 m and more from the road."""
+    s = k.group()
+    for sx in (-1, 1):
+        s.box(SYN, (sx * W * 0.36, 0, (Z0 + H) / 2.0), (70, 70, Z0 + H))
+        s.box(MIDLAND, (sx * W * 0.36, 0, -150), (300, 300, 300))
+    for z in (Z0 - 45, Z0 + H + 45):
+        s.box(CREAM, (0, 0, z), (W + 180, 260, 90))
+    for sx in (-1, 1):
+        s.box(CREAM, (sx * (W / 2.0 + 60), 0, Z0 + H / 2.0), (60, 260, H + 180))
+    span = W / 0.88
+    g = k.group(('Spin', 'Conveyor'), rough=0.5, SpinPivot=(0.0, 0.0, 0.0), SpinAxis=(0.0, 0.0, 1.0), SpinRate=0.5, SpinRand=0.0,
+                ConvStart=(-span / 2.0, 0.0, Z0), ConvDir=(1.0, 0.0, 0.0), ConvLen=span, ConvRate=0.0, ConvRand=0.0)
+    w = W / n * 0.97
+    rin = w / (2.0 * math.sqrt(3.0))
+
+    def slat(m):
+        for j, col in enumerate((RED, CREAM, TEAL)):
+            a = math.radians(90.0 + 120.0 * j)
+            cx, cy = math.cos(a) * rin, math.sin(a) * rin
+            tx, ty = -math.sin(a), math.cos(a)
+            tilt_box(m, col, (cx - tx * w / 2.0, cy - ty * w / 2.0, H / 2.0), (cx + tx * w / 2.0, cy + ty * w / 2.0, H / 2.0), 6, H)
+
+    for i in range(n):
+        g.piece(slat, a=0.06 + 0.88 * (i + 0.5) / n)
+    return dict(grow=(100.0, 100.0, Z0 + H), grow_down=(100.0, 100.0, 0.0))
+
+
+def reel_tower(k):
+    """THE REELS: a casino tower 62 m tall with three giant drums turning in a gold frame half way up its face, each
+    eleven metres across and at its own speed, bands of colour going round on them (no symbols, no words); a crown of
+    running bulbs, lit floors, a beacon. A landmark for the Strip: the table stands it 110 m and more from the road."""
+    s = k.group()
+    s.box(PURP, (0, 700, 3100), (3900, 2000, 6200))
+    s.box(SYN, (0, -290, 3000), (3500, 60, 1700))                         # the dark recess the drums turn in
+    for z in (2080, 3920):
+        s.box(GOLD, (0, -330, z), (3700, 120, 160), glow=0.8)
+    for sx in (-1, 1):
+        s.box(GOLD, (sx * 1790, -330, 3000), (140, 120, 2000), glow=0.8)
+    for i in range(3):
+        s.box(WARM, (0, -304, 600 + i * 430), (3300, 8, 150), glow=0.5)
+        s.box(WARM, (0, -304, 4500 + i * 430), (3300, 8, 150), glow=0.5)
+    pz(s, CREAM, 0, 700, 6200, 6900, 60, steps=6)
+    s.box(MIDLAND, (0, 700, -400), (3900, 2000, 800))
+    cols = (RED, CREAM, TEAL, YEL, PURP, CREAM, RED, GOLD)
+    for i, (x, rate) in enumerate(((-1120.0, 0.9), (0.0, -0.7), (1120.0, 1.2))):
+        d = k.group('Spin', far=True, rough=0.5, SpinPivot=(x, -340.0, 3000.0), SpinAxis=(1.0, 0.0, 0.0), SpinRate=rate, SpinRand=0.0)
+        px(d, SYN, x - 470, x + 470, -340, 3000, 520, steps=8)
+        for j in range(8):
+            a0, a1 = 2 * math.pi * (j + 0.08) / 8, 2 * math.pi * (j + 0.92) / 8
+            R = 548.0
+            p0 = (x, -340 + math.cos(a0) * R, 3000 + math.sin(a0) * R)
+            p1 = (x, -340 + math.cos(a1) * R, 3000 + math.sin(a1) * R)
+            tilt_box(d, cols[(j + i * 3) % 8], p0, p1, 900, 24)
+    ch = k.group('Light', far=True, rough=0.6, LightAxis=(1.0, 0.0, 0.0), LightLen=780.0, LightRate=0.9, LightDuty=0.5, LightSoft=0.1, LightMin=0.3,
+                 LightRand=0.0)
+    for i in range(15):
+        ch.box(YEL, (-1750 + i * 250, -306, 6080), (150, 10, 150), glow=1.2)
+    bc = k.group('Light', far=True, rough=0.6, LightRate=0.7, LightDuty=0.45, LightSoft=0.06, LightMin=0.12, LightRand=1.0)
+    bc.sphere(RED, (0, 700, 6960), 70, steps=(4, 6), glow=1.4)
+    return dict(grow=(0.0, 300.0, 0.0), grow_down=(0.0, 300.0, 0.0))
+
+
+def geyser(k):
+    """A geyser on the flats: a cone of pale sinter with a blue pool in it that steams all the time, and every twenty
+    seconds, for six, lets go: a column of white water 28 m tall that leans down the wind and falls apart (round drops
+    sent up, swelling, thinning out). Each geyser keeps its own time. The table stands them 72 m and more from the road."""
+    r = random.Random(61)
+    s = k.group()
+    s.plan('#e8dcc8', ring(r, 0, 0, 950, 720, 10, 0.2), 0, 40)
+    pz(s, CREAM, 0, 0, 40, 150, 320, steps=10, top_r=170)
+    pz(s, POOLB, 0, 0, 150, 156, 140, steps=8)
+    s.box(MIDLAND, (0, 0, -60), (2000, 1600, 120))
+    idle = k.group('Plume', rough=0.95, PlumeBase=(0.0, 0.0, 160.0), PlumeRise=520.0, PlumeDrift=260.0, PlumeSize0=0.5, PlumeSize1=2.0, PlumeRate=0.3,
+                   PlumeSpread=60.0, PlumeEase=0.7)
+    for i in range(4):
+        idle.piece(lambda m: m.sphere(CREAM, (0, 0, 0), 70, steps=(4, 6)), a=i / 4.0, b=0.9 + 0.2 * (i % 2), c=i * 0.37)
+    rise, drift, rr, size1 = 2700.0, 520.0, 110.0, 2.6
+    jet = k.group('Plume', rough=0.4, PlumeBase=(0.0, 0.0, 160.0), PlumeRise=rise, PlumeDrift=drift, PlumeSize0=0.6, PlumeSize1=size1, PlumeRate=0.5,
+                  PlumeCycle=0.05, PlumeDuty=0.3, PlumeSpread=90.0, PlumeEase=0.6)
+    for i in range(10):
+        jet.piece(lambda m, c=(WHITE, '#e8f6ff')[i % 2]: m.sphere(c, (0, 0, 0), rr, steps=(4, 6)), a=i / 10.0, b=0.8 + 0.4 * ((i * 7) % 5) / 4.0, c=i * 0.37)
+    reach = drift * 1.15 + rr * size1 + 80.0
+    return dict(grow=(reach, reach, rise + rr * size1 + 200.0), grow_down=(reach, reach, 0.0))
+
+
+def record_car(k, L=80000.0):
+    """THE RECORD RUN: a red dart of a car 15 m long streaking down a black line laid on the salt, 90 m a second, a
+    burner alight in its tail and a wake of pale salt dust 80 m long behind it, round again every nine seconds (one
+    part sent along the line; it shrinks to nothing at the two ends, 400 m away). Three timing huts beside the line.
+    It runs the driver's way on the right of the road and against him on the left. For the open salt, 150 m and more
+    from the road, on the straight."""
+    s = k.group()
+    s.box(SYN, (0, 0, 5), (L, 60, 10))
+    for sx in (-1, 0, 1):
+        s.box(CREAM, (sx * L * 0.3, 900, 150), (520, 320, 300))
+        s.box(TEAL, (sx * L * 0.3, 900, 315), (580, 380, 30))
+        pz(s, STEEL, sx * L * 0.3 + 330, 900, 0, 900, 12, steps=6)
+        s.box(RED, (sx * L * 0.3 + 420, 900, 840), (180, 6, 110))
+    s.box(MIDLAND, (0, 0, -40), (L, 60, 80))
+    g = k.group('Conveyor', far=True, rough=0.4, ConvStart=(-L / 2.0, 0.0, 12.0), ConvDir=(1.0, 0.0, 0.0), ConvLen=L, ConvRate=90.0 * 100.0 / L, ConvRand=1.0)
+
+    def car(m):
+        m.box(RED, (0, 0, 110), (1500, 240, 150))
+        m.side(RED, [(750, 40), (750, 185), (1380, 90)], -110, 110)
+        m.box(CREAM, (-250, 0, 190), (520, 250, 30))
+        m.box(RED, (-640, 0, 310), (300, 30, 300))
+        m.box(BLACK, (420, 0, 40), (260, 300, 80))
+        m.box(BLACK, (-500, 0, 40), (260, 320, 80))
+        m.box('#ffd23f', (-790, 0, 120), (80, 120, 100), glow=2.4)
+        for j in range(9):
+            m.sphere(('#f2e6d8', '#e6d4c0', '#f7efe4')[j % 3], (-1300.0 - j * 880.0, 0, 130.0 + j * 40.0), 200.0 + j * 70.0, scale=(1.6, 1, 0.8), steps=(4, 6))
+
+    g.piece(car, a=0.0)
+    return dict(grow=(0.0, 0.0, 700.0), grow_down=(0.0, 0.0, 0.0))
+
+
+# ---- pieces the kit already had, given a lit BACK. Where this road comes round behind the casino approach (the salt
+# flats' first 600 m, 10.7 to 11.3 km) the flat fronts and the grand casinos showed their backs: plain dark walls 40 to
+# 55 m tall, 250 to 600 m off (round 3 found that out: they had been taken for the far town). The backs get the fronts'
+# own lights in the fronts' own colours and glows, so life() moves them as it moves the fronts and no new material is made.
+_casino_front = casino_facade
+
+
+def casino_facade(m, kind=0):
+    _casino_front(m, kind)
+    if kind == 0:
+        for f in range(0, 7, 2):
+            m.box(WARM if f % 3 else '#9ff0ff', (0, 304, 1300 + f * 420), (2500, 8, 150), glow=0.6)
+        for s in (-1, 1):
+            m.box(MAG, (s * 1440, 306, 2600), (70, 12, 3300), glow=1.2)
+        m.box(GOLD, (0, 306, 5440), (1000, 12, 60), glow=1.0)
+        m.box(GOLD, (0, 306, 880), (7000, 12, 40), glow=1.0)
+        for x in (-2500, 0, 2500):
+            m.box(WARM, (x, 304, 480), (1500, 8, 130), glow=0.6)
+    else:
+        for (cx, rr) in ((-2500, 900), (0, 1400), (2500, 900)):
+            m.box(GOLD, (cx, 306, 1200 + rr * 0.62), (rr * 2.0, 12, 50), glow=1.0)
+            m.box(WARM, (cx, 304, 1200 + rr * 0.3), (rr * 1.5, 8, 150), glow=0.6)
+        for k in range(8):
+            m.box(WARM, (-3150 + k * 900, 304, 500), (420, 8, 300), glow=0.6)
+        m.box(CYAN, (0, 310, 1130), (7600, 8, 30), glow=1.0)
+
+
+_casino_grand_front = casino_grand
+
+
+def casino_grand(m, DEEP='#3a2a6a', MIDP='#4a3a8a', fins=(MAG, CYAN, GOLD, CYAN, MAG), pyramid=False):
+    _casino_grand_front(m, DEEP, MIDP, fins, pyramid)
+    for k in range(5):
+        m.box(fins[k], (-560 + k * 280, 1056, 1950), (56, 16, 2000), glow=1.2)
+    for f in range(3):
+        for k in range(12):
+            if (k + f) % 5 != 4:
+                m.box(WARM if (k + f) % 3 else '#9ff0ff', (-1540 + k * 280, 1204, 300 + f * 200), (170, 8, 100), glow=0.6)
+    m.box(GOLD, (0, 1206, 880), (3600, 8, 40), glow=1.0)
+
+
+# ---- the truck stop gets what the wind moves: a string of pennants along the forecourt's front and a windsock at its
+# end (not lit; life4() flutters them). Their three colours and the sock's are used for nothing else on the piece.
+PEN = ('#ff5a3c', '#ffd84a', '#3cc8ff')
+SOCK = '#ff7a2a'
+_truck_stop_still = truck_stop
+
+
+def truck_stop(m):
+    _truck_stop_still(m)
+    z = 780.0
+    for x in (-1680, 1680):
+        m.box(WIRE, (x, -740, (z + 30) / 2.0 if x < 0 else 520), (12, 12, z + 30 if x < 0 else 1040))
+    m.box(WIRE, (0, -740, z + 4), (3360, 6, 6))
+    for i in range(14):
+        x = -1495 + i * 230
+        m.side(PEN[i % 3], [(x - 80, z), (x + 80, z), (x, z - 190)], -742, -738)
+    m.side(SOCK, [(1690, 1030), (1690, 930), (1990, 955), (1990, 1005)], -755, -725)
+
+
+MOVING4 = [('SM_FrontageRoad', frontage_road), ('SM_Trestle', trestle), ('SM_Rocket', rocket), ('SM_Fountain', fountain), ('SM_Blimp', blimp),
+           ('SM_BannerPlane', sky_plane), ('SM_StripPlane', lambda k: sky_plane(k, banner=False, L=160000.0, H=3500.0, arc=13000.0)),
+           ('SM_RoofCoaster', roof_coaster), ('SM_TriBoard', tri_board), ('SM_ReelTower', reel_tower), ('SM_Geyser', geyser),
+           ('SM_RecordCar', record_car)]
+MOVING += MOVING4
+
+
+def life4(A, D):
+    """The fourth pass's movement on pieces the kit already had (see life)."""
+    n = 0
+    # the truck stop's pennants and its windsock (not lit, 33 m out): what the wind moves beside the road
+    n += A(D + 'SM_TruckStop', 'Flutter', list(PEN), FlutterPin=(0.0, 0.0, 780.0), FlutterAxis=(0.0, 0.0, -1.0), FlutterDir=(0.0, 1.0, 0.0),
+           FlutterSpan=190.0, FlutterLen=150.0, FlutterRate=8.0, FlutterAmp=26.0, FlutterPhase=(0.004, 0.0, 0.0))
+    n += A(D + 'SM_TruckStop', 'Flutter', [SOCK], FlutterPin=(1690.0, 0.0, 980.0), FlutterAxis=(1.0, 0.0, 0.0), FlutterDir=(0.0, 1.0, 0.0),
+           FlutterSpan=300.0, FlutterLen=260.0, FlutterRate=7.0, FlutterAmp=34.0)
+    return n
+
+
+def after_export(only=None):
+    """Everything this kit needs after ft_dress.run has exported its JOBS (ft_dress.run calls it, if a kit has one):
+    the pieces built with ft_life.Kit (MOVING, by moving()) and every movement (life(): an export puts the still
+    materials back). `only`, the names just exported, is not used to do less: all of it is safe to run again and
+    takes a few seconds."""
+    return life(build=True)
 JOBS = [
     ('SM_CutStrata', cut_strata), ('SM_CutStrata2', lambda m: cut_strata(m, seed=5, growth=True)), ('SM_CutLedge', cut_ledge),
     ('SM_WireFence', buried(wire_fence)), ('SM_WireLine', buried(wire_line)), ('SM_Sagebrush', buried(sagebrush)),
@@ -1682,7 +2196,7 @@ JOBS = [
     # flat fronts, and the far tableland (a card: its footing is a thin slab, far wider than the card, that keeps it
     # clear of every stretch of road)
     ('SM_RanchRow', flat(ranch_row, 80.0)), ('SM_KerbStop', flat(kerb_stop, 80.0)),
-    ('SM_RockCut', buried(rock_cut)), ('SM_RockCliff', _buried(rock_cliff, MIDLAND, 0.15)),
+    ('SM_RockCut', buried(rock_cut)), ('SM_RockCut2', buried(lambda m: rock_cut(m, seed=1))), ('SM_RockCut3', buried(lambda m: rock_cut(m, seed=2))), ('SM_RockCliff', _buried(rock_cliff, MIDLAND, 0.15)),
     ('SM_RockMonument', _buried(rock_monument, SANDST_D, 0.15, 600.0)), ('SM_VentShaft', buried(vent_shaft)),
     ('SM_NeonSign', buried(neon_sign)), ('SM_TruckStop', buried(truck_stop)), ('SM_WheelSign', _buried(wheel_sign, MIDLAND, 0.15, 600.0)),
     ('SM_Facade1', _buried(lambda m: casino_facade(m, 0), MIDLAND, 0.2)), ('SM_Facade2', _buried(lambda m: casino_facade(m, 1), MIDLAND, 0.2)),

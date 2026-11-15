@@ -1108,8 +1108,10 @@ def snow_gust(path):
         p = k.group('Plume', rough=0.95, PlumeBase=(x, y, 60.0), PlumeRise=160.0, PlumeDrift=2000.0, PlumeSize0=1.5, PlumeSize1=0.35,
                     PlumeRate=0.2 + 0.03 * j, PlumeCycle=0.07, PlumeDuty=0.5, PlumeSpread=120.0, PlumeEase=0.7)
         for i in range(8):
-            p.piece(lambda m: m.sphere(SNOW, (0, 0, 0), 110, scale=(1.0, 1.0, 0.6), steps=(4, 6)), a=i / 8.0, b=0.85 + 0.3 * ((i * 5) % 4) / 3.0,
-                    c=i * 0.61 + j * 0.2)
+            def puff(m):                                                           # round three: a blue-shaded underside, so it reads on white snow
+                m.sphere(SNOW, (0, 0, 16), 110, scale=(1.0, 1.0, 0.55), steps=(4, 6))
+                m.sphere(SNOW_SH, (0, 0, -34), 124, scale=(1.06, 1.06, 0.3), steps=(4, 6))
+            p.piece(puff, a=i / 8.0, b=0.85 + 0.3 * ((i * 5) % 4) / 3.0, c=i * 0.61 + j * 0.2)
     k.save(path, grow=(2000.0, 2000.0, 200.0), grow_down=(2000.0, 2000.0, 0.0))
 
 
@@ -1122,7 +1124,7 @@ SIERRA = ((-0.50, 0.20), (-0.45, 0.55), (-0.41, 0.40), (-0.36, 0.80), (-0.32, 0.
           (0.33, 0.66), (0.38, 0.36), (0.43, 0.52), (0.50, 0.18))
 
 
-def far_range_card(path, outline=MASSIF, L=120000.0, H=38000.0, tones=RANGE_FAR, depth=6000.0, snowline=0.5, seed=71, plumes=2):
+def far_range_card(path, outline=MASSIF, L=120000.0, H=38000.0, tones=RANGE_FAR, depth=6000.0, snowline=0.5, seed=71, plumes=2, avalanche=0):
     """A whole range as one flat card, for the horizon: the outline cut out of a slab (rock), the snow laid on it from
     the crest down to a ragged snowline, the shaded side of every summit in blue. Two tones of distance: the middle
     range (SM_RangeMid, the sierra: sharp teeth) and the far one (SM_RangeFar, the massif: a hooked horn, a glacier
@@ -1138,7 +1140,7 @@ def far_range_card(path, outline=MASSIF, L=120000.0, H=38000.0, tones=RANGE_FAR,
     s.side(rock, _ccw([(crest[0][0], base)] + crest + [(crest[-1][0], base)]), 0.0, depth)
     low = [(x + r.uniform(-0.2, 0.2) * L * 0.02, z * (snowline + r.uniform(-0.14, 0.1)) - (0.0 if 0 < i < len(crest) - 1 else 200.0))
            for i, (x, z) in enumerate(crest)]
-    s.side(snow, _ccw(crest + list(reversed(low))), -80.0, 0.0)
+    s.side(snow, _ccw(crest + list(reversed(low))), -80.0, 0.0, glow=0.03)     # round three: lit a little, so the snow is white in shade too
     tops = sorted(range(1, len(crest) - 1), key=lambda i: -crest[i][1])
     peaks = [i for i in tops if crest[i][1] > crest[i - 1][1] and crest[i][1] > crest[i + 1][1]]
     for i in peaks[:7]:
@@ -1146,16 +1148,185 @@ def far_range_card(path, outline=MASSIF, L=120000.0, H=38000.0, tones=RANGE_FAR,
         s.side(shade, _ccw([(x, z), (xb, zb), (xb + (xb - x) * 0.2, zb * 0.62), (x + (xb - x) * 0.3, z * 0.55)]), -130.0, -80.0)
     for n, i in enumerate(peaks[:plumes]):
         (x, z) = crest[i]
-        _banner(k, (x, -60.0, z - H * 0.03), H * 0.045, H * 0.5, rate=0.05 + 0.012 * n)
+        _banner(k, (x, -60.0, z - H * 0.03), H * 0.07, H * 0.8, rate=0.05 + 0.012 * n)     # round three: half as big again, and longer
+    for n in range(avalanche):
+        # round three: an AVALANCHE on a clock. A cloud of snow dust leaves a high face, falls two thirds of the range's
+        # height growing as it goes and thins away at the foot: nine seconds of fall, for eight seconds in every
+        # eighty, each range on its own clock.
+        (x, z) = crest[peaks[min(2 + n, len(peaks) - 1)]]
+        p = k.group('Plume', rough=0.95, PlumeBase=(x + L * 0.012, -280.0, z * 0.86), PlumeRise=-z * 0.62, PlumeDrift=H * 0.12, PlumeSize0=0.5,
+                    PlumeSize1=3.2, PlumeRate=0.11, PlumeCycle=0.0125, PlumeDuty=0.1, PlumeSpread=H * 0.03, PlumeEase=1.5)
+        for j in range(9):
+            p.piece(lambda m: m.sphere(SNOW, (0, 0, 0), H * 0.03, scale=(1.0, 0.7, 0.8), steps=(4, 6)), a=j / 9.0, b=0.8 + 0.4 * ((j * 5) % 4) / 3.0,
+                    c=j * 0.61)
     k.save(path, grow=(0.0, 0.0, H * 0.06))      # upward only: the box is what the road test uses, and a card is 1 km long already
+
+
+# ---- round three (15 Nov 2026): the built world in motion. A rack railway climbing the slope, groomers at work on
+# the pistes, a snow-plough convoy on a far road, cabins travelling the far lift line, cloud drifting past the summits,
+# an avalanche coming down a far face on a clock. Machines, vehicles, the elements and light only: a second machine
+# makes the people (no figures here). All of it moves in the material (ft_life.Kit), nothing ticks, and none of these
+# pieces casts a shadow (they stand beyond 70 m, or are placed by Far rules).
+def rack_train(path):
+    """A rack railway climbing the slope: 170 m of track running away from the road and up (12 in 100, the snow
+    slope's own rise), a red three-car train climbing on one track and another coming down on the other, 6 m a second,
+    each instance on its own clock; a halt at the foot and one at the top, which the trains come out of and go into.
+    The middle distance: the table stands its foot 96 m out and more. Its foot is the origin; it runs along +y."""
+    import ft_life
+    k = ft_life.Kit()
+    L = 17000.0
+    rise = L * 0.12
+    n = math.hypot(L, rise)
+    s = k.group(rough=0.9)
+    tilt_box(s, SNOW_SH, (0, -200, -70), (0, L, rise - 70), 900, 90)             # the embankment
+    tilt_box(s, ROCK_D, (0, -200, -16), (0, L, rise - 16), 560, 30)              # ballast and sleepers, one dark strip
+    for y, z in ((-420.0, 0.0), (L + 220.0, rise)):                              # the halts
+        s.box(WOOD_D, (0, y, z + 220), (980, 620, 440))
+        s.box(SNOW, (0, y, z + 480), (1100, 760, 90))
+        s.box(PANE, (0, y - 312, z + 250), (700, 8, 160))
+        s.box(WOOD_D, (0, y, z - 400), (900, 560, 820))
+    for lane, dr in ((150.0, 1.0), (-150.0, -1.0)):
+        up = dr > 0
+        g = k.group('Conveyor', rough=0.6, ConvStart=(lane, 0.0 if up else L, 46.0 if up else rise + 46.0), ConvDir=(0.0, dr * L / n, dr * rise / n),
+                    ConvLen=n, ConvRate=0.035, ConvRand=1.0)
+        for i in range(3):
+            def car(m):
+                m.box(STEEL_D, (0, 0, 30), (230, 760, 60))
+                m.box(RED, (0, 0, 190), (262, 820, 250))
+                m.box(ICE, (0, 0, 250), (268, 700, 84))                          # the window band
+                m.box(SNOW, (0, 0, 328), (272, 840, 32))                         # snow on the roof
+            g.piece(car, a=((0.55 if up else 0.05) - i * 880.0 / n) % 1.0)
+    k.save(path)
+
+
+def lift_line_live(path, seed=14, length=36000, h=7000):
+    """The ridge with a lift line along its crest (the far lift line), its cabins TRAVELLING now: six go up one
+    cable in red and six come down the other in blue, 6 m a second, every ridge in step. The ridge, its six pylons,
+    the cables and the top station are as the still piece drew them (the same random numbers in the same order); the
+    red lamps on the pylons still blink."""
+    import ft_life
+    k = ft_life.Kit()
+    s = k.group(rough=0.8)
+    lamps = k.group('Light', rough=0.5, LightRate=0.7, LightDuty=0.45, LightSoft=0.06, LightMin=0.12, LightRand=1.0)
+    r = random.Random(seed)
+    for j in range(6):
+        x = -length / 2.0 + (j + 0.5) * length / 6.0
+        _mount(s, r, x, r.uniform(-800, 800), length / 6.0 * 0.8, h * (0.62 + 0.07 * j), ROCK, 0.4, 5 + j % 2)
+    tops = []
+    for j in range(6):
+        x = -length * 0.42 + j * length * 0.168
+        z = h * (0.6 + 0.07 * j) + 200
+        s.cyl(STEEL_D, (x, -600, z - 700), 110, 2700, steps=6, top_r=70)
+        s.box(STEEL_D, (x, -600, z + 2000), (140, 1300, 140))
+        lamps.sphere(RED, (x, -600, z + 2150), 110, steps=(4, 6), glow=1.6)
+        tops.append((x, z + 1950))
+    for j in range(5):
+        (x0, z0), (x1, z1) = tops[j], tops[j + 1]
+        for sd in (-1, 1):
+            tilt_box(s, NET, (x0, -600 + sd * 560, z0), (x1, -600 + sd * 560, z1), 36, 36)
+    s.box(WOOD, (tops[-1][0] + 1500, -400, tops[-1][1] - 1500), (2400, 1800, 1500))
+    s.box(SNOW, (tops[-1][0] + 1500, -400, tops[-1][1] - 700), (2700, 2100, 220))
+    s.box(LIT, (tops[-1][0] + 1500, -1310, tops[-1][1] - 1500), (1500, 30, 500), glow=1.4)
+    (xa, za), (xb, zb) = tops[0], tops[-1]                                       # the six pylon heads lie on one straight line
+    n = math.hypot(xb - xa, zb - za)
+    for sd, dr, col in ((-1, 1.0, RED), (1, -1.0, BLUE)):
+        g = k.group('Conveyor', rough=0.6, ConvStart=(xa if dr > 0 else xb, -600.0 + sd * 560.0, za if dr > 0 else zb),
+                    ConvDir=(dr * (xb - xa) / n, 0.0, dr * (zb - za) / n), ConvLen=n, ConvRate=0.02, ConvRand=0.0)
+        for i in range(6):
+            def cabin(m, c=col):
+                m.box(NET, (0, 0, -150), (30, 30, 300))
+                m.box(c, (0, 0, -440), (320, 240, 300))
+                m.box(ICE, (0, 0, -410), (326, 246, 110))
+            g.piece(cabin, a=(i + (0.0 if dr > 0 else 0.5)) / 6.0)
+    k.save(path)
+
+
+def groomer_run(path):
+    """Groomers at work on the piste: a groomed strip 120 m up the slope (a shade bluer than the snow) and two piste
+    groomers on it, one climbing and one coming down, 4 m a second, blade ahead and tiller behind, each with its amber
+    beacon; every instance on its own clock. The middle distance: its foot stands 84 m out and more. It runs along +y."""
+    import ft_life
+    k = ft_life.Kit()
+    L = 12000.0
+    rise = L * 0.12
+    n = math.hypot(L, rise)
+    s = k.group(rough=0.95)
+    tilt_box(s, SNOW_SH, (0, -300, -34), (0, L + 300, rise - 34), 1500, 40)
+    for lane, dr in ((340.0, 1.0), (-340.0, -1.0)):
+        up = dr > 0
+        conv = dict(ConvStart=(lane, 0.0 if up else L, 14.0 if up else rise + 14.0), ConvDir=(0.0, dr * L / n, dr * rise / n), ConvLen=n,
+                    ConvRate=0.033, ConvRand=1.0)
+        g = k.group('Conveyor', rough=0.7, **conv)
+        lamp = k.group(('Conveyor', 'Light'), rough=0.5, LightRate=0.7, LightDuty=0.45, LightSoft=0.06, LightMin=0.12, LightRand=1.0, **conv)
+
+        def cat(m, dr=dr):
+            for sx in (-1, 1):
+                m.box(BLACK, (sx * 170, 0, 66), (100, 620, 132))
+            m.box(ORANGE, (0, -dr * 20, 180), (280, 500, 120))
+            m.box(ORANGE, (0, dr * 70, 320), (260, 260, 190))
+            m.box(PANE, (0, dr * 202, 332), (220, 6, 120))
+            m.box(STEEL, (0, dr * 360, 90), (470, 34, 170))                      # the blade
+            m.box(STEEL_D, (0, -dr * 370, 76), (450, 70, 70))                    # the tiller
+            m.sphere(SNOW, (0, dr * 450, 60), 160, scale=(1.4, 0.5, 0.45), steps=(4, 6))   # the snow it pushes
+        g.piece(cat, a=0.3 if up else 0.8)
+        lamp.piece(lambda m, dr=dr: m.box(ORANGE, (0, dr * 70, 432), (60, 60, 40), glow=1.6), a=0.3 if up else 0.8)
+    k.save(path)
+
+
+def plough_convoy(path):
+    """A far road with a snow-plough convoy on it: 420 m of cleared road on an embankment along the foot of the near
+    ridge, and five ploughs nose to tail on it, orange and yellow, lamps on, 10 m a second, each instance on its own
+    clock. Far (330 m out and more, 30 m up): they read as a line of coloured blocks crawling across the white. The
+    road runs along x; its front (-y) faces the game's road."""
+    import ft_life
+    k = ft_life.Kit()
+    half = 21000.0
+    s = k.group(rough=0.9)
+    s.box(SNOW_SH, (0, 0, -1100), (2.0 * half, 1700, 2200))
+    s.box(ASPH, (0, 0, 20), (2.0 * half, 900, 50))
+    s.box(SNOW, (0, -570, 60), (2.0 * half, 240, 120))
+    s.box(SNOW, (0, 600, 110), (2.0 * half, 300, 230))
+    g = k.group('Conveyor', rough=0.7, ConvStart=(-half, 0.0, 44.0), ConvDir=(1.0, 0.0, 0.0), ConvLen=2.0 * half, ConvRate=0.024, ConvRand=1.0)
+    for i in range(5):
+        def plough(m, c=(ORANGE if i % 2 == 0 else YEL)):
+            m.box(BLACK, (0, 0, 80), (820, 320, 160))
+            m.box(c, (-90, 0, 290), (640, 310, 260))
+            m.box(c, (270, 0, 470), (260, 300, 220))
+            m.box(PANE, (402, 0, 490), (8, 250, 120))
+            m.box(STEEL, (500, 0, 140), (44, 460, 250))                          # the blade
+            m.box(LIT, (412, 0, 330), (6, 240, 56), glow=1.4)
+            m.box(c, (270, 0, 600), (70, 140, 44), glow=1.2)                     # the lamp bar, steady
+            m.sphere(SNOW, (560, -260, 130), 170, scale=(0.9, 1.7, 0.9), steps=(4, 6))     # the snow it throws aside
+        g.piece(plough, a=(0.62 - i * 1350.0 / (2.0 * half)) % 1.0)
+    k.save(path)
+
+
+def cloud_drift(path):
+    """A layer of cloud drifting past the summits (the horizon's own slow movement): five flat-bottomed clouds on one
+    line 1.5 km long, 12 m a second, each instance on its own clock. Far only (900 m out and more, 250 m up)."""
+    import ft_life
+    k = ft_life.Kit()
+    half = 75000.0
+    r = random.Random(77)
+    g = k.group('Conveyor', rough=1.0, ConvStart=(-half, 0.0, 0.0), ConvDir=(1.0, 0.0, 0.0), ConvLen=2.0 * half, ConvRate=0.008, ConvRand=1.0)
+    for i in range(5):
+        def cloud(m, sz=r.uniform(0.8, 1.3), dy=r.uniform(-9000, 9000), dz=r.uniform(-2500, 2500)):
+            for (x, rr, zz) in ((-2600, 2400, 0), (0, 3200, 400), (2800, 2200, -100)):
+                m.sphere(SNOW, (x * sz, dy, dz + zz * sz), rr * sz, scale=(1.5, 0.8, 0.5), steps=(4, 8))
+            m.sphere(SNOW_SH, (200 * sz, dy, dz - 700 * sz), 3600 * sz, scale=(1.9, 0.75, 0.22), steps=(4, 8))
+        g.piece(cloud, a=(i * 0.2 + r.uniform(-0.05, 0.05)) % 1.0)
+    k.save(path, grow=(half, 9000.0, 3000.0), grow_down=(half, 9000.0, 3000.0))
 
 
 LIFE = [
     ('SM_LiftSpan', lift_span_live), ('SM_CableCross', cable_cross),
     ('SM_RockIceWall', ice_wall_live), ('SM_RockIceWall2', lambda p: ice_wall_live(p, seed=24, length=3000, h=2300)),
     ('SM_RockIceShelf', ice_shelf_live), ('SM_SnowLance', snow_lance), ('SM_SnowGust', snow_gust),
-    ('SM_RangeFar', far_range_card),
-    ('SM_RangeMid', lambda p: far_range_card(p, outline=SIERRA, L=80000.0, H=18000.0, tones=RANGE_MID, depth=4000.0, snowline=0.42, seed=73)),
+    ('SM_RangeFar', lambda p: far_range_card(p, H=46000.0)),     # round three: a fifth taller (they stood faint in the game)
+    ('SM_RangeMid', lambda p: far_range_card(p, outline=SIERRA, L=80000.0, H=23000.0, tones=RANGE_MID, depth=4000.0, snowline=0.42, seed=73,
+                                             avalanche=1)),
+    ('SM_RidgeLiftLine', lift_line_live), ('SM_RackTrain', rack_train), ('SM_GroomerRun', groomer_run), ('SM_PloughConvoy', plough_convoy),
+    ('SM_CloudDrift', cloud_drift),     # round three
 ]
 
 
@@ -1204,8 +1375,9 @@ def animate():
     n += ft_life.animate(DIR + 'SM_PoleFeather', 'Flutter', [PINK, TEAL, YEL, WHITE], FlutterPin=(0.0, 26.0, 1300.0), FlutterAxis=(0.0, 1.0, 0.0),
                          FlutterDir=(1.0, 0.0, 0.0), FlutterSpan=230.0, FlutterLen=300.0, FlutterRate=5.0, FlutterAmp=16.0,
                          FlutterPhase=(0.00035, 0.0, 0.0))
-    for name in ('SM_PoleSignal', 'SM_Snowcat', 'SM_LiftTop', 'SM_WeatherStation', 'SM_Helipad', 'SM_RidgeLiftLine', 'SM_PeakObservatory',
-                 'SM_CablePylon'):
+    # (round three: SM_RidgeLiftLine is a moving prop and blinks by itself; the gondola's pylons, 30 m from the road,
+    # carry a steady lamp now: the ruling keeps a blinking light's face 30 m out and more, and they stood on the line)
+    for name in ('SM_PoleSignal', 'SM_Snowcat', 'SM_LiftTop', 'SM_WeatherStation', 'SM_Helipad', 'SM_PeakObservatory'):
         n += ft_life.animate(DIR + name, 'Light', [RED + '*'], **ft_life.BLINK)
     for name in ('SM_Lodge', 'SM_HutRescue', 'SM_LiftStation', 'SM_ShedGroomer', 'SM_CableTower'):
         n += ft_life.animate(DIR + name, 'Light', [LIT + '*'], **ft_life.PULSE)
@@ -1274,7 +1446,7 @@ JOBS = [
     ('SM_RockSeracB', seracs), ('SM_RockSeracH', lambda m: seracs(m, seed=25)), ('SM_RockCutting', rock_cut),
     ('SM_RockIceFalls', frozen_fall), ('SM_SnowRockCrevasse', crevasse_field), ('SM_SnowRockDrift', snow_drift),
     ('SM_PeakGreat', far_peak), ('SM_PeakLesser', lambda m: far_peak(m, seed=31, H=18000)), ('SM_RidgeRange', far_range),
-    ('SM_RidgeGlacier', glacier_tongue), ('SM_RidgeLiftLine', far_lift_line), ('SM_PeakObservatory', summit_observatory),
+    ('SM_RidgeGlacier', glacier_tongue), ('SM_PeakObservatory', summit_observatory),
 ]
 
 

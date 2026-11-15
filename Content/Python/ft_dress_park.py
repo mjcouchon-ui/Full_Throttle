@@ -103,13 +103,16 @@ def mover_hexes(shade=mv):
     return set(shade(c).lstrip('#').lower() for c in _MOVER_BASE)
 
 
-def life_props():
+def life_props(only=None):
     """The kit's props whose parts travel (ft_life.Kit: a Conveyor, Plume or Burst part is told apart by its UVs, which
     an exported piece does not have). Built here and saved in the Dress folder with M_Life already on them; the table
-    places them like any other piece. Returns their names."""
+    places them like any other piece. Returns their names.
+    only: None = every prop of KITS; a list = just those it names (after_export passes the export's own list)."""
     import ft_life
     done = []
     for name, fn in KITS:
+        if only is not None and name not in only:
+            continue
         try:        # one prop that fails must not stop the others, nor the lights animate() sets after them
             k = ft_life.Kit()
             kw = fn(k) or {}
@@ -122,13 +125,13 @@ def life_props():
     return done
 
 
-def animate():
+def animate(only=None):
     """Set the park going. Builds the travelling props (life_props), then puts M_Life on the mover slots of the pieces
     that turn, wave or flutter and on the lights that run (ft_life.py, the living-world pass). Run in the editor after
     ft_dress.run(['park']): an export puts the plain palette back. It changes material slots only and saves each
     mesh in place."""
     import ft_life
-    life_props()
+    life_props(only)
     A = ft_life.animate
     movers, movers2 = mover_hexes(), mover_hexes(mv2)
     n = 0
@@ -149,13 +152,13 @@ def animate():
     n += A(DIR + 'SM_HighStriker', 'Light', slots=lambda slot, col, glow: 0.8 < glow < 1.5, LightAxis=(0, 0, 1), LightLen=756.0, LightRate=0.9,
            LightDuty=0.5, LightMin=0.3, LightRand=1.0)
     n += A(DIR + 'SM_MarqueeTower', 'Light', slots=lambda slot, col, glow: glow >= 1.9 and col not in movers, LightAxis=(0, 0, 1), LightLen=660.0,
-           LightRate=0.7, LightDuty=0.5, LightMin=0.3, LightRand=1.0)
+           LightRate=0.35, LightDuty=0.5, LightSoft=0.3, LightMin=0.6, LightRand=1.0)      # 26 m out: a slow soft swell (the lead's ruling: steady light)
     for name, ln in (('SM_CoasterHill', 1600.0), ('SM_FarCoaster', 6500.0)):
         n += A(DIR + name, 'Light', slots=[MAG + '*'], far=(name == 'SM_FarCoaster'), LightAxis=(1, 0, 0), LightLen=ln, LightRate=0.45,
                LightDuty=0.6, LightSoft=0.15, LightMin=0.4, LightRand=1.0)
-    n += A(DIR + 'SM_Saucer', 'Light', slots=lambda slot, col, glow: glow >= 1.9, LightHash=0.4, LightCell=70.0, LightRate=3.0, LightMin=0.3, LightRand=1.0)
-    n += A(DIR + 'SM_Robot', 'Light', slots=lambda slot, col, glow: abs(glow - G3) < 0.011, LightHash=0.4, LightCell=80.0, LightRate=2.0, LightMin=0.25,
-           LightRand=1.0)
+    n += A(DIR + 'SM_Saucer', 'Light', slots=lambda slot, col, glow: glow >= 1.9, LightHash=0.4, LightCell=70.0, LightRate=1.5, LightMin=0.3, LightRand=1.0)
+    n += A(DIR + 'SM_Robot', 'Light', slots=lambda slot, col, glow: abs(glow - G3) < 0.011, LightHash=0.4, LightCell=80.0, LightRate=0.3, LightMin=0.6,
+           LightRand=1.0)          # the robot stands 24.7 m out: its chest lights change once in three seconds and never go under 60%
     # cloth: the pennants over the hoarding (small, unlit: they stand right behind the barrier), the galleon's flag
     n += A(DIR + 'SM_ParkFence', 'Flutter', slots=lambda slot, col, glow: col in movers, FlutterPin=(0.0, 0.0, 192.0), FlutterAxis=(0.0, 0.0, -1.0),
            FlutterDir=(0.0, 1.0, 0.0), FlutterSpan=46.0, FlutterLen=130.0, FlutterRate=6.0, FlutterAmp=7.0, FlutterPhase=(0.004, 0.0, 0.0))
@@ -178,6 +181,17 @@ def animate():
     except Exception as e:  # noqa
         unreal.log_warning('FTDRESS park: the pirate ship keeps its built bounds (%r)' % (e,))
     return n
+
+
+def after_export(only=None):
+    """Everything this kit needs after ft_dress.export() has saved its JOBS; ft_dress.run calls it with the export's
+    own list. The travelling props are built (life_props: they are KITS entries, not JOBS) and M_Life is put back on
+    every slot that moves or lights (animate: an export resets the slots of the pieces it saves).
+    only: None = the whole kit. A list = the pieces that were exported: of the travelling props only those the list
+    names are rebuilt (name a prop there to rebuild it: export() itself skips a name that is not in JOBS), while the
+    slot calls are all run every time: a mesh is saved again only where one of its slots really changes, so the
+    pieces that were not exported stay untouched on disk. Returns the number of slots changed."""
+    return animate(only)
 
 
 def _ccw(pts):
@@ -1626,6 +1640,11 @@ def flume(k, H=5200.0):
     log flume down its face: water running in the trough (a Light chase down it), log boats sliding down one after
     the other (Conveyor), spray standing over the pool at its foot (Plume), the ride's name in lights."""
     s = k.group()
+    # Round 2: the table stands Log Falls 26 m up (its z = 0 at the rails' level: in round 1 it stood on the valley's floor
+    # and the road's own crest hid its chute, pool and name). This is the rock it stands on, down to the valley: inside
+    # the piece's own footprint, so the track's clearance tests see the same box. Under the land wherever the table
+    # stands a copy on level ground (the finale).
+    s.box(ROCK_D, (-265, -215, -1550), (7500, 4600, 3100))
     s.sphere(ROCK, (-400, 300, 1900), 2100, scale=(1.3, 0.85, 1.05), steps=(6, 9))
     s.cyl(ROCK, (-600, 400, 2400), 1300, H - 2400, steps=7, top_r=240)
     s.sphere(ROCK_D, (1700, 500, 800), 1500, scale=(1.2, 0.9, 0.8), steps=(5, 8))
@@ -1679,7 +1698,7 @@ def swan_boats(k, run=5200.0):
     lagoon's water level with the lakes (their z = 0 is the water)."""
     g = k.group('Conveyor', ConvStart=(0.0, -run / 2.0, 0.0), ConvDir=(0.0, 1.0, 0.0), ConvLen=run, ConvRate=0.022, ConvRand=1.0)
     for i in range(4):
-        def swan(m, c=(MAG, CYAN, AMBER, MINT)[i], x=(i % 2) * 300.0 - 150.0):
+        def swan(m, c=(MAG, CYAN, AMBER, MINT)[i], x=(i % 2) * 300.0 + 1050.0):     # 10.5 and 13.5 m off the lake's middle: clear of its island, pedal boats and bridge (the review)
             m.sphere(WHITE, (x, 0, 40), 120, scale=(0.8, 1.3, 0.45), steps=(4, 7))
             rod(m, WHITE, (x, 90, 60), (x, 150, 210), 22, steps=5)
             m.sphere(WHITE, (x, 172, 226), 34, steps=(3, 5))
@@ -1688,7 +1707,7 @@ def swan_boats(k, run=5200.0):
             for sx in (-1, 1):
                 m.box(c, (x + sx * 68, -40, 92), (8, 8, 60))
         g.piece(swan, a=i / 4.0 + 0.03 * i)
-    return dict(grow=(320.0, run / 2.0 + 240.0, 280.0), grow_down=(320.0, run / 2.0 + 240.0, 0.0))
+    return dict(grow=(1500.0, run / 2.0 + 240.0, 280.0), grow_down=(320.0, run / 2.0 + 240.0, 0.0))
 
 
 KITS = [('SM_SkyRide', sky_ride), ('SM_WoodCoaster', wood_coaster), ('SM_Flume', flume), ('SM_SwanBoats', swan_boats)]

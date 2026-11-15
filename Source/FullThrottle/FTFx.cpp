@@ -5,6 +5,12 @@
 #include "NiagaraSystem.h"
 #include "NiagaraComponent.h"
 #include "NiagaraFunctionLibrary.h"
+#include "Components/StaticMeshComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
+#include "Components/SceneComponent.h"
+#include "Materials/MaterialInterface.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "Engine/Engine.h"
 #include "EngineUtils.h"
@@ -52,6 +58,15 @@ namespace
 		{ TEXT("NS_DriftPop1"), false }, { TEXT("NS_DriftPop2"), false }, { TEXT("NS_DriftPop3"), false },
 		{ TEXT("NS_BoostKick"), false }, { TEXT("NS_BoostRing"), false }, { TEXT("NS_TurboCore"), false },
 		{ TEXT("NS_LandDust"), false }, { TEXT("NS_LandSparks"), false }, { TEXT("NS_WreckFire"), true },
+		// round 3: what a damaged foe wears, and each foe's own gun
+		{ TEXT("NS_FoeSmoke"), false }, { TEXT("NS_FoeFire"), false }, { TEXT("NS_FoeHurt"), false },
+		{ TEXT("NS_EnemyMuzzleBike"), false }, { TEXT("NS_EnemyMuzzleGun"), false }, { TEXT("NS_EnemyTrailBike"), false }, { TEXT("NS_EnemyTrailGun"), false },
+		{ TEXT("NS_HitPlayerRing"), false }, { TEXT("NS_WreckScrape"), false },
+		// round 3: the car in the world, speed, and the impact card. (What the wheels throw up is the level's own and the
+		// car loads it at level setup: NS_WheelA<n>, NS_WheelB<n>, NS_LandKick<n>. A nitro colour's banded flame,
+		// NS_TurboFlameCel_<colour>, is loaded when the car first sees that colour.)
+		{ TEXT("NS_TurboFlameCel"), false }, { TEXT("NS_ExhaustFlame"), false }, { TEXT("NS_SpeedLines"), false },
+		{ TEXT("NS_ImpactCard"), false }, { TEXT("NS_ImpactInk"), false },
 	};
 
 	TMap<FName, UNiagaraSystem*>& Cache()
@@ -64,6 +79,16 @@ namespace
 	struct FCarried { TWeakObjectPtr<UNiagaraComponent> Comp; FVector Vel = FVector::ZeroVector; float Drag = 1.8f; float Until = 0.f; };
 	struct FPendingLayer { float When = 0.f; FString Name; FVector At = FVector::ZeroVector; FQuat Rot = FQuat::Identity; float Scale = 1.f; FVector Vel = FVector::ZeroVector; float Drag = 1.8f; float Hold = 0.7f; int32 Sort = 0; };
 	struct FTrailState { FVector Pen = FVector::ZeroVector; float Touch = 0.f; int32 Step = 0; };
+	struct FFoeLook { TWeakObjectPtr<UNiagaraComponent> Smoke, Fire; int32 Stage = 0; uint64 Frame = 0; };
+	// round 3: what stays on the road for the scene (MarksFor, below)
+	struct FMarks
+	{
+		TWeakObjectPtr<AActor> Host;
+		TWeakObjectPtr<UInstancedStaticMeshComponent> Tyre, Soot;
+		int32 TyreNext = 0, SootNext = 0;   // which one is laid next: past the cap, the oldest is taken up and laid again
+		int32 Level = 0;                    // the level's surface, for the tyre marks' colour
+		bool bTried = false;
+	};
 	struct FFxState
 	{
 		TWeakObjectPtr<UWorld> World;
@@ -73,6 +98,8 @@ namespace
 		TMap<int32, FTrailState> Trails;
 		TArray<float> BlastT;       // world seconds of the last blasts: a stack of them is thinned (Explosion)
 		TArray<float> SmokeUntil;   // when each laid length of missile smoke ends: there is a cap on them (Trail)
+		TMap<int32, FFoeLook> Foes; // what each damaged foe wears (FoeLook)
+		FMarks Marks;               // tyre marks and soot on the road (TyreMark, SootMark)
 		float PruneT = 0.f;
 	};
 	FFxState& FxRaw()
@@ -86,7 +113,8 @@ namespace
 		if (S.World.Get() != W)
 		{
 			// a new map: everything of the last one went with its world
-			S.Carried.Reset(); S.Pending.Reset(); S.Live.Reset(); S.Trails.Reset(); S.BlastT.Reset(); S.SmokeUntil.Reset(); S.PruneT = 0.f;
+			S.Carried.Reset(); S.Pending.Reset(); S.Live.Reset(); S.Trails.Reset(); S.BlastT.Reset(); S.SmokeUntil.Reset(); S.Foes.Reset(); S.PruneT = 0.f;
+			S.Marks = FMarks();
 			S.World = W;
 		}
 		return S;
@@ -117,6 +145,93 @@ namespace
 		UNiagaraSystem* Sys = FTFx::System(Name);
 		if (!Sys) return nullptr;
 		return FxKeep(UNiagaraFunctionLibrary::SpawnSystemAtLocation(Ctx, Sys, At, Rot, FVector(Scale), true, true, ENCPoolMethod::AutoRelease), Sort);
+	}
+
+	// ---- round 3: what stays on the road for the scene. Tyre marks and a blast's soot are flat planes, two instanced
+	// meshes on one actor of this file's own: no Niagara system, one draw each, and a fixed number of them (the newest
+	// 480 lengths of tyre mark and the newest 64 scorches: past that the oldest is taken up and laid again)
+	constexpr int32 MaxTyreMarks = 480, MaxSootMarks = 64;
+
+	UInstancedStaticMeshComponent* MarkLayer(AActor* Host, const TCHAR* MaterialName, int32 Sort)
+	{
+		UStaticMesh* Plane = Cast<UStaticMesh>(StaticLoadObject(UStaticMesh::StaticClass(), nullptr, TEXT("/Engine/BasicShapes/Plane.Plane"), nullptr, LOAD_NoWarn | LOAD_Quiet));
+		const FString Path = FString::Printf(TEXT("/Game/FX/%s.%s"), MaterialName, MaterialName);
+		UMaterialInterface* Mat = Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, *Path, nullptr, LOAD_NoWarn | LOAD_Quiet));
+		if (!Plane || !Mat) return nullptr;   // a build without the mark material: no marks (a blast keeps its sprite scorch)
+		UInstancedStaticMeshComponent* C = NewObject<UInstancedStaticMeshComponent>(Host);
+		C->SetupAttachment(Host->GetRootComponent());
+		C->SetMobility(EComponentMobility::Movable);
+		C->SetStaticMesh(Plane);
+		C->SetMaterial(0, Mat);
+		C->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		C->SetGenerateOverlapEvents(false);
+		C->SetCastShadow(false);
+		C->bAffectDistanceFieldLighting = false;
+		C->bAffectDynamicIndirectLighting = false;
+		C->bReceivesDecals = false;
+		C->SetTranslucentSortPriority(Sort);
+		C->RegisterComponent();
+		Host->AddInstanceComponent(C);
+		return C;
+	}
+
+	// The tyres' marks in the level's own colour (FTData's order of levels): dark rubber on the road nearly everywhere,
+	// pale lines cut through the snow film on Ice Mountain
+	void TintMarks(FMarks& M)
+	{
+		static const FLinearColor Tints[8] = {
+			FLinearColor(0.035f, 0.030f, 0.045f),   // Bayshore
+			FLinearColor(0.030f, 0.045f, 0.030f),   // Chemical Works: through the slick
+			FLinearColor(0.050f, 0.035f, 0.025f),   // Nevada
+			FLinearColor(0.030f, 0.022f, 0.022f),   // Volcano
+			FLinearColor(0.040f, 0.028f, 0.050f),   // Theme Park
+			FLinearColor(0.62f, 0.78f, 0.95f),      // Ice Mountain
+			FLinearColor(0.020f, 0.050f, 0.060f),   // Under the Sea: through the silt
+			FLinearColor(0.020f, 0.022f, 0.035f),   // City Center: wet tarmac
+		};
+		UInstancedStaticMeshComponent* C = M.Tyre.Get();
+		if (!C) return;
+		UMaterialInstanceDynamic* D = Cast<UMaterialInstanceDynamic>(C->GetMaterial(0));
+		if (!D) D = C->CreateDynamicMaterialInstance(0);
+		if (!D) return;
+		const int32 L = FMath::Clamp(M.Level, 0, 7);
+		D->SetVectorParameterValue(TEXT("Tint"), Tints[L]);
+		D->SetScalarParameterValue(TEXT("Opacity"), L == 5 ? 0.42f : 0.5f);
+	}
+
+	/** The marks of this world, their actor made on first use. Null when it cannot be made. */
+	FMarks* MarksFor(UWorld* W)
+	{
+		FMarks& M = FxState(W).Marks;
+		if (!M.Host.IsValid())
+		{
+			if (M.bTried) return nullptr;
+			M.bTried = true;
+			FActorSpawnParameters SP;
+			SP.ObjectFlags |= RF_Transient;
+			SP.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+			AActor* Host = W->SpawnActor<AActor>(AActor::StaticClass(), FTransform::Identity, SP);
+			if (!Host) return nullptr;
+			USceneComponent* Root = NewObject<USceneComponent>(Host);
+			Root->SetMobility(EComponentMobility::Movable);
+			Host->SetRootComponent(Root);
+			Root->RegisterComponent();
+			Host->AddInstanceComponent(Root);
+			M.Host = Host;
+			// under the blasts' sprite scorches, smoke and fire (SortScorch and up), the tyre marks under the soot
+			M.Tyre = MarkLayer(Host, TEXT("MI_FX_MarkTyre"), SortScorch - 5);
+			M.Soot = MarkLayer(Host, TEXT("MI_FX_MarkSoot"), SortScorch - 2);
+			M.TyreNext = M.SootNext = 0;
+			TintMarks(M);
+		}
+		return &M;
+	}
+
+	void LayMark(UInstancedStaticMeshComponent* C, int32& Next, int32 Max, const FTransform& T)
+	{
+		if (C->GetInstanceCount() < Max) C->AddInstance(T, true);
+		else C->UpdateInstanceTransform(Next, T, true, true, true);
+		Next = (Next + 1) % Max;
 	}
 
 #if !UE_BUILD_SHIPPING
@@ -254,10 +369,13 @@ void FTFx::Explosion(const UObject* Ctx, const FBlast& B)
 	const FQuat Hit = bDir ? FRotationMatrix::MakeFromXZ(B.Dir.GetSafeNormal(), Up).ToQuat() : UpQ;
 	const FString Tint = B.Tint ? FString(B.Tint) : FString();
 
+	// round 3: the seconds every layer of this blast is held back behind its impact card (0: it has no card)
+	float Held = 0.f;
 	// one layer: which system, where (Off is in the road's frame), how much of the victim's speed it rolls on with
 	auto Put = [&](const FString& Name, int32 Layer, float Scale, const FQuat& Rot, const FVector& Off, float Inherit, float Drag, int32 Sort, float Delay = 0.f, bool bOnRoad = false)
 	{
 		if (!Shows(Ctx, Layer)) return;
+		Delay += Held;
 		const FVector V = B.Vel * Inherit;
 		const float Hold = Drag > 2.f ? 2.2f : 0.8f;
 		const FVector From = (bOnRoad ? B.Ground : B.At) + Road.RotateVector(Off);
@@ -273,7 +391,20 @@ void FTFx::Explosion(const UObject* Ctx, const FBlast& B)
 		P.Vel = V * FMath::Exp(-Drag * Delay);
 	};
 	const FVector FireAt(0.f, 0.f, 70.f * Sz), SmokeAt(0.f, 0.f, 110.f * Sz), OnRoad(0.f, 0.f, 7.f);
-	auto FlashStar = [&](float K, const FVector& Off, float Delay = 0.f) { if (!bNearCam) Put(TEXT("NS_FxFlash"), Flash, Sz * K, Road, Off, 0.85f, 1.8f, SortSpark, Delay); };
+	// round 3: a missile kill or a turbo ram lands on an impact card: a flat white star on an ink-dark one, there for
+	// two frames, and the blast's own fire, streaks, debris and smoke start behind it as it goes. A hit-stop that is
+	// DRAWN: nothing in the game waits and no clock is touched. The Flash layer (not with Reduced Motion), not at Low;
+	// one card at a time (only the first blast of a stack gets one); smaller near the lens and never right at it.
+	// With a card the blast's own star is left out: one flash, not two
+	if (B.bImpact && bThin && Stack == 0 && Shows(Ctx, Extra | Flash) && System(TEXT("NS_ImpactCard")) != nullptr
+		&& FVector::DistSquared(B.At, B.Cam) > FMath::Square(600.f))
+	{
+		const float CardK = FMath::Min(Sz, 1.5f) * (bNearCam ? 0.6f : 1.f);
+		Put(TEXT("NS_ImpactInk"), Extra | Flash, CardK, Road, FireAt, 0.85f, 1.8f, SortSpark);
+		Put(TEXT("NS_ImpactCard"), Extra | Flash, CardK, Road, FireAt, 0.85f, 1.8f, SortSpark + 1);
+		Held = 0.05f;
+	}
+	auto FlashStar = [&](float K, const FVector& Off, float Delay = 0.f) { if (!bNearCam && Held <= 0.f) Put(TEXT("NS_FxFlash"), Flash, Sz * K, Road, Off, 0.85f, 1.8f, SortSpark, Delay); };
 	auto Core = [&](float K) { if (!bNearCam) Put(TEXT("NS_BlastCore") + Tint, Main, Sz * K, Road, FireAt, 0.85f, 1.8f, SortCore); };
 	// (a build without the overhaul's fireball gets the stock one, standing: a blast is never without its fire)
 	auto Fire = [&](float K, const FVector& Off, float Delay = 0.f)
@@ -284,10 +415,12 @@ void FTFx::Explosion(const UObject* Ctx, const FBlast& B)
 	};
 	auto Roll = [&](float K) { if (bThin && Stack >= 3) return; Put(TEXT("NS_FxFireRoll"), Main, Sz * K * NearK, Hit, FireAt, 0.9f, 1.8f, SortFire); };
 	auto Jet = [&](float K, float Delay = 0.f) { Put(TEXT("NS_FxFireJet"), Main, Sz * K * NearK, Road, FVector(0.f, 0.f, 40.f), 0.85f, 1.8f, SortFire, Delay); };
-	auto Streaks = [&](float K, const FVector& Off, float Delay = 0.f) { Put(TEXT("NS_FxStreaks"), Extra, Sz * K, Road, Off, 0.6f, 1.8f, SortSpark, Delay); };
+	// (round 3: the sparks a dragging wreck throws are paid for here: streaks not from the fourth blast of a stack,
+	// embers only on its first)
+	auto Streaks = [&](float K, const FVector& Off, float Delay = 0.f) { if (bThin && Stack >= 3) return; Put(TEXT("NS_FxStreaks"), Extra, Sz * K, Road, Off, 0.6f, 1.8f, SortSpark, Delay); };
 	auto Debris = [&](float K, const FQuat& Way, const FVector& Off, float Delay = 0.f) { Put(TEXT("NS_FxDebris"), Extra, Sz * K, Way, Off, 0.9f, 1.8f, SortDebris, Delay); };
 	auto Smoke = [&](const TCHAR* Which, float K, float Delay = 0.f) { if (bThin && Stack >= 3) return; Put(Which, Extra, Sz * K, Road, SmokeAt, 0.55f, 2.4f, SortSmoke, Delay); };
-	auto Embers = [&](float K, float Delay = 0.f) { Put(TEXT("NS_FxEmbers"), Extra, Sz * K, Road, SmokeAt, 0.55f, 2.4f, 0, Delay); };
+	auto Embers = [&](float K, float Delay = 0.f) { if (bThin && Stack >= 1) return; Put(TEXT("NS_FxEmbers"), Extra, Sz * K, Road, SmokeAt, 0.55f, 2.4f, 0, Delay); };
 	// on the road: the ring out to the blast's reach (it ends 100 cm from the middle at scale 1) and the scorch it
 	// leaves. Both lie flat on the tarmac under the blast. (A build without the flat ring gets 3.1's, facing the camera.)
 	const bool bFlat = System(TEXT("NS_FxGroundRing")) != nullptr;
@@ -297,7 +430,14 @@ void FTFx::Explosion(const UObject* Ctx, const FBlast& B)
 		if (bFlat) Put(TEXT("NS_FxGroundRing"), Extra, RadiusCm / 100.f, Road, OnRoad, 0.f, 1.8f, SortSmoke, Delay, true);
 		else if (!bNearCam) Put(TEXT("NS_BlastRing"), Extra, RadiusCm / 100.f, Road, FireAt, 0.f, 1.8f, SortSmoke, Delay);
 	};
-	auto Scorch = [&](float K) { if (B.bGround) Put(TEXT("NS_FxScorch"), Extra, Sz * K, Road, FVector(0.f, 0.f, 4.f), 0.f, 1.8f, SortScorch, 0.f, true); };
+	auto Scorch = [&](float K)
+	{
+		if (!B.bGround) return;
+		// round 3: the soot stays on the road for the scene (SootMark: a plane of this file's own, not a system). Where
+		// that cannot be laid, the sprite that fades in four seconds, as before. (The sprite is 260 to 300 cm across.)
+		if (Shows(Ctx, Extra) && SootMark(Ctx, B.Ground, Road, 140.f * Sz * K)) return;
+		Put(TEXT("NS_FxScorch"), Extra, Sz * K, Road, FVector(0.f, 0.f, 4.f), 0.f, 1.8f, SortScorch, 0.f, true);
+	};
 	// (the ring is the blast's REAL reach, a barrel's or a missile's splash: a blast with none gets no ring. A ring on
 	// the road of a made-up size under a plain wreck, or where a hazard lands, would say "this far hurts" and lie)
 	const float Reach = B.Reach;
@@ -426,6 +566,14 @@ void FTFx::Tick(const UObject* Ctx, float Dt)
 		S.Pending.RemoveAtSwap(i);
 		if (UNiagaraComponent* N = FxSpawn(Ctx, *P.Name, P.At, P.Rot.Rotator(), P.Scale, P.Sort)) Carry(N, P.Vel, P.Drag, P.Hold);
 	}
+	// a foe that was not heard of for three frames is gone (wrecked, left behind, the scene over): what it wore stops at once
+	for (auto It = S.Foes.CreateIterator(); It; ++It)
+	{
+		if (GFrameCounter - It->Value.Frame <= 3) continue;
+		if (UNiagaraComponent* C = It->Value.Smoke.Get()) C->DeactivateImmediate();
+		if (UNiagaraComponent* C = It->Value.Fire.Get()) C->DeactivateImmediate();
+		It.RemoveCurrent();
+	}
 	// A wreck the car catches up with (the turbo, a corkscrew) must not fill the screen: a body that close to the lens
 	// is taken out of the picture, its fire and smoke with it. (The white fireball used to hide this; round 1's first
 	// frames had a black one.) Looks only: the body is still there for whatever it touches
@@ -447,16 +595,96 @@ void FTFx::Tick(const UObject* Ctx, float Dt)
 	}
 }
 
+// ------------------------------------------------------------------------------------------ round 3: a foe wears its state
+void FTFx::FoeLook(const UObject* Ctx, int32 Key, AFTEntityActor* Foe, float Left)
+{
+	UWorld* W = Ctx ? Ctx->GetWorld() : nullptr;
+	if (!W || !Foe || !Foe->Mesh || !Foe->Mesh->GetStaticMesh()) return;
+	FFxState& S = FxState(W);
+	const int32 Stage = Left > 0.7f ? 0 : (Left > 0.36f ? 1 : 2);
+	FFoeLook* L = S.Foes.Find(Key);
+	if (!L)
+	{
+		if (Stage == 0) return;
+		L = &S.Foes.Add(Key);
+	}
+	L->Frame = GFrameCounter;
+	// Where: over the back of the body. The chase camera looks at a foe from behind, so what it wears streams back
+	// over its tail, off the middle of its silhouette. Sized to the body (a truck's is not a bike's)
+	const FBoxSphereBounds Bd = Foe->Mesh->GetStaticMesh()->GetBounds();
+	const float K = FMath::Clamp((float)Bd.BoxExtent.X / 230.f, 0.6f, 1.8f);
+	const FTransform Mt = Foe->Mesh->GetComponentTransform();
+	const FVector At = Mt.TransformPosition(FVector(Bd.Origin.X - Bd.BoxExtent.X * 0.3, 0., Bd.Origin.Z + Bd.BoxExtent.Z * 0.7));
+	const FRotator Rot = Mt.Rotator();
+	if (Stage > L->Stage)
+	{
+		// the step itself: sparks off the body (on the body: they are gone in a third of a second)
+		Attach(TEXT("NS_FoeHurt"), Foe->Mesh, At, Rot, K, Extra);
+		// the loops are in the world and moved with the foe below, not attached to its pooled actor
+		int32 Lit = 0;
+		for (const TPair<int32, FFoeLook>& P : S.Foes) if (P.Value.Smoke.IsValid() || P.Value.Fire.IsValid()) ++Lit;
+		const bool bRoom = Lit < (IsLow() ? 4 : 8) || L->Smoke.IsValid() || L->Fire.IsValid();
+		if (bRoom && !L->Smoke.IsValid() && Shows(Ctx, Extra)) L->Smoke = FxSpawn(Ctx, TEXT("NS_FoeSmoke"), At, Rot, K, SortSmoke);
+		if (bRoom && Stage == 2 && !L->Fire.IsValid()) L->Fire = FxSpawn(Ctx, TEXT("NS_FoeFire"), At, Rot, K, SortFire);
+		L->Stage = Stage;
+	}
+	if (UNiagaraComponent* C = L->Smoke.Get()) C->SetWorldLocationAndRotation(At, Rot);
+	if (UNiagaraComponent* C = L->Fire.Get()) C->SetWorldLocationAndRotation(At, Rot);
+}
+
+// ------------------------------------------------------------------------------------------ round 3: marks that stay on the road
+void FTFx::Surface(const UObject* Ctx, int32 Level)
+{
+	UWorld* W = Ctx ? Ctx->GetWorld() : nullptr;
+	if (!W) return;
+	FMarks& M = FxState(W).Marks;
+	M.Level = Level;
+	TintMarks(M);   // (nothing to tint until the first mark is laid: MarksFor tints them then)
+}
+
+void FTFx::TyreMark(const UObject* Ctx, const FVector& From, const FVector& To, const FVector& Up, float Width)
+{
+	UWorld* W = Ctx ? Ctx->GetWorld() : nullptr;
+	if (!W || IsLow()) return;
+	const FVector Along = To - From;
+	const float Len = (float)Along.Size();
+	if (Len < 20.f || Len > 2000.f) return;
+	FMarks* M = MarksFor(W);
+	UInstancedStaticMeshComponent* C = M ? M->Tyre.Get() : nullptr;
+	if (!C) return;
+	// the plane is 100 cm square, +Z its face: +X along the mark and a little over its length, so two lengths meet on
+	// a bend; 2.5 cm off the road
+	const FQuat Q = FRotationMatrix::MakeFromXZ(Along / Len, Up).ToQuat();
+	LayMark(C, M->TyreNext, MaxTyreMarks, FTransform(Q, (From + To) * 0.5 + Q.GetUpVector() * 2.5, FVector(Len * 0.0104, FMath::Max(Width, 6.f) * 0.01, 1.)));
+}
+
+bool FTFx::SootMark(const UObject* Ctx, const FVector& At, const FQuat& Road, float RadiusCm)
+{
+	UWorld* W = Ctx ? Ctx->GetWorld() : nullptr;
+	if (!W || IsLow() || RadiusCm <= 1.f) return false;
+	FMarks* M = MarksFor(W);
+	UInstancedStaticMeshComponent* C = M ? M->Soot.Get() : nullptr;
+	if (!C) return false;
+	// (every instance draws a shape of its own: the material's per-instance random)
+	const FQuat Q = Road.IsNormalized() ? Road : FQuat::Identity;
+	LayMark(C, M->SootNext, MaxSootMarks, FTransform(Q, At + Q.GetUpVector() * 3., FVector(RadiusCm * 0.02, RadiusCm * 0.02, 1.)));
+	return true;
+}
+
 void FTFx::ClearWorld(const UObject* Ctx, const TCHAR* Why)
 {
 	UWorld* W = Ctx ? Ctx->GetWorld() : nullptr;
 	if (!W) return;
 	FFxState& S = FxState(W);
-	int32 Bursts = 0, Wrecks = 0, Flames = 0;
+	int32 Bursts = 0, Wrecks = 0, Flames = 0, Marks = 0;
+	// round 3: the marks on the road go with the scene
+	if (UInstancedStaticMeshComponent* C = S.Marks.Tyre.Get()) { Marks += C->GetInstanceCount(); C->ClearInstances(); }
+	if (UInstancedStaticMeshComponent* C = S.Marks.Soot.Get()) { Marks += C->GetInstanceCount(); C->ClearInstances(); }
+	S.Marks.TyreNext = S.Marks.SootNext = 0;
 	for (const TWeakObjectPtr<UNiagaraComponent>& C : S.Live)
 		if (UNiagaraComponent* N = C.Get()) if (N->IsActive()) { N->DeactivateImmediate(); ++Bursts; }
 	const int32 Pending = S.Pending.Num(), Carried = S.Carried.Num(), Trails = S.Trails.Num();
-	S.Live.Reset(); S.Pending.Reset(); S.Carried.Reset(); S.Trails.Reset(); S.BlastT.Reset(); S.SmokeUntil.Reset();
+	S.Live.Reset(); S.Pending.Reset(); S.Carried.Reset(); S.Trails.Reset(); S.BlastT.Reset(); S.SmokeUntil.Reset(); S.Foes.Reset();
 	// the wrecks of the last take, still burning where they stopped
 	for (TActorIterator<AFTWreck> It(W); It; ++It) { It->Destroy(); ++Wrecks; }
 	// a pooled missile's flame keeps running on its hidden actor until the actor is used again; and a missile or a
@@ -467,7 +695,7 @@ void FTFx::ClearWorld(const UObject* Ctx, const TCHAR* Why)
 		if (It->Trail && It->Trail->IsActive()) { It->Trail->Deactivate(); ++Flames; }
 		if (It->Trail2 && It->Trail2->IsActive()) { It->Trail2->Deactivate(); ++Flames; }
 	}
-	UE_LOG(LogFT, Display, TEXT("FTFX clear why=%s bursts=%d pending=%d carried=%d trails=%d wrecks=%d strayTrails=%d"), Why ? Why : TEXT("-"), Bursts, Pending, Carried, Trails, Wrecks, Flames);
+	UE_LOG(LogFT, Display, TEXT("FTFX clear why=%s bursts=%d pending=%d carried=%d trails=%d wrecks=%d strayTrails=%d marks=%d"), Why ? Why : TEXT("-"), Bursts, Pending, Carried, Trails, Wrecks, Flames, Marks);
 }
 
 void FTFx::Census(const UObject* Ctx, const TCHAR* Tag)
@@ -489,8 +717,9 @@ void FTFx::Census(const UObject* Ctx, const TCHAR* Tag)
 	By.KeySort([](const FName& A, const FName& B) { return A.LexicalLess(B); });
 	FString List;
 	for (const TPair<FName, int32>& P : By) List += FString::Printf(TEXT(" %s:%d"), *P.Key.ToString(), P.Value);
-	UE_LOG(LogFT, Display, TEXT("FTFX census tag=%s systems=%d wrecks=%d carried=%d pending=%d trails=%d low=%d |%s"),
-		Tag ? Tag : TEXT("-"), All, Wrecks, S.Carried.Num(), S.Pending.Num(), S.Trails.Num(), IsLow() ? 1 : 0, *List);
+	const int32 TyreMarks = S.Marks.Tyre.IsValid() ? S.Marks.Tyre->GetInstanceCount() : 0, SootMarks = S.Marks.Soot.IsValid() ? S.Marks.Soot->GetInstanceCount() : 0;
+	UE_LOG(LogFT, Display, TEXT("FTFX census tag=%s systems=%d wrecks=%d carried=%d pending=%d trails=%d low=%d tyreMarks=%d soot=%d |%s"),
+		Tag ? Tag : TEXT("-"), All, Wrecks, S.Carried.Num(), S.Pending.Num(), S.Trails.Num(), IsLow() ? 1 : 0, TyreMarks, SootMarks, *List);
 }
 
 #if !UE_BUILD_SHIPPING

@@ -254,6 +254,9 @@ TOON_INSTANCES = {
                  'NearA': 200.0, 'NearB': 520.0},
     'Chunk': {'Shape': 2.0, 'Body': 0.9, 'Gain': 1.0, 'NearA': 150.0, 'NearB': 400.0},
     'Scorch': {'Shape': 3.0, 'Body': 0.95, 'Gain': 1.0, 'Opacity': 0.82, 'NearA': 0.0, 'NearB': 1.0},
+    # FX round 3: the smoke off a damaged foe (thin, and it gives way nearer the lens than a blast's does)
+    'SmokeFoe': {'Shape': 1.0, 'Sides': 8.0, 'Body': 0.80, 'Lobe': 0.45, 'Break': 0.8, 'Ink': 0.0, 'Gain': 1.0, 'CoreGain': 1.0, 'Opacity': 0.86,
+                 'NearA': 450.0, 'NearB': 1000.0},
 }
 
 
@@ -711,6 +714,82 @@ def attack_definitions():
     return d
 
 
+# ---------------------------------------------------------------------------------------------- FX round 3: marks on the road
+# M_FX_Mark: what stays on the road for the scene. Not a sprite material: FTFx.cpp lays flat planes with it (instanced
+# static meshes: FTFx::TyreMark, FTFx::SootMark), so a mark costs no Niagara system and the newest few hundred are one
+# draw.
+#   Shape 0   a tyre mark: a strip along the plane's X with hard edges, a little lighter down its middle (two treads)
+#   Shape 1   the soot a blast leaves: M_FX_Toon's scorch, held (it does not fade: it is cleared with the scene), a
+#             shape of its own for every instance (the per-instance random)
+# Tint is its flat colour (FTFx.cpp gives the tyre marks the level's), Opacity how much of the road it covers.
+MARK_HLSL = r"""
+float2 q = (UV - 0.5) * 2.0;
+float3 col = Tint;
+float op = 0.0;
+if (Shape < 0.5)
+{
+    float v = abs(q.y);
+    float e = max(fwidth(v) * 1.2, 0.02);
+    op = (1.0 - smoothstep(0.9 - e, 0.9 + e, v)) * (v > 0.28 ? 1.0 : 0.72);
+}
+else
+{
+    float r = length(q);
+    float a = atan2(q.y, q.x);
+    float sN = 9.0 + floor(frac(Rand * 4.1) * 4.99);
+    float ray = pow(saturate(0.5 + 0.5 * sin(a * sN + Rand * 21.0)), 2.5) * (0.6 + 0.4 * sin(a * 2.0 + Rand * 5.0));
+    float Rs = 0.95 * (0.52 + 0.40 * ray + 0.08 * sin(a * 3.0 + Rand * 13.0));
+    float d = r / max(Rs, 0.001);
+    float da = max(fwidth(r) * 1.2, 0.006) / max(Rs, 0.05);
+    op = 1.0 - smoothstep(1.0 - da, 1.0 + da, d);
+    col = r < 0.285 ? Tint * 0.55 : Tint;
+}
+return float4(col, op * Opacity);
+"""
+
+
+def mark_materials():
+    """M_FX_Mark and its two instances (MI_FX_MarkTyre, MI_FX_MarkSoot). Returns the pixel-shader instruction count
+    (0 = it did not compile)."""
+    import ft_mats
+    MEL = unreal.MaterialEditingLibrary
+    m = ft_mats.new_material('/Game/FX', 'M_FX_Mark', blend=unreal.BlendMode.BLEND_TRANSLUCENT, shading=unreal.MaterialShadingModel.MSM_UNLIT, two_sided=False)
+    # the cooked game falls back to the default material without the usage flag (README: material usage flags)
+    m.set_editor_property('used_with_instanced_static_meshes', True)
+    X = -1100
+    ins = [('UV', ft_mats.expr(m, unreal.MaterialExpressionTextureCoordinate, x=X, y=-580), '')]
+    code = MARK_HLSL
+    rnd = getattr(unreal, 'MaterialExpressionPerInstanceRandom', None)
+    if rnd is not None:
+        ins.append(('Rand', ft_mats.expr(m, rnd, x=X, y=-500), ''))
+    else:
+        # no node for it in this build's Python: every scorch is the same shape
+        code = 'float Rand = 0.37;' + MARK_HLSL
+    ins.append(('Tint', ft_mats.vparam(m, 'Tint', (0.035, 0.03, 0.045, 1.0), x=X, y=-400), ''))
+    ins.append(('Shape', ft_mats.sparam(m, 'Shape', 0.0, x=X, y=-240), ''))
+    ins.append(('Opacity', ft_mats.sparam(m, 'Opacity', 0.5, x=X, y=-170), ''))
+    cu = ft_mats.custom(m, code, ins, out_type=unreal.CustomMaterialOutputType.CMOT_FLOAT4, x=-500, y=0, desc='MarkFX')
+    rgb = ft_mats.expr(m, unreal.MaterialExpressionComponentMask, x=-200, y=-60)
+    for ch, on in (('r', True), ('g', True), ('b', True), ('a', False)):
+        rgb.set_editor_property(ch, on)
+    alpha = ft_mats.expr(m, unreal.MaterialExpressionComponentMask, x=-200, y=80)
+    for ch, on in (('r', False), ('g', False), ('b', False), ('a', True)):
+        alpha.set_editor_property(ch, on)
+    MEL.connect_material_expressions(cu, '', rgb, '')
+    MEL.connect_material_expressions(cu, '', alpha, '')
+    MEL.connect_material_property(rgb, '', unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    MEL.connect_material_property(alpha, '', unreal.MaterialProperty.MP_OPACITY)
+    MEL.layout_material_expressions(m)
+    MEL.recompile_material(m)
+    AL.save_loaded_asset(m)
+    ft_mats.mi(m, '/Game/FX', 'MI_FX_MarkTyre', scalars={'Shape': 0.0, 'Opacity': 0.5})
+    ft_mats.mi(m, '/Game/FX', 'MI_FX_MarkSoot', vectors={'Tint': (0.05, 0.04, 0.07, 1.0)}, scalars={'Shape': 1.0, 'Opacity': 0.8})
+    try:
+        return MEL.get_statistics(m).get_editor_property('num_pixel_shader_instructions')
+    except Exception:  # noqa
+        return -1
+
+
 def overhaul_definitions():
     """The combat-effects overhaul: what a missile, a blast, a ram and the KESTREL's own driving show now
     (DevLog/jam/overhaul/fx/notes.md has the table, the counts and what each replaced). FTFx.cpp spawns them: a blast
@@ -803,10 +882,13 @@ def overhaul_definitions():
                                              align=True, sort=True, owner=False))
         add('NS_DriftPop%d' % (i + 1), fx(n=1, life=(0.16, 0.20), size=((170, 170), (190, 190)), mat=cel('Ring'), ramp=heat((C_WHITE, 1.0), (c, 0.55), (c, 0.0)),
                                           grow=(0.3, 0.85, 1.0), sort=True))
-    # ---- the boost and the turbo's punch: a kick of long flame out of the pipes and a ring, as it lets go
-    add('NS_BoostKick', fx(n=8, life=(0.16, 0.26), size=((34, 130), (52, 210)), mat=cel('Shard'),
-                           ramp=heat(((1.0, 0.95, 0.8), 1.0), ((1.0, 0.6, 0.15), 0.55), ((1.0, 0.25, 0.05), 0.0)),
-                           speed=(1600, 3000), cone=10.0, axis=(-1, 0, 0.04), box=(4, 110, 8), stretch=(1500, 1.8), align=True, sort=True, toward=90.0))
+    # ---- the boost and the turbo's punch: a kick of flame out of the pipes and a ring, as it lets go. (Round 3: the kick
+    # was eight long shards laid along their flight: from the chase camera, straight behind the car, they were seen
+    # end-on, as cream bits. It is six banded lobes of fire now, facing the camera, that swell, cool to dark and break
+    # up as they are left behind)
+    add('NS_BoostKick', fx(n=6, life=(0.16, 0.26), size=((60, 60), (96, 96)), mat=toon('Fire'), ramp=heat((C_FIRE, 1.0), (C_FIRE, 0.8), (C_FIRE, 0.5), (C_FIRE, 0.0)),
+                           grow=(0.55, 1.0, 1.15), speed=(500, 1400), cone=20.0, axis=(-1, 0, 0.06), drag=3.0, box=(4, 110, 8), rot=True, spin=40.0, sort=True,
+                           toward=60.0))
     add('NS_BoostRing', fx(n=1, life=(0.18, 0.22), size=((190, 190), (210, 210)), mat=cel('Ring'), ramp=heat((C_WHITE, 1.0), ((1.0, 0.75, 0.3), 0.55), (C_FIRE, 0.0)),
                            grow=(0.3, 0.9, 1.0), sort=True, toward=90.0))
     # the flame's hot core while the turbo or a boost burns: white going blue, so it sits under any nitro colour
@@ -822,6 +904,139 @@ def overhaul_definitions():
     # It takes its owner's scale: AFTWreck sizes the fire to what is burning (a truck's is twice a car's)
     add('NS_WreckFire', fx(rate=13, life=(0.30, 0.48), size=((90, 120), (140, 190)), mat=toon('Flame'), ramp=heat((C_FIRE, 1.0), (C_FIRE, 0.8), (C_FIRE, 0.5), (C_FIRE, 0.0)),
                            grow=(0.7, 1.1, 0.8), speed=(180, 380), cone=14.0, world=True, sphere=45.0, sort=True, toward=140.0))
+    # ================================================================================================ FX round 3: weight
+    # ---- a foe wears what it has left (FTFx::FoeLook moves these with the foe: +X is its nose, +Z its roof). Smoke
+    # once it has lost a third of its armour: thin dark puffs streaming back over its tail and up, off the middle of
+    # its silhouette. Flames under a third. Sparks at each step. Sized by the body (the owner's scale)
+    add('NS_FoeSmoke', fx(rate=10, life=(0.60, 0.95), size=((62, 62), (104, 104)), mat=toon('SmokeFoe'),
+                          ramp=heat((C_SMOKE_D, 1.0), (C_SMOKE, 0.7), (C_SMOKE_L, 0.4), (C_SMOKE_L, 0.0)), grow=(0.6, 1.3, 1.8),
+                          speed=(320, 620), cone=20.0, axis=(-1, 0, 0.9), drag=1.0, curl=(60.0, 50.0), rot=True, spin=30.0, sort=True, pool=(4, 12)))
+    add('NS_FoeFire', fx(rate=12, life=(0.24, 0.40), size=((78, 104), (120, 160)), mat=toon('Flame'), ramp=heat((C_FIRE, 1.0), (C_FIRE, 0.8), (C_FIRE, 0.5), (C_FIRE, 0.0)),
+                         grow=(0.7, 1.1, 0.8), speed=(200, 420), cone=16.0, axis=(-0.5, 0, 1), sphere=30.0, sort=True, toward=90.0, pool=(4, 12)))
+    add('NS_FoeHurt', fx(n=9, life=(0.16, 0.34), size=((12, 56), (20, 104)), mat=cel('Shard'), ramp=heat((C_WHITE, 1.0), (C_HE, 0.6), (C_EMBER, 0.0)),
+                         speed=(700, 1900), cone=70.0, axis=(-0.4, 0, 1), gravity=-700.0, stretch=(1200, 2.0), align=True, sort=True, pool=(2, 8)))
+    # ---- each foe's own gun, all in their colour. A biker's pistol: one small sharp star, a thin quick dart. A
+    # gunship's machine gun: a long tongue of flame stabbed out past the star, a fat slug with a long streak, and a
+    # ring where it lands on the KESTREL. (A boss keeps the big star and its own rounds.)
+    add('NS_EnemyMuzzleBike', fx(n=1, life=(0.05, 0.065), size=((96, 96), (116, 116)), mat=cel('Flash'), ramp=heat((C_FOE, 1.0), (C_FOE, 0.55), (C_FOE, 0.0)),
+                                 grow=(0.55, 1.0, 1.1), rot=True, sort=True, pool=(2, 8)))
+    add('NS_EnemyMuzzleGun', fx(n=3, life=(0.06, 0.10), size=((26, 110), (38, 170)), mat=cel('Shard'),
+                                ramp=heat(((1.0, 0.75, 0.7), 1.0), (C_FOE, 0.6), (C_FOE, 0.0)),
+                                speed=(1400, 2600), cone=7.0, axis=(1, 0, 0), stretch=(1400, 2.2), align=True, sort=True, pool=(2, 8)))
+    add('NS_EnemyTrailBike', fx(rate=44, life=(0.05, 0.08), size=((10, 26), (14, 38)), mat=SPARK, ramp=[(14, 1.2, 3.6, 1), (8, 0.4, 1.9, 0.8), (2, 0.05, 0.5, 0)],
+                                speed=(2200, 3000), cone=3.0, axis=(-1, 0, 0), stretch=(2000, 2.0), align=True, owner=False))
+    add('NS_EnemyTrailGun', fx(rate=70, life=(0.10, 0.16), size=((28, 46), (38, 64)), mat=SPARK, ramp=[(14, 1.2, 3.6, 1), (8, 0.4, 1.9, 0.8), (2, 0.05, 0.5, 0)],
+                               speed=(2200, 3000), cone=3.0, axis=(-1, 0, 0), stretch=(2000, 2.4), align=True, owner=False))
+    # ---- a wreck drags on the road: sparks thrown back along its slide (FTEntity.cpp moves it under the body; +X is
+    # the way the wreck is going, +Z off the road)
+    add('NS_WreckScrape', fx(rate=34, life=(0.12, 0.26), size=((6, 28), (10, 52)), mat=cel('Shard'), ramp=heat((C_WHITE, 1.0), (C_HE, 0.6), (C_EMBER, 0.0)),
+                             speed=(500, 1500), cone=28.0, axis=(-1, 0, 0.45), gravity=-900.0, box=(60, 110, 4), stretch=(700, 1.8), align=True, sort=True,
+                             owner=False))
+    add('NS_HitPlayerRing', fx(n=1, life=(0.14, 0.17), size=((120, 120), (140, 140)), mat=cel('Ring'), ramp=heat(((1.0, 0.6, 0.6), 1.0), (C_FOE, 0.6), (C_FOE, 0.0)),
+                               grow=(0.35, 0.9, 1.0), sort=True, pool=(2, 6)))
+    # ================================================================================================ FX round 3: the car in the world
+    # ---- what the KESTREL's rear wheels throw off the road, level by level (FTData's order of levels; the car picks
+    # NS_WheelA<n> and NS_WheelB<n> by the level: FTPlayerCar.cpp, SetLightsForLevel). A runs whenever the car is at
+    # speed on its wheels (the Main layer: a few small sprites); B is the rooster tail of a drift, a boost or the
+    # turbo (Extra). The car turns both to the way it is really going: -X is back along its line, +Z off the road,
+    # and the box is the two rear tyres. NS_LandKick<n> is what a landing throws out flat from under the car
+    # (NS_LandDust, in the level's own stuff)
+    def puff(c, rate, life, size, speed, up=0.35, grow=(0.6, 1.3, 1.8), drag=2.4, gravity=None):
+        return fx(rate=rate, life=life, size=size, mat=toon('SmokeCar'), ramp=heat((c, 1.0), (c, 0.6), (c, 0.0)), grow=grow, speed=speed, cone=16.0,
+                  axis=(-1, 0, up), drag=drag, gravity=gravity, box=(16, 236, 4), rot=True, spin=40.0, sort=True, owner=False)
+
+    def drops(c, rate, life=(0.18, 0.34), size=((8, 8), (16, 16)), speed=(500, 1300), up=0.7):
+        return fx(rate=rate, life=life, size=size, mat=cel('Blob'), ramp=heat((C_WHITE, 1.0), (c, 0.6), (c, 0.0)), speed=speed, cone=26.0,
+                  axis=(-1, 0, up), gravity=-1300.0, box=(16, 236, 4), sort=True, owner=False)
+
+    def scraps(ramp, rate, life=(0.5, 0.9), size=((9, 9), (17, 17)), speed=(400, 1100), up=0.8):
+        # flat chips that tumble (the toon chunk: its heat is kept under 0.45, so it has no ember edge)
+        return fx(rate=rate, life=life, size=size, mat=toon('Chunk'), ramp=ramp, speed=speed, cone=34.0, axis=(-1, 0, up), gravity=-500.0, drag=1.6,
+                  box=(16, 236, 4), rot=True, spin=500.0, sort=True, owner=False)
+
+    SAND, SPRAY = (0.78, 0.64, 0.42), (0.78, 0.94, 1.0)
+    SLICK, STEAM = (0.40, 0.95, 0.22), (0.80, 0.90, 0.84)
+    DUST, ASH, SILT = (0.66, 0.44, 0.27), (0.19, 0.17, 0.20), (0.10, 0.24, 0.26)
+    RAIN, PAPER = (0.70, 0.82, 1.0), (0.86, 0.84, 0.78)
+    confetti = heat(((1.0, 0.25, 0.60), 0.44), ((1.0, 0.82, 0.20), 0.40), ((0.20, 0.90, 1.0), 0.34), ((0.20, 0.90, 1.0), 0.0))
+    paper = heat((PAPER, 0.44), (PAPER, 0.38), (PAPER, 0.0))
+    small, big = ((34, 34), (56, 56)), ((56, 56), (96, 96))
+    wheels = (
+        # 0 Bayshore: sand blown over the tarmac; sea spray in the slide
+        (puff(SAND, 12, (0.22, 0.36), small, (500, 1000)),
+         drops(SPRAY, 34),
+         SAND),
+        # 1 Chemical Works: the slick comes off the tyres in green drops; steam where they slide through it
+        (drops(SLICK, 16, size=((7, 7), (13, 13)), speed=(400, 1000), up=0.5),
+         puff(STEAM, 22, (0.40, 0.70), big, (300, 700), up=0.9, drag=1.6, gravity=260.0),
+         STEAM),
+        # 2 Nevada: dust, and a lot of it in the slide
+        (puff(DUST, 16, (0.30, 0.50), small, (500, 1000)),
+         puff(DUST, 26, (0.45, 0.80), big, (500, 1100), up=0.6, grow=(0.6, 1.5, 2.2), drag=1.8),
+         DUST),
+        # 3 Volcano: ash off the road; embers in the slide
+        (puff(ASH, 12, (0.26, 0.42), small, (500, 1000)),
+         fx(rate=34, life=(0.30, 0.60), size=((6, 6), (11, 11)), mat=GLOW, ramp=[(9, 5, 1.2, 1), (6, 2, 0.3, 0.9), (2, 0.3, 0.05, 0)], speed=(400, 1200), cone=30.0,
+            axis=(-1, 0, 0.8), drag=1.2, gravity=120.0, box=(16, 236, 4), owner=False),
+         ASH),
+        # 4 Theme Park: confetti scraps, pink to yellow to cyan as they fall
+        (scraps(confetti, 10),
+         scraps(confetti, 30, speed=(600, 1500), up=1.1),
+         (1.0, 0.55, 0.75)),
+        # 5 Ice Mountain: powder snow; a rooster tail of it in the slide
+        (puff(C_SNOW, 16, (0.26, 0.44), small, (500, 1000)),
+         puff(C_SNOW, 34, (0.45, 0.75), big, (800, 1600), up=0.9, grow=(0.6, 1.4, 2.0), drag=2.0),
+         C_SNOW),
+        # 6 Under the Sea: silt off the bed; bubbles in the slide (rings that rise)
+        (puff(SILT, 12, (0.40, 0.70), small, (300, 700), up=0.25, drag=3.0),
+         fx(rate=26, life=(0.55, 0.95), size=((10, 10), (24, 24)), mat=cel('Ring'), ramp=heat((C_WHITE, 0.9), (C_SEA, 0.6), (C_SEA, 0.3)), speed=(150, 420), cone=40.0,
+            axis=(-0.6, 0, 1), drag=1.5, gravity=420.0, box=(16, 236, 4), sort=True, owner=False),
+         SILT),
+        # 7 City Center: the rain film off the tyres in fine streaks; paper in the slide
+        (fx(rate=28, life=(0.10, 0.20), size=((4, 26), (7, 48)), mat=cel('Shard'), ramp=heat((C_WHITE, 0.9), (RAIN, 0.6), (RAIN, 0.0)), speed=(700, 1500), cone=22.0,
+            axis=(-1, 0, 0.5), gravity=-900.0, box=(16, 236, 4), stretch=(700, 1.8), align=True, sort=True, owner=False),
+         scraps(paper, 9, size=((14, 14), (26, 26))),
+         RAIN),
+    )
+    for i, (run, tail, land) in enumerate(wheels):
+        add('NS_WheelA%d' % i, run)
+        add('NS_WheelB%d' % i, tail)
+        add('NS_LandKick%d' % i, fx(n=9, life=(0.26, 0.42), size=((56, 56), (92, 92)), mat=toon('SmokeCar'), ramp=heat((land, 1.0), (land, 0.6), (land, 0.0)),
+                                    grow=(0.6, 1.4, 1.8), speed=(600, 1300), cone=82.0, inner=35.0, axis=(-1, 0, 0.1), drag=3.5, box=(260, 200, 6), rot=True, sort=True))
+
+    # ---- the turbo's flame, banded. On the car it burns in the place of the additive tuft NS_TurboFlame (which stays as it
+    # is, and as ft_v26 tints it: FTPlayerCar.cpp, TickFx). Camera-facing lobes streaming back out of the pipes and
+    # shrinking to a point as they cool: from the chase camera, straight behind, a banded heart of flame across the tail
+    # where the tuft was a white additive glow. One for the stock flame and one for each nitro colour (07 SFX DEPT),
+    # its bands worked out of the one colour
+    def lin(hexs):
+        h = hexs.lstrip('#')
+        return tuple((v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4) for v in (int(h[i:i + 2], 16) / 255.0 for i in (0, 2, 4)))
+
+    tflame = dict(rate=54, life=(0.10, 0.17), size=((36, 36), (58, 58)), grow=(1.0, 0.72, 0.34), speed=(700, 1250), cone=6.0, axis=(-1, 0, 0),
+                  box=(4, 110, 8), rot=True, sort=True, owner=False)
+    add('NS_TurboFlameCel', fx(mat=toon('Fire'), ramp=heat((C_FIRE, 1.0), (C_FIRE, 0.82), (C_FIRE, 0.58), (C_FIRE, 0.30)), **tflame))
+    for cid, c in (('s_blue_flame', lin('#3d7bff')), ('s_methanol_green', lin('#9dff8a')), ('s_purple_haze', lin('#9b4dff')), ('s_liquid_gold', lin('#ffc93c')),
+                   ('s_white_hot', (0.72, 0.84, 1.0))):
+        add('NS_TurboFlameCel_' + cid, fx(mat=toon('FireTint'), ramp=heat((c, 1.0), (c, 0.82), (c, 0.58), (c, 0.30)), **tflame))
+    add('NS_TurboFlameCel_s_rainbow_nitro', fx(mat=toon('FireTint'), ramp=heat(((1.0, 0.10, 0.10), 1.0), ((1.0, 0.80, 0.05), 0.82), ((0.10, 0.90, 0.20), 0.62),
+                                                                              ((0.10, 0.45, 1.0), 0.45), ((0.60, 0.15, 1.0), 0.30)), **tflame))
+    # ---- the exhaust at top speed, when neither the turbo nor a boost burns: short banded licks out of the pipes
+    add('NS_ExhaustFlame', fx(rate=18, life=(0.06, 0.10), size=((20, 20), (34, 34)), mat=toon('Fire'), ramp=heat((C_FIRE, 1.0), (C_FIRE, 0.7), (C_FIRE, 0.30)),
+                              grow=(1.0, 0.7, 0.4), speed=(350, 800), cone=8.0, axis=(-1, 0, 0), box=(4, 110, 8), rot=True, sort=True, owner=False))
+    # ---- speed: thin streaks past the edges of the picture while the turbo or a boost burns and at top speed. The car puts
+    # two of these by the camera, one each side of where it looks (FTPlayerCar.cpp, TickFx: +X is the way the camera
+    # looks; the box is 14 m on and 9.5 m out to one side, well off the road), and the streaks fly back past the lens.
+    # The Flash layer (off with Reduced Motion), not at Low
+    add('NS_SpeedLines', fx(rate=36, life=(0.10, 0.16), size=((4, 150), (7, 300)), mat=cel('Shard'), ramp=heat((C_WHITE, 0.9), ((0.75, 0.9, 1.0), 0.6), ((0.6, 0.8, 1.0), 0.0)),
+                            speed=(7000, 10000), cone=1.5, axis=(-1, 0, 0), box=(600, 350, 600), stretch=(4000, 1.6), align=True, sort=True, owner=False))
+    # ---- the impact card: a missile kill or a turbo ram lands on a flat white star over an ink-dark one, there for two
+    # frames, with the blast starting behind it (FTFx::Explosion). The Flash layer, not at Low
+    C_INK = (0.02, 0.015, 0.035)
+    add('NS_ImpactCard', fx(n=1, life=(0.05, 0.06), size=((430, 430), (470, 470)), mat=cel('Flash'), ramp=heat((C_WHITE, 1.0), (C_WHITE, 0.9), (C_WHITE, 0.7)),
+                            rot=True, sort=True, pool=(2, 6), toward=300.0))
+    add('NS_ImpactInk', fx(n=1, life=(0.05, 0.06), size=((580, 580), (620, 620)), mat=cel('Flash'), ramp=heat((C_INK, 1.0), (C_INK, 0.9), (C_INK, 0.7)),
+                           rot=True, sort=True, pool=(2, 6), toward=280.0))
     return d
 
 
@@ -831,6 +1046,7 @@ def build_all():
         import ft_attackfx
         ft_attackfx.cel_materials()
     toon_materials()   # FX overhaul: M_FX_Toon and its instances (several systems below point at them)
+    mark_materials()   # FX round 3: M_FX_Mark and its instances (what FTFx.cpp lays on the road)
     made = [make(name, base, cfg) for name, base, cfg in definitions() + attack_definitions() + overhaul_definitions()]
     for p in ('_probe_FountainLightweight', '_probe_DirectionalBurstLightweight', '_probe_MinimalLightweight'):
         if AL.does_asset_exist(FX + p):

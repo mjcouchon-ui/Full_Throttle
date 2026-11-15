@@ -1827,6 +1827,198 @@ void AFTEntityActor::Animate(float Dt, float Speed, float Vx, float BikeWindup)
 }
 
 // ------------------------------------------------------------------------------------------ wreck
+// (round 3's wreck pieces need these; they are here, with the only code that uses them)
+#include "Engine/World.h"
+#include "GameFramework/PlayerController.h"
+#include "Camera/PlayerCameraManager.h"
+
+namespace
+{
+	// FX round 3: a wreck comes apart. A wheel and a couple of panels are thrown off it and bounce down the road on
+	// their own, and where the body drags on the road it throws sparks. The pieces are the wreck's own components,
+	// moved here by hand: no collision, no physics body, nothing the race reads. They go with the wreck (nine
+	// seconds, or at once when FTFx::ClearWorld removes the wrecks at a slate or the reel). The state is kept here,
+	// by wreck, so the header is as it was.
+	struct FWreckPiece
+	{
+		TWeakObjectPtr<UStaticMeshComponent> C;
+		FVector P = FVector::ZeroVector, V = FVector::ZeroVector, Scale = FVector::OneVector;
+		FRotator Spin = FRotator::ZeroRotator;
+		float Rest = 20.f, Age = 0.f, Life = 2.f;
+		bool bWheel = false;
+	};
+	struct FWreckLook
+	{
+		TArray<FWreckPiece> Pieces;
+		TWeakObjectPtr<UNiagaraComponent> Scrape;
+		FVector GroundP = FVector::ZeroVector, GroundN = FVector::UpVector;
+		bool bGround = false;
+		float HalfHeight = 60.f;
+	};
+	TMap<TWeakObjectPtr<AFTWreck>, FWreckLook>& WreckLooks()
+	{
+		static TMap<TWeakObjectPtr<AFTWreck>, FWreckLook> M;
+		return M;
+	}
+	// looks draw from their own stream, never from the generator the race uses
+	FRandomStream& WreckRand()
+	{
+		static FRandomStream R(7919);
+		return R;
+	}
+
+	/** At launch: what comes off this wreck, under the caps (24 pieces in the air over every wreck, 4 a wreck;
+	 *  10 and 2 at Low; sparks on 6 wrecks at once, none at Low). */
+	void StartWreckLook(AFTWreck* W, UStaticMesh* InMesh, const FTransform& At, const FVector& Velocity, float Scale, int32 LostWheel)
+	{
+		int32 InAir = 0, Dragging = 0;
+		for (auto It = WreckLooks().CreateIterator(); It; ++It)
+		{
+			if (!It->Key.IsValid()) { It.RemoveCurrent(); continue; }   // a wreck that has gone
+			InAir += It->Value.Pieces.Num();
+			if (It->Value.Scrape.IsValid()) ++Dragging;
+		}
+		const bool bLow = FTFx::IsLow();
+		FWreckLook& Look = WreckLooks().Add(TWeakObjectPtr<AFTWreck>(W));
+		const FBoxSphereBounds Bd = InMesh ? InMesh->GetBounds() : FBoxSphereBounds(ForceInit);
+		const float Size = FMath::Clamp((float)Bd.BoxExtent.X / 230.f, 0.6f, 2.f) * Scale;
+		Look.HalfHeight = FMath::Max(30.f, (float)Bd.BoxExtent.Z * Scale);
+		int32 Room = FMath::Clamp((bLow ? 10 : 24) - InAir, 0, bLow ? 2 : 4);
+		FRandomStream& Rnd = WreckRand();
+		auto Throw = [&](UStaticMeshComponent* C, const FVector& LocalAt, const FVector& S3, float Rest, bool bWheel)
+		{
+			C->SetUsingAbsoluteLocation(true); C->SetUsingAbsoluteRotation(true); C->SetUsingAbsoluteScale(true);
+			FWreckPiece& Pc = Look.Pieces.AddDefaulted_GetRef();
+			Pc.C = C; Pc.bWheel = bWheel; Pc.Rest = Rest; Pc.Scale = S3;
+			Pc.P = At.TransformPosition(LocalAt);
+			// off the wreck with most of its speed, out to its own side and up
+			const FVector Side = At.GetUnitAxis(EAxis::Y) * (LocalAt.Y >= 0. ? 1.f : -1.f);
+			Pc.V = Velocity * Rnd.FRandRange(0.75f, 1.05f) + Side * Rnd.FRandRange(250.f, 700.f) + FVector(0., 0., Rnd.FRandRange(350.f, 800.f));
+			Pc.Spin = FRotator(Rnd.FRandRange(-500.f, 500.f), Rnd.FRandRange(-300.f, 300.f), Rnd.FRandRange(-500.f, 500.f));
+			Pc.Life = Rnd.FRandRange(1.5f, 2.4f);
+			C->SetWorldLocationAndRotation(Pc.P, At.GetRotation());
+			C->SetWorldScale3D(S3);
+			--Room;
+		};
+		// the wheel it has lost is thrown clear (it was just missing)
+		const TArray<AFTEntityActor::FWheelDef>* WL = AFTEntityActor::WheelsFor(InMesh);
+		UStaticMesh* WM = WL ? Kept(TEXT("/Game/Characters/Wheels/SM_FoeWheel")) : nullptr;
+		if (WM && Room > 0 && WL->IsValidIndex(LostWheel))
+		{
+			const AFTEntityActor::FWheelDef& D = (*WL)[LostWheel];
+			UStaticMeshComponent* C = MakeBit(W, W->Mesh);
+			C->SetStaticMesh(WM);
+			C->SetScalarParameterValueOnMaterials(TEXT("Soot"), 0.9f);
+			Throw(C, D.C, FVector(D.R / 50.f, (D.C.Y > 0.f ? -1.f : 1.f) * D.W / 40.f, D.R / 50.f) * Scale, D.R * Scale, true);
+		}
+		// panels: flat plates in the wreck's own paint, sooted (a truck sheds three, a car or a bike two)
+		UStaticMesh* Plate = Kept(TEXT("/Engine/BasicShapes/Cube.Cube"));
+		UMaterialInterface* Paint = W->Mesh->GetMaterial(0);
+		const int32 Panels = Size > 1.4f ? 3 : 2;
+		for (int32 i = 0; i < Panels && Room > 0 && Plate && Paint; ++i)
+		{
+			UStaticMeshComponent* C = MakeBit(W, W->Mesh);
+			C->SetStaticMesh(Plate);
+			C->SetMaterial(0, Paint);
+			C->SetScalarParameterValueOnMaterials(TEXT("Soot"), 0.9f);
+			C->SetCastShadow(false);
+			const FVector LocalAt(Rnd.FRandRange(-0.5f, 0.5f) * Bd.BoxExtent.X, ((i & 1) ? 1.f : -1.f) * Bd.BoxExtent.Y * 0.8f, Bd.Origin.Z + Bd.BoxExtent.Z * 0.3f);
+			Throw(C, LocalAt, FVector(Rnd.FRandRange(0.55f, 0.95f) * Size, Rnd.FRandRange(0.35f, 0.6f) * Size, 0.05f), 8.f, false);
+		}
+		// sparks where the body drags on the road (TickWreckLook puts them under it)
+		if (!bLow && Dragging < 6)
+		{
+			if (UNiagaraSystem* Sparks = FTFx::System(TEXT("NS_WreckScrape")))
+			{
+				UNiagaraComponent* Sc = NewObject<UNiagaraComponent>(W);
+				Sc->SetupAttachment(W->Mesh);
+				Sc->SetAutoActivate(false);
+				Sc->SetUsingAbsoluteLocation(true); Sc->SetUsingAbsoluteRotation(true); Sc->SetUsingAbsoluteScale(true);
+				Sc->SetAsset(Sparks);
+				Sc->SetTranslucentSortPriority(-5);
+				Sc->RegisterComponent();
+				W->AddInstanceComponent(Sc);
+				Look.Scrape = Sc;
+			}
+		}
+	}
+
+	void TickWreckLook(AFTWreck* W, FWreckLook& Look, float Dt)
+	{
+		UWorld* World = W->GetWorld();
+		if (!World || Dt <= 0.f) return;
+		const bool bEarly = W->Age < 3.5f;
+		UNiagaraComponent* Sc = Look.Scrape.Get();
+		if (Look.Pieces.Num() == 0 && !(Sc && (bEarly || Sc->IsActive()))) return;
+		const FVector At = W->GetActorLocation();
+		// the road under the wreck: one line a frame, shared by its pieces (they are never far from it)
+		if (W->Age < 4.f)
+		{
+			FHitResult Hit;
+			FCollisionObjectQueryParams What;
+			What.AddObjectTypesToQuery(ECC_WorldStatic);
+			What.AddObjectTypesToQuery(ECC_WorldDynamic);
+			const FCollisionQueryParams Q(FName(TEXT("FTWreckRoad")), false, W);
+			if (World->LineTraceSingleByObjectType(Hit, At + FVector(0., 0., 200.), At - FVector(0., 0., 3000.), What, Q))
+			{
+				Look.GroundP = Hit.ImpactPoint; Look.GroundN = Hit.ImpactNormal; Look.bGround = true;
+			}
+		}
+		const FVector N = Look.bGround ? Look.GroundN : FVector::UpVector;
+		FVector Lens = At; bool bLens = false;
+		if (const APlayerController* PC = World->GetFirstPlayerController())
+			if (PC->PlayerCameraManager) { Lens = PC->PlayerCameraManager->GetCameraLocation(); bLens = true; }
+		for (int32 i = Look.Pieces.Num() - 1; i >= 0; --i)
+		{
+			FWreckPiece& Pc = Look.Pieces[i];
+			UStaticMeshComponent* C = Pc.C.Get();
+			Pc.Age += Dt;
+			if (!C || Pc.Age >= Pc.Life)
+			{
+				if (C) C->SetVisibility(false);
+				Look.Pieces.RemoveAtSwap(i);
+				continue;
+			}
+			Pc.V -= N * (2200.f * Dt);
+			Pc.P += Pc.V * Dt;
+			if (Look.bGround)
+			{
+				const float H = (float)FVector::DotProduct(Pc.P - Look.GroundP, N) - Pc.Rest;
+				const float Vn = (float)FVector::DotProduct(Pc.V, N);
+				if (H < 0.f)
+				{
+					Pc.P -= N * H;
+					if (Vn < 0.f)
+					{
+						// a bounce: under half the height back, the slide slowed. A wheel keeps rolling, a panel soon lies flat
+						Pc.V -= N * (Vn * 1.45f);
+						Pc.V -= (Pc.V - N * FVector::DotProduct(Pc.V, N)) * (Pc.bWheel ? 0.06f : 0.22f);
+						Pc.Spin *= Pc.bWheel ? 0.9f : 0.5f;
+					}
+				}
+			}
+			C->SetWorldLocation(Pc.P);
+			C->AddWorldRotation(Pc.Spin * Dt);
+			// it shrinks away at the end, and nothing tumbles into the lens
+			C->SetWorldScale3D(Pc.Scale * FMath::Clamp((Pc.Life - Pc.Age) / 0.3f, 0.f, 1.f));
+			if (bLens && FVector::DistSquared(Pc.P, Lens) < FMath::Square(420.f)) C->SetVisibility(false);
+		}
+		// where the body drags on the road it throws sparks back along its slide
+		if (Sc)
+		{
+			const FVector Vel = W->Mesh->GetPhysicsLinearVelocity();
+			const float Up = (float)FVector::DotProduct(At - Look.GroundP, N);
+			const bool bDrag = bEarly && Look.bGround && Vel.SizeSquared() > FMath::Square(900.f) && Up < Look.HalfHeight + 70.f;
+			if (bDrag)
+			{
+				const FVector Flat = (Vel - N * FVector::DotProduct(Vel, N)).GetSafeNormal();
+				Sc->SetWorldLocationAndRotation(At - N * (Up - 6.f), FRotationMatrix::MakeFromXZ(Flat.IsNearlyZero() ? FVector::ForwardVector : Flat, N).Rotator());
+				if (!Sc->IsActive()) Sc->Activate(true);
+			}
+			else if (Sc->IsActive()) Sc->Deactivate();
+		}
+	}
+}
 AFTWreck::AFTWreck()
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -1869,13 +2061,14 @@ void AFTWreck::Launch(UStaticMesh* InMesh, const FTransform& At, const FVector& 
 	Mesh->SetPhysicsAngularVelocityInDegrees(Spin);
 	Mesh->SetScalarParameterValueOnMaterials(TEXT("Soot"), 0.9f);
 	// 3.3: the bodies are exported without wheels now; the wreck keeps its wheels (one of them comes off)
+	int32 LostWheel = INDEX_NONE;   // FX round 3: the wheel that comes off is thrown clear (StartWreckLook), not just missing
 	if (const TArray<AFTEntityActor::FWheelDef>* WL = AFTEntityActor::WheelsFor(InMesh))
 	{
 		UStaticMesh* WM = Kept(TEXT("/Game/Characters/Wheels/SM_FoeWheel"));
 		const int32 Lose = FMath::RandRange(0, WL->Num() - 1);
 		for (int32 i = 0; i < WL->Num() && WM; ++i)
 		{
-			if (i == Lose && WL->Num() > 2) continue;
+			if (i == Lose && WL->Num() > 2) { LostWheel = i; continue; }
 			const AFTEntityActor::FWheelDef& D = (*WL)[i];
 			UStaticMeshComponent* W = MakeBit(this, Mesh);
 			W->SetStaticMesh(WM);
@@ -1892,6 +2085,7 @@ void AFTWreck::Launch(UStaticMesh* InMesh, const FTransform& At, const FVector& 
 	Fire->SetAsset(FireSys ? FireSys : FTFx::System(TEXT("NS_Fire")));
 	Fire->SetRelativeScale3D(FVector(FireSys ? Burn : 1.f));
 	if (Fire->GetAsset()) { Fire->SetVariableFloat(TEXT("User.Size"), 1.4f); Fire->Activate(true); }
+	StartWreckLook(this, InMesh, At, Velocity, Scale, LostWheel);   // FX round 3: it comes apart (looks only)
 	// 3.1: and it smokes (the Extra layer: not at Low)
 	if (FTFx::Shows(this, FTFx::Extra))
 	{
@@ -1907,6 +2101,7 @@ void AFTWreck::Tick(float Dt)
 	Age += Dt;
 	if (Age > 6.f && Fire->IsActive()) Fire->Deactivate();
 	if (Age > 7.5f && Smoke->IsActive()) Smoke->Deactivate();
+	if (FWreckLook* Look = WreckLooks().Find(TWeakObjectPtr<AFTWreck>(this))) TickWreckLook(this, *Look, Dt);   // FX round 3: its pieces and its sparks
 }
 
 // ------------------------------------------------------------------------------------------ hazard

@@ -545,70 +545,70 @@ Zone(TEXT("Kerb: vegas approach"), 22.f, 25.6f);
 // ---- 2. close rock cuts (see the head of this pass). One zone to each unbroken run of slots; the slots where the wash's
 // bed crosses under the road are left open, so the wash comes out through the wall
 Zone(TEXT("Cut: dry wash west 1"), 1.154f, 1.335f);
-	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
-	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), -1, 30.f, 3, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 3, 0, 0.96f);
 	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
 	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
 Zone(TEXT("Cut: dry wash 1"), 1.606f, 1.742f);
-	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
-	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), -1, 30.f, 3, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 3, 0, 0.96f);
 	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
 	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
 Zone(TEXT("Cut: dry wash 2"), 1.787f, 2.059f);
-	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
-	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), -1, 30.f, 3, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 3, 0, 0.96f);
 	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
 	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
 Zone(TEXT("Cut: the corkscrew in the pass"), 5.452f, 5.633f);
 	Far(TEXT("SM_RockCut"), 30.f, 30.f, 1, 0, 1.f, 1.f, 0.f, 0, 0.86f, 0.f);
 Zone(TEXT("Cut: red rock pass 1"), 5.407f, 5.452f);
-	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
-	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), -1, 30.f, 3, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 3, 0, 0.96f);
 	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
 	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
 Zone(TEXT("Cut: red rock pass, after the corkscrew 1"), 5.633f, 5.723f);
-	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
-	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), -1, 30.f, 3, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 3, 0, 0.96f);
 	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
 	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
 Zone(TEXT("Cut: red rock pass east 1"), 5.995f, 6.311f);
-	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
-	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), -1, 30.f, 3, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 3, 0, 0.96f);
 	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
 	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
 Zone(TEXT("Cut: red rock return, first straight 1"), 18.572f, 18.708f);
-	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
-	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), -1, 30.f, 3, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 3, 0, 0.96f);
 	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
 	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
 Zone(TEXT("Cut: red rock return, first straight 2"), 18.753f, 19.342f);
-	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
-	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), -1, 30.f, 3, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 3, 0, 0.96f);
 	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
 	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
 Zone(TEXT("Cut: red rock return, second straight 1"), 19.930f, 19.975f);
-	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
-	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), -1, 30.f, 3, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 3, 0, 0.96f);
 	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
 	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
 Zone(TEXT("Cut: red rock return, second straight 2"), 20.020f, 20.608f);
-	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
-	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), -1, 30.f, 3, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 3, 0, 0.96f);
 	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
 	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
 Zone(TEXT("Cut: red rock return, second straight 3"), 20.654f, 20.699f);
-	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
-	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), -1, 30.f, 3, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 3, 0, 0.96f);
 	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
 	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
 Zone(TEXT("Cut: red rock return, third straight 1"), 21.332f, 21.875f);
-	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
-	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), -1, 30.f, 3, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 3, 0, 0.96f);
 	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
 	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
 Zone(TEXT("Cut: red rock return, third straight 2"), 21.920f, 22.011f);
-	Site(TEXT("CutLine"), -1, 30.f, 1, 0, 0.96f);
-	Site(TEXT("CutLine"), 1, 30.f, 1, 0, 0.96f);
+	Site(TEXT("CutLine"), -1, 30.f, 3, 0, 0.96f);
+	Site(TEXT("CutLine"), 1, 30.f, 3, 0, 0.96f);
 	Site(TEXT("CutLineB"), -1, 36.5f, 3, 1, 0.8f);
 	Site(TEXT("CutLineB"), 1, 36.5f, 3, 2, 0.8f);
 
@@ -719,3 +719,159 @@ Zone(TEXT("Far tableland"), 0.f, 99.f);
 	Far(TEXT("SM_MesaCard"), 1880.f, 1980.f, 18, 0, 1.f, 1.f, 0.08f, 0, 40.f, 4.f);
 };
 ThirdPass();
+
+auto FourthPass = [&]()
+{
+// =====================================================================================================================
+// FOURTH PASS (15 Nov 2026, "the built world in motion"): traffic that is not the chase (the old road beside the
+// highway), a train on a trestle, a rocket off the Syndicate's range, a record car on the salt, geysers, fountains, an
+// airship and aircraft, a coaster on a casino's roof, hoardings of turning slats, a tower of turning reels. APPENDED.
+// Every new mesh is one of the kit's ft_life.Kit pieces (ft_dress_nevada.py, MOVING4): it moves in the vertex shader,
+// nothing ticks. All of it stands 72 m and more from the road or is laid by a Far rule, so none of it casts a shadow
+// (the track's shadow rule: within 70 m AND over 2.5 m). NOT COMPILED and NOT SEEN when it was written (the owner's
+// order of 15 Nov 17:53: build everything now, compile and look later): counts are from zones_w2\r4\w2_est3.py.
+Set(TEXT("CutLine2"), { { TEXT("SM_RockCut2"), 0, 0, 0, 0, 1.f } });
+Set(TEXT("CutLine3"), { { TEXT("SM_RockCut3"), 0, 0, 0, 0, 1.f } });
+Set(TEXT("TrestleAcross"), { { TEXT("SM_Trestle"), 0, 0, 0, 90, 1.f } });
+Set(TEXT("BoardL"), { { TEXT("SM_TriBoard"), 0, 0, 0, 70, 1.f } });
+Set(TEXT("BoardR"), { { TEXT("SM_TriBoard"), 0, 0, 0, -70, 1.f } });
+Set(TEXT("ReelsL"), { { TEXT("SM_ReelTower"), 0, 0, 0, 35, 1.f } });
+Set(TEXT("ReelsR"), { { TEXT("SM_ReelTower"), 0, 0, 0, -35, 1.f } });
+
+// ---- 1. the rock cuts' second and third designs (the first design's rules above lay every third slot now)
+Zone(TEXT("Cut designs: Cut: dry wash west 1"), 1.154f, 1.335f);
+	Site(TEXT("CutLine2"), -1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), -1, 30.f, 3, 2, 0.96f);
+	Site(TEXT("CutLine2"), 1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), 1, 30.f, 3, 2, 0.96f);
+Zone(TEXT("Cut designs: Cut: dry wash 1"), 1.606f, 1.742f);
+	Site(TEXT("CutLine2"), -1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), -1, 30.f, 3, 2, 0.96f);
+	Site(TEXT("CutLine2"), 1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), 1, 30.f, 3, 2, 0.96f);
+Zone(TEXT("Cut designs: Cut: dry wash 2"), 1.787f, 2.059f);
+	Site(TEXT("CutLine2"), -1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), -1, 30.f, 3, 2, 0.96f);
+	Site(TEXT("CutLine2"), 1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), 1, 30.f, 3, 2, 0.96f);
+Zone(TEXT("Cut designs: Cut: red rock pass 1"), 5.407f, 5.452f);
+	Site(TEXT("CutLine2"), -1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), -1, 30.f, 3, 2, 0.96f);
+	Site(TEXT("CutLine2"), 1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), 1, 30.f, 3, 2, 0.96f);
+Zone(TEXT("Cut designs: Cut: red rock pass, after the corkscrew 1"), 5.633f, 5.723f);
+	Site(TEXT("CutLine2"), -1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), -1, 30.f, 3, 2, 0.96f);
+	Site(TEXT("CutLine2"), 1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), 1, 30.f, 3, 2, 0.96f);
+Zone(TEXT("Cut designs: Cut: red rock pass east 1"), 5.995f, 6.311f);
+	Site(TEXT("CutLine2"), -1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), -1, 30.f, 3, 2, 0.96f);
+	Site(TEXT("CutLine2"), 1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), 1, 30.f, 3, 2, 0.96f);
+Zone(TEXT("Cut designs: Cut: red rock return, first straight 1"), 18.572f, 18.708f);
+	Site(TEXT("CutLine2"), -1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), -1, 30.f, 3, 2, 0.96f);
+	Site(TEXT("CutLine2"), 1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), 1, 30.f, 3, 2, 0.96f);
+Zone(TEXT("Cut designs: Cut: red rock return, first straight 2"), 18.753f, 19.342f);
+	Site(TEXT("CutLine2"), -1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), -1, 30.f, 3, 2, 0.96f);
+	Site(TEXT("CutLine2"), 1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), 1, 30.f, 3, 2, 0.96f);
+Zone(TEXT("Cut designs: Cut: red rock return, second straight 1"), 19.930f, 19.975f);
+	Site(TEXT("CutLine2"), -1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), -1, 30.f, 3, 2, 0.96f);
+	Site(TEXT("CutLine2"), 1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), 1, 30.f, 3, 2, 0.96f);
+Zone(TEXT("Cut designs: Cut: red rock return, second straight 2"), 20.020f, 20.608f);
+	Site(TEXT("CutLine2"), -1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), -1, 30.f, 3, 2, 0.96f);
+	Site(TEXT("CutLine2"), 1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), 1, 30.f, 3, 2, 0.96f);
+Zone(TEXT("Cut designs: Cut: red rock return, second straight 3"), 20.654f, 20.699f);
+	Site(TEXT("CutLine2"), -1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), -1, 30.f, 3, 2, 0.96f);
+	Site(TEXT("CutLine2"), 1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), 1, 30.f, 3, 2, 0.96f);
+Zone(TEXT("Cut designs: Cut: red rock return, third straight 1"), 21.332f, 21.875f);
+	Site(TEXT("CutLine2"), -1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), -1, 30.f, 3, 2, 0.96f);
+	Site(TEXT("CutLine2"), 1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), 1, 30.f, 3, 2, 0.96f);
+Zone(TEXT("Cut designs: Cut: red rock return, third straight 2"), 21.920f, 22.011f);
+	Site(TEXT("CutLine2"), -1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), -1, 30.f, 3, 2, 0.96f);
+	Site(TEXT("CutLine2"), 1, 30.f, 3, 1, 0.96f);
+	Site(TEXT("CutLine3"), 1, 30.f, 3, 2, 0.96f);
+
+// ---- 2. the old road beside the highway, with its traffic: 271 m lengths 76 m out on the straights of the settled
+// stretches (a length stands square to the road at its slot, so it wants a straight)
+Zone(TEXT("Old road: first ranches"), 2.44f, 3.03f);
+	Scatter(TEXT("SM_FrontageRoad"), 76.f, 78.f, 7, 3, 1.f, 1.f, 0.f, 1, 0.f);
+Zone(TEXT("Old road: before the pass"), 6.02f, 6.61f);
+	Scatter(TEXT("SM_FrontageRoad"), 76.f, 78.f, 7, 2, 1.f, 1.f, 0.f, -1, 0.f);
+Zone(TEXT("Old road: the junction"), 8.42f, 9.09f);
+	Scatter(TEXT("SM_FrontageRoad"), 76.f, 78.f, 8, 5, 1.f, 1.f, 0.f, 1, 0.f);
+Zone(TEXT("Old road: the range"), 17.15f, 18.05f);
+	Scatter(TEXT("SM_FrontageRoad"), 76.f, 78.f, 8, 1, 1.f, 1.f, 0.f, -1, 0.f);
+Zone(TEXT("Old road: return"), 21.26f, 22.17f);
+	Scatter(TEXT("SM_FrontageRoad"), 76.f, 78.f, 8, 6, 1.f, 1.f, 0.f, 1, 0.f);
+Zone(TEXT("Old road: approach"), 22.62f, 23.53f);
+	Scatter(TEXT("SM_FrontageRoad"), 76.f, 78.f, 8, 2, 1.f, 1.f, 0.f, -1, 0.f);
+Zone(TEXT("Old road: the Strip"), 23.98f, 24.93f);
+	Scatter(TEXT("SM_FrontageRoad"), 76.f, 78.f, 8, 4, 1.f, 1.f, 0.f, 1, 0.f);
+
+// ---- 3. the elements: geysers on the open flats, 76 m and more out, each on its own clock
+Zone(TEXT("Geysers: salt flats"), 12.44f, 13.3f);
+	Scatter(TEXT("SM_Geyser"), 76.f, 110.f, 9, 4, 0.9f, 1.2f, 0.08f, 0, 0.f);
+Zone(TEXT("Geysers: the range"), 14.25f, 15.2f);
+	Scatter(TEXT("SM_Geyser"), 76.f, 110.f, 9, 6, 0.9f, 1.2f, 0.08f, 0, 0.f);
+Zone(TEXT("Geysers: return"), 19.91f, 20.77f);
+	Scatter(TEXT("SM_Geyser"), 76.f, 110.f, 9, 2, 0.9f, 1.2f, 0.08f, 0, 0.f);
+
+// ---- 4. the Strip in motion: fountains in the forecourts, hoardings of turning slats turned to the driver, a coaster
+// on a casino's roof, and THE REELS (a tower with three giant drums turning in its face), one on each approach
+Zone(TEXT("Strip: Jackpot Junction"), 8.42f, 10.1f);
+	Scatter(TEXT("SM_Fountain"), 74.f, 86.f, 9, 3, 1.f, 1.2f, 0.05f, 0, 0.f);
+	Site(TEXT("BoardL"), -1, 74.f, 16, 4, 1.f);
+	Site(TEXT("BoardR"), 1, 74.f, 16, 12, 1.f);
+	Scatter(TEXT("SM_RoofCoaster"), 112.f, 120.f, 28, 9, 1.f, 1.f, 0.f, 0, 0.f);
+Zone(TEXT("Strip: Vegas approach"), 22.62f, 25.6f);
+	Scatter(TEXT("SM_Fountain"), 74.f, 86.f, 14, 5, 1.f, 1.2f, 0.05f, 0, 0.f);
+	Site(TEXT("BoardL"), -1, 74.f, 16, 7, 1.f);
+	Site(TEXT("BoardR"), 1, 74.f, 16, 15, 1.f);
+	Scatter(TEXT("SM_RoofCoaster"), 112.f, 120.f, 36, 13, 1.f, 1.f, 0.f, 0, 0.f);
+Zone(TEXT("The reels: Jackpot Junction"), 9.569f, 9.614f);
+	Site(TEXT("ReelsR"), 1, 118.f, 1, 0, 1.f);
+Zone(TEXT("The reels: Vegas"), 24.635f, 24.680f);
+	Site(TEXT("ReelsL"), -1, 118.f, 1, 0, 1.f);
+
+// ---- 5. in the air, for the horizon: an airship over each city, a banner plane over the state line, the salt and the
+// return, a light aircraft doing circuits off the Syndicate's strip
+Zone(TEXT("Airship: Jackpot Junction"), 8.574f, 8.619f);
+	Far(TEXT("SM_Blimp"), 430.f, 430.f, 1, 0, 1.f, 1.f, 0.f, 1, 25.f, 0.f);
+Zone(TEXT("Airship: Vegas"), 23.956f, 24.002f);
+	Far(TEXT("SM_Blimp"), 430.f, 430.f, 1, 0, 1.f, 1.f, 0.f, 1, 25.f, 0.f);
+Zone(TEXT("Banner plane: state line"), 0.430f, 0.475f);
+	Far(TEXT("SM_BannerPlane"), 350.f, 350.f, 1, 0, 1.f, 1.f, 0.f, -1, 25.f, 0.f);
+Zone(TEXT("Banner plane: salt flats"), 13.098f, 13.143f);
+	Far(TEXT("SM_BannerPlane"), 380.f, 380.f, 1, 0, 1.f, 1.f, 0.f, -1, 25.f, 0.f);
+Zone(TEXT("Banner plane: return"), 21.694f, 21.739f);
+	Far(TEXT("SM_BannerPlane"), 350.f, 350.f, 1, 0, 1.f, 1.f, 0.f, -1, 25.f, 0.f);
+Zone(TEXT("Strip plane"), 15.586f, 15.632f);
+	Far(TEXT("SM_StripPlane"), 380.f, 380.f, 1, 0, 1.f, 1.f, 0.f, -1, 25.f, 0.f);
+
+// ---- 6. three moments. THE TRESTLE: across the view at the end of the dry wash's straight (the road's heading at 1.75
+// to 1.95 km points 105 m to the left of 2.47 km; the trestle stands ACROSS that line, its middle 205 m left of the
+// road, its near head of rock 60 m from it), an ore train crossing every 17 s. THE RECORD RUN: 800 m of black line on
+// the salt 170 m to the right of the 12.44 to 13.3 km straight, a red car streaking down it the driver's way.
+// THE RANGE: a rocket going up 800 m to the left of 17.74 km, in view from the 16.15 km straight on.
+Zone(TEXT("Trestle"), 2.466f, 2.511f);
+	Site(TEXT("TrestleAcross"), -1, 205.f, 1, 0, 1.f);
+Zone(TEXT("Record run"), 12.872f, 12.917f);
+	Scatter(TEXT("SM_RecordCar"), 170.f, 170.f, 1, 0, 1.f, 1.f, 0.f, 1, 0.f);
+Zone(TEXT("The range: rocket"), 17.713f, 17.758f);
+	Far(TEXT("SM_Rocket"), 800.f, 800.f, 1, 0, 1.f, 1.f, 0.f, -1, 25.f, 0.f);
+};
+FourthPass();

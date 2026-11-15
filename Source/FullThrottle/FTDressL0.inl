@@ -136,7 +136,7 @@ Zone(TEXT("The Strip"), 0.0f, 3.2f);
 	Site(TEXT("Walk"), -1, 22, 1, 0, 1.f);
 	Site(TEXT("BeachClub"), -1, 34, 4, 1, 0.95f);
 	Site(TEXT("Tiki"), -1, 52, 4, 3, 0.9f);
-	Scatter(TEXT("SM_Towels"), 30, 100, 1, 0, 0.7f, 1.f, 0.f, -1);
+	Scatter(TEXT("SM_Towels"), 30, 100, 2, 0, 0.7f, 1.f, 0.f, -1);   // (round three: every second place)
 	Scatter(TEXT("SM_Towels"), 34, 104, 2, 1, 0.8f, 1.f, 0.f, -1);
 	Scatter(TEXT("SM_DuneGrass"), 110, 270, 1, 0, 0.8f, 1.2f, 0.3f, -1, 180.f);
 	Site(TEXT("PierSet"), -1, 190, 14, 9, 1.f);
@@ -204,8 +204,8 @@ Zone(TEXT("Pleasure Beach"), 6.4f, 9.8f);
 	Site(TEXT("PierSet"), -1, 190, 12, 1, 1.f);
 	Scatter(TEXT("SM_Cabanas"), 70, 110, 3, 2, 0.7f, 1.f, 0.f, -1);
 	Scatter(TEXT("SM_KioskDrinks"), 28, 31, 5, 3, 0.9f, 1.f, 0.f, -1); Lit();
-	Scatter(TEXT("SM_Towels"), 30, 100, 1, 0, 0.8f, 1.f, 0.f, -1);
-	Scatter(TEXT("SM_Towels"), 34, 104, 1, 0, 0.6f, 1.f, 0.f, -1);
+	Scatter(TEXT("SM_Towels"), 30, 100, 2, 0, 0.8f, 1.f, 0.f, -1);   // (round three: every second place)
+	Scatter(TEXT("SM_Towels"), 34, 104, 2, 0, 0.6f, 1.f, 0.f, -1);   // (round three: every second place)
 	Scatter(TEXT("SM_DuneGrass"), 110, 270, 2, 0, 0.8f, 1.2f, 0.3f, -1, 180.f);
 	Site(TEXT("Kerb"), 1, 18.6f, 2, 1, 0.9f);
 	Site(TEXT("StreetCorner"), 1, 18.5f, 4, 0, 0.9f); Lit();
@@ -281,7 +281,7 @@ Zone(TEXT("Downtown waterfront"), 16.8f, 99.f);
 	Site(TEXT("Volley"), -1, 62, 7, 3, 0.9f);
 	Site(TEXT("Funfair"), -1, 170, 19, 8, 1.f);
 	Site(TEXT("PierSet"), -1, 190, 11, 5, 1.f);
-	Scatter(TEXT("SM_Towels"), 30, 100, 1, 0, 0.7f, 1.f, 0.f, -1);
+	Scatter(TEXT("SM_Towels"), 30, 100, 2, 0, 0.7f, 1.f, 0.f, -1);   // (round three: every second place)
 	Scatter(TEXT("SM_DuneGrass"), 110, 270, 1, 0, 0.8f, 1.2f, 0.3f, -1, 180.f);
 	Site(TEXT("Kerb"), 1, 18.6f, 2, 0, 0.9f);
 	Site(TEXT("Kerb2"), 1, 18.6f, 4, 1, 0.9f);
@@ -644,12 +644,14 @@ auto ChairLift = [&](float A, float B)
 	Zone(TEXT("The chair lift"), SlotKm(A - 0.5f), SlotKm(B + 0.5f));
 	Site(TEXT("Sky"), -1, 44, 1, 0, 1.f);
 };
-// ---- Beside the first jump (1.73 km) and the fourth (8.56 km): a chair swing at 2.2 times its size, 37 m tall, on the
-// floor of the dip (18 m under the land), 52 m from the centre line: the bay side at the first jump, the town side at
-// the fourth. Its crown turns 4 m over the car's flight: it shows over the land from 350 m before the kicker, and the
-// car flies past it. Round one stood a swing and two carousels UNDER each jump: the chase camera never looks down
-// there and the kicker hides the dip on the way up, so they were in no frame. Their six rules keep their places (a
-// rule's random numbers come from its place in the table): two are the tall swings now, four have a chance of 0.f.
+// ---- Beside the first jump (1.73 km) and the fourth (8.56 km): the big wheel at 1.8 times its size, 78 m tall, on the
+// floor of the dip (18 m under the land), 52 m from the centre line (its legs from 34 m): the bay side at the first
+// jump, the town side at the fourth. It stands across the road, so the car comes at it face on and flies past it while
+// it turns. Round two stood a chair swing 37 m tall here: in the frames only its crown came up over the barrier, about
+// 130 m before the take-off (the rest was down in the dip), so round three put the wheel in its place: 59 m of it
+// stand over the road. Round one stood a swing and two carousels UNDER each jump: the chase camera never looks down
+// there and the kicker hides the dip on the way up, so they were in no frame. The six rules keep their places (a
+// rule's random numbers come from its place in the table): two are the wheels now, four have a chance of 0.f.
 // A Far rule shifts its piece up to 11 m along the road by such a number, and a dip's floor is level for 12 m only:
 // these rules stand where that number puts them within 3 m of its middle (make_l0.py found the places).
 Street(1, 3, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 1.f);   // The Strip, level
@@ -657,7 +659,7 @@ Zone(TEXT("Under a jump"), 8.5283f, 8.5735f);   // slot 189, rule 1317: it lands
 	Far(TEXT("SM_Carousel"), 0, 0, 1, 0, 0.f, 1.5f, 0.f, 1, 1.15f, 0.f);                // (off: nothing under a jump is in any frame)
 Street(9, 10, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 1.f);   // The Strip, level
 Zone(TEXT("Under a jump"), 8.5283f, 8.5735f);   // slot 189, rule 1325: it lands at 8562 m (the dip is lowest at 8559 m)
-	Far(TEXT("SM_SwingRide"), 52, 52, 1, 0, 1.f, 2.2f, 0.f, 1, 1.15f, 0.f);             // the fourth jump: the town side
+	Far(TEXT("SM_BigWheel"), 52, 52, 1, 0, 1.f, 1.8f, 0.f, 1, 1.15f, 0.f);              // the fourth jump: the town side (round three: the big wheel, 78 m)
 Street(23, 27, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 1.f);   // The Strip, level
 Zone(TEXT("Under a jump"), 8.5283f, 8.5735f);   // slot 189, rule 1333: it lands at 8562 m (the dip is lowest at 8559 m)
 	Far(TEXT("SM_SwingRide"), 33, 33, 1, 0, 0.f, 1.f, 0.f, -1, 1.15f, 0.f);             // (off)
@@ -668,7 +670,7 @@ Street(67, 67, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.
 Street(5, 6, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 1.f, 1.f);   // The Strip, gentle
 Street(8, 8, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 1.f, 1.f);   // The Strip, gentle
 Zone(TEXT("Under a jump"), 1.6966f, 1.7419f);   // slot 38, rule 1376: it lands at 1731 m (the dip is lowest at 1732 m)
-	Far(TEXT("SM_SwingRide"), 52, 52, 1, 0, 1.f, 2.2f, 0.f, -1, 1.15f, 0.f);            // the first jump: the bay side
+	Far(TEXT("SM_BigWheel"), 52, 52, 1, 0, 1.f, 1.8f, 0.f, -1, 1.15f, 0.f);             // the first jump: the bay side (round three: the big wheel, 78 m)
 Street(11, 11, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 1.f, 1.f);   // The Strip, gentle
 Zone(TEXT("Under a jump"), 1.6966f, 1.7419f);   // slot 38, rule 1384: it lands at 1730 m (the dip is lowest at 1732 m)
 	Far(TEXT("SM_Carousel"), 31, 31, 1, 0, 0.f, 1.3f, 0.f, 1, 1.15f, 0.f);              // (off)
@@ -888,3 +890,78 @@ Zone(TEXT("The Point, a second skyline"), 13.2f, 16.8f);
 Zone(TEXT("Downtown, a second skyline"), 16.8f, 99.f);
 	Far(TEXT("SM_Downtown2"), 430, 560, 10, 6, 1.f, 1.05f, 0.2f, 1, 2.2f, 30.f);
 	Far(TEXT("SM_Downtown2"), 760, 1000, 12, 9, 1.f, 1.95f, 0.2f, 1, 6.f, 30.f);
+// ---- Round three (15 Nov): the built world in motion. Everything here is a prop that moves by its own materials
+// (ft_dress_bay.py, "the fifth round": one mesh, one instance, however many cars or boats it carries), written after
+// the table's last rule so that no rule before it changes its place. No people and no animals (another machine's).
+//   SM_SideTraffic  cars that come down a side street into the car park under the promenade and others that leave:
+//                   on every side street, by the same count as each district's own "Side" rule (the back street got
+//                   none: it lies 93.5 m out behind two rows of shops and is in no frame)
+//   SM_BoatRing     five boats under way with their wakes, on a round 800 m across whose near side is 470 m out
+//   SM_Ferry        the bay ferry on a round 1.1 km across, 490 m out at its nearest
+//   SM_BannerPlane  two planes towing banners round a ring 1.4 km across, 85 m over the sea: along the beach they fly
+//                   the road's own way 250 m out, with the lettering turned to the road
+//   SM_SkyBeams     three searchlights that sweep, on a roof between downtown's two rows of towers
+//   SM_Fireworks    a slow firework show over the same roofs (a shell every two seconds, each three seconds long)
+Set(TEXT("SideCars"), { { TEXT("SM_SideTraffic"), 0, 0, 0, 0, 1 } });
+Zone(TEXT("The Strip, side street traffic"), 0.0f, 3.2f);
+	Site(TEXT("SideCars"), 1, 90, 4, 0, 1.f);
+Zone(TEXT("The Marina, side street traffic"), 3.2f, 6.4f);
+	Site(TEXT("SideCars"), 1, 90, 4, 0, 1.f);
+Zone(TEXT("Pleasure Beach, side street traffic"), 6.4f, 9.8f);
+	Site(TEXT("SideCars"), 1, 90, 4, 0, 1.f);
+Zone(TEXT("Hotel Row, side street traffic"), 9.8f, 13.2f);
+	Site(TEXT("SideCars"), 1, 90, 4, 0, 1.f);
+Zone(TEXT("The Point, side street traffic"), 13.2f, 16.8f);
+	Site(TEXT("SideCars"), 1, 90, 6, 3, 1.f);
+Zone(TEXT("Downtown waterfront, side street traffic"), 16.8f, 99.f);
+	Site(TEXT("SideCars"), 1, 90, 4, 0, 1.f);
+// The road winds: where it bends towards the bay, a point 900 m out to sea from one stretch lies on the beach of
+// another (slots 70 to 100, 147 to 198, 314 to 351). A round of boats must lie wholly on water and a plane's ring
+// must not reach over the town, so the bay's rules are written for the four stretches that have the room
+// (ring_room.py in the notes folder lists them).
+auto Bay = [&](float A, float B)
+{
+	Zone(TEXT("The bay, under way"), SlotKm(A - 0.5f), SlotKm(B + 0.5f));
+	Afloat(TEXT("SM_BoatRing"), 900, 900, 21, 4, 1.f, 1.f, 0.f, -1, 180.f);
+	Afloat(TEXT("SM_Ferry"), 1050, 1050, 67, 30, 1.f, 1.f, 0.f, -1, 180.f);
+	Afloat(TEXT("SM_BannerPlane"), 950, 950, 66, 12, 1.f, 1.f, 0.f, -1, 0.f);
+};
+Bay(0, 69); Bay(101, 146); Bay(199, 313); Bay(352, 562);
+Zone(TEXT("The bay, the first plane"), 0.f, 1.2f);
+	Afloat(TEXT("SM_BannerPlane"), 950, 950, 66, 52, 1.f, 1.f, 0.f, -1, 0.f);
+// The sky pieces stand 700 m out on the town side, between downtown's two rows of towers, at slots where no other
+// stretch of the road comes within 400 m of them.
+Zone(TEXT("Hotel Row, lights in the sky"), 9.8f, 13.2f);
+	Far(TEXT("SM_SkyBeams"), 700, 720, 25, 4, 1.f, 1.f, 0.1f, 1, 2.4f, 180.f);
+Zone(TEXT("The Point, lights in the sky"), 13.2f, 16.8f);
+	Far(TEXT("SM_SkyBeams"), 680, 720, 16, 7, 1.f, 1.f, 0.1f, 1, 2.5f, 180.f);
+	Far(TEXT("SM_Fireworks"), 690, 720, 40, 22, 1.f, 1.f, 0.f, 1, 2.5f, 180.f);
+Zone(TEXT("Downtown, lights in the sky"), 16.8f, 99.f);
+	Far(TEXT("SM_SkyBeams"), 690, 720, 11, 5, 1.f, 1.f, 0.1f, 1, 2.2f, 180.f);
+	Far(TEXT("SM_Fireworks"), 690, 720, 23, 9, 1.f, 1.f, 0.f, 1, 2.2f, 180.f);
+// ---- The order of 17:55 (build everything now; none of these three was seen in the game):
+//   SM_BackTraffic  the back street's own traffic, a piece to every second slot (it covers two): cars and a bus in
+//                   step along the whole street. From the road on level ground the street is in no frame; this is
+//                   for the jumps, the loops and the hills.
+//   SM_Kites        three kites on their strings over the beach, 46 to 80 m out, every fourth slot, as far as downtown
+//   SM_Blimp        an airship on a round 600 m across over the bay, 700 m out, from Hotel Row on (at sea: downtown's
+//                   towers stand 230 m and more)
+Set(TEXT("BackCars"), { { TEXT("SM_BackTraffic"), 0, 0, 0, 0, 1 } });
+Zone(TEXT("The Strip, back street traffic"), 0.0f, 3.2f);
+	Site(TEXT("BackCars"), 1, 93.5f, 2, 0, 1.f);
+Zone(TEXT("The Marina, back street traffic"), 3.2f, 6.4f);
+	Site(TEXT("BackCars"), 1, 93.5f, 2, 0, 1.f);
+Zone(TEXT("Pleasure Beach, back street traffic"), 6.4f, 9.8f);
+	Site(TEXT("BackCars"), 1, 93.5f, 2, 0, 1.f);
+Zone(TEXT("Hotel Row, back street traffic"), 9.8f, 13.2f);
+	Site(TEXT("BackCars"), 1, 93.5f, 2, 0, 1.f);
+Zone(TEXT("Downtown waterfront, back street traffic"), 16.8f, 99.f);
+	Site(TEXT("BackCars"), 1, 93.5f, 2, 0, 1.f);
+Zone(TEXT("Kites over the beach"), 0.0f, 16.8f);
+	Scatter(TEXT("SM_Kites"), 46, 80, 4, 2, 1.f, 1.f, 0.2f, -1, 40.f);
+auto Airship = [&](float A, float B)
+{
+	Zone(TEXT("An airship over the bay"), SlotKm(A - 0.5f), SlotKm(B + 0.5f));
+	Afloat(TEXT("SM_Blimp"), 700, 700, 45, 20, 1.f, 1.f, 0.f, -1, 180.f);
+};
+Airship(199, 313); Airship(352, 562);

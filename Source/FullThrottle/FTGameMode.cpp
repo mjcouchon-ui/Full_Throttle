@@ -80,6 +80,7 @@ namespace
 		FVector Vel = FVector::ZeroVector;   // world: the speed of what blew up
 		float Reach = 0.f;                   // cm: the blast's real reach across the road (its ring), 0 = none of its own
 		bool bAir = false, bLight = false;
+		bool bImpact = false;                // FX round 3: a missile kill or a turbo ram: it lands on an impact card (FTFx::Explosion)
 	};
 	FFTBlastHint GBlastHint;
 }
@@ -2328,7 +2329,19 @@ void AFTGameMode::FireBullet(int32 InOwner, float D, float X, float H, float VD,
 	// for a whole fan fired from the same spot. Looks only: nothing above this line has changed
 	if (InOwner == 1)
 	{
-		if (AFTEntityActor* A = B.Proxy.Get()) A->SetHostile(Variant);
+		if (AFTEntityActor* A = B.Proxy.Get())
+		{
+			A->SetHostile(Variant);
+			// FX round 3: a plain hostile round is a biker's pistol shot or a gunship's machine-gun slug (the gunship fires
+			// from higher up: 140 against 110). The pistol's is a thin quick dart; the machine gun's is fat with a long
+			// streak. Looks only: the round's box, speed and damage are as they were (Setup puts a pooled actor's scale back)
+			if (Variant == 0)
+			{
+				const bool bSlug = H > 125.f;
+				A->Mesh->SetRelativeScale3D(bSlug ? FVector(1.3f, 1.2f, 1.2f) : FVector(0.9f, 0.7f, 0.7f));
+				if (UNiagaraSystem* Own = FTFx::System(bSlug ? TEXT("NS_EnemyTrailGun") : TEXT("NS_EnemyTrailBike"))) { A->Trail->SetAsset(Own); A->Trail->Activate(true); }
+			}
+		}
 		static float MuzT = -1.f, MuzD = 0.f, MuzX = 0.f;
 		if (FMath::Abs(Clock - MuzT) > 0.04f || FMath::Abs(D - MuzD) > 300.f || FMath::Abs(X - MuzX) > 150.f)
 		{
@@ -2337,11 +2350,17 @@ void AFTGameMode::FireBullet(int32 InOwner, float D, float X, float H, float VD,
 			// on the vehicle that fired (the one standing where the round starts), so the flash stays on its barrel:
 			// left in the world it would be metres behind before it faded
 			USceneComponent* On = nullptr;
+			EFTKind By = EFTKind::None;   // FX round 3: who fired (its flash is its own)
 			for (const FFTEnt& S : Ents)
 				if (!S.bDead && (S.Kind == EFTKind::Moto || S.Kind == EFTKind::Suv || S.Kind == EFTKind::Boss) && FMath::Abs(S.X - X) < 1.f && D > S.D - S.L * 0.5f - 210.f && D < S.D + 10.f)
-					if (const AFTEntityActor* P = S.Proxy.Get()) { On = P->GetRootComponent(); break; }
-			if (On) FTFx::Attach(TEXT("NS_EnemyMuzzle"), On, Bt.GetLocation(), Bt.Rotator(), Variant == 0 ? 1.f : 1.5f, FTFx::Flash);
-			else FTFx::Burst(this, TEXT("NS_EnemyMuzzle"), Bt.GetLocation(), Bt.Rotator(), Variant == 0 ? 1.f : 1.5f, FTFx::Flash);
+					if (const AFTEntityActor* P = S.Proxy.Get()) { On = P->GetRootComponent(); By = S.Kind; break; }
+			// FX round 3: each foe's gun has its own flash. A biker's pistol is one small sharp star. A gunship's machine gun
+			// stabs a long tongue of flame out past the star (the tongue is the Main layer: it shows with Reduced Motion,
+			// when the star does not). A boss keeps the big star
+			const TCHAR* Muzzle = Variant == 0 && By == EFTKind::Moto ? TEXT("NS_EnemyMuzzleBike") : TEXT("NS_EnemyMuzzle");
+			if (On) FTFx::Attach(Muzzle, On, Bt.GetLocation(), Bt.Rotator(), Variant == 0 ? 1.f : 1.5f, FTFx::Flash);
+			else FTFx::Burst(this, Muzzle, Bt.GetLocation(), Bt.Rotator(), Variant == 0 ? 1.f : 1.5f, FTFx::Flash);
+			if (On && Variant == 0 && By == EFTKind::Suv) FTFx::Attach(TEXT("NS_EnemyMuzzleGun"), On, Bt.GetLocation(), Bt.Rotator());
 		}
 	}
 }
@@ -2499,6 +2518,9 @@ void AFTGameMode::Kill(FFTEnt& E, int32 Cause)
 			if (GBlastHint.Dir.IsNearlyZero()) GBlastHint.Dir = Bf.Fwd;
 		}
 		GBlastHint.bAir = E.bAir;
+		// FX round 3: a missile kill (cause 1) or a ram with the turbo burning (cause 2) lands on an impact card, the blast
+		// held two frames behind it. Drawn, not taken out of the game's time. Not a boss (his death is his own), not a barrel
+		GBlastHint.bImpact = E.Kind != EFTKind::Boss && E.Kind != EFTKind::Barrel && (Cause == 1 || (Cause == 2 && bTurboOn));
 		if (E.Kind == EFTKind::Barrel) GBlastHint.Reach = 60.f * XU;   // its real reach (60 px across), for the ring on the road
 	}
 	Explode(At, ExSize, bSyn && Cause != 3 && Cause != 6 && E.Kind != EFTKind::Boss);
@@ -2614,7 +2636,7 @@ void AFTGameMode::Explode(const FVector& At, float Size, bool bPlayerWreck, int3
 		const FFTBlastHint Hint = GBlastHint;
 		GBlastHint = FFTBlastHint();
 		FTFx::FBlast B;
-		B.At = At; B.Size = Size; B.Kind = Hint.Kind; B.Dir = Hint.Dir; B.Vel = Hint.Vel; B.Reach = Hint.Reach; B.bLight = Hint.bLight; B.Cam = CamLoc;
+		B.At = At; B.Size = Size; B.Kind = Hint.Kind; B.Dir = Hint.Dir; B.Vel = Hint.Vel; B.Reach = Hint.Reach; B.bLight = Hint.bLight; B.bImpact = Hint.bImpact; B.Cam = CamLoc;
 		if (bTinted) B.Tint = *Tint;
 		// the KESTREL's own wreck (AFTGameMode::Wreck sets the phase, then calls this at the car)
 		if (Phase == EFTPhase::Wreck && Hint.Kind == FTFx::EBlast::Generic && FVector::DistSquared(At, Car->GetActorLocation()) < 1.f) { B.Kind = FTFx::EBlast::Player; B.Vel = Car->GetVelocity(); }
@@ -2994,6 +3016,12 @@ void AFTGameMode::TickEnts(float Dt)
 					const FTransform Bt = EntTransform(E);
 					FTFx::Attach(TEXT("NS_HitPlayer"), Car->GetRootComponent(), Bt.GetLocation(), Bt.Rotator());
 					FTFx::Attach(TEXT("NS_HitPlayerSparks"), Car->GetRootComponent(), Bt.GetLocation(), Bt.Rotator(), 1.f, FTFx::Extra);
+					// FX round 3: a gunship's slug lands heavier than a biker's pistol shot: a ring of their colour and chips of paint
+					if (E.Variant == 0 && E.H > 125.f)
+					{
+						FTFx::Attach(TEXT("NS_HitPlayerRing"), Car->GetRootComponent(), Bt.GetLocation(), Bt.Rotator(), 1.f, FTFx::Extra);
+						FTFx::Attach(TEXT("NS_RamChips"), Car->GetRootComponent(), Bt.GetLocation(), Bt.Rotator(), 0.7f, FTFx::Extra);
+					}
 				}
 				HurtPlayer(HitDmg);
 				Release(E);
@@ -3275,6 +3303,10 @@ void AFTGameMode::TickEnts(float Dt)
 				else A->Extra->SetVisibility(false);
 			}
 			if (E.Glow > 0.f || E.Kind == EFTKind::Rammer || E.Kind == EFTKind::Hog || E.Kind == EFTKind::Boss) A->SetGlow(E.Glow);
+			// FX round 3: a foe wears what it has left: smoke once it has lost a third of its armour, flames under a third
+			// (FTFx::FoeLook: looks only), so the kill is read before it lands. Not the bosses: their states are their own
+			if (E.MaxHp > 0.f && (E.Kind == EFTKind::Moto || E.Kind == EFTKind::Rammer || E.Kind == EFTKind::Suv || E.Kind == EFTKind::Truck || E.Kind == EFTKind::Heli || E.Kind == EFTKind::Hog))
+				FTFx::FoeLook(this, E.Id, A, E.Hp / E.MaxHp);
 		}
 	}
 	Ents.RemoveAll([](const FFTEnt& E) { return E.bDead; });

@@ -42,7 +42,7 @@
 //   - THE FLOOR: parking lots and corporate plazas by Far rules ("Floor ..." districts at the end), kept to the level
 //     stretches. The sidewalk lies 0.4 m under the road from 27 m out: a floor piece's drop is that plus 10 cm;
 //   - THE BANKS: beside a bend banked 52 degrees or more the land is cut down to the road's sunken inner edge, and that
-//     cut fills a third of the frame. SM_BankTiles and SM_SynBank are faces built to lie on it; the "Bank..." sets stand
+//     cut fills a third of the frame. SM_BankTiles and SM_SynBank WERE faces built to lie on it (gone since the third pass: see below); the "Bank..." sets stood
 //     them with a negative "up", one where the bank is at its full angle (the "Bend ..." districts at the end, one
 //     slot each, from the track's section list). The Syndicate's black and gold from 7 km on, the city's tiles before.
 //
@@ -59,11 +59,11 @@
 //     are in the sets the SIX districts before Syndicate Territory use ("W_Shops2s", "W_Banks", "W_Yards": the same
 //     podium with the roof's sign or steam). The finale keeps the plain sets: nothing near the road there blinks,
 //     chases or turns at the height the Chairman's shots fly;
-//   - A SIGN AT THE END OF EVERY STREET: on the outside of each hairpin before the finale, dead ahead as the street
+//   - (OFF since round 2, see the districts) A SIGN AT THE END OF EVERY STREET: on the outside of each hairpin before the finale, dead ahead as the street
 //     runs up to the bend, a roof sign at three times its size on its legs (28 m of lights), turned to face the street;
 //   - TRAFFIC ON ITS OWN PATHS: the elevated train runs every ElLine (SM_ElTrain), cars drive away down every side
 //     street (SM_CrossTraffic), lights cross the far bridge, an airship goes over (SM_Blimp, 125 m up). And under the
-//     flights: THE GARAGE JUMP goes over the elevated railway, its train running under the car; THE WALL STREET
+//     flights (OFF since round 2: not seen from the air): THE GARAGE JUMP goes over the elevated railway, its train running under the car; THE WALL STREET
 //     JUMP over a boulevard of traffic. Both are afloat sets, stood from the level's floor (FTBED's "floor z"
 //     -1637: if the track's heights ever change they must be laid out again);
 //   - tower cranes over the Garages and Wall Street, searchlights round both loops, the Syndicate's gate (two
@@ -74,10 +74,10 @@
 
 // ---------------------------------------------------------------- the street wall: a podium a block (anchor 29 m: its front 25.5 m out,
 // its awnings 24.5 m; the track itself moves anything over 2 m tall out to 24 m where the street bends towards it)
-Set(TEXT("W_Shops1"),  { { TEXT("SM_Shops1"),      0, 0,    0, 0, 1 }, { TEXT("SM_RoofSign1"), -10.7f, 0.6f, 5.5f, 0, 1 }, { TEXT("/Game/Maps/Metro/Life/SM_SteamGrate"), 10.7f, 1.2f, 5.5f, 0, 1 } });   // third pass: JAZZ in lights on one low roof, steam off the other
+Set(TEXT("W_Shops1"),  { { TEXT("SM_Shops1"),      0, 0,    0, 0, 1 }, { TEXT("SM_RoofSign1"), -10.7f, 1.4f, 5.5f, 0, 1 }, { TEXT("/Game/Maps/Metro/Life/SM_SteamGrate"), 10.7f, 1.2f, 5.5f, 0, 1 } });   // third pass: JAZZ in lights on one low roof, steam off the other
 Set(TEXT("W_Shops2"),  { { TEXT("SM_Shops2"),      0, 0,    0, 0, 1 } });
-Set(TEXT("W_Shops3"),  { { TEXT("SM_Shops3"),      0, 0,    0, 0, 1 }, { TEXT("SM_RoofSign3"), 11.5f, 0.6f, 6.f, 0, 1 } });       // third pass: FILM over the pawn shop
-Set(TEXT("W_Marquee"), { { TEXT("SM_Marquee"),     0, 0,    0, 0, 1 }, { TEXT("SM_Klieg"), 12, 0.5f, 11.9f, 0, 1 } });           // third pass: a premiere searchlight on its roof
+Set(TEXT("W_Shops3"),  { { TEXT("SM_Shops3"),      0, 0,    0, 0, 1 }, { TEXT("SM_RoofSign3"), 11.5f, 1.4f, 6.f, 0, 1 } });       // third pass: FILM over the pawn shop
+Set(TEXT("W_Marquee"), { { TEXT("SM_Marquee"),     0, 0,    0, 0, 1 }, { TEXT("SM_Klieg"), 12, 1.7f, 11.9f, 0, 1 } });           // third pass: a premiere searchlight on its roof
 Set(TEXT("W_Bank"),    { { TEXT("SM_BankFront"),   0, 0.5f, 0, 0, 1 } });
 Set(TEXT("W_Pent"),    { { TEXT("SM_PentEntry"),   0, 0.5f, 0, 0, 1 } });
 Set(TEXT("W_Garage"),  { { TEXT("SM_GarageRamp"),  0, 2.5f, 0, 0, 1 } });
@@ -97,7 +97,7 @@ Set(TEXT("KerbSyn"),  { { TEXT("SM_SynBarriers"),  -9, 1.5f, 0,   0, 1 }, { TEXT
 Set(TEXT("KerbSyn2"), { { TEXT("SM_SynBarriers"), -12, 1.5f, 0,   0, 1 }, { TEXT("SM_SynBarriers"),  12.5f, 1.5f, 0,   0, 1 } });
 
 // second pass: a side street in a gap (it starts at the kerb, 19 m out), the brighter kerb, a whole elevated line
-// (anchor 96 m: 66 to 246 m out), the bank faces (anchor and size go with the bank's angle; "up" is from the sidewalk)
+// (anchor 96 m: 66 to 246 m out). The bank faces that were set here are gone (third pass: the track faces the cuttings)
 Set(TEXT("G_Street"),  { { TEXT("SM_FloorCross"), 22.6f, 15, 0, 0, 1 }, { TEXT("SM_CrossTraffic"), 22.6f, 15, 0, 0, 1 } });      // third pass: cars drive away down it
 Set(TEXT("KerbCafe"),  { { TEXT("SM_KerbCafe"),   -8, 3.4f, 0, 0, 1 }, { TEXT("SM_ParkedCars"),  12, 0, 0,   0, 1 } });
 Set(TEXT("KerbWorks"), { { TEXT("SM_KerbWorks"),  -6, 2.6f, 0, 0, 1 }, { TEXT("SM_ParkedCars2"), 13, 0, 0, 180, 1 } });
@@ -106,8 +106,8 @@ Set(TEXT("ElLine"),    { { TEXT("SM_ElRail"), 0, 0, 0, -90, 1 }, { TEXT("SM_ElRa
 // steam); the gap closed flush with the podiums; a roof sign at three times its size on the outside of a hairpin, turned
 // to face the street that runs up to it (L: outside a right-hand bend, on the left; R: the other way); the Syndicate's
 // gate; and the two sets under the jumps, afloat ("up" is metres over the level's floor: the valley under the flight)
-Set(TEXT("W_Shops2s"), { { TEXT("SM_Shops2"),      0, 0,    0, 0, 1 }, { TEXT("SM_RoofSign2"), 0, 0.6f, 5.5f, 0, 1 } });
-Set(TEXT("W_Banks"),   { { TEXT("SM_BankFront"),   0, 0.5f, 0, 0, 1 }, { TEXT("SM_RoofSign4"), 10.5f, 1.1f, 10.4f, 0, 1 } });
+Set(TEXT("W_Shops2s"), { { TEXT("SM_Shops2"),      0, 0,    0, 0, 1 }, { TEXT("SM_RoofSign2"), 0, 1.4f, 5.5f, 0, 1 } });
+Set(TEXT("W_Banks"),   { { TEXT("SM_BankFront"),   0, 0.5f, 0, 0, 1 }, { TEXT("SM_RoofSign4"), 10.5f, 1.4f, 10.4f, 0, 1 } });
 Set(TEXT("W_Yards"),   { { TEXT("SM_ServiceYard"), 0, 0,    0, 0, 1 }, { TEXT("/Game/Maps/Metro/Life/SM_SteamGrate"), 4, 1.7f, 6.7f, 0, 1 } });
 Set(TEXT("G_Fill"),    { { TEXT("SM_Infill2"),     22.6f, -2.2f, 0, 0, 1 } });
 Set(TEXT("BigJazzL"), { { TEXT("SM_RoofSign1"), 0, 0, 0,  25, 3 } });   Set(TEXT("BigJazzR"), { { TEXT("SM_RoofSign1"), 0, 0, 0, -25, 3 } });
@@ -385,30 +385,35 @@ Zone(TEXT("Closed gaps: Penthouse Row"), 6.29f, 7.66f);
 Zone(TEXT("Signs: the Garages"), 2.1f, 3.13f);
 	Scatter(TEXT("SM_BladePark"), 26.f, 26.f, 3, 1, 1.f, 1.f, 0.f, 0, 0.f);
 
+// ---- ROUND 2: ALL FOURTEEN ARE OFF (chance 0; the rules stay, so every later rule keeps its dice). At 32 m they stand in
+// the band of the level's own towers and no frame of round 1 showed one. To try one again: a site clear of its tower,
+// its lights 30 m out or more (they chase). The words are spread now (three EAT, two JAZZ, four FILM, five CASH).
 // ---- a sign at the end of every street: on the outside of each hairpin before the finale (one slot each, from the
 // track's section list), a roof sign at three times its size, turned to face the street that runs up to the bend
-Zone(TEXT("Street's end 0.95"), 0.9471f, 0.9531f); Site(TEXT("BigEatL"), -1, 32, 1, 0, 1.f);
-Zone(TEXT("Street's end 1.09"), 1.0828f, 1.0888f); Site(TEXT("BigJazzR"), 1, 32, 1, 0, 1.f);
-Zone(TEXT("Street's end 1.72"), 1.7162f, 1.7222f); Site(TEXT("BigFilmL"), -1, 32, 1, 0, 1.f);
-Zone(TEXT("Street's end 2.31"), 2.3044f, 2.3104f); Site(TEXT("BigJazzR"), 1, 32, 1, 0, 1.f);
-Zone(TEXT("Street's end 2.44"), 2.4401f, 2.4461f); Site(TEXT("BigEatL"), -1, 32, 1, 0, 1.f);
-Zone(TEXT("Street's end 3.66"), 3.6617f, 3.6677f); Site(TEXT("BigFilmR"), 1, 32, 1, 0, 1.f);
-Zone(TEXT("Street's end 3.80"), 3.7974f, 3.8034f); Site(TEXT("BigJazzL"), -1, 32, 1, 0, 1.f);
-Zone(TEXT("Street's end 4.39"), 4.3856f, 4.3916f); Site(TEXT("BigFilmL"), -1, 32, 1, 0, 1.f);
-Zone(TEXT("Street's end 4.61"), 4.6118f, 4.6178f); Site(TEXT("BigJazzR"), 1, 32, 1, 0, 1.f);
-Zone(TEXT("Street's end 4.98"), 4.9737f, 4.9797f); Site(TEXT("BigJazzL"), -1, 32, 1, 0, 1.f);
-Zone(TEXT("Street's end 5.07"), 5.0642f, 5.0702f); Site(TEXT("BigCashR"), 1, 32, 1, 0, 1.f);
-Zone(TEXT("Street's end 6.11"), 6.1048f, 6.1108f); Site(TEXT("BigJazzL"), -1, 32, 1, 0, 1.f);
-Zone(TEXT("Street's end 6.24"), 6.2405f, 6.2465f); Site(TEXT("BigCashR"), 1, 32, 1, 0, 1.f);
-Zone(TEXT("Street's end 7.19"), 7.1906f, 7.1966f); Site(TEXT("BigJazzR"), 1, 32, 1, 0, 1.f);
+Zone(TEXT("Street's end 0.95"), 0.9471f, 0.9531f); Site(TEXT("BigEatL"), -1, 32, 1, 0, 0.f);
+Zone(TEXT("Street's end 1.09"), 1.0828f, 1.0888f); Site(TEXT("BigJazzR"), 1, 32, 1, 0, 0.f);
+Zone(TEXT("Street's end 1.72"), 1.7162f, 1.7222f); Site(TEXT("BigFilmL"), -1, 32, 1, 0, 0.f);
+Zone(TEXT("Street's end 2.31"), 2.3044f, 2.3104f); Site(TEXT("BigEatR"), 1, 32, 1, 0, 0.f);
+Zone(TEXT("Street's end 2.44"), 2.4401f, 2.4461f); Site(TEXT("BigEatL"), -1, 32, 1, 0, 0.f);
+Zone(TEXT("Street's end 3.66"), 3.6617f, 3.6677f); Site(TEXT("BigFilmR"), 1, 32, 1, 0, 0.f);
+Zone(TEXT("Street's end 3.80"), 3.7974f, 3.8034f); Site(TEXT("BigFilmL"), -1, 32, 1, 0, 0.f);
+Zone(TEXT("Street's end 4.39"), 4.3856f, 4.3916f); Site(TEXT("BigFilmL"), -1, 32, 1, 0, 0.f);
+Zone(TEXT("Street's end 4.61"), 4.6118f, 4.6178f); Site(TEXT("BigCashR"), 1, 32, 1, 0, 0.f);
+Zone(TEXT("Street's end 4.98"), 4.9737f, 4.9797f); Site(TEXT("BigCashL"), -1, 32, 1, 0, 0.f);
+Zone(TEXT("Street's end 5.07"), 5.0642f, 5.0702f); Site(TEXT("BigCashR"), 1, 32, 1, 0, 0.f);
+Zone(TEXT("Street's end 6.11"), 6.1048f, 6.1108f); Site(TEXT("BigCashL"), -1, 32, 1, 0, 0.f);
+Zone(TEXT("Street's end 6.24"), 6.2405f, 6.2465f); Site(TEXT("BigCashR"), 1, 32, 1, 0, 0.f);
+Zone(TEXT("Street's end 7.19"), 7.1906f, 7.1966f); Site(TEXT("BigJazzR"), 1, 32, 1, 0, 0.f);
 
 // ---- under the flights (afloat sets, one slot each). THE GARAGE JUMP goes over the elevated railway: three lengths of
 // viaduct across the valley under the car, its train running; THE WALL STREET JUMP over a boulevard: two lengths of
 // street across the valley, cars driving along it
+// ROUND 2: BOTH ARE OFF (chance 0). A flight is 80 m long: what lies under it is under the car within a second and never
+// in the chase camera's frame. To be stood beside the landings instead.
 Zone(TEXT("Under the garage jump"), 2.7568f, 2.7628f);
-	SiteAfloat(TEXT("ElUnder"), 1, 0, 1, 0, 1.f);
+	SiteAfloat(TEXT("ElUnder"), 1, 0, 1, 0, 0.f);
 Zone(TEXT("Under the Wall Street jump"), 5.7881f, 5.7941f);
-	SiteAfloat(TEXT("BlvdUnder"), 1, 0, 1, 0, 1.f);
+	SiteAfloat(TEXT("BlvdUnder"), 1, 0, 1, 0, 0.f);
 
 // ---- machinery over the roofs: tower cranes behind the Garages and Wall Street (the jib slews; the track keeps its
 // whole swing off the road), searchlights round both loops, an airship over the towers every kilometre or two
@@ -417,9 +422,9 @@ Zone(TEXT("Cranes: the Garages"), 2.1f, 3.13f);
 Zone(TEXT("Cranes: Wall Street"), 4.62f, 6.29f);
 	Far(TEXT("SM_Crane"), 76, 92, 9, 4, 1.f, 1.f, 0.f, 0, 0.6f, 180.f);
 Zone(TEXT("Searchlights: the Plaza loop"), 3.208f, 3.488f);
-	Far(TEXT("SM_Klieg"), 68, 84, 2, 0, 1.f, 1.5f, 0.f, 0, 0.62f, 180.f);
+	Far(TEXT("SM_Klieg"), 68, 84, 2, 0, 1.f, 1.5f, 0.f, 0, 0.62f, 0.f);
 Zone(TEXT("Searchlights: the Penthouse loop"), 6.737f, 6.972f);
-	Far(TEXT("SM_Klieg"), 68, 84, 2, 1, 1.f, 1.5f, 0.f, 0, 0.62f, 180.f);
+	Far(TEXT("SM_Klieg"), 68, 84, 2, 1, 1.f, 1.5f, 0.f, 0, 0.62f, 0.f);
 Zone(TEXT("Airships"), 0.f, 99.f);
 	Far(TEXT("SM_Blimp"), 30, 90, 47, 9, 1.f, 1.f, 0.f, -1, -125.f, 40.f);
 	Far(TEXT("SM_Blimp"), 30, 90, 61, 31, 1.f, 1.f, 0.f, 1, -140.f, 40.f);

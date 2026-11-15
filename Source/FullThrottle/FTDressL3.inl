@@ -413,7 +413,7 @@ Zone(TEXT("The ash road, the verge"), 0.f, 0.89f);
 	Scatter(TEXT("SM_Fumarole"), 31.5f, 38.0f, 3, 1, 0.85f, 1.f, 0.2f, 1, 180.f);
 	Scatter(TEXT("SM_AshBank"), 20.5f, 22.5f, 1, 0, 0.6f, 1.f, 0.2f, 0, 2.f);
 	Scatter(TEXT("SM_AshBank2"), 20.5f, 22.5f, 2, 1, 0.5f, 1.f, 0.2f, 0, 2.f);
-	Scatter(TEXT("SM_CableReels"), 20.2f, 22, 5, 2, 0.8f, 1.f, 0.f, 0, 20.f);
+	Scatter(TEXT("SM_CableReels"), 24.5f, 26, 5, 2, 0.8f, 1.f, 0.f, 0, 20.f);
 	Scatter(TEXT("SM_AshRipples"), 26, 30, 1, 0, 0.8f, 1.f, 0.f, 0, 3.f);
 
 // ---- 1.17 to 2.5 km: LAVA JUMPS. The channels are worked: a gantry, a sluice and a pipe bridge over the lava every
@@ -441,7 +441,7 @@ Zone(TEXT("Lava jumps"), 1.17f, 2.5f);
 // The right-hand mine and the slag trains stop at 2.2 km: from 2.4 km the eruption is watched over that side.
 Zone(TEXT("Lava jumps, the mine on the right"), 1.17f, 2.2f);
 	Site(TEXT("Mine"), 1, 118, 6, 5, 1.f);
-	Scatter(TEXT("SM_OreTrain"), 66, 66, 7, 3, 0.9f, 1.f, 0.f, 1, 0.f);
+	Scatter(TEXT("SM_OreTrain"), 66, 66, 7, 3, 0.f, 1.f, 0.f, 1, 0.f);     // round three: off (chance 0): the train runs now, as SM_SlagTrain (the end of this file)
 
 Zone(TEXT("Lava jumps, the verge (1)"), 1.25f, 1.66f);
 	Scatter(TEXT("SM_Fumarole"), 31.5f, 38.0f, 2, 1, 0.85f, 1.f, 0.2f, 1, 180.f);
@@ -558,8 +558,8 @@ Zone(TEXT("The magma run, the verge"), 5.53f, 6.73f);
 // 35 m). Seen whole from the air, then driven through. Written after the caldera so the mesh's first use is at its
 // ordinary size (a mesh first placed bigger than 40 m across is never culled, wherever it stands).
 Zone(TEXT("The gate of the pass"), 6.64f, 6.8f);
-	Far(TEXT("SM_CragFallA"), 64, 65, 2, 1, 1.f, 1.5f, 0.f, -1, 0.8f, 3.f);
-	Far(TEXT("SM_CragFallA"), 73, 74, 2, 1, 1.f, 1.5f, 0.f, 1, 0.78f, 3.f);
+	Far(TEXT("SM_CragFallA"), 64, 65, 2, 1, 0.f, 1.5f, 0.f, -1, 0.8f, 3.f);     // round three: off; turned to face the jump at the end of this file
+	Far(TEXT("SM_CragFallA"), 73, 74, 2, 1, 0.f, 1.5f, 0.f, 1, 0.78f, 3.f);
 
 // ---- 6.73 to 8.34 km: OBSIDIAN PASS (a banked wall, a corkscrew, two jumps, a loop). A canyon of black glass: columns
 // right behind the lava on both sides, taller ones over them, cliffs high on the slopes, the rim hard overhead; the
@@ -622,7 +622,7 @@ Zone(TEXT("Engine 13's road"), 8.34f, 11.1f);
 	Far(TEXT("SM_PeakCinder"), 720, 1200, 6, 1, 1.f, 1.f, 0.25f, 0, 25.f, 180.f);
 	Far(TEXT("SM_RidgeRim2"), 900, 1300, 8, 2, 1.f, 1.5f, 0.3f, 0, 25.f, 12.f);
 	Site(TEXT("Rail"), 1, 66, 1, 0, 1.f);
-	Scatter(TEXT("SM_OreTrain"), 66, 66, 7, 3, 0.9f, 1.f, 0.f, 1, 0.f);
+	Scatter(TEXT("SM_OreTrain"), 66, 66, 7, 3, 0.f, 1.f, 0.f, 1, 0.f);     // round three: off (chance 0): the train runs now, as SM_SlagTrain (the end of this file)
 	Site(TEXT("Mine"), -1, 112, 6, 2, 1.f);
 	Site(TEXT("Mine"), 1, 118, 6, 5, 1.f);
 	Scatter(TEXT("SM_PumpHouse"), 56, 58, 8, 1, 0.9f, 1.f, 0.f, -1, 0.f);
@@ -661,7 +661,7 @@ Zone(TEXT("The ash fields"), 13.9f, 16.7f);
 	Scatter(TEXT("SM_Fumarole"), 31.0f, 34.0f, 3, 0, 0.85f, 1.f, 0.2f, -1, 180.f);
 	Scatter(TEXT("SM_Fumarole"), 31.5f, 38.0f, 3, 1, 0.85f, 1.f, 0.2f, 1, 180.f);
 	Scatter(TEXT("SM_AshBank"), 20.5f, 22.5f, 1, 0, 0.5f, 1.f, 0.2f, 0, 2.f);
-	Scatter(TEXT("SM_CableReels"), 20.2f, 22, 6, 2, 0.8f, 1.f, 0.f, 0, 20.f);
+	Scatter(TEXT("SM_CableReels"), 24.5f, 26, 6, 2, 0.8f, 1.f, 0.f, 0, 20.f);
 	Site(TEXT("AshField"), 0, 166, 3, 2, 0.9f, 1.f, 0.f);
 	Site(TEXT("DrillSite"), 0, 226, 7, 2, 1.f, 1.f, 0.f);
 	Far(TEXT("SM_AshDune"), 206, 220, 2, 1, 0.6f, 1.f, 0.3f, -1, -4.87f, 40.f);
@@ -701,7 +701,7 @@ Zone(TEXT("The far works"), 16.7f, 19.5f);
 	Far(TEXT("SM_RidgeFalls"), 700, 1000, 6, 0, 1.f, 1.4f, 0.2f, 0, 25.f, 8.f);
 	Far(TEXT("SM_PeakCone2AD"), 380, 600, 8, 5, 0.9f, 1.f, 0.25f, 0, 25.f, 180.f);
 	Site(TEXT("Rail"), 1, 66, 1, 0, 1.f);
-	Scatter(TEXT("SM_OreTrain"), 66, 66, 7, 3, 0.9f, 1.f, 0.f, 1, 0.f);
+	Scatter(TEXT("SM_OreTrain"), 66, 66, 7, 3, 0.f, 1.f, 0.f, 1, 0.f);     // round three: off (chance 0): the train runs now, as SM_SlagTrain (the end of this file)
 	Site(TEXT("Mine"), -1, 112, 6, 2, 1.f);
 	Site(TEXT("Mine"), 1, 118, 6, 5, 1.f);
 	Scatter(TEXT("SM_PumpHouse"), 56, 58, 8, 1, 0.9f, 1.f, 0.f, -1, 0.f);
@@ -740,7 +740,7 @@ Zone(TEXT("The last ash"), 22.3f, 99.f);
 	Scatter(TEXT("SM_Fumarole"), 31.5f, 38.0f, 3, 1, 0.85f, 1.f, 0.2f, 1, 180.f);
 	Site(TEXT("Fence"), 0, 18.5f, 1, 0, 0.6f, 1.f, 0.f);
 	Scatter(TEXT("SM_AshBank"), 20.5f, 22.5f, 1, 0, 0.5f, 1.f, 0.2f, 0, 2.f);
-	Scatter(TEXT("SM_CableReels"), 20.2f, 22, 6, 2, 0.8f, 1.f, 0.f, 0, 20.f);
+	Scatter(TEXT("SM_CableReels"), 24.5f, 26, 6, 2, 0.8f, 1.f, 0.f, 0, 20.f);
 	Site(TEXT("AshField"), 0, 166, 3, 1, 0.9f, 1.f, 0.f);
 	Site(TEXT("DrillSite"), 0, 226, 7, 3, 1.f, 1.f, 0.f);
 	Far(TEXT("SM_AshDune"), 206, 220, 2, 1, 0.6f, 1.f, 0.3f, -1, -4.87f, 40.f);
@@ -770,3 +770,100 @@ Zone(TEXT("Cut banks"), 0.f, 99.f);
 	Bank(TEXT("SM_CutBasalt"), 4, 2, 0, 1.f, 5.5f);
 	Bank(TEXT("SM_CutBasalt2"), 4, 2, 1, 1.f, 5.5f);
 	Bank(TEXT("SM_CutAsh"), 4, 1, 0, 1.f, 2.4f, 5.5f);
+
+// ---- ROUND THREE (15 Nov 2026): the built world in motion. Everything of this round is APPENDED here, after the cut
+// banks, so that no older rule's place in the table (which seeds its random stream) moves. Older rules changed this
+// round were changed in place, numbers only: the three SM_OreTrain rules and the gate's two Far rules to chance 0, and
+// the three SM_CableReels rules out to 24.5 m (they stood inside the kerb).
+//  - The slag train RUNS (SM_SlagTrain: a diesel and four tubs between two engine sheds on the spur, 66 m right).
+//  - The mine's viaduct over the road (a moment, 1.54 and 6.38 km; the set OreBridge): slag trains crossing both ways
+//    12 m over the road, crusher to crusher, on two trestles 30 m out. SM_OreBridge is a piece of its own, wholly more
+//    than 9 m above the road (the road test lets it pass, like the gondola's cable on Ice Mountain). A moving prop's
+//    shadow is its parts in a heap at its origin, here the middle of the road, so it must cast none: the track gives
+//    a mesh no shadow when its FIRST piece is a Far one, and that first piece is written here 80 m under the ground,
+//    where it is never seen (a rule's own "no shadow" flag would be the honest way: asked of the lead).
+//  - Haul roads up the slopes with haulers on them, lamps on (SM_HaulRoad, its foot 116 m out and more).
+//  - A river of lava down a far flank (a moment every three kilometres: SM_LavaRiver, 255 m out and more).
+//  - The gate of the pass again, each cliff turned 25 degrees to face the car coming.
+//  - A water bomber working the fires far off (SM_WaterBomber: 470 m out and more, 190 m up; five of them).
+Set(TEXT("OreBridge"), {    // the anchor is the right-hand crusher, 82 m out; the deck's middle is over the road's middle
+	{ TEXT("SM_OreBridge"),           0,  -82, 12.f,    0, 1 },
+	{ TEXT("SM_OrePier"),             0,  -52,    0,    0, 1 },
+	{ TEXT("SM_OrePier"),             0, -112,    0,    0, 1 },
+	{ TEXT("SM_Crusher"),             0,    0,    0,    0, 1 },
+	{ TEXT("SM_Crusher"),             0, -164,    0,  180, 1 },
+});
+Set(TEXT("GateR"), { { TEXT("SM_CragFallA"), 0, 0, 0, -25, 1.5f } });
+Set(TEXT("GateL"), { { TEXT("SM_CragFallA"), 0, 0, 0, 25, 1.5f } });
+
+Zone(TEXT("Round three: the viaduct's first piece, under the ground (so that the mesh casts no shadow)"), 1.07f, 1.1f);
+	Far(TEXT("SM_OreBridge"), 150, 150, 1, 0, 1.f, 1.f, 0.f, -1, 80.f, 0.f);
+
+Zone(TEXT("The viaduct over the road (1.54 km)"), 1.53f, 1.545f);     // slot 34
+	Site(TEXT("OreBridge"), 1, 82, 1, 0, 1.f);
+
+Zone(TEXT("The viaduct over the road (6.38 km)"), 6.37f, 6.385f);     // slot 141
+	Site(TEXT("OreBridge"), 1, 82, 1, 0, 1.f);
+
+// The slag trains. The first rule is a Far one on the spur itself (the land's own height there), so the mesh casts
+// no shadow; then one to every fifth or sixth slot of the spur.
+Zone(TEXT("Slag trains: lava jumps"), 1.25f, 1.7f);
+	Far(TEXT("SM_SlagTrain"), 66, 66, 7, 6, 1.f, 1.f, 0.f, 1, 0.78f, 0.f);
+
+Zone(TEXT("Slag trains: Engine 13's road"), 8.34f, 11.1f);
+	Scatter(TEXT("SM_SlagTrain"), 66, 66, 5, 2, 1.f, 1.f, 0.f, 1, 0.f);
+
+Zone(TEXT("Slag trains: the far works"), 16.7f, 19.5f);
+	Scatter(TEXT("SM_SlagTrain"), 66, 66, 6, 2, 1.f, 1.f, 0.f, 1, 0.f);
+
+// Haul roads, on the slots the mines and the digs do not take.
+Zone(TEXT("Haul roads: lava jumps"), 1.17f, 2.5f);
+	Scatter(TEXT("SM_HaulRoad"), 116, 120, 6, 0, 1.f, 1.f, 0.f, -1, 12.f);
+	Scatter(TEXT("SM_HaulRoad"), 116, 120, 6, 3, 1.f, 1.f, 0.f, 1, 12.f);
+
+Zone(TEXT("Haul roads: the magma run"), 5.18f, 6.73f);
+	Scatter(TEXT("SM_HaulRoad"), 116, 120, 8, 6, 1.f, 1.f, 0.f, -1, 12.f);
+	Scatter(TEXT("SM_HaulRoad"), 116, 120, 8, 2, 1.f, 1.f, 0.f, 1, 12.f);
+
+Zone(TEXT("Haul roads: Engine 13's road"), 8.34f, 11.1f);
+	Scatter(TEXT("SM_HaulRoad"), 116, 120, 12, 0, 1.f, 1.f, 0.f, -1, 12.f);
+	Scatter(TEXT("SM_HaulRoad"), 116, 120, 12, 3, 1.f, 1.f, 0.f, 1, 12.f);
+
+Zone(TEXT("Haul roads: the far works"), 16.7f, 19.5f);
+	Scatter(TEXT("SM_HaulRoad"), 116, 120, 12, 6, 1.f, 1.f, 0.f, -1, 12.f);
+	Scatter(TEXT("SM_HaulRoad"), 116, 120, 12, 9, 1.f, 1.f, 0.f, 1, 12.f);
+
+// A river of lava down a far flank: one slot each, left and right in turn (never on the right between 2.4 and 3.9 km).
+Zone(TEXT("A river of lava at 1.3 km"), 1.305f, 1.32f);
+	Far(TEXT("SM_LavaRiver"), 255, 275, 1, 0, 1.f, 1.f, 0.f, -1, -7.f, 0.f);
+Zone(TEXT("A river of lava at 4.2 km"), 4.2f, 4.215f);
+	Far(TEXT("SM_LavaRiver"), 255, 275, 1, 0, 1.f, 1.f, 0.f, 1, -10.f, 0.f);
+Zone(TEXT("A river of lava at 6.3 km"), 6.28f, 6.295f);
+	Far(TEXT("SM_LavaRiver"), 255, 275, 1, 0, 1.f, 1.f, 0.f, -1, -7.f, 0.f);
+Zone(TEXT("A river of lava at 9.4 km"), 9.4f, 9.415f);
+	Far(TEXT("SM_LavaRiver"), 255, 275, 1, 0, 1.f, 1.f, 0.f, 1, -10.f, 0.f);
+Zone(TEXT("A river of lava at 12.5 km"), 12.48f, 12.495f);
+	Far(TEXT("SM_LavaRiver"), 255, 275, 1, 0, 1.f, 1.f, 0.f, -1, -7.f, 0.f);
+Zone(TEXT("A river of lava at 15.0 km"), 15.015f, 15.03f);
+	Far(TEXT("SM_LavaRiver"), 255, 275, 1, 0, 1.f, 1.f, 0.f, 1, -10.f, 0.f);
+Zone(TEXT("A river of lava at 18.0 km"), 18.f, 18.015f);
+	Far(TEXT("SM_LavaRiver"), 255, 275, 1, 0, 1.f, 1.f, 0.f, -1, -7.f, 0.f);
+Zone(TEXT("A river of lava at 21.0 km"), 20.985f, 21.f);
+	Far(TEXT("SM_LavaRiver"), 255, 275, 1, 0, 1.f, 1.f, 0.f, 1, -10.f, 0.f);
+
+// A water bomber working the fires, far off and high: one over each fire district (one slot each).
+Zone(TEXT("The water bomber over the curtain of fire"), 0.45f, 0.465f);
+	Far(TEXT("SM_WaterBomber"), 470, 520, 1, 0, 1.f, 1.f, 0.f, -1, -190.f, 0.f);
+Zone(TEXT("The water bomber over fire and brimstone"), 4.52f, 4.535f);
+	Far(TEXT("SM_WaterBomber"), 470, 520, 1, 0, 1.f, 1.f, 0.f, -1, -200.f, 0.f);
+Zone(TEXT("The water bomber over the magma run"), 6.015f, 6.03f);
+	Far(TEXT("SM_WaterBomber"), 470, 520, 1, 0, 1.f, 1.f, 0.f, 1, -210.f, 0.f);
+Zone(TEXT("The water bomber over the burning slopes"), 11.985f, 12.f);
+	Far(TEXT("SM_WaterBomber"), 470, 520, 1, 0, 1.f, 1.f, 0.f, 1, -190.f, 0.f);
+Zone(TEXT("The water bomber over the inner wall"), 20.49f, 20.505f);
+	Far(TEXT("SM_WaterBomber"), 470, 520, 1, 0, 1.f, 1.f, 0.f, -1, -200.f, 0.f);
+
+// The gate of the pass (signature), placed again: the four cliffs turned to face the car as it lands.
+Zone(TEXT("The gate of the pass, turned to face the jump"), 6.64f, 6.8f);
+	Site(TEXT("GateL"), -1, 68, 2, 1, 1.f);
+	Site(TEXT("GateR"), 1, 77, 2, 1, 1.f);

@@ -1,0 +1,1441 @@
+{
+ "digits": {
+  "L": {
+   "_off": [
+    -1.76,
+    3.43,
+    2.61,
+    1.86,
+    -0.76,
+    1.24,
+    -0.76,
+    3.24,
+    -1.07,
+    0.24,
+    -1.45,
+    -1.82,
+    -1.82,
+    2.68,
+    0.34,
+    -2.86,
+    -3.2,
+    -0.45,
+    -1.82,
+    0.0
+   ],
+   "advance": [
+    60.9,
+    60.9,
+    60.9,
+    60.9,
+    60.9,
+    60.9,
+    60.9,
+    60.9,
+    60.9,
+    60.9,
+    55.6,
+    30.4,
+    30.4,
+    36.1,
+    67.0,
+    46.4,
+    58.8,
+    36.2,
+    30.4,
+    19.5
+   ],
+   "at": [
+    0,
+    0
+   ],
+   "cap": 64.0,
+   "cell": [
+    88,
+    96
+   ],
+   "outline": 4.0,
+   "pen": [
+    3.0,
+    77.0
+   ],
+   "shadow": [
+    4.0,
+    5.0
+   ]
+  },
+  "S": {
+   "_off": [
+    -1.0,
+    1.94,
+    1.5,
+    1.06,
+    -0.38,
+    0.69,
+    -0.38,
+    1.88,
+    -0.62,
+    0.12,
+    -0.75,
+    -1.0,
+    -1.0,
+    1.62,
+    0.22,
+    -1.55,
+    -1.75,
+    -0.25,
+    -1.0,
+    0.0
+   ],
+   "advance": [
+    34.4,
+    34.4,
+    34.4,
+    34.4,
+    34.4,
+    34.4,
+    34.4,
+    34.4,
+    34.4,
+    34.4,
+    31.4,
+    17.2,
+    17.2,
+    20.5,
+    37.9,
+    26.2,
+    33.2,
+    20.5,
+    17.2,
+    11.0
+   ],
+   "at": [
+    0,
+    192
+   ],
+   "cap": 36.0,
+   "cell": [
+    52,
+    56
+   ],
+   "outline": 2.6,
+   "pen": [
+    2.5,
+    44.5
+   ],
+   "shadow": [
+    2.5,
+    3.0
+   ]
+  },
+  "chars": "0123456789$,./%x+-: ",
+  "cols": 10,
+  "shear": 0.16,
+  "sizes": [
+   "L",
+   "S"
+  ]
+ },
+ "icons": {
+  "arrow": 27,
+  "badge_check": 40,
+  "badge_lock": 41,
+  "bolt": 9,
+  "bullets": 11,
+  "burst": 15,
+  "camera": 2,
+  "car": 44,
+  "cash": 6,
+  "check": 23,
+  "clapper": 0,
+  "clock": 28,
+  "crosshair": 31,
+  "disk": 30,
+  "exit": 26,
+  "fire": 14,
+  "flag": 19,
+  "gear": 24,
+  "helmet": 18,
+  "megaphone": 1,
+  "missile": 10,
+  "pad": 25,
+  "padlock": 20,
+  "people": 16,
+  "rec": 4,
+  "reel": 3,
+  "shield": 8,
+  "shoot1": 32,
+  "shoot2": 33,
+  "shoot3": 34,
+  "shoot4": 35,
+  "shoot5": 36,
+  "shoot6": 37,
+  "shoot7": 38,
+  "shoot8": 39,
+  "skull": 22,
+  "speaker": 42,
+  "spray": 13,
+  "star": 7,
+  "ticket": 5,
+  "trophy": 43,
+  "undo": 29,
+  "warning": 21,
+  "wheel": 17,
+  "wrench": 12
+ },
+ "kit": "FULL THROTTLE UI kit, THE STUDIO LOT, INKED",
+ "order": [
+  "T_UI_Cyc_Wall",
+  "T_UI_Cyc_Pool",
+  "T_UI_Cyc_Side",
+  "T_UI_Dots",
+  "T_UI_Paper",
+  "T_UI_SlateDust",
+  "T_UI_ClapStripes",
+  "T_UI_HazardStripes",
+  "T_UI_Hatch",
+  "T_UI_FilmPerf",
+  "T_UI_Tape",
+  "T_UI_Paperclip",
+  "T_UI_Pin",
+  "T_UI_ClipboardClip",
+  "T_UI_ClapStick",
+  "T_UI_FilmCan",
+  "T_UI_Cheque",
+  "T_UI_Signature",
+  "T_UI_Highlighter",
+  "T_UI_Grease",
+  "T_UI_Bulb",
+  "T_UI_Stamp_Approved",
+  "T_UI_Stamp_Rating",
+  "T_UI_Icons",
+  "T_UI_IconsBig",
+  "T_UI_BranchBurst",
+  "T_UI_Boards",
+  "T_UI_BoardThumbs",
+  "T_UI_Lockups",
+  "T_UI_Plaque",
+  "T_UI_Keycap",
+  "T_UI_Cursor",
+  "T_UI_SheetFrame",
+  "T_UI_Memo",
+  "T_UI_Dailies_Card",
+  "T_UI_Dailies_Pip",
+  "T_UI_Sticker_Cash",
+  "T_UI_Sticker_SP",
+  "T_UI_Sticker_Level",
+  "T_UI_Kestrel_Hero",
+  "T_UI_Hero_Burst",
+  "T_UI_Chase",
+  "T_UI_Chase_Skyline",
+  "T_UI_Hud_Plate",
+  "T_UI_Hud_Bar",
+  "T_UI_Hud_Chip",
+  "T_UI_Hud_Tag",
+  "T_UI_Hud_Pips",
+  "T_UI_Hud_Bracket",
+  "T_UI_Hud_Combo_Fill",
+  "T_UI_Hud_Combo_Ink",
+  "T_UI_Hud_ArmorLow",
+  "T_UI_Hud_Balloon",
+  "T_UI_Hud_Megaphone",
+  "T_UI_Digits_Fill",
+  "T_UI_Digits_Ink"
+ ],
+ "palette": {
+  "Amber": "FFC44C",
+  "AmberInk": "A05C00",
+  "Aqua": "CBF0E9",
+  "BranchCar": "FFC44C",
+  "BranchDem": "FF6B4A",
+  "BranchGet": "76EAA0",
+  "BranchStn": "FF4FA3",
+  "BranchWhl": "49E2D5",
+  "Chalk": "F8F3E7",
+  "Cyan": "49E2D5",
+  "CycFloor": "F7BEA0",
+  "CycLow": "FFD0B0",
+  "CycMid": "E2B8D6",
+  "CycShade": "8E7CC0",
+  "CycTop": "B8A8DE",
+  "Green": "76EAA0",
+  "GreenInk": "148450",
+  "Ink": "16121E",
+  "Ledger": "E8F2DE",
+  "LedgerBar": "CDE4C4",
+  "Manila": "E9C682",
+  "Mute": "A09CBA",
+  "Paper": "F4E8CE",
+  "PaperShade": "DFCEAA",
+  "Pink": "FF4FA3",
+  "Rate0": "EE3C3E",
+  "Rate1": "2454C4",
+  "Rate2": "D45C00",
+  "Rate3": "C01C78",
+  "Red": "EE3C3E",
+  "Shoot1": "FF808E",
+  "Shoot2": "96E260",
+  "Shoot3": "FFA854",
+  "Shoot4": "F2543C",
+  "Shoot5": "FF6EC4",
+  "Shoot6": "8CD0FF",
+  "Shoot7": "40CCCC",
+  "Shoot8": "A88AFF",
+  "Slate": "1B1824",
+  "Slate2": "2C2842",
+  "Steel": "423D5E",
+  "Sticky": "FFE078",
+  "Teal": "067876",
+  "White": "FFFFFF"
+ },
+ "textures": {
+  "T_UI_BoardThumbs": {
+   "cell": [
+    128,
+    72
+   ],
+   "cells": [
+    "BAYSHORE",
+    "CHEMICAL PLANT",
+    "NEVADA DESERT",
+    "VOLCANO",
+    "THEME PARK",
+    "ICE MOUNTAIN",
+    "UNDER THE SEA",
+    "CITY CENTER"
+   ],
+   "cols": 8,
+   "draw": "atlas: cell",
+   "filter": "linear",
+   "kind": "colour",
+   "note": "the same eight frames small and clean (no ring, no name) for the shoot list",
+   "size": [
+    1024,
+    72
+   ],
+   "wrap": ""
+  },
+  "T_UI_Boards": {
+   "cell": [
+    384,
+    216
+   ],
+   "cells": [
+    "BAYSHORE",
+    "CHEMICAL PLANT",
+    "NEVADA DESERT",
+    "VOLCANO",
+    "THEME PARK",
+    "ICE MOUNTAIN",
+    "UNDER THE SEA",
+    "CITY CENTER"
+   ],
+   "cols": 4,
+   "draw": "atlas: cell, 1:1 or smaller",
+   "filter": "linear",
+   "kind": "colour",
+   "note": "cell = shoot - 1; the boss is ringed in pink grease pencil and named on a strip of tape (baked); the ink frame round a board is drawn by the game",
+   "size": [
+    1536,
+    432
+   ],
+   "wrap": ""
+  },
+  "T_UI_BranchBurst": {
+   "draw": "1:1",
+   "filter": "linear",
+   "kind": "mask",
+   "note": "white burst, light halftone core, ink outline and hard shadow: the ink stays dark under the tint",
+   "size": [
+    320,
+    320
+   ],
+   "tint": [
+    "BranchDem",
+    "BranchWhl",
+    "BranchStn",
+    "BranchCar",
+    "BranchGet"
+   ],
+   "wrap": ""
+  },
+  "T_UI_Bulb": {
+   "cell": [
+    32,
+    32
+   ],
+   "cells": [
+    "lit",
+    "unlit"
+   ],
+   "cols": 2,
+   "draw": "atlas: 1:1, N times round a rectangle",
+   "filter": "linear",
+   "kind": "colour",
+   "size": [
+    64,
+    32
+   ],
+   "wrap": ""
+  },
+  "T_UI_Chase": {
+   "cell": [
+    320,
+    128
+   ],
+   "cells": [
+    "KESTREL",
+    "truck",
+    "sedan",
+    "gunship"
+   ],
+   "cols": 2,
+   "draw": "atlas: cell, 1:1",
+   "filter": "linear",
+   "ground": 120,
+   "kind": "colour",
+   "note": "side-view sprites, nose to the right, centred in their cells; wheels stand on row 120 of the cell (the gunship flies: its skids are on row 96)",
+   "size": [
+    640,
+    256
+   ],
+   "wrap": ""
+  },
+  "T_UI_Chase_Skyline": {
+   "draw": "tile x (never stretched), its foot on the chase strip's rule",
+   "filter": "linear",
+   "kind": "colour",
+   "note": "pastel city, palms and clouds with a transparent sky; tiles along x",
+   "size": [
+    512,
+    128
+   ],
+   "wrap": "x"
+  },
+  "T_UI_Cheque": {
+   "draw": "1:1, never rotated",
+   "filter": "linear",
+   "kind": "colour",
+   "note": "blank: payee, amount, memo are live text in the zones (x, y, w, h); the signature is T_UI_Signature",
+   "size": [
+    800,
+    232
+   ],
+   "wrap": "",
+   "zones": {
+    "amount": [
+     612,
+     52,
+     168,
+     46
+    ],
+    "memo": [
+     150,
+     164,
+     250,
+     30
+    ],
+    "payee": [
+     150,
+     62,
+     440,
+     34
+    ],
+    "signature": [
+     520,
+     150,
+     256,
+     60
+    ],
+    "stub": [
+     16,
+     16,
+     100,
+     200
+    ],
+    "words": [
+     150,
+     112,
+     630,
+     30
+    ]
+   }
+  },
+  "T_UI_ClapStick": {
+   "draw": "rot about its hinge",
+   "filter": "linear",
+   "kind": "colour",
+   "pivot": [
+    24,
+    24
+   ],
+   "size": [
+    704,
+    48
+   ],
+   "wrap": ""
+  },
+  "T_UI_ClapStripes": {
+   "draw": "tile xy, never stretched (scale 1 or 0.5)",
+   "filter": "linear",
+   "kind": "mask",
+   "note": "opaque: white and ink bands of 32 px; under a tint the ink stays dark",
+   "size": [
+    64,
+    64
+   ],
+   "tint": [
+    "Chalk",
+    "Amber",
+    "Steel",
+    "Pink"
+   ],
+   "wrap": "xy"
+  },
+  "T_UI_ClipboardClip": {
+   "draw": "1:1, centred on the panel's top edge (its jaw line is row 28)",
+   "filter": "linear",
+   "kind": "colour",
+   "size": [
+    208,
+    64
+   ],
+   "wrap": ""
+  },
+  "T_UI_Cursor": {
+   "draw": "9-slice, centre not drawn",
+   "filter": "linear",
+   "kind": "mask",
+   "note": "the frame's outer edge is the rectangle given (90 x 90 here) and its hard shadow runs 6 px out to the right and below; the band is 10 px (6 px of colour between two ink lines)",
+   "size": [
+    96,
+    96
+   ],
+   "slice": [
+    26,
+    26,
+    32,
+    32
+   ],
+   "tint": [
+    "Pink",
+    "Chalk",
+    "Amber"
+   ],
+   "wrap": ""
+  },
+  "T_UI_Cyc_Pool": {
+   "draw": "quarter: four mirrored tiles about the pool's centre",
+   "filter": "linear",
+   "kind": "mask",
+   "note": "the pool's centre is this texture's bottom right corner",
+   "size": [
+    256,
+    256
+   ],
+   "tint": [
+    "Chalk",
+    "Sticky",
+    "White"
+   ],
+   "wrap": ""
+  },
+  "T_UI_Cyc_Side": {
+   "draw": "stretch to the screen height, outside the 16:9 block; mirrored on the right",
+   "filter": "linear",
+   "kind": "colour",
+   "note": "left side version: its right edge lies on the left edge of the centre 16:9 block",
+   "size": [
+    224,
+    672
+   ],
+   "wrap": ""
+  },
+  "T_UI_Cyc_Wall": {
+   "draw": "stretch to the viewport (V follows the screen: v = y / H)",
+   "filter": "linear",
+   "kind": "colour",
+   "size": [
+    16,
+    1024
+   ],
+   "wrap": ""
+  },
+  "T_UI_Dailies_Card": {
+   "draw": "9-slice",
+   "filter": "linear",
+   "kind": "colour",
+   "note": "Paper stock with a slate head band 30 px high (a clapper stripe in its left corner; a Chalk title fits in it), a red double rule, ink outline, hard shadow 6 px. Text starts 20 px in and 50 px down. Smallest size 72 x 76",
+   "size": [
+    192,
+    160
+   ],
+   "slice": [
+    40,
+    44,
+    28,
+    28
+   ],
+   "wrap": ""
+  },
+  "T_UI_Dailies_Pip": {
+   "cell": [
+    48,
+    48
+   ],
+   "cells": [
+    "lit",
+    "unlit"
+   ],
+   "cols": 2,
+   "draw": "atlas: 1:1, four in a row",
+   "filter": "linear",
+   "kind": "colour",
+   "size": [
+    96,
+    48
+   ],
+   "wrap": ""
+  },
+  "T_UI_Digits_Fill": {
+   "cell": [
+    88,
+    96
+   ],
+   "cells": [
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "$",
+    ",",
+    ".",
+    "/",
+    "%",
+    "x",
+    "+",
+    "-",
+    ":",
+    " "
+   ],
+   "cols": 10,
+   "draw": "atlas: cell, over the ink cell",
+   "filter": "linear",
+   "kind": "mask",
+   "note": "Bungee, sheared 0.16, FILL only. glyph n is cell n (10 columns, 2 rows) of its size; L: cap 64 px, cells 88 x 96 from (0, 0); S: cap 36 px, cells 52 x 56 from (0, 192). Pen origin (baseline left) inside a cell and per-glyph advances are in DIGITS / kit_manifest.json",
+   "size": [
+    880,
+    304
+   ],
+   "tint": [
+    "Chalk",
+    "Amber",
+    "Cyan",
+    "Red",
+    "Green",
+    "Pink",
+    "Ink"
+   ],
+   "wrap": ""
+  },
+  "T_UI_Digits_Ink": {
+   "cell": [
+    88,
+    96
+   ],
+   "cells": [
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "$",
+    ",",
+    ".",
+    "/",
+    "%",
+    "x",
+    "+",
+    "-",
+    ":",
+    " "
+   ],
+   "cols": 10,
+   "draw": "atlas: cell, under the fill, same rectangle",
+   "filter": "linear",
+   "kind": "colour",
+   "note": "the same glyphs: ink outline and hard offset shadow. Draw the ink cells of a whole string first, then its fill cells. glyph n is cell n (10 columns, 2 rows) of its size; L: cap 64 px, cells 88 x 96 from (0, 0); S: cap 36 px, cells 52 x 56 from (0, 192). Pen origin (baseline left) inside a cell and per-glyph advances are in DIGITS / kit_manifest.json",
+   "size": [
+    880,
+    304
+   ],
+   "wrap": ""
+  },
+  "T_UI_Dots": {
+   "draw": "tile xy",
+   "filter": "linear",
+   "kind": "mask",
+   "note": "45 degree halftone screen, pitch 16 px",
+   "size": [
+    64,
+    64
+   ],
+   "tint": [
+    "Chalk",
+    "Ink",
+    "Pink"
+   ],
+   "wrap": "xy"
+  },
+  "T_UI_FilmCan": {
+   "draw": "1:1",
+   "filter": "linear",
+   "kind": "colour",
+   "size": [
+    208,
+    208
+   ],
+   "wrap": ""
+  },
+  "T_UI_FilmPerf": {
+   "draw": "tile x (a row of perforations) or tile y (a column)",
+   "filter": "linear",
+   "kind": "colour",
+   "note": "opaque film base with one perforation; frames between the two rows are boxes",
+   "size": [
+    16,
+    16
+   ],
+   "wrap": "xy"
+  },
+  "T_UI_Grease": {
+   "cell": [
+    192,
+    96
+   ],
+   "cells": [
+    "ring",
+    "underline",
+    "cross",
+    "arrow"
+   ],
+   "cols": 2,
+   "draw": "atlas: 1:1 or stretch",
+   "filter": "linear",
+   "kind": "mask",
+   "size": [
+    384,
+    192
+   ],
+   "tint": [
+    "Pink",
+    "Red",
+    "Ink"
+   ],
+   "wrap": ""
+  },
+  "T_UI_Hatch": {
+   "draw": "tile xy",
+   "filter": "linear",
+   "kind": "colour",
+   "note": "ink hairlines at 34 % over disabled buttons and locked tiles",
+   "size": [
+    32,
+    32
+   ],
+   "wrap": "xy"
+  },
+  "T_UI_HazardStripes": {
+   "draw": "tile xy, never stretched",
+   "filter": "linear",
+   "kind": "mask",
+   "note": "opaque: white and ink bands of 16 px; also the small clapper stripe of button ends",
+   "size": [
+    32,
+    32
+   ],
+   "tint": [
+    "Red",
+    "Amber",
+    "Chalk",
+    "Steel"
+   ],
+   "wrap": "xy"
+  },
+  "T_UI_Hero_Burst": {
+   "draw": "1:1 (may scale 0.75 to 1.25), behind the KESTREL sticker",
+   "filter": "linear",
+   "kind": "colour",
+   "note": "the explosion as a die-cut sticker, in daylight colours",
+   "size": [
+    352,
+    352
+   ],
+   "wrap": ""
+  },
+  "T_UI_Highlighter": {
+   "draw": "3-slice-h",
+   "filter": "linear",
+   "kind": "mask",
+   "note": "alpha 86 % baked in",
+   "size": [
+    64,
+    24
+   ],
+   "slice": [
+    16,
+    0,
+    16,
+    0
+   ],
+   "tint": [
+    "Amber",
+    "Cyan",
+    "Pink",
+    "Green"
+   ],
+   "wrap": ""
+  },
+  "T_UI_Hud_ArmorLow": {
+   "draw": "1:1, pinned to the driver plate's top right corner, popped in by scale about its centre",
+   "filter": "linear",
+   "kind": "colour",
+   "note": "the baked shout ARMOR LOW! on a yellow burst (Bungee, leaning 7 degrees)",
+   "pivot": [
+    144,
+    80
+   ],
+   "size": [
+    288,
+    160
+   ],
+   "wrap": ""
+  },
+  "T_UI_Hud_Balloon": {
+   "draw": "9-slice",
+   "filter": "linear",
+   "kind": "colour",
+   "note": "Chalk, 4 px ink outline, hard shadow 6 px (inside the texture), tail on the left near the top. The balloon's body starts 16 px in (the tail); text starts 34 px in. Smallest height 60 px",
+   "size": [
+    96,
+    64
+   ],
+   "slice": [
+    32,
+    38,
+    26,
+    22
+   ],
+   "wrap": ""
+  },
+  "T_UI_Hud_Bar": {
+   "draw": "3-slice-h, for plates 64 to 130 px high",
+   "filter": "linear",
+   "kind": "mask",
+   "note": "the same sticker, low: scene slate, boss plate, caption plates. Tint = keyline",
+   "size": [
+    160,
+    96
+   ],
+   "slice": [
+    32,
+    0,
+    64,
+    0
+   ],
+   "tint": [
+    "Chalk",
+    "Red",
+    "Pink",
+    "Cyan",
+    "Amber"
+   ],
+   "wrap": ""
+  },
+  "T_UI_Hud_Bracket": {
+   "draw": "1:1 at the TRUE screen corners, mirrored for the other three",
+   "filter": "linear",
+   "kind": "mask",
+   "note": "the top left one: 5 px arms of 48 px with an ink edge, 6 px in from the texture's corner",
+   "size": [
+    64,
+    64
+   ],
+   "tint": [
+    "Chalk",
+    "Pink",
+    "Red"
+   ],
+   "wrap": ""
+  },
+  "T_UI_Hud_Chip": {
+   "draw": "3-slice-h, 26 to 48 px high",
+   "filter": "linear",
+   "kind": "mask",
+   "note": "small slanted chip: white with an ink outline, no shadow. Plate tabs, TAKE 1, ammo boxes, the keys strip",
+   "size": [
+    96,
+    40
+   ],
+   "slice": [
+    20,
+    0,
+    20,
+    0
+   ],
+   "tint": [
+    "Cyan",
+    "Pink",
+    "Amber",
+    "Red",
+    "Chalk",
+    "Green",
+    "Steel"
+   ],
+   "wrap": ""
+  },
+  "T_UI_Hud_Combo_Fill": {
+   "draw": "1:1 (scale 0.6 to 1), scale pop about its centre",
+   "filter": "linear",
+   "kind": "mask",
+   "note": "the combo starburst's fill; the multiplier is drawn on it with the digit atlas, centred on the pivot",
+   "pivot": [
+    76,
+    76
+   ],
+   "size": [
+    160,
+    160
+   ],
+   "tint": [
+    "Pink",
+    "Amber"
+   ],
+   "wrap": ""
+  },
+  "T_UI_Hud_Combo_Ink": {
+   "draw": "under the fill, same rectangle",
+   "filter": "linear",
+   "kind": "colour",
+   "note": "the starburst's ink outline and hard shadow",
+   "pivot": [
+    76,
+    76
+   ],
+   "size": [
+    160,
+    160
+   ],
+   "wrap": ""
+  },
+  "T_UI_Hud_Megaphone": {
+   "draw": "1:1, left of the balloon's tail",
+   "filter": "linear",
+   "kind": "colour",
+   "note": "amber disc with the megaphone, ink outline, hard shadow",
+   "size": [
+    72,
+    72
+   ],
+   "wrap": ""
+  },
+  "T_UI_Hud_Pips": {
+   "cell": [
+    32,
+    32
+   ],
+   "cells": [
+    "arrow pip full",
+    "arrow pip empty",
+    "reel pip full",
+    "reel pip empty",
+    "meter segment full",
+    "meter segment flat",
+    "finale mark",
+    "tick"
+   ],
+   "cols": 8,
+   "draw": "atlas: cell; 4 and 5 stretch to a segment",
+   "filter": "linear",
+   "kind": "mask",
+   "note": "0-3 at 1:1 (pitch 30 px for arrows). 4 = slanted segment with a cel highlight (fill), 5 = the same shape flat (track): made for segments about twice as wide as high",
+   "size": [
+    256,
+    32
+   ],
+   "tint": [
+    "Amber",
+    "Steel",
+    "Cyan",
+    "Green",
+    "Red",
+    "Pink",
+    "Chalk"
+   ],
+   "wrap": ""
+  },
+  "T_UI_Hud_Plate": {
+   "draw": "3-slice-h, for plates 200 to 300 px high",
+   "filter": "linear",
+   "kind": "mask",
+   "note": "the tint is the KEYLINE's colour (Chalk normally, Red for armour low); the Slate body and ink stay dark. The whole texture, shadow included, fits inside the layout rectangle",
+   "size": [
+    160,
+    256
+   ],
+   "slice": [
+    48,
+    0,
+    96,
+    0
+   ],
+   "tint": [
+    "Chalk",
+    "Red",
+    "Pink",
+    "Cyan",
+    "Amber"
+   ],
+   "wrap": ""
+  },
+  "T_UI_Hud_Tag": {
+   "draw": "3-slice-h, 30 to 48 px high",
+   "filter": "linear",
+   "kind": "mask",
+   "note": "pointed end with a punched hole on the left, ink outline, hard shadow 4 px (inside the texture). Text starts 30 px in",
+   "size": [
+    112,
+    44
+   ],
+   "slice": [
+    30,
+    0,
+    18,
+    0
+   ],
+   "tint": [
+    "Amber",
+    "Cyan",
+    "Pink",
+    "Green"
+   ],
+   "wrap": ""
+  },
+  "T_UI_Icons": {
+   "cell": [
+    64,
+    64
+   ],
+   "cells": [
+    "clapper",
+    "megaphone",
+    "camera",
+    "reel",
+    "rec",
+    "ticket",
+    "cash",
+    "star",
+    "shield",
+    "bolt",
+    "missile",
+    "bullets",
+    "wrench",
+    "spray",
+    "fire",
+    "burst",
+    "people",
+    "wheel",
+    "helmet",
+    "flag",
+    "padlock",
+    "warning",
+    "skull",
+    "check",
+    "gear",
+    "pad",
+    "exit",
+    "arrow",
+    "clock",
+    "undo",
+    "disk",
+    "crosshair",
+    "shoot1",
+    "shoot2",
+    "shoot3",
+    "shoot4",
+    "shoot5",
+    "shoot6",
+    "shoot7",
+    "shoot8",
+    "badge_check",
+    "badge_lock",
+    "speaker",
+    "trophy",
+    "car",
+    "",
+    "",
+    ""
+   ],
+   "colour_cells": [
+    "badge_check",
+    "badge_lock"
+   ],
+   "cols": 8,
+   "draw": "atlas: cell, any size from 20 to 64 px",
+   "filter": "linear",
+   "kind": "mask",
+   "note": "white masks, drawn 60 px inside their cells; badge_check and badge_lock are full colour (draw white)",
+   "size": [
+    512,
+    384
+   ],
+   "wrap": ""
+  },
+  "T_UI_IconsBig": {
+   "cell": [
+    144,
+    144
+   ],
+   "cells": [
+    "burst (DEMOLITION)",
+    "wheel (WHEELMAN)",
+    "helmet (STUNT DOUBLE)",
+    "star (STAR CAR)",
+    "flag (GETAWAY)"
+   ],
+   "cols": 5,
+   "draw": "atlas: cell, on T_UI_BranchBurst",
+   "filter": "linear",
+   "kind": "mask",
+   "size": [
+    720,
+    144
+   ],
+   "tint": [
+    "Ink",
+    "Chalk"
+   ],
+   "wrap": ""
+  },
+  "T_UI_Kestrel_Hero": {
+   "draw": "1:1 (may scale 0.75 to 1.1)",
+   "filter": "linear",
+   "kind": "colour",
+   "note": "the KESTREL-88 as a die-cut sticker: chalk border, ink line, hard shadow; nose to the left, leaping. Lay it over the sheet's edge",
+   "size": [
+    768,
+    304
+   ],
+   "wrap": ""
+  },
+  "T_UI_Keycap": {
+   "cell": [
+    48,
+    48
+   ],
+   "cells": [
+    "dark cap (on paper): Chalk text",
+    "light cap (on dark): Ink text"
+   ],
+   "cols": 2,
+   "draw": "atlas: 9-slice of the cell",
+   "filter": "linear",
+   "kind": "colour",
+   "note": "the cap is 44 px high in the cell, then a 4 px ink lip; draw it 28 to 44 px high",
+   "size": [
+    96,
+    48
+   ],
+   "slice": [
+    12,
+    10,
+    12,
+    14
+   ],
+   "wrap": ""
+  },
+  "T_UI_Lockups": {
+   "cell": [
+    448,
+    128
+   ],
+   "cells": [
+    "BAYSHORE / THE HIGHWAY ASSASSINATION",
+    "CHEMICAL PLANT / THE FORMULA",
+    "NEVADA DESERT / ALL IN",
+    "VOLCANO / BAPTISM OF FIRE",
+    "THEME PARK / THE LAST RIDE",
+    "ICE MOUNTAIN / WHITE OUT",
+    "UNDER THE SEA / SINK OR SWIM",
+    "CITY CENTER / HOSTILE TAKEOVER"
+   ],
+   "cols": 2,
+   "draw": "atlas: cell, 1:1",
+   "filter": "linear",
+   "kind": "colour",
+   "note": "cell = shoot - 1; chalk name with ink stroke over the shoot's colour, subtitle on an ink strip; the skew is baked",
+   "size": [
+    896,
+    512
+   ],
+   "wrap": ""
+  },
+  "T_UI_Memo": {
+   "draw": "9-slice",
+   "filter": "linear",
+   "kind": "colour",
+   "note": "upright, Chalk stock, a Manila head band with MEMO baked in its left corner, a dog ear bottom right, ink outline, hard shadow 6 px. The rectangle given is the memo's body; the shadow is outside it. Text starts 20 px in and 52 px down. Smallest size 124 x 84",
+   "size": [
+    192,
+    160
+   ],
+   "slice": [
+    84,
+    46,
+    36,
+    34
+   ],
+   "wrap": ""
+  },
+  "T_UI_Paper": {
+   "draw": "tile xy",
+   "filter": "linear",
+   "kind": "mask",
+   "note": "opaque; white based grain: the tint IS the stock colour",
+   "size": [
+    256,
+    256
+   ],
+   "tint": [
+    "Paper",
+    "Aqua",
+    "Sticky",
+    "Ledger",
+    "Manila",
+    "Chalk"
+   ],
+   "wrap": "xy"
+  },
+  "T_UI_Paperclip": {
+   "draw": "1:1",
+   "filter": "linear",
+   "kind": "colour",
+   "size": [
+    32,
+    64
+   ],
+   "wrap": ""
+  },
+  "T_UI_Pin": {
+   "draw": "1:1",
+   "filter": "linear",
+   "kind": "colour",
+   "size": [
+    28,
+    28
+   ],
+   "wrap": ""
+  },
+  "T_UI_Plaque": {
+   "cell": [
+    96,
+    72
+   ],
+   "cells": [
+    "idle",
+    "focus",
+    "active"
+   ],
+   "cols": 3,
+   "draw": "atlas: 3-slice-h of the cell (the cell is 66 px of plaque + 6 px of shadow)",
+   "filter": "linear",
+   "kind": "colour",
+   "note": "two screws in the caps. idle: Slate2. focus: Steel with a chalk inner line. active: Paper with an amber stripe head, open at the foot (it joins the board below)",
+   "size": [
+    288,
+    72
+   ],
+   "slice": [
+    30,
+    0,
+    34,
+    0
+   ],
+   "wrap": ""
+  },
+  "T_UI_SheetFrame": {
+   "draw": "9-slice, centre not drawn (the live view shows through)",
+   "filter": "linear",
+   "kind": "colour",
+   "note": "30 px of border (ink, 24 px of paper with registration marks, ink), a hard shadow 8 px out to the right and below, and the cut edge's shadow 6 px into the window. The sheet's outer edge is the rectangle given, the shadow is outside it",
+   "size": [
+    192,
+    192
+   ],
+   "slice": [
+    44,
+    44,
+    52,
+    52
+   ],
+   "wrap": ""
+  },
+  "T_UI_Signature": {
+   "draw": "1:1",
+   "filter": "linear",
+   "kind": "mask",
+   "size": [
+    256,
+    72
+   ],
+   "tint": [
+    "Ink",
+    "Teal",
+    "Pink"
+   ],
+   "wrap": ""
+  },
+  "T_UI_SlateDust": {
+   "draw": "tile xy",
+   "filter": "linear",
+   "kind": "mask",
+   "note": "over a flat Slate box; alpha is already low",
+   "size": [
+    256,
+    256
+   ],
+   "tint": [
+    "Chalk"
+   ],
+   "wrap": "xy"
+  },
+  "T_UI_Stamp_Approved": {
+   "draw": "rot about its centre",
+   "filter": "linear",
+   "kind": "colour",
+   "pivot": [
+    96,
+    36
+   ],
+   "size": [
+    192,
+    72
+   ],
+   "wrap": ""
+  },
+  "T_UI_Stamp_Rating": {
+   "cell": [
+    448,
+    132
+   ],
+   "cells": [
+    "B-MOVIE",
+    "ACTION HERO",
+    "BLOCKBUSTER",
+    "LEGENDARY DIRECTOR"
+   ],
+   "cols": 1,
+   "draw": "atlas: cell, rot about the cell's centre",
+   "filter": "linear",
+   "kind": "colour",
+   "pivot": [
+    224,
+    66
+   ],
+   "size": [
+    448,
+    528
+   ],
+   "wrap": ""
+  },
+  "T_UI_Sticker_Cash": {
+   "draw": "1:1",
+   "filter": "linear",
+   "kind": "colour",
+   "note": "yellow price burst; the label and the amount are drawn on it (zone x, y, w, h), in Ink",
+   "size": [
+    288,
+    144
+   ],
+   "wrap": "",
+   "zones": {
+    "text": [
+     44,
+     30,
+     196,
+     76
+    ]
+   }
+  },
+  "T_UI_Sticker_Level": {
+   "draw": "1:1",
+   "filter": "linear",
+   "kind": "colour",
+   "note": "driver level rating box: the number goes in the chalk cell (Ink), two lines of text in the slate cell (Chalk)",
+   "size": [
+    256,
+    96
+   ],
+   "wrap": "",
+   "zones": {
+    "number": [
+     6,
+     6,
+     84,
+     78
+    ],
+    "text": [
+     102,
+     10,
+     140,
+     70
+    ]
+   }
+  },
+  "T_UI_Sticker_SP": {
+   "draw": "1:1",
+   "filter": "linear",
+   "kind": "colour",
+   "note": "cyan skill point token; the number is drawn in its middle, in Ink",
+   "size": [
+    128,
+    128
+   ],
+   "wrap": "",
+   "zones": {
+    "text": [
+     26,
+     28,
+     68,
+     64
+    ]
+   }
+  },
+  "T_UI_Tape": {
+   "draw": "1:1, rot about its centre",
+   "filter": "linear",
+   "kind": "colour",
+   "pivot": [
+    64,
+    16
+   ],
+   "size": [
+    128,
+    32
+   ],
+   "wrap": ""
+  }
+ },
+ "units": "texture px = 1080p px; design px = px / 1.5"
+}

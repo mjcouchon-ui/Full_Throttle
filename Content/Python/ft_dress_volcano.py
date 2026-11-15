@@ -755,7 +755,7 @@ def basalt_kerb(m, seed=41, gaps=(), low=1.0):
         for k in range(n):
             x = -1040 + (k + 0.5 * j) * 190 + r.uniform(-22, 22)
             rad = r.uniform(78, 100)
-            h = (r.uniform(60, 130) if j == 0 else r.uniform(125, 225)) * low
+            h = (r.uniform(60, 130) if j == 0 else r.uniform(125, 195)) * low     # round three: 195, not 225 (2 m is the track's line)
             if (j, k) in gaps:
                 continue
             m.cyl(cols[(k * 3 + j) % 4], (x, -80 + j * 150 + r.uniform(-12, 12), -50), rad, h + 50, steps=6)
@@ -786,6 +786,11 @@ def basalt_wall(m, seed=43):
                 m.cyl(PALE, (x, y, h - r.uniform(34, 60)), rad * 1.03, 70, steps=6)     # a collar, not a lid: the heads stand over the eye
     for k in range(3):
         m.cyl(BASALT_L, (r.uniform(-900, 900), -270 + r.uniform(-15, 15), 40), 60, r.uniform(110, 160), rot=(90, r.uniform(60, 120), 0), steps=6)
+    # round three: the lava's light on it (it stood dark on dark): a band along its foot on the channel's side and four
+    # cracks between the front rank's columns. Steady light 52 m from the road and more; animate() lets it swell slowly.
+    m.box(LAVA, (0, -262, 70), (2000, 26, 170), glow=0.9)
+    for (x, hh) in ((-610, 190), (-150, 280), (330, 230), (740, 170)):
+        m.box(LAVA_Y, (x, -258, hh / 2.0 + 60), (48, 24, hh), glow=1.3)
 
 
 # ---- what moves (ft_life.Kit). Every builder takes the asset's path.
@@ -816,10 +821,11 @@ def lava_flow(path, left=False):
     for i in range(5):
         y = (150.0, -200.0, 330.0, -40.0, -380.0)[i]
 
-        def chevron(m, y=y):
-            for sd in (-1, 1):
-                tilt_box(m, LAVA_Y, (-160.0 * sx, y + sd * 230.0, 48.0), (160.0 * sx, y, 48.0), 60, 8, glow=1.8)
-        f.piece(chevron, a=(i + 0.5 + r.uniform(-0.15, 0.15)) / 5.0)
+        def streak(m, y=y, i=i):                                               # round three: three unequal tongues (the chevrons read as painted arrows)
+            for (dx, dy, rx, ry) in ((0.0, 0.0, 250.0 + 45.0 * (i % 3), 36.0), (-230.0 * sx, 72.0 - 34.0 * (i % 2), 150.0, 27.0),
+                                     (170.0 * sx, -66.0, 105.0 + 35.0 * (i % 2), 23.0)):
+                m.plan(LAVA_Y, _ccw(_oval(rx, ry, 6, dx, y + dy, 0.3 * i)), 44, 52, glow=1.8)
+        f.piece(streak, a=(i + 0.5 + r.uniform(-0.15, 0.15)) / 5.0)
     for j, x in enumerate((-1500.0, 0.0, 1500.0)):                             # embers: small, slow, 38 m and more from the road
         e = k.group('Plume', rough=0.9, PlumeBase=(x, 0.0, 70.0), PlumeRise=820.0, PlumeDrift=520.0, PlumeSize0=1.4, PlumeSize1=0.5,
                     PlumeRate=0.13 + 0.025 * j, PlumeSpread=420.0, PlumeEase=0.9)
@@ -865,6 +871,7 @@ def vent_stacks_live(path):
         for j in range(3):
             s.cyl(CHAR, (x, 0, H * (0.42 + 0.2 * j)), 100 - j * 8, 110, steps=7)
         s.cyl(CHAR, (x, 0, H), 80, 70, steps=7, top_r=110)
+        s.cyl(LAVA, (x, 0, H - 150), 80, 80, steps=7, glow=1.0)     # round three: a hot collar under the cap (the bends were black)
         tops.append((x, H + 90.0))
     for i, (x, z) in enumerate(tops):
         p = k.group('Plume', rough=0.95, PlumeBase=(x, 0.0, z), PlumeRise=820.0, PlumeDrift=520.0, PlumeSize0=0.5, PlumeSize1=2.3, PlumeRate=0.2,
@@ -894,7 +901,7 @@ def fissure_fire(path):
     s.box(BASALT, (0, 200, -170), (4000, 800, 300))
     fl = k.group(('Flutter', 'Light'), far=True, rough=0.9, FlutterPin=(0.0, 0.0, 120.0), FlutterAxis=(0.0, 0.0, 1.0), FlutterDir=(0.9, 0.4, 0.0),
                  FlutterSpan=500.0, FlutterLen=620.0, FlutterRate=6.5, FlutterAmp=60.0, FlutterPhase=(0.00021, 0.0, 0.0),
-                 LightHash=0.4, LightCell=900.0, LightRate=8.0, LightMin=0.6)
+                 LightHash=0.4, LightCell=900.0, LightRate=3.0, LightMin=0.8)     # round three: the light ruling (was 8 a second, 0.6)
     for i, x in enumerate(xs):
         h = (1150.0, 760.0, 1400.0, 900.0, 1050.0)[i]
         n = 3
@@ -985,13 +992,214 @@ def cinder_cone_live(path, seed=10, R=9000, H=10500):
     for i in range(7):
         p.piece(lambda m, c=(ASH if i % 2 else SMOKE): m.sphere(c, (0, 0, 0), R * 0.17, steps=(5, 8)), a=i / 7.0,
                 b=0.8 + 0.4 * ((i * 5) % 4) / 3.0, c=i * 0.61)
+    # round three: it ERUPTS on a clock. Fourteen bombs thrown from the throat, out 1.3 radii and falling back, for six
+    # seconds in every eighteen; every cone on its own clock (the horizon's moment: seen from anywhere, for seconds).
+    e = k.group('Burst', far=True, rough=0.9, BurstBase=(0.0, 0.0, H * 0.99), BurstRadius=R * 1.3, BurstFall=H * 0.8, BurstRate=0.055, BurstLife=0.33)
+    for i in range(14):
+        e.piece(lambda m: m.box(LAVA_Y, (0, 0, 0), (R * 0.09, R * 0.09, R * 0.09), rot=(35, 40, 0), glow=2.6), a=r.random(), b=r.uniform(0.45, 0.95),
+                c=r.random())
     k.save(path, grow=(R * 1.2, R * 1.2, H * 1.1), grow_down=(R * 0.6, R * 0.6, 0.0))
+
+
+# ------------------------------------------------------------------------------------------ round three (15 Nov 2026): the built world in motion
+# The mine WORKS: slag trains run on the spur and cross the road on a viaduct, haulers climb and come down haul roads
+# on the slopes, a river of lava comes down a far flank, the cinder cones throw bombs on a clock. Machines, vehicles,
+# the elements and light only: a second machine makes the people (no figures here). Everything moves in the material
+# (ft_life.Kit: Conveyor, Light, Burst), nothing ticks, and none of these pieces casts a shadow (the table places each
+# first by a Far rule, or only beyond 70 m).
+def _train(body, slag, a0, lag, cars, along='x', fwd=1.0):
+    """One slag train as Conveyor parts of the groups `body` and `slag` (both on the same line, so the parts keep
+    their places in the train): a small diesel in the company's orange at phase a0, a headlamp on its nose, and
+    `cars` tubs behind it, each `lag` of the line further back, the slag in them glowing. Drawn about the origin,
+    wheels at z = 0, its length along x (or y), heading +fwd."""
+    def put(m, col, c, s, glow=0.0):
+        c = (c[0] * fwd, c[1], c[2])
+        if along == 'y':
+            c, s = (c[1], c[0], c[2]), (s[1], s[0], s[2])
+        m.box(col, c, s, glow=glow)
+
+    def loco(m):
+        put(m, CHAR, (0, 0, 55), (540, 200, 70))
+        put(m, LIVERY, (0, 0, 190), (520, 230, 190))
+        put(m, LIVERY, (-160, 0, 355), (200, 230, 150))
+        put(m, PANE, (-160, -117, 365), (150, 6, 80))
+        put(m, PANE, (-160, 117, 365), (150, 6, 80))
+        put(m, CHAR, (140, 0, 320), (60, 60, 90))
+        put(m, LIT, (263, 0, 215), (8, 130, 60), glow=1.2)
+    body.piece(loco, a=a0 % 1.0)
+    for i in range(cars):
+        a = (a0 - lag * (i + 1.25)) % 1.0
+
+        def tub(m):
+            put(m, CHAR, (0, 0, 50), (360, 190, 60))
+            put(m, RUST, (0, 0, 180), (380, 230, 200))
+            put(m, RUST_D, (0, 0, 292), (410, 256, 30))
+        body.piece(tub, a=a)
+        slag.piece(lambda m: put(m, LAVA, (0, 0, 322), (330, 184, 50), glow=1.0), a=a)
+
+
+def _train_groups(k, conv):
+    """The two groups a slag train is made of, on one Conveyor line: the rolling stock, and the slag, which also
+    swells and dims slowly (a fifth, once in four seconds: steady light by the ruling)."""
+    body = k.group('Conveyor', rough=0.7, metal=0.2, **conv)
+    slag = k.group(('Conveyor', 'Light'), rough=0.9, LightRate=0.25, LightDuty=0.6, LightSoft=0.4, LightMin=0.8, LightRand=1.0, **conv)
+    return body, slag
+
+
+def slag_train(path):
+    """The slag train on the mine's spur RUNS: a diesel and four tubs come out of an engine shed, run 136 m down the
+    line the way the road goes (9 m a second) and go into the shed at the far end; every instance on its own clock.
+    The piece is the two sheds and the train between them; it stands on SM_RailSpur's line, 66 m out."""
+    import ft_life
+    k = ft_life.Kit()
+    half = 6800.0
+    s = k.group(rough=0.8)
+    for sd in (-1, 1):
+        s.box(CONC_D, (sd * (half + 380), 0, 250), (900, 520, 520))
+        s.box(RUST_D, (sd * (half + 380), 0, 540), (980, 600, 70))
+        s.box(CHAR, (sd * (half - 66), 0, 215), (30, 300, 370))             # the dark of the doorway
+        s.box(LIVERY, (sd * (half + 380), -264, 420), (700, 8, 90))
+    body, slag = _train_groups(k, dict(ConvStart=(-half, 0.0, 60.0), ConvDir=(1.0, 0.0, 0.0), ConvLen=2.0 * half, ConvRate=0.066, ConvRand=1.0))
+    _train(body, slag, 0.5, 440.0 / (2.0 * half), 4)
+    k.save(path)
+
+
+def ore_bridge(path):
+    """The mine's viaduct OVER the road (a moment): 150 m of deck from crusher to crusher, two tracks, slag trains
+    crossing both ways all the time (a diesel and five tubs, 9 m a second: one is over the road every eight seconds).
+    The piece's origin is the middle of the deck at rail height; the table stands it 12 m over the road's middle on
+    two trestles (SM_OrePier), and all of it is more than 9 m above the road, so the track's road test lets it pass
+    (as it does the gondola's cable on Ice Mountain). Its length runs along y."""
+    import ft_life
+    k = ft_life.Kit()
+    half = 7500.0
+    s = k.group(rough=0.8, metal=0.2)
+    s.box(CONC_D, (0, 0, -40), (760, 2.0 * half, 50))
+    for sx in (-1, 1):
+        s.box(RUST, (sx * 372, 0, 10), (28, 2.0 * half, 150))                # the plate girders
+        s.box(STAIN_O, (sx * 150, 0, -10), (150, 2.0 * half, 12))            # the tracks, each a strip
+    for j in range(9):
+        s.box(RUST_D, (0, -half + (j + 0.5) * 2.0 * half / 9.0, -52), (800, 90, 60))
+    for sx, dr in ((1, 1.0), (-1, -1.0)):
+        body, slag = _train_groups(k, dict(ConvStart=(sx * 150.0, -dr * half, 0.0), ConvDir=(0.0, dr, 0.0), ConvLen=2.0 * half, ConvRate=0.06,
+                                           ConvRand=0.0))
+        for a0 in (0.25, 0.75):
+            _train(body, slag, a0 + (0.0 if sx > 0 else 0.25), 440.0 / (2.0 * half), 5, along='y', fwd=dr)
+    k.save(path)
+
+
+def ore_pier(m):
+    """A steel trestle under the viaduct, 11.4 m: two splayed legs, cross braces, the bearing on top. It stands 30 m
+    from the road's middle either side (a still piece: the only one of round three)."""
+    H = 1140.0
+    for sx in (-1, 1):
+        tilt_box(m, RUST, (sx * 300, 0, -300), (sx * 90, 0, H - 40), 80, 110)
+    for z0, z1 in ((120.0, 480.0), (480.0, 840.0)):
+        for sx in (-1, 1):
+            w0 = 300 - (300 - 90) * (z0 + 300) / (H + 260)
+            w1 = 300 - (300 - 90) * (z1 + 300) / (H + 260)
+            tilt_box(m, RUST_D, (sx * w0, 0, z0), (-sx * w1, 0, z1), 44, 50)
+    m.box(RUST_D, (0, 0, H - 20), (760, 150, 60))
+    m.box(CONC_D, (0, 0, -150), (820, 260, 320))
+
+
+def haul_road(path):
+    """A haul road up the slope with the mine's trucks on it: 170 m of pale track running away from the road and up
+    (5 in 100, the land's own rise), three loaded haulers climbing and three coming down empty, 9 m a second, lamps
+    on (white ahead, red behind). The middle distance: the table stands its foot 118 m out and more, and across the
+    slope it is the lamps that read. Its foot is the origin; it runs along +y."""
+    import ft_life
+    k = ft_life.Kit()
+    L, rise = 17000.0, 880.0
+    n = math.hypot(L, rise)
+    s = k.group(rough=0.95)
+    tilt_box(s, PALE, (0, -200, -40), (0, L, rise - 40), 820, 40)
+    for sx in (-1, 1):
+        tilt_box(s, ASH, (sx * 450, -200, 0), (sx * 450, L, rise), 110, 60)  # the windrows either side
+    for lane, dr in ((190.0, 1.0), (-190.0, -1.0)):
+        up = dr > 0
+        g = k.group('Conveyor', rough=0.7, ConvStart=(lane, 0.0 if up else L, 30.0 if up else rise + 30.0), ConvDir=(0.0, dr * L / n, dr * rise / n),
+                    ConvLen=n, ConvRate=0.053, ConvRand=1.0)
+        for i in range(3):
+            def truck(m, dr=dr, up=up):
+                for wy in (-260, 250):
+                    m.box(CHAR, (0, wy, 95), (430, 200, 190))                # the wheels, as two axles' worth
+                m.box(TRUCK, (0, 0, 250), (400, 820, 150))
+                m.box(TRUCK, (0, dr * 350, 430), (380, 240, 230))            # the cab, at the leading end
+                m.box(PANE, (0, dr * 472, 460), (330, 8, 130))
+                m.box(RUST if up else RUST_D, (0, -dr * 90, 430), (440, 560, 210))
+                if up:
+                    m.sphere(PALE, (0, -dr * 90, 545), 210, scale=(0.95, 1.25, 0.55), steps=(4, 6))   # its load of spoil
+                m.box(LIT, (0, dr * 474, 300), (300, 6, 60), glow=1.4)
+                m.box(RED, (0, -dr * 412, 300), (300, 6, 44), glow=1.2)
+            g.piece(truck, a=(i + (0.3 if up else 0.0)) / 3.0)
+    k.save(path)
+
+
+def lava_river(path):
+    """A river of lava coming down a far flank (a moment): a dark shoulder of the mountain 300 m long and 110 m high,
+    the river down the middle of it from a vent at its top to a lake at its foot. The lava's light travels down it and
+    rafts of crust ride down on it, twenty seconds from vent to lake, so from the road it is seen to FLOW. Far (250 m
+    and more out): slow and large. Its front (-y) faces the road; z = 0 is the lake."""
+    import ft_life
+    k = ft_life.Kit()
+    r = random.Random(61)
+    Ly, H = 30000.0, 11000.0
+    n = math.hypot(Ly, H)
+    s = k.group(far=True, rough=0.9)
+    tilt_box(s, BASALT, (0, 0, -1000), (0, Ly, H - 1000), 15000, 1900)
+    for sx in (-1, 1):
+        for j in range(4):
+            y = Ly * (0.12 + 0.24 * j)
+            s.box(BASALT_L if (j + sx) % 2 else '#352a3a', (sx * r.uniform(5200, 7400), y, H * y / Ly - 200),
+                  (r.uniform(2600, 4200), r.uniform(3800, 5600), r.uniform(1800, 3200)), rot=(r.uniform(-10, 10), -20, r.uniform(-12, 12)))
+    s.cyl(BASALT, (0, Ly + 500, H - 2800), 2700, 3600, steps=8, top_r=1100)
+    s.cyl(BASALT, (0, -1700, -900), 3100, 880, steps=10)
+    s.cyl(LAVA, (0, -1700, -30), 2500, 60, steps=10, glow=1.3)
+    f = k.group('Light', far=True, rough=0.9, LightAxis=(0.0, -Ly / n, -H / n), LightLen=7000.0, LightRate=0.22, LightDuty=0.6, LightSoft=0.3,
+                LightMin=0.6)
+    tilt_box(f, LAVA, (0, -600, 70), (0, Ly + 300, H + 70), 1150, 60, glow=1.5)
+    tilt_box(f, LAVA_Y, (0, -600, 110), (0, Ly + 300, H + 110), 380, 40, glow=2.0)
+    g = k.group('Conveyor', rough=0.9, ConvStart=(0.0, Ly, H + 150.0), ConvDir=(0.0, -Ly / n, -H / n), ConvLen=n, ConvRate=0.05, ConvRand=1.0)
+    for i in range(8):
+        x = (-300.0, 250.0, -80.0, 330.0, -240.0, 120.0, 0.0, -150.0)[i]
+        rx, ry, a0 = r.uniform(190, 320), r.uniform(260, 420), r.uniform(0, 1)
+        g.piece(lambda m, x=x, rx=rx, ry=ry, a0=a0: m.plan(CHAR, _ccw(_oval(rx, ry, 6, x, 0.0, a0)), -30, 30), a=(i + r.uniform(-0.2, 0.2)) / 8.0)
+    k.save(path)
+
+
+def water_bomber(path):
+    """A water bomber working the fires, far off and high (the sky's own traffic): a fat twin-engined flying boat in
+    yellow with a red tail, on a straight run 1.6 km long, 48 m a second, a curtain of water trailing down behind it;
+    each instance on its own clock. Far only (450 m out and more, 190 m up): the table stands one over each fire
+    district. It is no helicopter and never comes near the road: the game's own choppers are the enemy's."""
+    import ft_life
+    k = ft_life.Kit()
+    half = 80000.0
+    g = k.group('Conveyor', rough=0.6, ConvStart=(-half, 0.0, 0.0), ConvDir=(1.0, 0.0, 0.0), ConvLen=2.0 * half, ConvRate=0.03, ConvRand=1.0)
+
+    def plane(m):
+        m.box(TRUCK, (0, 0, 0), (1900, 300, 320))                               # the hull
+        m.box(TRUCK, (700, 0, 40), (500, 260, 260))
+        m.box(PANE, (880, 0, 150), (260, 240, 90))
+        m.box(TRUCK, (100, 0, 230), (420, 2600, 70))                            # the wing, high on the hull
+        for sy in (-1, 1):
+            m.box(CHAR, (190, sy * 520, 230), (360, 150, 150))                  # the engines
+            m.box(RED, (100, sy * 1240, 230), (420, 120, 76))                   # the wing tips
+        m.box(RED, (-860, 0, 330), (300, 60, 420))                              # the fin
+        m.box(TRUCK, (-860, 0, 500), (240, 900, 50))                            # the tailplane
+        for i, (x, z, r0) in enumerate(((-600, -420, 260), (-1250, -900, 340), (-2000, -1500, 420), (-2850, -2200, 480), (-3800, -3000, 520))):
+            m.sphere(STEAM, (x, 0, z), r0, scale=(1.5, 0.9, 1.0), steps=(4, 6))   # the water it lets go, falling away behind
+    g.piece(plane, a=0.5)
+    k.save(path, grow=(half, 0.0, 0.0), grow_down=(half, 0.0, 3200.0))
 
 
 LIFE = [
     ('SM_LavaRafts', lava_flow), ('SM_LavaRaftsL', lambda p: lava_flow(p, left=True)), ('SM_VentStacks', vent_stacks_live),
     ('SM_Fumarole', fumarole), ('SM_FissureFire', fissure_fire), ('SM_BucketWheel', bucket_wheel),
     ('SM_PeakCinder', cinder_cone_live), ('SM_PeakCone2AD', lambda p: cinder_cone_live(p, seed=30, R=6500, H=7600)),
+    ('SM_SlagTrain', slag_train), ('SM_OreBridge', ore_bridge), ('SM_HaulRoad', haul_road), ('SM_LavaRiver', lava_river),     # round three
+    ('SM_WaterBomber', water_bomber),
 ]
 
 
@@ -1044,6 +1252,9 @@ def animate():
     n += ft_life.animate(DIR + 'SM_Conveyor', 'Light', [LIT + '*'], LightAxis=(1.0, 0.0, 0.0), LightLen=1600.0, LightRate=0.6, LightDuty=0.5,
                          LightSoft=0.15, LightMin=0.25)
     n += ft_life.animate(DIR + 'SM_OreTrain', 'Light', [LAVA + '*'], **ft_life.PULSE)
+    # round three: the lava's light on the walls behind the channels swells and sinks a quarter, once in five seconds
+    n += ft_life.animate(DIR + 'SM_BasaltWall', 'Light', [LAVA + '*', LAVA_Y + '*'], LightRate=0.2, LightDuty=0.6, LightSoft=0.4, LightMin=0.75,
+                         LightRand=1.0)
     for name in ('SM_PoleMast', 'SM_TowerSurvey', 'SM_DrillRig', 'SM_Helipad', 'SM_RidgePylons', 'SM_Conveyor', 'SM_Crusher'):
         n += ft_life.animate(DIR + name, 'Light', [RED + '*'], **ft_life.BLINK)
     return n
@@ -1098,7 +1309,7 @@ JOBS = [
     ('SM_OreTrain', ore_train), ('SM_PumpHouse', pump_house), ('SM_LavaStones', lava_stones),
     ('SM_BasaltKerb', basalt_kerb),
     ('SM_BasaltKerb2', lambda m: basalt_kerb(m, seed=45, gaps=((0, 2), (0, 3), (1, 3), (0, 7), (1, 7), (1, 8), (0, 9)), low=0.8)),
-    ('SM_BasaltWall', basalt_wall),
+    ('SM_BasaltWall', basalt_wall), ('SM_OrePier', ore_pier),
     ('SM_AshBank', ash_bank), ('SM_AshBank2', lambda m: ash_bank(m, seed=21)), ('SM_GuardFence', guard_fence), ('SM_PipeRun', pipe_run),
     ('SM_RockRubble', rubble), ('SM_CableReels', cable_reels), ('SM_PoleMarker', marker_post),
     ('SM_TowerSurvey', survey_tower), ('SM_HutSurvey', survey_hut), ('SM_HutSurvey2', survey_hut_round), ('SM_PoleMast', instrument_mast),

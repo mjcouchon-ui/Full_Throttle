@@ -1644,6 +1644,370 @@ def life_props(only=None):
     return done
 
 
+# ------------------------------------------------------------------------------------------ the fifth round: the built world in motion (15 Nov 2026)
+# The lead's round three for the zones: "the built world in motion": machines, vehicles, water, air and light (the
+# people and the animals are another machine's). Where each thing went was decided by what a frame of the real game
+# shows of Bayshore from the chase camera, 3.5 m over the road:
+#   the back street   93.5 m out behind two rows of shops 7 m high: its surface is never in the frame, so it got no
+#                     traffic (a car there would have to stand 13 m over the road to be seen)
+#   the side streets  seen through the gap in the rows for about a second as the car comes up to each: cars come down
+#                     them into a car park under the promenade and others leave it (SM_SideTraffic)
+#   the bay           boats under way on rounds 800 m across, each with its wake (SM_BoatRing); a ferry (SM_Ferry);
+#                     a plane that circles over the beach towing a banner (SM_BannerPlane)
+#   the piers         the level's own wheel turns (life()); trains run the coaster's hills (SM_Coaster, rebuilt here)
+#   downtown          searchlights that sweep the sky (SM_SkyBeams) and a slow firework show (SM_Fireworks)
+# All of it moves in the vertex shader (ft_life.Kit: one mesh, one instance, however many cars or boats it carries).
+# A Kit prop's travellers are built in a heap at the piece's own zero and sent out by the material, so every prop
+# returns how far they go (grow, grow_down): the track's road test and the culling see the whole of it.
+def _traffic_car(m, col, van=False):
+    """A car (or a van) for a lane of traffic, built about the origin with its nose along +Y: body, cabin, the dark
+    under its sills, and its lamps. The lamps are steady and are never nearer the road than 37 m."""
+    ln, w, h = (520.0, 200.0, 150.0) if van else (430.0, 180.0, 70.0)
+    m.box(col, (0, 0, 40 + h / 2.0), (w, ln, h))
+    if van:
+        m.box(NAVY, (0, ln / 2.0 - 70, 150), (w + 4, 80, 56))
+    else:
+        m.box(NAVY, (0, -20, 132), (w - 16, 230, 54))
+        m.box(col, (0, -20, 162), (w - 10, 210, 10))
+    m.box('#1c1a26', (0, 0, 24), (w + 4, ln - 120, 40))
+    m.box(YEL, (0, ln / 2.0 + 2, 72), (w - 30, 4, 18), glow=1.0)
+    m.box(RED, (0, -ln / 2.0 - 2, 72), (w - 30, 4, 18), glow=0.9)
+
+
+def side_traffic(k):
+    """The traffic of a side street (SM_CrossStreet: 144 m of it running back from the road, +Y away from the road,
+    this piece's zero on the street's middle 90 m out). Four cars come down the street to the road end and four go
+    up it. The street ends at the barrier, so at the road end stands the way into a car park under the promenade: a
+    low deck across the street, 26 to 37 m out, that the cars drive into and come out of (a traveller swells out of
+    nothing at the start of its line and is gone at the end: both ends of both lines are inside the deck or 160 m
+    from the road)."""
+    s = k.group(**BAY_LOOK)
+    y0, y1 = -6400.0, -5300.0                                                            # the deck: 26 to 37 m from the road's centre
+    s.box(CREAM, (-45, (y0 + y1) / 2.0, 150), (790, y1 - y0, 300))
+    s.box(TEAL, (-45, (y0 + y1) / 2.0, 318), (850, y1 - y0 + 60, 36))
+    s.box(WHITE, (-45, y0 - 4, 250), (700, 8, 40))
+    for x in (130.0, -200.0):                                                            # the two mouths, on the side away from the road
+        s.box(NAVY, (x, y1 - 14, 118), (270, 40, 236))
+    _sign(s, 'PARK', -45, y0 - 6, 96, 120, HOTPINK, glow=0.6)                            # steady, 26 m out, facing the road
+    for lane, (x, d, cols, rate) in enumerate(((130.0, -1.0, (CORAL, WHITE), 0.07), (-200.0, 1.0, (TEAL, YEL), 0.062))):
+        g = k.group('Conveyor', **dict(BAY_LOOK, ConvStart=(x, 7000.0 if d < 0 else -6300.0, 0.0), ConvDir=(0.0, d, 0.0), ConvLen=13300.0,
+                                       ConvRate=rate, ConvRand=1.0))
+        for i, a in enumerate((0.05, 0.31, 0.56, 0.83)):
+            def car(m, i=i, d=d, cols=cols):
+                m.base = ft_art._xf((0, 0, 0), (0, 180.0 if d < 0 else 0.0, 0))
+                try:
+                    _traffic_car(m, cols[i % 2], van=(i == 2))
+                finally:
+                    m.base = None
+            g.piece(car, a=a)
+    return dict(grow=(0, 7300, 0), grow_down=(0, 0, 0))
+
+
+def _wake(m, x, length, beam):
+    """The wake of a boat under way, astern of x: two arms of foam that open as they trail, the churned water
+    between them, and the bow wave. A little light of its own, as the surf has, so that it stays white at dusk."""
+    for sy in (-1, 1):
+        tilt_box(m, FOAM, (x, sy * beam * 0.45, 14), (x - length, sy * (beam * 0.45 + length * 0.2), 14), 90 + beam * 0.18, 28, glow=0.05)
+    m.box(FOAM2, (x - length * 0.32, 0, 9), (length * 0.64, beam * 0.8, 18))
+
+
+def _speedboat(m, col):
+    """A speedboat 10.6 m long, bow along +X, planing: the bow rides high."""
+    _side(m, WHITE, [(-500, 0), (380, 0), (560, 150), (-500, 110)], -165, 165)
+    m.box(col, (-60, 0, 118), (880, 334, 22))
+    m.box(NAVY, (90, 0, 176), (130, 270, 96))
+    m.box(col, (-330, 0, 150), (220, 250, 70))
+    _wake(m, -480.0, 4200.0, 330.0)
+
+
+def _cruiser(m, col):
+    """A cabin cruiser 17 m long, bow along +X: a white hull, a deck house with a dark band of windows, a bridge."""
+    _side(m, WHITE, [(-800, 0), (650, 0), (900, 230), (-800, 200)], -235, 235)
+    m.box(col, (-20, 0, 214), (1560, 474, 20))
+    m.box(CREAM, (-150, 0, 320), (800, 380, 200))
+    m.box(NAVY, (-150, 0, 340), (812, 392, 70))
+    m.box(col, (-150, 0, 428), (860, 420, 18))
+    m.box(CREAM, (-260, 0, 500), (360, 300, 130))
+    m.box(NAVY, (-200, 0, 520), (250, 312, 56))
+    _wake(m, -780.0, 3400.0, 470.0)
+
+
+def boat_ring(k):
+    """Boats under way on the bay: three speedboats and two cabin cruisers on a round 800 m across, afloat (z = 0 is
+    the sea, the piece's zero the middle of the round). They go round against the clock of the local frame, which on
+    the bay side is the road's own direction where the round comes nearest the shore, so the car overtakes them
+    slowly. Each has its wake; each heaves a little on its own beat."""
+    g = k.group(('Spin', 'Bob'), far=True, **dict(BAY_LOOK, SpinPivot=(0.0, 0.0, 0.0), SpinAxis=(0.0, 0.0, -1.0), SpinRate=0.0325, SpinRand=1.0,
+                                                  BobDir=(0.0, 0.0, 1.0), BobAmp=14.0, BobRate=0.21, BobRand=1.0, BobPhase=(0.00001, 0.000013, 0.0)))
+    for n, (phi, rad, kind, col) in enumerate(((-80.0, 40000.0, 0, CORAL), (-20.0, 43000.0, 1, TEAL), (65.0, 38500.0, 0, TEAL), (150.0, 42000.0, 1, CORAL),
+                                               (215.0, 39500.0, 0, CORAL))):
+        a = math.radians(phi)
+        g.base = ft_art._xf((math.cos(a) * rad, math.sin(a) * rad, 0.0), (0, phi - 90.0, 0))
+        (_cruiser if kind else _speedboat)(g, col)
+        if n in (0, 2):                                                                  # two of the speedboats tow a parasail: a canopy 36 m up, seen over the beach
+            g.sphere([HOTPINK, YEL][n // 2], (-6500, 0, 3600), 520, scale=(0.75, 1.5, 0.55), steps=(4, 10))
+            g.sphere(WHITE, (-6500, 0, 3560), 530, scale=(0.2, 1.5, 0.52), steps=(4, 10))
+            for sy in (-1, 1):
+                tilt_box(g, NAVY, (-6400, sy * 560, 3500), (-6100, 0, 2900), 14, 14)
+            g.box(NAVY, (-6100, 0, 2860), (30, 120, 30))
+            tilt_box(g, NAVY, (-480, 0, 150), (-6100, 0, 2860), 14, 14)
+    g.base = None
+    return dict(grow=(8000, 8000, 0), grow_down=(8000, 8000, 0))
+
+
+def ferry(k):
+    """The bay ferries: two of them half a round apart (one is always on the near half), 48 m each, on a round 1.1 km
+    across that takes eight minutes: a dark hull, two decks of lit windows (steady: a ferry is never nearer than
+    480 m), a bridge, a coral funnel, boats in their davits, a long wake. They go the other way round from the
+    small boats."""
+    g = k.group(('Spin', 'Bob'), far=True, **dict(BAY_LOOK, SpinPivot=(0.0, 0.0, 0.0), SpinAxis=(0.0, 0.0, 1.0), SpinRate=0.0125, SpinRand=1.0,
+                                                  BobDir=(0.0, 0.0, 1.0), BobAmp=10.0, BobRate=0.13, BobRand=1.0, BobPhase=(0.0, 0.0, 0.0)))
+    rad = 56000.0
+    for phi in (-90.0, 90.0):                                                            # two of them, half a round apart: one is always on the near half
+        a = math.radians(phi)
+        g.base = ft_art._xf((math.cos(a) * rad, math.sin(a) * rad, 0.0), (0, phi + 90.0, 0))
+        _side(g, NAVY, [(-2400, 0), (2000, 0), (2400, 280), (-2400, 280)], -620, 620)
+        g.box(CORAL, (0, 0, 292), (4790, 1252, 36))
+        g.box(WHITE, (-100, 0, 500), (4000, 1160, 400))
+        g.box(YEL, (-100, 0, 540), (4012, 1172, 110), glow=0.5)
+        g.box(WHITE, (-300, 0, 830), (3000, 1000, 260))
+        g.box(YEL, (-300, 0, 850), (3012, 1012, 90), glow=0.5)
+        g.box(WHITE, (700, 0, 1080), (700, 800, 240))
+        g.box(NAVY, (780, 0, 1110), (560, 812, 90))
+        g.cyl(CORAL, (-900, 0, 960), 170, 420, steps=10)
+        g.cyl(NAVY, (-900, 0, 1290), 176, 90, steps=10)
+        for x in (-1700, -300):
+            for sy in (-1, 1):
+                g.box(CORAL, (x, sy * 540, 1010), (420, 130, 110))
+        _wake(g, -2380.0, 9000.0, 1240.0)
+    g.base = None
+    return dict(grow=(54000, 1500, 0), grow_down=(54000, 1500, 0))
+
+
+BANNER_WORDS = ('FULL THROTTLE', 'NOW FILMING')     # the film this chase is being shot for, and the words on the game's own slate
+
+
+def banner_plane(k):
+    """Two light planes that circle over the beach, 85 m over the sea on a round 1.4 km across, each towing a banner
+    45 m long (afloat: the piece's zero is the middle of the round, 950 m out, so the round comes within 250 m of
+    the road). They fly the road's own direction along the beach, where the car overtakes them slowly with their
+    banners turned to it: the lettering is on the side that faces the road there and reads from the banner's tail
+    to the plane. The banner ripples from its tow bar to its tail."""
+    R, Z, h = 70000.0, 8500.0, 380.0
+    spin = dict(SpinPivot=(0.0, 0.0, 0.0), SpinAxis=(0.0, 0.0, -1.0), SpinRate=0.057, SpinRand=1.0)
+    p = k.group('Spin', far=True, **dict(BAY_LOOK, **spin))
+    for n, word in enumerate(BANNER_WORDS):
+        phi = -90.0 + 180.0 * n
+        a = math.radians(phi)
+        base = ft_art._xf((math.cos(a) * R, math.sin(a) * R, Z), (0, phi - 90.0, 0))
+        p.base = base
+        p.box(YEL, (-80, 0, 0), (1400, 230, 250))                                       # the plane, nose along +X: 14 m long, 21 m across
+        p.box(RED, (700, 0, 0), (200, 200, 210))
+        p.sphere(GREY, (812, 0, 0), 250, scale=(0.06, 1.0, 1.0), steps=(4, 8))          # the airscrew, as a disc
+        p.box(NAVY, (240, 0, 150), (330, 200, 120))
+        p.box(WHITE, (120, 0, 232), (360, 2100, 34))
+        p.box(WHITE, (-700, 0, 60), (220, 780, 26))
+        p.box(RED, (-730, 0, 200), (240, 26, 300))
+        for sy in (-1, 1):
+            tilt_box(p, GREY_D, (60, sy * 110, -110), (130, sy * 620, 220), 16, 16)
+        unit = h / 6.0
+        width = len(word) * 5.6 * unit - 1.6 * unit
+        x1, x0 = -2400.0, -2400.0 - width - 300.0                                       # the banner: from its tow bar back to its tail
+        # where the tow bar is in the piece's frame, and which way the banner trails there (the base turned by phi - 90)
+        ca, sa = math.cos(math.radians(phi - 90.0)), math.sin(math.radians(phi - 90.0))
+        pin = (math.cos(a) * R + ca * x1, math.sin(a) * R + sa * x1, Z)
+        b = k.group(('Spin', 'Flutter'), far=True, rough=0.9, **dict(BAY_LOOK, FlutterPin=pin, FlutterAxis=(-ca, -sa, 0.0), FlutterDir=(0.0, 0.0, 1.0),
+                                                                    FlutterSpan=x1 - x0, FlutterLen=1500.0, FlutterRate=7.0, FlutterAmp=55.0, **spin))
+        b.base = base
+        tilt_box(b, GREY_D, (-780, 0, 0), (x1, 0, 0), 12, 12)                            # the tow line
+        b.box(GREY_D, (x1, 0, 0), (16, 16, 560))                                        # the tow bar
+        n_seg = 24
+        seg = (x1 - x0) / n_seg
+        for i in range(n_seg):                                                          # the cloth and its hems, in lengths: a wave needs somewhere to bend
+            b.box(WHITE, (x1 - (i + 0.5) * seg, 0, 0), (seg, 6, 520))
+            for z in (-248, 248):
+                b.box(HOTPINK, (x1 - (i + 0.5) * seg, 0, z), (seg, 10, 24))
+        for kk, v in EXTRA_GLYPHS.items():
+            ft_city.GLYPHS.setdefault(kk, v)
+        wall = ft_city.Wall(b, None, (x0 + 150.0, 3.0, 0.0), (1, 0, 0), (0, 1, 0), width)   # the face on the plane's right: the road's side over the beach
+        ft_city.text(wall, word, width / 2.0, -h / 2.0, h, HOTPINK, 0, 8, glow=0.25)
+        b.base = None
+    p.base = None
+    return dict(grow=(63000, 1600, 150), grow_down=(63000, 1600, 150))
+
+
+def sky_beams(k):
+    """Three searchlights on a roof downtown, sweeping the dusk. A beam is a solid (the outline pass inks whatever it
+    is given, and a see-through one would be drawn after it), so it is painted as a cel painter paints light: slim,
+    in lengths that step from warm white at the lamp to the lavender of the upper sky, where it is lost. Each rocks
+    about its own lamp, slowly and on its own beat: a sweep takes 17 to 26 s and nothing blinks. For 600 m and more
+    from the road (the lamps are 30 m up)."""
+    s = k.group(**BAY_LOOK)
+    s.box('#3a2f6a', (0, 0, 1450), (1700, 700, 2900))
+    s.box('#2b2350', (0, 0, 2930), (1900, 900, 60))
+    for n, (x, axis, swing, rate) in enumerate(((-600.0, (0.0, 1.0, 0.0), 26.0, 0.31), (0.0, (1.0, 0.0, 0.0), 22.0, 0.24), (600.0, (0.7, 0.7, 0.0), 24.0, 0.37))):
+        b = k.group('Spin', far=True, rough=0.9, **dict(BAY_LOOK, SpinPivot=(x, 0.0, 3000.0), SpinAxis=axis, SpinSwing=swing, SpinRate=rate, SpinRand=1.0))
+        b.cyl('#2b2350', (x, 0, 2960), 150, 150, steps=8)
+        z, rad = 3110.0, 100.0
+        for col, glow, h in (('#fff6dc', 0.28, 4500.0), ('#ffe3ea', 0.16, 5500.0), ('#e8cdf5', 0.1, 6500.0), ('#c9b8f2', 0.06, 7500.0)):
+            top = rad + h * 0.012
+            b.cyl(col, (x, 0, z), rad, h, steps=8, top_r=top, glow=glow)
+            z, rad = z + h, top
+    return dict(grow=(13000, 13000, 0), grow_down=(13000, 13000, 0))
+
+
+def fireworks(k):
+    """A slow firework show: four shells that burst in turn 95 to 130 m up, each a ball of sparks 96 m across that
+    opens, hangs and falls away over three seconds, one shell every seven to nine seconds. Far off only (640 m and
+    more): a burst comes on once and fades, it does not flicker."""
+    r = random.Random(23)
+    for col, base, rate, ph in ((HOTPINK, (0.0, 0.0, 11500.0), 0.13, 0.0), (SKY, (-2600.0, 900.0, 9500.0), 0.11, 0.27),
+                                (YEL, (2400.0, -700.0, 13000.0), 0.12, 0.55), (MINT, (900.0, 1500.0, 10200.0), 0.14, 0.8)):
+        g = k.group('Burst', far=True, BurstBase=base, BurstRadius=4800.0, BurstFall=1300.0, BurstRate=rate, BurstLife=0.34, BurstPhase=ph)
+        for i in range(36):
+            g.piece(lambda m, c=col: m.sphere(c, (0, 0, 0), 190, steps=(3, 5), glow=2.6), a=r.random(), b=r.uniform(-0.3, 0.95), c=r.random())
+    return dict(grow=(7600, 6500, 18200), grow_down=(7600, 6500, 0))
+
+
+COASTER_RUN = 3500.0                                # one run of the coaster: a hill or a dip, 35 m
+COASTER_MID = 1450.0                                # the height the runs meet at
+COASTER_ARCS = (1500.0, -900.0, 1200.0, -700.0)     # the lift hill, a dip, a second hill, the run into the brake shed
+
+
+def coaster_run(k):
+    """The funfair's wooden coaster with its trains running (it was a still piece with a train standing on the first
+    drop). 150 m long and 30 m high as before: a pink track over white trestles, a lift house at one end, a brake
+    shed at the other. The track is four runs of 35 m, hill, dip, hill, dip, each the shape a Conveyor part travels
+    (a line and one arc), so a train of three cars rides each run in step with the others and is handed on from one
+    to the next: there is always a train on every hill. A run's two ends are where a traveller swells and shrinks:
+    the first and the last are inside the two houses."""
+    L, B = COASTER_RUN, COASTER_MID
+    x0 = -2.0 * L
+    s = k.group(**BAY_LOOK)
+    pts = []
+    for i, arc in enumerate(COASTER_ARCS):
+        for j in range(10):
+            f = j / 10.0
+            pts.append((x0 + (i + f) * L, 0.0, B + arc * math.sin(math.pi * f)))
+    pts.append((x0 + 4.0 * L, 0.0, B))
+    for a, b in zip(pts, pts[1:]):
+        tilt_box(s, HOTPINK, a, b, 170, 46)
+    for n, (x, _, z) in enumerate(pts):
+        s.box(WHITE, (x, 0, (z - 60) / 2.0 - 30), (40, 150, z + 60))
+        if n < len(pts) - 1:
+            tilt_box(s, WHITE, (x, 0, 0), (pts[n + 1][0], 0, pts[n + 1][2] - 120), 26)
+    for sx, top, col in ((-1, B + 950.0, TEAL), (1, B + 520.0, CORAL)):                  # the lift house and the brake shed
+        xc = sx * (2.0 * L + 100.0)
+        s.box(CREAM, (xc, 0, top / 2.0 - 30), (1100, 640, top + 60))
+        s.box(col, (xc, 0, top + 20), (1220, 760, 40))
+        s.box(YEL, (xc, -324, top - 220), (700, 8, 110), glow=0.6)                       # a lit board on the road side (steady, 170 m out)
+        s.box(NAVY, (xc - sx * 556, 0, B + (330.0 if sx < 0 else -120.0)), (16, 230, 420))   # the mouth the trains use
+    for i, arc in enumerate(COASTER_ARCS):
+        g = k.group('Conveyor', **dict(BAY_LOOK, ConvStart=(x0 + i * L, 0.0, B + 23.0), ConvDir=(1.0, 0.0, 0.0), ConvLen=L, ConvArc=arc, ConvRate=0.25,
+                                       ConvRand=1.0))
+        for c in range(3):
+            def car(m, c=c):
+                m.box(YEL, (0, 0, 52), (210, 150, 84))
+                m.box(TEAL, (86, 0, 76), (38, 154, 132))
+            g.piece(car, a=0.14 - 0.068 * c)
+    lit = k.group('Light', **dict(BAY_LOOK, LightAxis=(1.0, 0.0, 0.0), LightLen=1500.0, LightRate=0.6, LightDuty=0.45, LightSoft=0.1, LightMin=0.3, LightRand=0.0))
+    for n in range(2, len(pts) - 2, 3):                                                  # the bulbs along the rail: lights that run (as before)
+        x, _, z = pts[n]
+        lit.sphere([YEL, HOTPINK][(n // 3) % 2], (x, -92, z + 60), 24, steps=(3, 5), glow=0.9)
+    return dict(grow=(0, 0, 260), grow_down=(0, 0, 0))
+
+
+LIFE_JOBS += [('SM_SideTraffic', side_traffic), ('SM_BoatRing', boat_ring), ('SM_Ferry', ferry), ('SM_BannerPlane', banner_plane),
+              ('SM_SkyBeams', sky_beams), ('SM_Fireworks', fireworks), ('SM_Coaster', coaster_run)]
+
+
+# ---- the lead's order of 17:55 ("build absolutely everything that's planned now"): the rest of the list, built
+# without a look in the game (the notes say which pieces those are).
+def _traffic_bus(m, col):
+    """A town bus for a lane of traffic, nose along +Y: 10 m long, a band of dark windows, steady lamps."""
+    m.box(col, (0, 0, 40 + 145), (240, 1000, 290))
+    m.box(NAVY, (0, 0, 235), (246, 900, 90))
+    m.box(WHITE, (0, 0, 338), (230, 960, 16))
+    m.box('#1c1a26', (0, 0, 24), (244, 860, 40))
+    m.box(YEL, (0, 502, 80), (200, 4, 22), glow=1.0)
+    m.box(RED, (0, -502, 80), (200, 4, 22), glow=0.9)
+
+
+def back_traffic(k):
+    """The traffic of the back street (SM_BackStreet: the service street 93.5 m out on the town side, a 47 m length to
+    a slot). One of these covers two lengths, 90.5 m, x along the street: two cars and a bus go the road's own way
+    on the far half of the carriageway and three cars come back on the near half, 11 m/s, all in step, so that each
+    is handed on to the next piece (a traveller swells and shrinks at the two ends of a line: at 93 m, behind two
+    rows of shops, that is not seen). The street itself is in no frame from the road on level ground (it would have
+    to stand 13 m over the road): this is for the jumps, the loops and the hills, from where the town is looked
+    down on. Lamps steady."""
+    ln = 2.0 * 4524.3
+    for lane, (y, d, cols, rate) in enumerate(((95.0, 1.0, (MINT, CORAL), 0.1216), (-150.0, -1.0, (SKY, YEL), 0.1216))):
+        g = k.group('Conveyor', **dict(BAY_LOOK, ConvStart=(-d * ln / 2.0, y, 0.0), ConvDir=(d, 0.0, 0.0), ConvLen=ln, ConvRate=rate, ConvRand=0.0))
+        for i, a in enumerate(((0.08, 0.42, 0.7), (0.2, 0.55, 0.88))[lane]):
+            def car(m, i=i, d=d, cols=cols, lane=lane):
+                m.base = ft_art._xf((0, 0, 0), (0, -90.0 if d > 0 else 90.0, 0))
+                try:
+                    if lane == 0 and i == 1:
+                        _traffic_bus(m, CORAL)
+                    else:
+                        _traffic_car(m, cols[i % 2], van=(lane == 1 and i == 2))
+                finally:
+                    m.base = None
+            g.piece(car, a=a)
+    return dict(grow=(4900, 300, 350), grow_down=(4900, 300, 0))
+
+
+def kites(k):
+    """Three kites over the beach, 23 to 33 m up on their strings: chunky diamonds 3.4 m high with a tail of bows.
+    Each rocks about its own peg in the sand, slowly and on its own beat (a sway of a few degrees is metres at the
+    kite). For 45 m and more from the road, unlit. (Who flies them is the people machine's.)"""
+    for n, (x, y, h, lean, col, tail, swing, rate) in enumerate(((-700.0, 0.0, 3300.0, 900.0, HOTPINK, YEL, 7.0, 0.9),
+                                                                 (300.0, 500.0, 2300.0, 700.0, TEAL, CORAL, 9.0, 1.15),
+                                                                 (900.0, -400.0, 2800.0, 800.0, YEL, HOTPINK, 6.0, 0.75))):
+        g = k.group('Spin', far=True, rough=0.9, **dict(BAY_LOOK, SpinPivot=(x, y, 0.0), SpinAxis=(1.0, 0.0, 0.0), SpinSwing=swing, SpinRate=rate, SpinRand=1.0))
+        top = (x + lean, y, h)
+        tilt_box(g, GREY_D, (x, y, 0), top, 10, 10)                                      # the string
+        g.box(col, top, (30, 240, 240), rot=(0, 0, 45))                                  # the kite: a square on its corner, facing along the road
+        g.box(WHITE, top, (34, 30, 330))
+        g.box(WHITE, top, (34, 330, 30))
+        for j in range(4):                                                               # the tail and its bows
+            z = h - 260.0 - j * 170.0
+            g.box(tail, (x + lean + 40.0 * j, y + (60.0 if j % 2 else -60.0), z), (20, 150, 46))
+        tilt_box(g, GREY_D, (x + lean, y, h - 170.0), (x + lean + 150.0, y, h - 900.0), 8, 8)
+    return dict(grow=(300, 600, 300), grow_down=(300, 600, 0))
+
+
+def blimp(k):
+    """An airship over the bay, 60 m of her, 120 m up on a round 600 m across that takes over two minutes (afloat: the
+    piece's zero is the middle of the round on the sea). A cream envelope with a coral band, fins, a gondola, and a
+    board on each flank with the town's name in steady light. Out at sea because downtown's towers stand 230 m and
+    more: over the town she would fly through them."""
+    R, Z = 30000.0, 12000.0
+    g = k.group('Spin', far=True, **dict(BAY_LOOK, SpinPivot=(0.0, 0.0, 0.0), SpinAxis=(0.0, 0.0, 1.0), SpinRate=0.04, SpinRand=1.0))
+    g.base = ft_art._xf((0.0, -R, Z), (0, 0.0, 0))                                       # at the nearest point of the round, heading +X
+    g.sphere(CREAM, (0, 0, 0), 950, scale=(3.2, 1.0, 1.0), steps=(6, 12))
+    g.sphere(CORAL, (0, 0, 0), 962, scale=(0.5, 1.0, 1.0), steps=(4, 12))
+    g.box(NAVY, (200, 0, -1010), (900, 260, 220))
+    g.box(YEL, (200, 0, -1000), (760, 266, 70), glow=0.5)
+    for rot in ((0, 0, 0), (0, 0, 90)):
+        g.box(CORAL, (-2500, 0, 0), (700, 40, 1500), rot=rot)
+    for kk, v in EXTRA_GLYPHS.items():
+        ft_city.GLYPHS.setdefault(kk, v)
+    word, h = 'BAYSHORE', 400.0
+    unit = h / 6.0
+    width = len(word) * 5.6 * unit - 1.6 * unit
+    for sy in (-1, 1):                                                                   # a board on each flank, read from its own side
+        g.box(NAVY, (0, sy * 960, -120), (width + 300, 30, h + 200))
+        wall = ft_city.Wall(g, None, (-sy * width / 2.0, sy * 976, -120.0), (sy * 1.0, 0, 0), (0, sy * 1.0, 0), width)
+        ft_city.text(wall, word, width / 2.0, -h / 2.0, h, YEL, 0, 8, glow=0.5)
+    g.base = None
+    return dict(grow=(31000, 61000, 0), grow_down=(31000, 1000, 0))
+
+
+LIFE_JOBS += [('SM_BackTraffic', back_traffic), ('SM_Kites', kites), ('SM_Blimp', blimp)]
+
+
 def life():
     """What moves (art pass 2, and the zone pass). ft_life.animate() puts M_Life on a piece's slots and saves it in
     place; an export puts the plain palette back, so run this again after every export of a piece named here:
@@ -1666,7 +2030,8 @@ def life():
     spin = dict(SpinRate=0.5, SpinRand=1.0)                                              # the carousel turns, its bulbs twinkle
     A(D + 'SM_Carousel', ('Spin', 'Light'), [YEL + '*'], LightHash=0.3, LightCell=60.0, LightRate=2.0, LightMin=0.35, **spin)
     A(D + 'SM_Carousel', 'Spin', lambda slot, colour, glow: not (colour == YEL[1:] and glow > 0), **spin)
-    A(D + 'SM_Coaster', 'Light', ['glow'], **ft_life._chase((1.0, 0.0, 0.0), 1500.0, rate=0.6, low=0.3))
+    # (SM_Coaster is a Kit prop since the fifth round: its lights run and its trains travel by its own materials. No
+    # animate() call may name it: one would put a plain light on the trains' lamps and stop them travelling.)
     A(D + 'SM_Motel', 'Light', lambda slot, colour, glow: glow > 0.7, **ft_life._chase((0.0, 0.0, -1.0), 240.0, rate=1.2, low=0.25))
     for name in ('SM_Kiosk', 'SM_KioskDrinks', 'SM_Boatyard'):
         A(D + name, 'Light', [HOTPINK + '*'], **ft_life.PULSE)
@@ -1707,6 +2072,16 @@ def life():
     swell = dict(BobAmp=16.0, BobRate=0.17, BobRand=1.0, SpinPivot=(0.0, 0.0, 0.0), SpinAxis=(1.0, 0.0, 0.0), SpinSwing=3.5, SpinRate=1.05, SpinRand=1.0)
     for name in ('SM_Sailboat', 'SM_Sailboat2', 'SM_MotorYacht', 'SM_Speedboat'):
         A(D + name, ('Bob', 'Spin'), None, far=True, **swell)            # far: they are never nearer than 380 m (M_Life stops moving at 180 m)
+    # ---- the fifth round. The level's own pier wheel (/Game/Maps/Bayshore/Props/SM_Ferris, ft_city.ferris: a wheel
+    # 30 m across in the piece's YZ plane, its hub 17 m up) turns, in place: the mesh is not rebuilt or moved, its
+    # slots only get M_Life with Spin. Its two legs are in the same white slot as the spokes and the inner ring but
+    # stand further out along x (28 to 52 cm; spokes and ring within 24), so the white slot turns only inside a mask;
+    # the gondolas reach to 45 cm, so every other slot turns whole. The Theme Park stands the same wheel beside its
+    # road, so it turns there too. (ft_export puts the plain palette back on it: run life() again after it.)
+    ferris = '/Game/Maps/Bayshore/Props/SM_Ferris'
+    fspin = dict(SpinPivot=(0.0, 0.0, 1700.0), SpinAxis=(1.0, 0.0, 0.0), SpinRate=0.3, SpinRand=1.0)
+    A(ferris, 'Spin', [WHITE], MaskMax=(26.0, 1.0e7, 1.0e7), **fspin)
+    A(ferris, 'Spin', lambda slot, colour, glow: colour != WHITE[1:], **fspin)
     # Low pieces right behind the barrier: their tops stand 1.6 to 1.7 m over the road, no higher than the barrier, so
     # their shadows never reach the road; the track would have them cast (their bounds are over 2.5 m with what is
     # buried). An export puts a mesh's section flags back, so this runs here, after the calls that save them.
@@ -1734,6 +2109,7 @@ def after_export(only=None):
     return built
 
 
+# (SM_Coaster left this list in the fifth round: it is a Kit prop now, LIFE_JOBS, built by life_props().)
 JOBS = [
     ('SM_Boardwalk', boardwalk), ('SM_BeachPath', beach_path), ('SM_Cabanas', cabanas), ('SM_Sunbeds', sunbeds),
     ('SM_SurfRack', surf_rack), ('SM_Volleyball', volleyball), ('SM_Breakwater', breakwater),
@@ -1748,7 +2124,7 @@ JOBS = [
     ('SM_ParkedCars', parked_cars), ('SM_TikiBar', tiki_bar),
     ('SM_CafeTerrace', cafe_terrace), ('SM_MarketStalls', market_stalls), ('SM_Towels', towels),
     ('SM_DuneGrass', dune_grass), ('SM_BackStreet', back_street),
-    ('SM_CrossStreet', cross_street), ('SM_Pier', pier), ('SM_Coaster', coaster), ('SM_Carousel', carousel),
+    ('SM_CrossStreet', cross_street), ('SM_Pier', pier), ('SM_Carousel', carousel),
     ('SM_CruiseShip', cruise_ship), ('SM_Speedboat', speedboat),
     # more of the strip's hotels: ft_city's own, with real glass, lit rooms and neon (names are our own)
     ('SM_HotelGrand', lambda m: ft_city.hotel(m, 2400, 1400, 13, CREAM, CORAL, HOTPINK, False, YEL, name='GRAND', blade='GRAND')),

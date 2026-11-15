@@ -66,7 +66,7 @@
 //     lagoon (its own coasters stand end on there) and a far, taller row the whole level long; SWAN BOATS on every
 //     lake of the lagoon;
 //   - MECHANICAL FIGURES: STARRY waves and nods everywhere he stands, a tin robot waves at every rocket pad;
-//   - SIGNATURE MOMENTS, each one slot: THE GALLEON in the kraken's arms, dead ahead of the big jump's landing and
+//   - LANDMARKS, each one slot: THE GALLEON in the kraken's arms (she stands where the second pass's fort stood), dead ahead of the big jump's landing and
 //     passed outside the first hairpin of the cove (2.44 km); LOG FALLS, a mountain with a log flume down its face,
 //     dead ahead from the top of the lift hill and passed on the left at 3.69 km; THE LAST RIDE'S GATE, two pairs of marquee
 //     towers either side of its sign (9.27 to 9.37 km). A pair of marquee towers also stands where every land begins;
@@ -211,7 +211,7 @@ Set(TEXT("SkyRun"),    { { TEXT("SM_SkyRide"), 0, 0, 0, 0, 1 } });
 Set(TEXT("SkyLagoon"), { { TEXT("SM_SkyRide"), 0, 0, 1.2167f, 0, 1 } });
 Set(TEXT("MarqueeGate"), { { TEXT("SM_MarqueeTower"), 0, 0, 0, 0, 1 } });
 Set(TEXT("GalleonSpot"), { { TEXT("SM_Galleon"), 0, 0, 0, 25, 1 } });       // turned to face the landing straight she is first seen from
-Set(TEXT("FlumeSpot"),   { { TEXT("SM_Flume"), 22.62f, 0, 0, 45, 1 } });     // half a slot back (midway between two of the lagoon's coasters), turned to face the lift hill it is first seen from
+Set(TEXT("FlumeSpot"),   { { TEXT("SM_Flume"), 22.62f, 0, 26.f, 45, 1 } });  // half a slot back (midway between two of the lagoon's coasters), turned to face the lift hill. Round 2: 26 m up, its foot at the rails' level (the kit gives it the rock down to the valley): on the valley's floor the road's own crest hid it
 
 // ---- 0 to 1.15 km: THE FRONT GATE. A ticket gate and its forecourt every 540 m on each side (270 m apart, turn about),
 // stall rows between them, ponds and carts in the gaps; bandstands, fountains and chair swings behind; the big wheel on
@@ -698,7 +698,7 @@ Zone(TEXT("Marquee: the last ride, on"), 9.3623f, 9.3683f); Site(TEXT("MarqueeGa
 // dead ahead from the big jump's take-off (450 m off) and all the way down the landing straight, passed at 2.44 km
 Zone(TEXT("The galleon"), 2.4401f, 2.4461f);
 	Site(TEXT("GalleonSpot"), -1, 80, 1, 0, 1.f);
-// ---- LOG FALLS (signature): the lagoon's landmark, a mountain 52 m tall with a log flume down its face, on the left
+// ---- LOG FALLS: the lagoon's landmark, a mountain 52 m tall with a log flume down its face, on the left
 // between two of the coasters that stand end on there. Dead ahead from the top of the lift hill, 590 m off; the rails
 // turn right in front of it and pass it at 3.69 km
 Zone(TEXT("Log Falls"), 3.7069f, 3.7129f);

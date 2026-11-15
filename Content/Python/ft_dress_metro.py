@@ -36,6 +36,8 @@ THIRD PASS (15 Nov 2026, the overhaul): tight canyons, lit storefronts, signs th
     is a Kit prop now), an airship goes over (SM_Blimp); a tower crane slews over the building sites (SM_Crane);
   - the cut banks are faced by a Bank rule (SM_CutTiles, SM_CutSyn, SM_CutCity) instead of the two tilted faces;
   - the horizon has two rows of flat skyline cards (SM_SkyCard1, SM_SkyCard2) behind the lit towers.
+TO REBUILD THE KIT: ft_dress.run(['metro']), then ft_dress_metro.animate(): animate() builds the travelling props (SM_ElTrain, SM_CrossTraffic, SM_Blimp, SM_FarBridge:
+they are not JOBS entries) and puts M_Life back on every slot an export reset.
 Nothing that blinks, chases or turns is put in Syndicate Territory at the height the Chairman's shots fly: the table
 keeps the animated signs to the six districts before it, and the podiums' neon lines and the bank's ticker are steady.
 """
@@ -67,13 +69,16 @@ def mv(col):
     return col[:5] + '%02x' % (b - 1 if b == 255 else b + 1)
 
 
-def life_props():
+def life_props(only=None):
     """The kit's props whose parts travel (ft_life.Kit: a Conveyor part is told apart by its UVs, which an exported
     piece does not have). Built here and saved in the Dress folder with M_Life already on them; the table places them
-    like any other piece. Returns their names."""
+    like any other piece. Returns their names.
+    only: None = every prop of KITS; a list = just those it names (after_export passes the export's own list)."""
     import ft_life
     done = []
     for name, fn in KITS:
+        if only is not None and name not in only:
+            continue
         try:        # one prop that fails must not stop the others, nor the lights animate() sets after them
             k = ft_life.Kit()
             kw = fn(k) or {}
@@ -86,13 +91,13 @@ def life_props():
     return done
 
 
-def animate():
+def animate(only=None):
     """What moves here (ft_life.py, the living-world pass). Builds the travelling props first (life_props), then puts
     M_Life on the slots that should move. Run it again after any export: the export puts the plain palette back.
     In Syndicate Territory nothing near the road is animated (the Chairman's fire is what flickers there): the pieces
     animated here are placed, by the table, in the six districts before it, or far off, or high over the roofs."""
     import ft_life
-    life_props()
+    life_props(only)
     A = ft_life.animate
     glows = lambda v: (lambda slot, col, glow: abs(glow - v) < 0.011)
     bulbs = lambda slot, col, glow: glow >= 1.9
@@ -100,8 +105,8 @@ def animate():
     n += A(DIR + 'SM_FarRadio', 'Light', slots=bulbs, LightRate=0.35, LightDuty=0.5, LightMin=0.15)
     # the blade signs: the letters light from the top down, one after the other; the tubes down the edges stay steady
     for name in ('SM_BladeHotel', 'SM_BladeClub', 'SM_BladeDiner', 'SM_BladeShow', 'SM_BladePark', 'SM_BladeBank', 'SM_BladeJazz'):
-        n += A(DIR + name, 'Light', slots=glows(G3), LightAxis=(0, 0, -1), LightLen=1500.0, LightRate=0.35, LightDuty=0.72, LightSoft=0.08, LightMin=0.3,
-               LightRand=1.0)
+        n += A(DIR + name, 'Light', slots=glows(G3), LightAxis=(0, 0, -1), LightLen=1500.0, LightRate=0.33, LightDuty=0.72, LightSoft=0.3, LightMin=0.6,
+               LightRand=1.0)      # 24.2 m out: steady light by the lead's ruling (a soft swell once in three seconds, never under 60%)
     # the signs on the roofs: the bulbs chase, the word swells and fades
     for name in ('SM_RoofSign1', 'SM_RoofSign2', 'SM_RoofSign3', 'SM_RoofSign4'):
         n += A(DIR + name, 'Light', slots=bulbs, LightAxis=(1, 0, 0), LightLen=210.0, LightRate=1.0, LightDuty=0.5, LightMin=0.25)
@@ -120,9 +125,8 @@ def animate():
     for name in ('SM_Infill1', 'SM_Infill2'):
         n += A(DIR + name, 'Light', slots=lambda slot, col, glow: abs(glow - G2) < 0.011 and col not in movers, LightOffset=(0.0, 0.0, 30.0),
                **ft_life._windows(330.0, rate=0.12, off=0.2, low=0.15))
-    n += A(DIR + 'SM_Infill2', 'Light', slots=glows(G3), LightAxis=(0, 0, 1), LightLen=1100.0, LightRate=0.5, LightDuty=0.6, LightSoft=0.1, LightMin=0.3,
-           LightRand=1.0)
-    n += A(DIR + 'SM_Infill2', 'Light', slots=bulbs, **ft_life.BLINK)
+    n += A(DIR + 'SM_Infill2', 'Light', slots=glows(G3), LightAxis=(0, 0, 1), LightLen=1100.0, LightRate=0.33, LightDuty=0.6, LightSoft=0.3, LightMin=0.6,
+           LightRand=1.0)          # the fin, 24.6 m out: the same slow swell. The beacon on its aerial is steady (it blinked in round 1)
     for name, cell in (('SM_MidBlock', 320.0), ('SM_GlassBlock', 320.0), ('SM_FarTowersA', 1100.0)):
         n += A(DIR + name, 'Light', slots=glows(G2), far=name.startswith('SM_Far'), **ft_life._windows(cell, rate=0.08, off=0.2, low=0.2))
     for name in ('SM_FarTowersA', 'SM_FarTowersB', 'SM_FarSyndicate', 'SM_GlassBlock'):     # the red beacons only (not the Syndicate's red slits)
@@ -139,6 +143,17 @@ def animate():
         except Exception as e:  # noqa
             unreal.log_warning('FTDRESS metro: %s keeps its built bounds (%r)' % (name, e))
     return n
+
+
+def after_export(only=None):
+    """Everything this kit needs after ft_dress.export() has saved its JOBS; ft_dress.run calls it with the export's
+    own list. The travelling props are built (life_props: they are KITS entries, not JOBS) and M_Life is put back on
+    every slot that moves or lights (animate: an export resets the slots of the pieces it saves).
+    only: None = the whole kit. A list = the pieces that were exported: of the travelling props only those the list
+    names are rebuilt (name a prop there to rebuild it: export() itself skips a name that is not in JOBS), while the
+    slot calls are all run every time: a mesh is saved again only where one of its slots really changes, so the
+    pieces that were not exported stay untouched on disk. Returns the number of slots changed."""
+    return animate(only)
 
 
 def _ccw(pts):
@@ -1321,11 +1336,14 @@ def el_train(k, run=18000.0, cars=4):
     return dict(grow=(run / 2.0 + 800.0, 0.0, 1300.0), grow_down=(run / 2.0 + 800.0, 0.0, 0.0))
 
 
-def cross_traffic(k, run=3600.0):
+def cross_traffic(k, far=2500.0, near=450.0):
     """Traffic on a side street (SM_FloorCross: this stands at the same place in the same set): three cars, one after
-    the other, driving AWAY from the avenue, from 33 m out to the street's far end, tail lights to the road. Nothing
-    here comes towards the player's road."""
-    g = k.group('Conveyor', ConvStart=(0.0, -1100.0, 28.0), ConvDir=(0.0, 1.0, 0.0), ConvLen=run, ConvRate=0.16, ConvRand=1.0)
+    the other, driving AWAY from the avenue, from 39 m out to the street's far end, tail lights to the road. Nothing
+    here comes towards the player's road. (Round 1 started them 33 m out: inside a hairpin that brought the prop's
+    box, which the track and the nearness check go by, to 18 m from the centre line. Now the box ends 37 m out on a
+    straight and stays past 24 m on the tightest bend.)"""
+    run = far + near
+    g = k.group('Conveyor', ConvStart=(0.0, -near, 28.0), ConvDir=(0.0, 1.0, 0.0), ConvLen=run, ConvRate=0.16, ConvRand=1.0)
     for i, (c, x) in enumerate(((AMBER, -150.0), (BLUE, 150.0), (CREAM, -150.0))):
         def car(m, c=c, x=x):
             m.box(c, (x, 0, 62), (190, 440, 64))
@@ -1333,7 +1351,7 @@ def cross_traffic(k, run=3600.0):
             for sx in (-1, 1):
                 m.box(RED, (x + sx * 66, -222, 70), (40, 6, 20), glow=G3)
         g.piece(car, a=i * 0.34)
-    return dict(grow=(280.0, run - 1100.0 + 320.0, 60.0), grow_down=(280.0, 1420.0, 0.0))
+    return dict(grow=(280.0, far + 320.0, 60.0), grow_down=(280.0, near + 10.0, 0.0))
 
 
 def blimp(k, run=120000.0):

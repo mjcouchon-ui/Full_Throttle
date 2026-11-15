@@ -614,7 +614,8 @@ def life():
     for name in ('SM_Jellyfish', 'SM_Jellyfish2'):          # each bell on its own beat: the phase runs across the swarm
         A(D + name, 'Bob', BobAmp=55.0, BobRate=0.11, BobRand=1.0, BobPhase=(0.0009, 0.0006, 0.0), BobDrift=12.0)
     A(D + 'SM_StationHub', 'Light', [CYAN + '*', MAG + '*'], **ft_life._chase((0.0, 0.0, 1.0), 1300.0, rate=0.35, low=0.35, rand=1.0))
-    A(D + 'SM_TubeRun', 'Light', [MAG + '*'], **ft_life._chase((1.0, 0.0, 0.0), 940.0, rate=0.5, low=0.4))
+    # (SM_TubeRun is a Kit prop since the fifth round: its strip of lights runs and its capsule travels by its own
+    # materials. No animate() call may name it.)
     A(D + 'SM_WatchTower', 'Light', ['#ff3355*'], **dict(ft_life.BLINK, LightRate=0.45, LightDuty=0.6))
     A(D + 'SM_WatchTower', 'Light', [MAG + '*'], **ft_life.PULSE)
     A(D + 'SM_VentField', 'Light', [EMBER + '*'], LightRate=2.4, LightDuty=0.7, LightSoft=0.45, LightMin=0.5, LightRand=1.0)
@@ -630,6 +631,17 @@ def life():
       SpinAxis=(0.0, 1.0, 0.0), SpinSwing=2.5, SpinRate=0.22, SpinRand=1.0)
     A(D + 'SM_CausticNet', ('Sway', 'Light'), SwayBase=-73.0, SwayHeight=100.0, SwayPow=1.0, SwayAmp=30.0, SwayRate=1.1, SwayGust=5.0, SwayLean=0.0,
       Wind=(1.0, 0.3, 0.0), **dict(ft_life._chase((0.7, 0.7, 0.0), 1100.0, rate=0.22, duty=0.5, low=0.3), LightSoft=0.45, LightRand=1.0))
+    # ---- the fifth round (the built world in motion). The verge and the reef wave with the swell: the new beds of sea
+    # whips lean a hand's breadth and more at their tips, the anemones' tubes and fans less, and of the coral stands
+    # only what is over 60 cm (fans, horns, sponges: the rock stays). Slow, unlit movement: nothing here blinks.
+    A(D + 'SM_SeaWhips', 'Sway', SwayAmp=42.0, SwayBase=0.0, SwayHeight=180.0, SwayPow=1.5, SwayRate=1.5, SwayLean=0.25, Wind=(1.0, 0.3, 0.0))
+    A(D + 'SM_Anemones', 'Sway', SwayAmp=18.0, SwayBase=0.0, SwayHeight=320.0, SwayPow=1.4, SwayRate=1.2, SwayLean=0.2, Wind=(1.0, 0.3, 0.0))
+    for name in ('SM_ReefLow', 'SM_ReefLow2', 'SM_CoralGarden', 'SM_CoralGarden2'):
+        A(D + name, 'Sway', SwayAmp=11.0, SwayBase=60.0, SwayHeight=320.0, SwayPow=1.6, SwayRate=0.9, SwayLean=0.15, Wind=(1.0, 0.3, 0.0))
+    # The salvage frames' hoists work (17:55, not seen in the game): the cargo net and the crate in it (the only parts
+    # of their two colours inside the box below) ride 3 m up and down the hoist line, a round every 25 s.
+    A(D + 'SM_SalvageRig', 'Bob', [KELP_D, RUST_D], BobDir=(0.0, 0.0, 1.0), BobAmp=150.0, BobRate=0.04, BobRand=1.0,
+      MaskMin=(40.0, -260.0, 340.0), MaskMax=(560.0, 260.0, 820.0))
 
 
 # ------------------------------------------------------------------------------------------ the cut banks (3.4)
@@ -973,9 +985,12 @@ def life_props(only=None):
             sm = k.save('/Game/Maps/Abyss/Dress/' + name, grow=ext.get('grow', (0.0, 0.0, 0.0)), grow_down=ext.get('grow_down', (0.0, 0.0, 0.0)))
             # no shadow from these: the track keeps a moving prop's shadow where it was first drawn (a cached page), and a
             # shadow standing still under a school that turns or a chair that travels is worse than none
+            # (a prop may say how many of its first sections, the still ones, keep theirs: the travel tube's did
+            # cast on the sand before it carried capsules)
             sub = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
+            keep = int(ext.get('shadow_sections', 0))
             for i in range(len(sm.get_editor_property('static_materials'))):
-                sub.enable_section_cast_shadow(sm, False, 0, i)
+                sub.enable_section_cast_shadow(sm, i < keep, 0, i)
             unreal.EditorAssetLibrary.save_loaded_asset(sm)
             done.append(name)
         except Exception as e:  # noqa
@@ -995,8 +1010,241 @@ def after_export(only=None):
     Returns the names of the moving props built."""
     props = [n for n, _ in LIFE_JOBS if only is None or n in only]
     built = life_props(props) if props else []
+    if only is None or 'SM_ShaftSway' in only:          # the fifth round: the shaft of light that sways (its own material and mesh)
+        if shaft_sway() is not None:
+            built.append('SM_ShaftSway')
     life()
     return built
+
+
+# ------------------------------------------------------------------------------------------ the fifth round: the built world in motion (15 Nov 2026)
+# The lead's round three for the zones: machines, vehicles, water and light in motion (the divers and the creatures
+# are another machine's; the kit's own schools, sharks, rays and whales stay as they are).
+#   the travel tube   capsules travel it (SM_TubeRun, rebuilt here as a prop that moves by its own materials: the
+#                     capsule the first pass drew was inside a solid tube and never seen)
+#   Nereida           mini-subs fly between docking masts 30 and 38 m up (SM_SubLane)
+#   the salvage ship  her diving bell rides its guide wire and containers come up on lift bags (SM_SalvageShip: the
+#                     hull of SM_HullAbove with the hoist under it, in the same rule and place)
+#   over the road     supply subs towing cargo cross 40 m over the kelp bend, the station and Nereida (SM_SupplyRun)
+#   the first 3.4 km  shafts of light whose feet wander (SM_ShaftSway: a material of its own, the level's shaft with a
+#                     sway); sea whips and young kelp on the verge that lean with the swell (SM_SeaWhips), and the
+#                     anemone beds and coral stands wave (life())
+# A prop's travellers are built in a heap at the piece's own zero and sent out by the material: both ends of every
+# line of travel are inside something (a sleeve, a dock, the hull, the sand), because a traveller swells out of
+# nothing over the first 3% of its line and shrinks over the last.
+SLOT = 4524.3                                   # a slot of the road, cm
+
+
+def tube_run_k(k):
+    """47 m of travel tube on stilts, one to a slot, with its capsule travelling. The tube, its five collars, its
+    stilts and its strip of running lights are the first pass's (tube_run). New: a capsule that rides the tube as a
+    sleeve round it, 45 m/s, one to a length and all in step, so each is handed on to the next length; and at each
+    end of the length a junction drum the capsule passes through, which is where it is handed on. The capsules go
+    along -X: on the left of the road (Nereida's 17 km of tube) that is the road's own direction, so the car
+    overtakes them slowly; on the research station's short run they come the other way."""
+    L = 4700
+    s = k.group()
+    rod(s, CYAN, (-L / 2.0, 0, 520), (L / 2.0, 0, 520), 120, steps=10, glow=0.35)
+    for i in range(5):
+        x = -L / 2.0 + 470 + i * 940
+        rod(s, STATION, (x - 30, 0, 520), (x + 30, 0, 520), 138, steps=10)
+        s.box(STATION_D, (x, 0, 190), (60, 60, 460))
+        s.box(STATION_D, (x, 0, -20), (200, 200, 50))
+    for sx in (-1, 1):                                                                   # the junction drums
+        rod(s, STATION_D, (sx * 1960, 0, 520), (sx * 2350, 0, 520), 205, steps=10)
+        rod(s, STATION, (sx * 1960, 0, 520), (sx * 1990, 0, 520), 222, steps=10)
+    lit = k.group('Light', LightAxis=(1.0, 0.0, 0.0), LightLen=940.0, LightRate=0.5, LightDuty=0.45, LightSoft=0.1, LightMin=0.4, LightRand=0.0)
+    lit.box(MAG, (0, -124, 520), (L, 6, 14), glow=1.0)
+    c = k.group('Conveyor', ConvStart=(SLOT / 2.0, 0.0, 520.0), ConvDir=(-1.0, 0.0, 0.0), ConvLen=SLOT, ConvRate=1.0, ConvRand=0.0)
+
+    def pod(m):
+        rod(m, SUB, (-150, 0, 0), (150, 0, 0), 165, steps=10, glow=0.25)
+        for sx in (-1, 1):
+            rod(m, WHITE, (sx * 150 - 14, 0, 0), (sx * 150 + 14, 0, 0), 172, steps=10)
+        rod(m, PORT, (-60, 0, 0), (60, 0, 0), 168, steps=10)
+    c.piece(pod, a=0.0)
+    return dict(grow=(0, 0, 0), grow_down=(0, 0, 0), shadow_sections=3)    # the tube, its collars and its stilts cast as before
+
+
+def _mini_sub(m, cargo=0):
+    """A yellow mini-sub 7.6 m long, nose along +X: a fat hull, a cyan dome, a lamp, fins and a shrouded screw. With
+    cargo: that many pods in tow behind it."""
+    rod(m, SUB, (-300, 0, 0), (260, 0, 0), 150, steps=10)
+    m.sphere(SUB, (260, 0, 0), 150, scale=(1.1, 1.0, 1.0), steps=(5, 10))
+    m.sphere(SUB, (-300, 0, 0), 150, scale=(1.5, 1.0, 1.0), steps=(5, 10))
+    m.sphere(CYAN, (250, 0, 70), 118, steps=(4, 8), glow=0.5)
+    m.sphere(WHITE, (400, 0, -40), 46, steps=(3, 6), glow=1.6)
+    m.box(SUB, (-80, 0, 185), (300, 150, 110))
+    m.box(HULL_D, (-520, 0, 0), (26, 420, 26))
+    m.box(HULL_D, (-520, 0, 0), (26, 26, 380))
+    rod(m, HULL_D, (-600, 0, 0), (-560, 0, 0), 110, steps=8)
+    for sy in (-1, 1):
+        rod(m, HULL, (-140, sy * 190, -60), (160, sy * 190, -60), 46, steps=6)
+    for c in range(cargo):
+        x = -1250.0 - c * 900.0
+        m.box([RUST, '#3f8a9a'][c % 2], (x, 0, -20), (610, 244, 260))
+        m.box(HULL_D, (x, 0, 112), (600, 234, 8))
+        m.box(HULL_D, (x + 440, 0, -10), (280, 14, 14))                                  # the tow bar to the sub or to the pod ahead
+
+
+def sub_lane(k):
+    """Mini-subs at work between two docking masts 136 m apart (three slots; x along the road, the piece's zero half
+    way). A mast is a steel column with two drums on it, 30 and 38 m up (over the
+    domes, the hubs and the spheres on their chains that stand in the same ground), a ring of magenta light at each mouth
+    (steady); a drum is 22 m long, so a sub is wholly inside it before it is taken away. Two subs fly the lower lane one way and two the upper lane the other, in at one drum and out at the
+    far one, 9 m/s. For 80 m and more from the road: yellow, slow and high, nothing like a torpedo."""
+    half = 1.5 * SLOT
+    s = k.group()
+    for sx in (-1, 1):
+        x = sx * half
+        s.box(STEEL, (x, 0, 1900), (300, 300, 5000))
+        s.box(STEEL_D, (x, 0, 4440), (420, 420, 80))
+        for z in (3000.0, 3800.0):
+            rod(s, STEEL_D, (x - 1100, 0, z), (x + 1100, 0, z), 520, steps=10)
+            for e in (-1, 1):
+                rod(s, MAG, (x + e * 1100 - 15, 0, z), (x + e * 1100 + 15, 0, z), 548, steps=10, glow=1.0)
+            rod(s, PORT, (x - 1108, 0, z), (x + 1108, 0, z), 440, steps=8)                 # the dark of the mouth
+    for lane, (z, d, rate) in enumerate(((3000.0, 1.0, 0.066), (3800.0, -1.0, 0.058))):
+        g = k.group('Conveyor', ConvStart=(-d * half, 0.0, z), ConvDir=(d, 0.0, 0.0), ConvLen=2.0 * half, ConvRate=rate, ConvRand=1.0)
+        for a in (0.12, 0.61):
+            def sub(m, d=d):
+                m.base = ft_art._xf((0, 0, 0), (0, 0.0 if d > 0 else 180.0, 0))
+                try:
+                    _mini_sub(m)
+                finally:
+                    m.base = None
+            g.piece(sub, a=a)
+    return dict(grow=(0, 0, 0), grow_down=(0, 0, 0))
+
+
+def supply_run(k):
+    """Supply subs crossing over the road: three tugs, each with two cargo pods in tow, on a line 400 m long across
+    the road (y), 6 m/s, lamps lit. A Far piece set on the road itself and lifted 40 m (as the whales over Nereida's
+    gate are): one crosses overhead every 22 s. The line's two ends are 200 m out, past the kelp and the haze."""
+    g = k.group('Conveyor', ConvStart=(0.0, -20000.0, 0.0), ConvDir=(0.0, 1.0, 0.0), ConvLen=40000.0, ConvRate=0.015, ConvRand=1.0)
+    for a in (0.0, 0.33, 0.66):
+        def tug(m):
+            m.base = ft_art._xf((0, 0, 0), (0, 90.0, 0))
+            try:
+                _mini_sub(m, cargo=2)
+            finally:
+                m.base = None
+        g.piece(tug, a=a)
+    return dict(grow=(400, 20600, 300), grow_down=(400, 20600, 300))
+
+
+def salvage_ship(k):
+    """The salvage ship over the field (SM_HullAbove's hull, keel 148 m over the piece's zero, which stands 25 m under
+    the road) with her work going on under her: a guide wire down to a clump weight on the bottom and her diving
+    bell riding it, 34 to 70 m up, a round every 50 s; and beside it the hoist line, on which containers come up
+    from the sand on yellow lift bags, 1.4 m/s, and go in at the moon pool under her keel. (The divers are the
+    people machine's.)"""
+    s = k.group()
+    hull_above(s)
+    s.box(DEEP1, (800, 0, 14330), (1000, 800, 1060))                                     # the moon pool's skirt: the containers go in here
+    s.box(DEEP2, (800, 0, 13790), (1080, 880, 40))
+    rod(s, HULL_D, (-600, 0, 1400), (-600, 0, 14810), 14, steps=5)                        # the bell's guide wire
+    s.box(HULL_D, (-600, 0, 1500), (260, 260, 2600))                                     # its clump weight (most of it in the sand)
+    rod(s, HULL_D, (800, 0, 1400), (800, 0, 13800), 12, steps=5)                          # the hoist line
+    b = k.group('Bob', far=True, BobDir=(0.0, 0.0, 1.0), BobAmp=1800.0, BobRate=0.02, BobRand=1.0, BobPhase=(0.0, 0.0, 0.0))
+    z = 5200.0
+    b.cyl(SUB, (-600, 0, z - 210), 230, 420, steps=10)
+    b.sphere(SUB, (-600, 0, z + 210), 230, scale=(1.0, 1.0, 0.6), steps=(4, 10))
+    b.cyl(HULL_D, (-600, 0, z - 290), 262, 80, steps=10)
+    b.cyl(HULL_D, (-600, 0, z + 330), 60, 90, steps=6)
+    for a in (0.0, 2.094, 4.189):
+        b.sphere(CYAN, (-600 + math.cos(a) * 205, math.sin(a) * 205, z + 20), 78, steps=(3, 6), glow=0.5)
+    b.sphere(WHITE, (-600, 0, z - 310), 60, steps=(3, 6), glow=1.5)
+    c = k.group('Conveyor', ConvStart=(800.0, 0.0, 1500.0), ConvDir=(0.0, 0.0, 1.0), ConvLen=12900.0, ConvRate=0.011, ConvRand=1.0)
+    for n, a in enumerate((0.05, 0.38, 0.71)):
+        def load(m, n=n):
+            m.box([RUST, '#3f8a9a', RUST][n], (0, 0, 0), (610, 244, 260), rot=(0, 25.0 * n, 0))
+            m.box(HULL_D, (0, 0, 132), (600, 234, 8), rot=(0, 25.0 * n, 0))
+            for sx in (-1, 1):
+                tilt_box(m, HULL_D, (sx * 250, 0, 130), (sx * 70, 0, 420), 10, 10)
+                m.sphere(SUB, (sx * 110, 0, 500), 120, scale=(1.0, 1.0, 1.25), steps=(4, 7))
+        c.piece(load, a=a)
+    return dict(grow=(0, 0, 0), grow_down=(0, 0, 0))
+
+
+def sea_whips(m, seed=71):
+    """A bed of sea whips and young kelp for the verge, 10 m long and under 1.9 m: thin stalks in the reef's colours
+    and flat green blades, each in three lengths so that it bends when life() sways it. Unlit: nothing glows this
+    near the road."""
+    r = random.Random(seed)
+    for k in range(18):
+        x, y = r.uniform(-480, 480), r.uniform(-150, 150)
+        h = r.uniform(110, 182)
+        c = [MAG, LAV, CORAL2, CORAL][k % 4]
+        yaw = r.uniform(0, 180)
+        for j in range(3):
+            m.box(c, (x, y, h * (j + 0.5) / 3.0 - 8), (13 - 2 * j, 13 - 2 * j, h / 3.0), rot=(0, yaw, 0))
+    for k in range(7):
+        x, y = r.uniform(-460, 460), r.uniform(-140, 140)
+        h = r.uniform(120, 180)
+        yaw = r.uniform(0, 180)
+        for j in range(3):
+            m.box(KELP if k % 2 else KELP_L, (x, y, h * (j + 0.5) / 3.0 - 8), (32 - 5 * j, 6, h / 3.0), rot=(0, yaw, 0))
+    m.sphere(SAND_D, (0, 0, -34), 420, scale=(1.25, 0.5, 0.12), steps=(4, 8))
+
+
+SHAFT_SWAY = r"""
+// the foot of the shaft wanders while its top stays where the light comes through the surface
+float ph = Rnd * 6.2832;
+float lo = pow(1.0 - saturate(UV.y), 1.3);
+float2 o = float2(sin(T * Rate + ph) + 0.35 * sin(T * Rate * 2.3 + ph * 1.7), cos(T * Rate * 0.8 + ph * 2.1) + 0.3 * sin(T * Rate * 1.9 + ph));
+return float3(o * (Amp * lo), 0.0);
+"""
+
+
+def shaft_sway():
+    """SM_ShaftSway: three shafts of light, 56 m tall, whose feet wander over the sand while their tops stay where the
+    light comes through the surface. The level's own shafts (ft_world: SM_LightShaft, M_AbyssShaft) stand still; this
+    is the same cone and the same shading (ft_world's own code and numbers, read from it) on a material of this
+    kit's own that also moves the vertices: M_ShaftSway and MI_ShaftSway in the kit's Dress folder. Additive and
+    unlit like the level's: it casts nothing and thins out near the camera. Returns the mesh, or None if it failed
+    (the table's rule then places nothing: a mesh that does not exist is skipped)."""
+    import unreal
+    try:
+        import ft_mats
+        import ft_world
+        import ft_buildings
+        D = '/Game/Maps/Abyss/Dress'
+        MEL = unreal.MaterialEditingLibrary
+        m = ft_mats.new_material(D, 'M_ShaftSway', blend=unreal.BlendMode.BLEND_ADDITIVE, shading=unreal.MaterialShadingModel.MSM_UNLIT, two_sided=True)
+        nrm = ft_mats.expr(m, unreal.MaterialExpressionVertexNormalWS, x=-1300, y=-780)
+        wp = ft_mats.expr(m, unreal.MaterialExpressionWorldPosition, x=-1300, y=-700)
+        cp = ft_mats.expr(m, unreal.MaterialExpressionCameraPositionWS, x=-1300, y=-620)
+        t = ft_mats.expr(m, unreal.MaterialExpressionTime, x=-1300, y=-540)
+        uv = ft_mats.expr(m, unreal.MaterialExpressionTextureCoordinate, x=-1300, y=-460)
+        rnd = ft_mats.expr(m, unreal.MaterialExpressionPerInstanceRandom, x=-1300, y=-380)
+        P = ft_world._params(m, list(ft_world.SHAFT_PARAMS) + [('Amp', 420.0), ('Rate', 0.55)], ft_world.SHAFT_VECTORS)
+        look = [(n, P[n], '') for n, _ in list(ft_world.SHAFT_PARAMS) + list(ft_world.SHAFT_VECTORS)]
+        cu = ft_mats.custom(m, ft_world.SHAFT_HLSL, [('Nrm', nrm, ''), ('WP', wp, ''), ('CP', cp, ''), ('T', t, ''), ('UV', uv, ''), ('Rnd', rnd, '')] + look,
+                            x=-500, y=0, desc='ShaftSway')
+        MEL.connect_material_property(cu, '', unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+        off = ft_mats.custom(m, SHAFT_SWAY, [('T', t, ''), ('UV', uv, ''), ('Rnd', rnd, ''), ('Amp', P['Amp'], ''), ('Rate', P['Rate'], '')],
+                             x=-500, y=400, desc='ShaftSwayOffset')
+        MEL.connect_material_property(off, '', unreal.MaterialProperty.MP_WORLD_POSITION_OFFSET)
+        m.set_editor_property('used_with_instanced_static_meshes', True)
+        try:
+            m.set_editor_property('always_evaluate_world_position_offset', True)        # a shaft 150 m off must keep swaying (the track stops roadside movement at 180 m)
+        except Exception as e:  # noqa
+            unreal.log_warning('FTDRESS abyss M_ShaftSway: could not set always_evaluate_world_position_offset (%s)' % e)
+        ft_buildings._compile(m)
+        mi = ft_mats.mi(m, D, 'MI_ShaftSway')
+        mesh = ft_world._shaft(5600.0, 100.0, 520.0, n=3, spread=600.0, seed=11)
+        sm = ft_world._save_static(mesh, D + '/SM_ShaftSway', mi, 'Shaft')
+        print('JAM shaft sway built', flush=True)
+        return sm
+    except Exception as e:  # noqa
+        import traceback
+        unreal.log_error('FTDRESS abyss/SM_ShaftSway FAILED: %r %s' % (e, traceback.format_exc()[-1200:]))
+        print('JAM ERR shaft sway', repr(e)[:400], flush=True)
+        return None
+
+
+LIFE_JOBS += [('SM_TubeRun', tube_run_k), ('SM_SubLane', sub_lane), ('SM_SupplyRun', supply_run), ('SM_SalvageShip', salvage_ship)]
 
 
 JOBS = [
@@ -1011,11 +1259,13 @@ JOBS = [
     ('SM_SeaGrass', sea_grass), ('SM_SeaGrass2', lambda m: sea_grass(m, seed=31)), ('SM_GiantClam', giant_clam),
     ('SM_CoralGarden', coral_garden), ('SM_CoralGarden2', lambda m: coral_garden(m, seed=33)), ('SM_Jellyfish', jellyfish),
     ('SM_Jellyfish2', lambda m: jellyfish(m, seed=34)), ('SM_VentField', vent_field), ('SM_DomeHabitat', dome_habitat),
-    ('SM_TubeRun', tube_run), ('SM_WatchTower', watch_tower), ('SM_Galleon', galleon), ('SM_FarReef', far_reef),
+    ('SM_WatchTower', watch_tower), ('SM_Galleon', galleon), ('SM_FarReef', far_reef),
     # art pass 2: the seabed itself (see "the third round")
     ('SM_ReefFloor', reef_floor), ('SM_ReefFloor2', lambda m: reef_floor(m, seed=47)), ('SM_CableTrench', cable_trench),
     ('SM_SubPad', sub_pad), ('SM_WhaleBones', whale_bones),
     # the zone pass (see "the fourth round"): pressure vessels, what hangs in the water, silhouettes, the net of light
     ('SM_PodLow', pod_low), ('SM_PressureHab', pressure_hab), ('SM_Tethered', tethered), ('SM_KelpRaft', kelp_raft),
     ('SM_WhalePod', whale_pod), ('SM_HullAbove', hull_above), ('SM_CausticNet', caustic_net),
+    # the fifth round: the verge's sea whips. (SM_TubeRun left this list: it is a Kit prop now, LIFE_JOBS.)
+    ('SM_SeaWhips', sea_whips),
 ]

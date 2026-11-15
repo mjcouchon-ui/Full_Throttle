@@ -84,8 +84,8 @@ Set(TEXT("ApronSub"), {                                   // the station's apron
 // ---- 0 to 1.7 km: THE REEF. Bright and shallow-looking: terraces and tall stands of coral, clams and anemones at
 // the barrier, an arch, jellyfish in the water.
 Zone(TEXT("The reef"), 0.0f, 1.7f);
-	Scatter(TEXT("SM_SeaGrass"), 17.5f, 21, 1, 0, 0.75f, 1.f, 0.2f, 0, 20.f);
-	Scatter(TEXT("SM_Anemones"), 18, 24, 2, 1, 0.8f, 1.f, 0.2f, 0, 30.f);
+	Scatter(TEXT("SM_SeaGrass"), 17.5f, 21, 1, 0, 1.f, 1.f, 0.2f, 0, 20.f);          // (round three: certain. 0.75 left runs of bare verge)
+	Scatter(TEXT("SM_Anemones"), 18, 24, 2, 1, 1.f, 1.f, 0.2f, 0, 30.f);             // (round three: certain; they wave now)
 	Scatter(TEXT("SM_GiantClam"), 18, 23, 3, 2, 0.8f, 1.f, 0.2f, 0, 60.f);
 	Scatter(TEXT("SM_ReefLow"), 19, 42, 1, 0, 0.6f, 1.f, 0.3f, 0, 180.f);
 	Scatter(TEXT("SM_CoralGarden"), 28, 46, 1, 0, 0.75f, 1.f, 0.25f, 0, 180.f);
@@ -101,7 +101,7 @@ Zone(TEXT("The reef"), 0.0f, 1.7f);
 
 // ---- 1.7 to 3.4 km: THE KELP FOREST. The road runs between walls of weed that close in overhead.
 Zone(TEXT("The kelp forest"), 1.7f, 3.4f);
-	Scatter(TEXT("SM_SeaGrass2"), 17.5f, 21, 1, 0, 0.85f, 1.f, 0.2f, 0, 20.f);
+	Scatter(TEXT("SM_SeaGrass2"), 17.5f, 21, 1, 0, 1.f, 1.f, 0.2f, 0, 20.f);         // (round three: certain)
 	Scatter(TEXT("SM_ReefLow2"), 19, 30, 3, 1, 0.6f, 1.f, 0.3f, 0, 180.f);
 	Site(TEXT("KelpStand"), -1, 56, 1, 0, 0.85f, 1.f, 0.2f);
 	Site(TEXT("KelpStand"), 1, 58, 1, 0, 0.85f, 1.f, 0.2f);
@@ -433,16 +433,19 @@ Zone(TEXT("In the water, far out"), 0.f, 99.f);
 	Far(TEXT("SM_HullAbove"), 260, 480, 16, 8, 1.f, 1.f, 0.2f, 0, 25.f, 180.f);          // (round one: 420 to 900 m: past the haze, or over the top of the frame)
 // Moving caustics. The net of light lies flat, 8 cm over the sand, so it goes on level sand only (the land rises or
 // falls no more than 20 cm within 17 m of the slot's middle).
+// Round three: DROPPED (every call below has a chance of 0.f; the rules keep their places in the table). Judged from
+// the road: a net lies flat on level sand 57 m and more out and the camera rides 3.5 m up, so it was a pale sliver
+// 1 degree high that no frame showed as a net. Its pieces went to things that are seen moving.
 auto LightNet = [&](float A, float B, int32 Every, float Chance)
 {
 	Zone(TEXT("Light on the sand"), SlotKm(A - 0.5f), SlotKm(B + 0.5f));
 	Scatter(TEXT("SM_CausticNet"), 57, 92, Every, 0, Chance, 1.2f, 0.25f, 0, 180.f);   // its middle from 57 m: a net is 30 x 20 m, up to half as large again and turned any way, and no corner of it comes nearer than 30 m
 };
-LightNet(1, 4, 3, 1.f); LightNet(10, 14, 3, 1.f); LightNet(21, 29, 3, 1.f); LightNet(35, 36, 3, 1.f); LightNet(44, 52, 3, 1.f); LightNet(61, 61, 3, 1.f);
-LightNet(69, 70, 3, 1.f); LightNet(77, 78, 3, 1.f); LightNet(84, 93, 3, 1.f); LightNet(99, 100, 3, 1.f); LightNet(109, 117, 3, 1.f); LightNet(126, 127, 3, 1.f);
-LightNet(132, 139, 3, 1.f); LightNet(147, 147, 3, 1.f); LightNet(155, 155, 3, 1.f); LightNet(161, 166, 3, 1.f); LightNet(173, 175, 3, 1.f); LightNet(176, 309, 7, 1.f);
-LightNet(315, 330, 7, 1.f); LightNet(336, 351, 7, 1.f); LightNet(357, 372, 7, 1.f); LightNet(378, 393, 7, 1.f); LightNet(399, 413, 7, 1.f); LightNet(420, 434, 7, 1.f);
-LightNet(441, 455, 7, 1.f); LightNet(462, 476, 7, 1.f); LightNet(483, 497, 7, 1.f); LightNet(504, 518, 7, 1.f); LightNet(524, 539, 7, 1.f); LightNet(545, 550, 7, 1.f);
+LightNet(1, 4, 3, 0.f); LightNet(10, 14, 3, 0.f); LightNet(21, 29, 3, 0.f); LightNet(35, 36, 3, 0.f); LightNet(44, 52, 3, 0.f); LightNet(61, 61, 3, 0.f);
+LightNet(69, 70, 3, 0.f); LightNet(77, 78, 3, 0.f); LightNet(84, 93, 3, 0.f); LightNet(99, 100, 3, 0.f); LightNet(109, 117, 3, 0.f); LightNet(126, 127, 3, 0.f);
+LightNet(132, 139, 3, 0.f); LightNet(147, 147, 3, 0.f); LightNet(155, 155, 3, 0.f); LightNet(161, 166, 3, 0.f); LightNet(173, 175, 3, 0.f); LightNet(176, 309, 7, 0.f);
+LightNet(315, 330, 7, 0.f); LightNet(336, 351, 7, 0.f); LightNet(357, 372, 7, 0.f); LightNet(378, 393, 7, 0.f); LightNet(399, 413, 7, 0.f); LightNet(420, 434, 7, 0.f);
+LightNet(441, 455, 7, 0.f); LightNet(462, 476, 7, 0.f); LightNet(483, 497, 7, 0.f); LightNet(504, 518, 7, 0.f); LightNet(524, 539, 7, 0.f); LightNet(545, 550, 7, 0.f);
 // ---- The signature moments, each in a district of one slot.
 // The fish tornado (slot 6, 0.27 km, the left): the school in three rings, 5 to 32 m up, turning; the first big
 // thing of the level, on the outside of its first curve.
@@ -450,7 +453,7 @@ Zone(TEXT("The fish tornado"), 0.2488f, 0.2941f);
 	Site(TEXT("Tornado"), -1, 51, 1, 0, 1.f);
 // The salvage ship (slot 115, 5.20 km): a hull on the surface right over the field, her anchor cable coming down among the wrecks.
 Zone(TEXT("The salvage ship"), 5.1803f, 5.2256f);
-	Far(TEXT("SM_HullAbove"), 115, 125, 1, 0, 1.f, 1.f, 0.f, -1, 25.f, 20.f);
+	Far(TEXT("SM_SalvageShip"), 115, 125, 1, 0, 1.f, 1.f, 0.f, -1, 25.f, 20.f);     // (round three: the hull with her diving bell and hoist at work under her)
 // Nereida's gate (slot 179, 8.10 km, dead ahead of the last tunnel's mouth): a watch tower twice the size on each side,
 // and at slot 181 the whales: a cow, her calf and a second cow cross over the road 38 m up, all the time (SM_WhalePass:
 // its base is 38 m OVER the road's level, a negative drop, and nothing of it comes lower than 31 m).
@@ -459,3 +462,32 @@ Zone(TEXT("The gate of Nereida"), 8.0759f, 8.1211f);
 	Site(TEXT("GatePost"), 1, 50, 1, 0, 1.f);
 Zone(TEXT("The whales over the gate"), 8.1664f, 8.2116f);
 	Far(TEXT("SM_WhalePass"), 0, 0, 1, 0, 1.f, 1.f, 0.f, 1, -38.f, 0.f);
+// ---- Round three (15 Nov): the built world in motion. Props that move by their own materials (ft_dress_abyss.py,
+// "the fifth round"), written after the table's last rule so that no rule before them changes its place. No divers
+// and no new creatures (another machine's); the kit's schools, sharks, rays and whales stay as they were.
+//   SM_TubeRun      (the same rules as before) is rebuilt with capsules travelling the tube, one to a length
+//   SM_SalvageShip  (in the salvage ship's own rule, above) the hull with her diving bell and her hoist at work
+//   SM_SubLane      mini-subs flying between two docking masts 136 m apart, 30 and 38 m up: through Nereida, 90 m out,
+//                   every sixth slot, left and right in turn (corridor.py in the notes folder: at 90 m and that
+//                   height nothing of the kit stands in their way but three spheres on chains and a wreck's bow)
+//   SM_SupplyRun    supply subs with cargo in tow crossing 40 m over the road: over the kelp bend (the empty water of
+//                   the 35 s frame) and over the research station's straight. None in Nereida: that is the boss's
+//                   arena (nothing crosses over the fight), and its watch towers stand 42 m and taller
+//   SM_ShaftSway    shafts of light whose feet wander: every second slot on the first 3.4 km, both sides, every ninth
+//                   after; their middles 44 m and more out (a shaft's foot reaches 17 m from its middle)
+//   SM_SeaWhips     beds of sea whips and young kelp on the verge of the first 3.4 km, under 1.9 m and unlit, between
+//                   the sea grass and the anemones (which are certain now, and wave)
+Set(TEXT("SubLane"), { { TEXT("SM_SubLane"), 0, 0, 0, 0, 1 } });
+Zone(TEXT("Nereida, mini-subs"), 7.94f, 99.f);
+	Site(TEXT("SubLane"), 0, 90, 6, 2, 1.f);
+Zone(TEXT("The first 3.4 km, light and weed"), 0.0f, 3.4f);
+	Scatter(TEXT("SM_ShaftSway"), 44, 120, 2, 0, 1.f, 1.f, 0.25f, 0, 180.f);
+	Scatter(TEXT("SM_SeaWhips"), 18.5f, 21.5f, 2, 1, 1.f, 1.f, 0.15f, 0, 12.f);
+Zone(TEXT("Past 3.4 km, light that sways"), 3.4f, 99.f);
+	Scatter(TEXT("SM_ShaftSway"), 50, 130, 9, 4, 1.f, 1.f, 0.25f, 0, 180.f);
+auto Supply = [&](float S)
+{
+	Zone(TEXT("A supply run over the road"), SlotKm(S - 0.5f), SlotKm(S + 0.5f));
+	Far(TEXT("SM_SupplyRun"), 0, 0, 1, 0, 1.f, 1.f, 0.f, 1, -40.f, 0.f);
+};
+Supply(48); Supply(100);

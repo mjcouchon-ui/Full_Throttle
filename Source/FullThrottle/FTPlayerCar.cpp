@@ -14,6 +14,9 @@
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "HAL/IConsoleManager.h"
 #include "FTFx.h"
+#include "NiagaraSystem.h"
+#include "GameFramework/PlayerController.h"
+#include "Camera/PlayerCameraManager.h"
 
 // which arcade assists run on top of Chaos (bits): 1 speed governor, 2 grip, 4 yaw, 8 anti-flip, 16 track gravity, 32 air control,
 // 64 road glue (2.4 downforce)
@@ -185,6 +188,23 @@ AFTPlayerCar::AFTPlayerCar()
 	// FX overhaul: sparks off the rear tyres in the drift charge's colour; the hot core of the turbo flame
 	DriftSparkFX = FX(TEXT("DriftSparkFX"), FVector(-133, 0, 12));
 	BoostCoreFX = FX(TEXT("BoostCoreFX"), FVector(-232, 0, 30));
+	// FX round 3: what the rear wheels throw off the road (the systems are the level's: SetLightsForLevel), the banded
+	// turbo flame and the exhaust at top speed, and the speed lines (those two are put by the camera each frame, in
+	// TickFx). They sort with the blasts' smoke and fire, under every danger cue (which are left at 0)
+	WheelFX = FX(TEXT("WheelFX"), FVector(-133, 0, 8));
+	WheelFX2 = FX(TEXT("WheelFX2"), FVector(-133, 0, 8));
+	TurboCelFX = FX(TEXT("TurboCelFX"), FVector(-232, 0, 30));
+	ExhaustFX = FX(TEXT("ExhaustFX"), FVector(-232, 0, 30));
+	SpeedFXL = FX(TEXT("SpeedFXL"), FVector(0, 0, 0));
+	SpeedFXR = FX(TEXT("SpeedFXR"), FVector(0, 0, 0));
+	WheelFX->SetTranslucentSortPriority(-30);
+	WheelFX2->SetTranslucentSortPriority(-30);
+	TurboCelFX->SetTranslucentSortPriority(-20);
+	ExhaustFX->SetTranslucentSortPriority(-20);
+	SpeedFXL->SetUsingAbsoluteLocation(true); SpeedFXL->SetUsingAbsoluteRotation(true); SpeedFXL->SetUsingAbsoluteScale(true);
+	SpeedFXR->SetUsingAbsoluteLocation(true); SpeedFXR->SetUsingAbsoluteRotation(true); SpeedFXR->SetUsingAbsoluteScale(true);
+	SpeedFXL->SetTranslucentSortPriority(-5);
+	SpeedFXR->SetTranslucentSortPriority(-5);
 
 	EngineAudio = CreateDefaultSubobject<UAudioComponent>(TEXT("EngineAudio"));
 	EngineAudio->SetupAttachment(Body);
@@ -244,6 +264,10 @@ void AFTPlayerCar::BeginPlay()
 	SetFX(TurboFX, TEXT("/Game/FX/NS_TurboFlame"));
 	SetFX(DriftFX, TEXT("/Game/FX/NS_TyreSmoke"));
 	SetFX(BoostCoreFX, TEXT("/Game/FX/NS_TurboCore"));   // FX overhaul (the drift sparks' system is picked by the charge, in TickFx)
+	// FX round 3 (the wheels' systems are the level's, picked in SetLightsForLevel; the banded turbo flame by the tuft, in TickFx)
+	SetFX(ExhaustFX, TEXT("/Game/FX/NS_ExhaustFlame"));
+	SetFX(SpeedFXL, TEXT("/Game/FX/NS_SpeedLines"));
+	SetFX(SpeedFXR, TEXT("/Game/FX/NS_SpeedLines"));
 	if (!EngineAudio->Sound) EngineAudio->SetSound(Load<USoundBase>(TEXT("/Game/Audio/SFX/S_EngineLoop")));
 	if (!SkidAudio->Sound) SkidAudio->SetSound(Load<USoundBase>(TEXT("/Game/Audio/SFX/S_Skid")));
 	if (UPhysicalMaterial* PM = Load<UPhysicalMaterial>(TEXT("/Game/Core/Physics/PM_CarBody"))) Chassis->SetPhysMaterialOverride(PM);
@@ -259,6 +283,19 @@ void AFTPlayerCar::BeginPlay()
 void AFTPlayerCar::SetLightsForLevel(int32 Level)
 {
 	Underglow->SetLightColor(FTData::Level(Level).Glow);
+	// FX round 3: the level's surface: what the rear wheels throw off it (NS_WheelA<n> the run of it at speed, NS_WheelB<n>
+	// the rooster tail of a slide or a boost; n in FTData's order of levels), what a landing kicks up, and the colour of
+	// the marks the tyres leave. Looks only
+	SurfaceLevel = FMath::Clamp(Level, 0, 7);
+	auto Give = [](UNiagaraComponent* C, const FString& Name)
+	{
+		UNiagaraSystem* Sys = FTFx::System(*Name);
+		if (C->GetAsset() != Sys) { C->Deactivate(); C->SetAsset(Sys); }
+	};
+	Give(WheelFX, FString::Printf(TEXT("NS_WheelA%d"), SurfaceLevel));
+	Give(WheelFX2, FString::Printf(TEXT("NS_WheelB%d"), SurfaceLevel));
+	FTFx::System(*FString::Printf(TEXT("NS_LandKick%d"), SurfaceLevel));   // loaded now, not at the first landing
+	FTFx::Surface(this, SurfaceLevel);
 }
 
 bool AFTPlayerCar::CanRailHop(int32 Dir) const
@@ -325,6 +362,7 @@ void AFTPlayerCar::PlaceOnTrack(float InD, float InX, float InSpeed)
 	if (!Underglow->IsVisible()) { Underglow->SetVisibility(true); HeadL->SetVisibility(true); HeadR->SetVisibility(true); }
 	FxAirT = 0.f;
 	ShedQuietT = GetWorld() ? GetWorld()->GetTimeSeconds() + 0.5f : -1.f;
+	bMarkOn[0] = bMarkOn[1] = false;   // FX round 3: no tyre mark is drawn from where the car was to where it has been put
 	Chassis->SetSimulatePhysics(true);
 }
 
@@ -493,7 +531,13 @@ void AFTPlayerCar::Tick(float Dt)
 		// new scene. Parked for a slate (a retake, the title, PRE-PRODUCTION) or hidden for the highlight reel, nothing
 		// of the scene before is left burning or smoking: FTFx::ClearWorld stops it and logs what it stopped
 		const bool bStage = Drive.bFrozen || IsHidden();
-		if (bStage && !bFxStage) FTFx::ClearWorld(this, IsHidden() ? TEXT("reel") : TEXT("slate"));
+		if (bStage && !bFxStage)
+		{
+			FTFx::ClearWorld(this, IsHidden() ? TEXT("reel") : TEXT("slate"));
+			// (FX round 3: and the car's own running effects of the world stop with it: the wheels' spray, the exhaust, the speed lines)
+			UNiagaraComponent* Mine[] = { WheelFX, WheelFX2, ExhaustFX, SpeedFXL, SpeedFXR };
+			for (UNiagaraComponent* C : Mine) if (C && C->IsActive()) C->DeactivateImmediate();
+		}
 		bFxStage = bStage;
 		FTFx::Tick(this, Dt);
 	}
@@ -638,8 +682,8 @@ void AFTPlayerCar::Tick(float Dt)
 	}
 	if (TurboFX->GetAsset())
 	{
-		if (Drive.bHot && !TurboFX->IsActive()) TurboFX->Activate(true);
-		if (!Drive.bHot && TurboFX->IsActive()) TurboFX->Deactivate();
+		if (Drive.bHot && !bTurboCel && !TurboFX->IsActive()) TurboFX->Activate(true);   // (FX round 3: not while the banded flame stands in for it)
+		if ((!Drive.bHot || bTurboCel) && TurboFX->IsActive()) TurboFX->Deactivate();
 	}
 	const bool bSlide = Drive.DriftDir != 0 && bGrounded;
 	if (DriftFX->GetAsset())
@@ -723,10 +767,86 @@ void AFTPlayerCar::TickFx(float Dt, const FVector& Velocity)
 		{
 			const float K = FMath::Clamp(0.65f + FxAirT * 0.45f, 0.75f, 1.5f);
 			FTFx::Attach(TEXT("NS_LandSparks"), Body, FVector(-40.f, 0.f, 12.f), FRotator::ZeroRotator, K, FTFx::Main, true);
-			FTFx::Attach(TEXT("NS_LandDust"), Body, FVector(0.f, 0.f, 14.f), FRotator::ZeroRotator, K, FTFx::Extra, true);
+			// (FX round 3: what it kicks up is the level's own: sand, snow, silt, ash; the plain dust on a build without them)
+			const FString Kick = FString::Printf(TEXT("NS_LandKick%d"), SurfaceLevel);
+			FTFx::Attach(FTFx::System(*Kick) ? *Kick : TEXT("NS_LandDust"), Body, FVector(0.f, 0.f, 14.f), FRotator::ZeroRotator, K, FTFx::Extra, true);
 		}
 		FxAirT = 0.f;
 	}
+	// ---- FX round 3: the car in the world, and speed. Still looks only.
+	auto Lit = [](UNiagaraComponent* C, bool bOn)
+	{
+		if (!C->GetAsset()) return;
+		if (bOn && !C->IsActive()) C->Activate(true);
+		if (!bOn && C->IsActive()) C->Deactivate();
+	};
+	// What the rear wheels throw off the road is the level's own (SetLightsForLevel picked the systems): sand, slick,
+	// dust, ash, confetti, powder snow, silt, rain. A thin run of it whenever the car is at speed on its wheels (the
+	// Main layer: a few small sprites), and the rooster tail of a drift, a boost or the turbo (Extra). Both stream
+	// back along the car's real line, as the tyre smoke does
+	const bool bRoll = bGrounded && !bWrecked && !Drive.bFrozen && !bRailInit && Half == EFTHalf::None;
+	const bool bRun = bRoll && FMath::Abs(Speed) > 2400.f;
+	if (bRun && Flat.SizeSquared() > FMath::Square(500.f))
+	{
+		const FRotator Back = FRotationMatrix::MakeFromXZ(Flat.GetSafeNormal(), RoadUp).Rotator();
+		WheelFX->SetWorldRotation(Back);
+		WheelFX2->SetWorldRotation(Back);
+	}
+	Lit(WheelFX, bRun);
+	Lit(WheelFX2, bRun && (Drive.DriftDir != 0 || Drive.bHot) && FTFx::Shows(this, FTFx::Extra));
+	// Tyre marks: laid on the road under the rear tyres while they slide (a drift, or the tail stepping out), a length
+	// every 2.5 m. FTFx::TyreMark keeps the newest 480 lengths for the scene (none at Low)
+	const bool bMark = bRoll && (Drive.DriftDir != 0 || FMath::Abs(LatSpeed) > 1100.f) && Flat.SizeSquared() > FMath::Square(1500.f);
+	for (int32 i = 0; i < 2; ++i)
+	{
+		const int32 Wi = 2 + i;   // the rear wheels
+		const bool bDown = bMark && WheelMeshes.IsValidIndex(Wi) && WheelMeshes[Wi] && Vehicle->Wheels.IsValidIndex(Wi) && Vehicle->Wheels[Wi] && !Vehicle->Wheels[Wi]->IsInAir();
+		if (!bDown) { bMarkOn[i] = false; continue; }
+		// the tyre's patch on the road: under the hub by the wheel's radius, along the surface's own normal
+		const FVector Patch = WheelMeshes[Wi]->GetComponentLocation() - SurfN * Vehicle->Wheels[Wi]->WheelRadius;
+		if (!bMarkOn[i]) { bMarkOn[i] = true; MarkFrom[i] = Patch; continue; }
+		const float Gone = (float)FVector::Dist(Patch, MarkFrom[i]);
+		if (Gone > 1200.f) { MarkFrom[i] = Patch; continue; }   // the car was put somewhere else: start again from here
+		if (Gone < 250.f) continue;
+		FTFx::TyreMark(this, MarkFrom[i], Patch, SurfN, Vehicle->Wheels[Wi]->WheelWidth * 0.8f);
+		MarkFrom[i] = Patch;
+	}
+	// The turbo's flame, banded. TurboFX holds the additive tuft FTFlow gives it (the stock one, or a nitro colour's):
+	// where the generator has a banded flame of that name (NS_TurboFlameCel, NS_TurboFlameCel_<colour>) it burns in
+	// the tuft's place, at the tuft's own length, and Tick leaves the tuft unlit. A build without it keeps the tuft
+	const FName Tuft = TurboFX->GetAsset() ? TurboFX->GetAsset()->GetFName() : FName();
+	if (Tuft != TurboTuftSeen)
+	{
+		TurboTuftSeen = Tuft;
+		const FString TuftName = Tuft.ToString();
+		UNiagaraSystem* Cel = TuftName.StartsWith(TEXT("NS_TurboFlame")) ? FTFx::System(*(FString(TEXT("NS_TurboFlameCel")) + TuftName.RightChop(13))) : nullptr;
+		if (TurboCelFX->GetAsset() != Cel) { TurboCelFX->Deactivate(); TurboCelFX->SetAsset(Cel); }
+		bTurboCel = Cel != nullptr;
+	}
+	if (bTurboCel) TurboCelFX->SetRelativeScale3D(TurboFX->GetRelativeScale3D());
+	Lit(TurboCelFX, bTurboCel && Drive.bHot);
+	// The exhaust at top speed, when neither the turbo nor a boost is burning: short banded licks out of the pipes (Extra)
+	const bool bTop = !bWrecked && !Drive.bFrozen && Speed > FT::BaseSpeed * 1.17f;
+	Lit(ExhaustFX, bTop && !Drive.bHot && FTFx::Shows(this, FTFx::Extra));
+	// Speed: thin streaks past the edges of the picture while the turbo or a boost burns, and at top speed. The two
+	// emitters are put either side of where the camera looks, 14 m on and 9.5 m out, well off the road, and turned to
+	// it: their streaks fly back past the lens. The Flash layer (off with Reduced Motion) and not at Low. The camera
+	// is only read (last frame's: a metre late at this speed, which a streak does not show)
+	bool bLines = (bTop || (Drive.bHot && Speed > 3000.f)) && !bWrecked && !Drive.bFrozen && !IsHidden() && FTFx::Shows(this, FTFx::Extra | FTFx::Flash);
+	if (bLines)
+	{
+		const APlayerController* PC = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+		if (PC && PC->PlayerCameraManager)
+		{
+			const FVector Eye = PC->PlayerCameraManager->GetCameraLocation();
+			const FRotator Look = PC->PlayerCameraManager->GetCameraRotation();
+			SpeedFXL->SetWorldLocationAndRotation(Eye + Look.RotateVector(FVector(1400.f, -950.f, 150.f)), Look);
+			SpeedFXR->SetWorldLocationAndRotation(Eye + Look.RotateVector(FVector(1400.f, 950.f, 150.f)), Look);
+		}
+		else bLines = false;
+	}
+	Lit(SpeedFXL, bLines);
+	Lit(SpeedFXR, bLines);
 	// A hit: the car's lights surge and fall back (the paint's Alert, which only its glowing parts answer to)
 	if (AlertAmt > 0.f || AlertShown > 0.f)
 	{

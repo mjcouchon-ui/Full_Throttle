@@ -76,6 +76,14 @@ public:
 	// FX overhaul: the drift's charge as sparks off the rear tyres, and the hot core of the turbo flame
 	UPROPERTY(VisibleAnywhere, Category = "Car") TObjectPtr<UNiagaraComponent> DriftSparkFX;
 	UPROPERTY(VisibleAnywhere, Category = "Car") TObjectPtr<UNiagaraComponent> BoostCoreFX;
+	// FX round 3: what the rear wheels throw off the road (by the level's surface: the run of it, and the rooster tail of
+	// a slide), the banded turbo flame that stands in for TurboFX's additive tuft, the exhaust at top speed, the speed lines
+	UPROPERTY(VisibleAnywhere, Category = "Car") TObjectPtr<UNiagaraComponent> WheelFX;
+	UPROPERTY(VisibleAnywhere, Category = "Car") TObjectPtr<UNiagaraComponent> WheelFX2;
+	UPROPERTY(VisibleAnywhere, Category = "Car") TObjectPtr<UNiagaraComponent> TurboCelFX;
+	UPROPERTY(VisibleAnywhere, Category = "Car") TObjectPtr<UNiagaraComponent> ExhaustFX;
+	UPROPERTY(VisibleAnywhere, Category = "Car") TObjectPtr<UNiagaraComponent> SpeedFXL;
+	UPROPERTY(VisibleAnywhere, Category = "Car") TObjectPtr<UNiagaraComponent> SpeedFXR;
 	UPROPERTY(VisibleAnywhere, Category = "Car") TObjectPtr<UAudioComponent> EngineAudio;
 	UPROPERTY(VisibleAnywhere, Category = "Car") TObjectPtr<UAudioComponent> SkidAudio;
 	UPROPERTY(VisibleAnywhere, Category = "Car") TArray<TObjectPtr<UStaticMeshComponent>> Henchmen;
@@ -201,4 +209,10 @@ protected:
 	float ShedQuietT = -1.f;                   // parts put back on a car that starts damaged come off without sparks
 	int32 DamageStage = -1;                    // 0 clean, 1 smoking, 2 burning; -1 not looked at yet
 	bool bFxStage = false;                     // parked for a slate or hidden for the reel: a new scene
+	// FX round 3: the car in the world, and speed
+	int32 SurfaceLevel = 0;                    // the level's surface (0..7): what the wheels throw up, a landing's kick
+	bool bMarkOn[2] = { false, false };        // a rear tyre is laying a mark on the road...
+	FVector MarkFrom[2] = { FVector::ZeroVector, FVector::ZeroVector };   // ...and where its next length starts
+	FName TurboTuftSeen;                       // the tuft FTFlow last gave TurboFX (a nitro colour's, or the stock one)
+	bool bTurboCel = false;                    // a banded flame stands in for that tuft (TurboCelFX)
 };

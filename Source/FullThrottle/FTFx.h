@@ -9,6 +9,7 @@ class UNiagaraSystem;
 class UNiagaraComponent;
 class USceneComponent;
 class AActor;
+class AFTEntityActor;
 
 namespace FTFx
 {
@@ -56,6 +57,7 @@ namespace FTFx
 		bool bGround = true;                    // on the road: it gets the ring and the scorch
 		FVector Ground = FVector::ZeroVector;   // the point of the road under it (where the ring and the scorch lie)
 		bool bLight = false;                    // what it hit blows up in the same place this frame: the fire and smoke are left to that
+		bool bImpact = false;                   // round 3: a missile kill or a turbo ram: the impact card, the blast held two frames behind it
 	};
 	/** The blast's layers, by what blew up. Low shows the fire only (Main); Reduced Motion drops the flash. */
 	void Explosion(const UObject* Ctx, const FBlast& B);
@@ -78,4 +80,25 @@ namespace FTFx
 	/** Log every effect still running in the world, by system (FTFX census): the proof of the above in a test run.
 	 *  Also the console command ft.FxCensus. */
 	void Census(const UObject* Ctx, const TCHAR* Tag);
+
+	// ---- round 3: weight. Still looks only.
+
+	/** A foe wears what it has left: smoke once it has lost a third of its armour, flames under a third, and a burst
+	 *  of sparks at each step, so a kill is read before it lands. Call every frame for each live foe, after its actor
+	 *  has been placed, with what it has left (0..1). A foe not heard of for three frames is forgotten. At most 8
+	 *  foes wear smoke or fire at a time (4 at Low; the smoke is the Extra layer, the fire shows at Low). */
+	void FoeLook(const UObject* Ctx, int32 Key, AFTEntityActor* Foe, float Left);
+
+	// ---- round 3: the car in the world. Still looks only.
+
+	/** The level's surface (0..7, FTData's order of levels): the colour of the marks the tyres leave on it. The car
+	 *  says it at level setup. */
+	void Surface(const UObject* Ctx, int32 Level);
+	/** A length of tyre mark on the road from From to To (world), Width cm wide, lying against Up. It stays for the
+	 *  scene: the newest 480 lengths are kept, and FTFx::ClearWorld removes them all. Not at Low. */
+	void TyreMark(const UObject* Ctx, const FVector& From, const FVector& To, const FVector& Up, float Width);
+	/** The soot a blast leaves on the road, kept for the scene (the newest 64; FTFx::ClearWorld removes them). False
+	 *  when it could not be laid (Low, or a build without the mark material): the caller draws the short-lived
+	 *  sprite instead. Road is the road's frame there (+Z off the road). */
+	bool SootMark(const UObject* Ctx, const FVector& At, const FQuat& Road, float RadiusCm);
 }
