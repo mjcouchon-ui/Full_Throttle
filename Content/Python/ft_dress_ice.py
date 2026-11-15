@@ -29,6 +29,12 @@ PINE, PINE_D, WOOD, WOOD_D = '#2f6b52', '#234f40', '#9a6a44', '#6a4c36'
 RED, BLUE, ORANGE, NET = '#ff2d3c', '#2e6bff', '#ff8a2a', '#3b3f52'
 LIT, PANE = '#ffe28a', '#1d2740'
 CONC = '#aab3c4'
+# second pass: the resort's own colours (race banners, signs, cars, doors), the car park's asphalt, the hotel's render,
+# and a paler rock for the cuttings by the road. Every one is a colour the game's palette already has an instance of.
+PINK, TEAL, YEL, TEAL_LIT = '#ff4fb8', '#19b5c9', '#ffd23f', '#2fc6c0'
+ASPH, HOTEL = '#3d4763', '#f4efe6'
+CUT, CUT_D = '#8b93b4', '#7a83a8'
+DIR = '/Game/Maps/Glacier/Dress/'
 
 
 def _root(m, depth, x=0.0, y=0.0):
@@ -47,14 +53,27 @@ def _on_slope(m):
     m.base = ft_art._xf((0, 0, 0), (0, 0, -SLOPE))
 
 
+GRADE = 4.0   # degrees: the road of this level runs downhill at 7 in 100 all the way, and the land beside it with it
+
+
+def _downhill(m, side=1):
+    """Lay the whole piece along the hill's grade. A piece stands level, and forty metres of level fence, rink or car
+    park would be 1.4 m in the air at its downhill end and as deep in the snow at the other. side = 1: for the right
+    of the road (the piece's +x points down the hill); side = -1: its twin for the left (the table turns a left-hand
+    piece round, so there +x points up the hill). The twins are the SM_...L meshes."""
+    m.base = ft_art._xf((0, 0, 0), (-GRADE * side, 0, 0))
+
+
 def _cap(m, x, y, z, rx, ry, h=40, col=SNOW):
     """A slab of snow lying on something."""
     m.sphere(col, (x, y, z), 100, scale=(rx / 100.0, ry / 100.0, h / 100.0), steps=(4, 7))
 
 
 # ------------------------------------------------------------------------------------------ the verge (low, quiet)
-def snow_fence(m):
-    """Forty metres of slatted snow fence, leaning with the wind, a drift piled against it."""
+def snow_fence(m, side=1):
+    """Forty metres of slatted snow fence, leaning with the wind, a drift piled against it. Second pass: laid along the
+    hill's grade (it stood level, its downhill end in the air)."""
+    _downhill(m, side)
     L = 4000
     for k in range(11):
         x = -L / 2.0 + k * 400
@@ -130,21 +149,21 @@ def sled(m):
 
 # ------------------------------------------------------------------------------------------ the resort's works
 def avalanche_fences(m, seed=3):
-    """Avalanche fences: three staggered rows of steel rakes stepping up the slope, snow hung on their uphill sides."""
+    """Avalanche fences: three staggered rows of steel rakes stepping up the slope, snow hung on their uphill sides.
+
+    Each rake is one leaning panel under a rail, not slats. These stand 150 to 250 m from the road, in rows by the
+    hundred: drawn as six slats and two rails a rake, the outline pass inked every slat, and from the jumps the slopes
+    read as fields of black scribble (the real-game frames of 15 Nov). A panel reads as what it is from there: a grey
+    bar on the snow."""
     r = random.Random(seed)
     for row in range(3):
         y, z0 = row * 620, row * 74
         x0 = -1500 + (row % 2) * 320
         for seg in range(3):
             xs = x0 + seg * 1000
-            m.box(STEEL_D, (xs + 400, y, z0 + 300), (840, 12, 14))
-            m.box(STEEL_D, (xs + 400, y - 60, z0 + 120), (840, 12, 14))
-            for k in range(6):
-                x = xs + 40 + k * 152
-                tilt_box(m, STEEL, (x, y - 110, z0 - 40), (x, y + 30, z0 + 330), 18, 10)
-            for x in (xs + 80, xs + 720):
-                tilt_box(m, STEEL_D, (x, y + 30, z0 + 300), (x, y + 240, z0 - 60), 18, 18)
-            m.sphere(SNOW, (xs + 400, y + 140, z0 + 60), 100, scale=(4.3, 1.5, r.uniform(0.6, 1.1)), steps=(3, 6))
+            tilt_box(m, STEEL, (xs + 400, y - 110, z0 - 40), (xs + 400, y + 30, z0 + 330), 840, 12)
+            m.box(STEEL_D, (xs + 400, y + 34, z0 + 334), (880, 26, 22))
+            m.sphere(SNOW, (xs + 400, y + 150, z0 + 70), 100, scale=(4.5, 1.6, r.uniform(0.7, 1.2)), steps=(3, 6))
     m.sphere(SNOW_SH, (0, 600, -60), 1700, scale=(1.1, 0.6, 0.08), steps=(4, 8))
 
 
@@ -159,12 +178,12 @@ def snow_shed(m):
     for k in range(9):
         x = -L / 2.0 + 240 + k * 390
         m.box(CONC, (x, -W / 2.0 + 40, H / 2.0), (90, 80, H))
-        m.box(ROCK_D, (x, -W / 2.0 + 40, 40), (110, 100, 80))
-    m.box(ROCK_D, (0, 0, H + 30), (L + 60, W + 60, 60), rot=(0, 0, -8))
+        m.box(STEEL, (x, -W / 2.0 + 40, 40), (110, 100, 80))
+    m.box(STEEL, (0, 0, H + 30), (L + 60, W + 60, 60), rot=(0, 0, -8))     # second pass: was dark rock (the galleries read heavy)
     m.box(SNOW, (0, 40, H + 110), (L + 120, W + 40, 110), rot=(0, 0, -8))
     _cap(m, 300, 240, H + 190, 900, 260, 90)
     m.box(ORANGE, (0, -W / 2.0 - 4, H - 40), (L - 200, 6, 30))
-    m.box(CONC, (0, 0, -150), (L, W, 300))
+    m.box(CONC, (0, 0, -700), (L, W, 1400))                               # second pass: a plinth 14 m deep (it stands over the cutting of a banked bend)
 
 
 def rescue_hut(m):
@@ -428,18 +447,19 @@ def rock_cut(m, seed=7):
     """A rock cut beside the road under safety netting: benches of grey rock, a mesh pinned over them, snow on the ledges."""
     r = random.Random(seed)
     L = 3600
+    # Second pass: the cut stood dark and heavy 30 m from the road, and from the jumps it read as a row of black
+    # tanks (dark benches, a dark back wall, small pale caps). Paler rock, snow lying right along the top, and the
+    # netting drawn as one sheet with a top cable instead of twenty diagonals (those inked to scribble from 100 m).
     for k in range(6):
         x = -L / 2.0 + (k + 0.5) * L / 6.0
         hh = r.uniform(520, 900)
-        m.box(ROCK if k % 2 else ROCK_D, (x, 200, hh / 2.0 - 150), (L / 6.0 * 1.05, r.uniform(520, 700), hh + 300), rot=(r.uniform(-3, 3), r.uniform(-4, 4), 0))
-        _cap(m, x, 200, hh, L / 12.0, 240, 50)
-    m.box(ROCK_D, (0, 520, 500), (L, 300, 1300))
-    for k in range(10):                                                   # the netting: two sets of diagonals
-        x = -L / 2.0 + k * 400
-        tilt_box(m, NET, (x, -150, 20), (x + 520, -120, 560), 10, 6)
-        tilt_box(m, NET, (x + 520, -150, 20), (x, -120, 560), 10, 6)
-    for z in (30, 560):
-        m.box(NET, (0, -140, z), (L, 10, 12))
+        m.box(CUT if k % 2 else CUT_D, (x, 200, hh / 2.0 - 650), (L / 6.0 * 1.05, r.uniform(520, 700), hh + 1300), rot=(r.uniform(-3, 3), r.uniform(-4, 4), 0))
+        _cap(m, x, 200, hh, L / 9.0, 330, 70)
+    m.box(CUT_D, (0, 520, -50), (L, 300, 2400))
+    m.box(SNOW, (0, 540, 1180), (L + 80, 420, 110))
+    _cap(m, -600, 520, 1250, 1100, 240, 80)
+    m.box(STEEL, (0, -138, 300), (L - 100, 8, 500))
+    m.box(NET, (0, -144, 560), (L, 12, 16))
     for k in range(7):
         m.box(ORANGE, (-L / 2.0 + 300 + k * 500, -146, 560), (30, 12, 30))
     m.box(ORANGE, (-1200, -170, 250), (220, 8, 150))
@@ -593,7 +613,325 @@ def summit_observatory(m, seed=15, H=17000):
     m.box(LIT, (H * 0.14, -2510, z + 380), (900, 30, 260), glow=1.4)
 
 
+# ------------------------------------------------------------------------------------------ second pass (15 Nov 2026)
+# The ground plane: things the land's own material cannot be. All of it lies flat (under 2.8 m), 42 m and more from the
+# road (beside a banked bend the land is cut down to the road's low edge and a level piece would float over it).
+def _ccw(pts):
+    """The polygon counter-clockwise, whichever way it was written (an extrusion written clockwise is inside out)."""
+    a = 0.0
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:] + pts[:1]):
+        a += x0 * y1 - x1 * y0
+    return list(pts) if a >= 0 else list(reversed(pts))
+
+
+def _oval(rx, ry, n=14, cx=0.0, cy=0.0, a0=0.0):
+    return [(cx + math.cos(a0 + 6.28318 * k / n) * rx, cy + math.sin(a0 + 6.28318 * k / n) * ry) for k in range(n)]
+
+
+def ice_rink(m, side=1):
+    """The resort's rink: blue ice inside a ploughed snow bank, hockey lines, two goals, benches, the ice machine."""
+    _downhill(m, side)
+    L, W, B = 3400.0, 2000.0, 260.0
+    for s in (-1, 1):
+        m.box(SNOW, (0, s * (W / 2.0 + B / 2.0), 30), (L + 2 * B, B, 150))
+        m.box(SNOW, (s * (L / 2.0 + B / 2.0), 0, 30), (B, W, 150))
+        m.box(PINK if s < 0 else TEAL, (0, s * (W / 2.0 + 14), 128), (L * 0.86, 16, 46))     # the boards' rail, a colour a side
+    m.box(ICE, (0, 0, 10), (L, W, 100))
+    m.cyl(BLUE, (0, 0, 60), 300, 8, steps=14)
+    m.cyl(ICE, (0, 0, 60), 258, 9, steps=14)
+    m.box(RED, (0, 0, 66), (40, W, 10))
+    for s in (-1, 1):
+        m.box(BLUE, (s * 620, 0, 64), (40, W, 8))
+        m.box(RED, (s * 1420, 0, 64), (16, W, 8))
+        m.box(RED, (s * 1500, 0, 110), (110, 200, 100))                                      # a goal, solid
+        m.box(WHITE, (s * 1482, 0, 104), (90, 170, 80))
+        for t in (-1, 1):
+            m.cyl(RED, (s * 1050, t * 520, 60), 46, 8, steps=8)
+    for x in (-800, 700):
+        m.box(WOOD, (x, -W / 2.0 - B - 70, 50), (520, 90, 110))
+    m.box(BLACK, (900, 380, 85), (300, 170, 50))                                             # the ice machine
+    m.box(ORANGE, (900, 380, 160), (320, 180, 110))
+    m.box(PANE, (990, 380, 245), (130, 160, 60))
+    m.box(WHITE, (830, 380, 232), (170, 170, 34))
+
+
+def car_park(m, side=1, seed=41):
+    """The resort's car park, ploughed out of the snow: asphalt, painted bays and arrows, the ploughed snow banked up
+    round three sides, cars with snow on their roofs, the attendant's hut and its barrier."""
+    _downhill(m, side)
+    r = random.Random(seed)
+    L, W, B = 3600.0, 1900.0, 300.0
+    m.box(ASPH, (0, 0, 5), (L, W, 70))
+    for s in (-1, 1):
+        m.box(SNOW, (s * (L / 2.0 + B / 2.0), 60, 45), (B, W + 120, 190))
+    m.box(SNOW, (0, W / 2.0 + B / 2.0, 55), (L + 2 * B, B, 210))
+    for k in range(4):
+        m.sphere(SNOW_SH, (r.uniform(-L / 2.0, L / 2.0), W / 2.0 + B * 0.6, 150), r.uniform(150, 240), scale=(1.5, 0.8, 0.6), steps=(4, 6))
+    n = 6
+    pitch = L / n
+    cols = [RED, TEAL, YEL, BLUE, PINK, WHITE, ORANGE]
+    for row, y in ((0, W / 2.0 - 290), (1, -W / 2.0 + 290)):
+        for k in range(n + 1):
+            m.box(WHITE, (-L / 2.0 + k * pitch, y, 42), (30, 540, 6))
+        for k in range(n):
+            if r.random() < (0.85 if row == 0 else 0.6):
+                x = -L / 2.0 + (k + 0.5) * pitch + r.uniform(-60, 60)
+                c = cols[(k * 3 + row * 2) % len(cols)]
+                dy = 36 if row == 0 else -36
+                m.box(BLACK, (x, y, 62), (206, 420, 40))
+                m.box(c, (x, y, 114), (212, 450, 76))
+                m.box(PANE, (x, y + dy, 178), (188, 230, 56))
+                m.box(SNOW, (x, y + dy, 216), (200, 244, 22))
+    arrow = [(-170, -34), (30, -34), (30, -90), (190, 0), (30, 90), (30, 34), (-170, 34)]
+    for sx in (-1, 1):
+        m.plan(WHITE, _ccw(arrow), 40, 46, loc=(sx * 900, 0, 0))
+    m.box(TEAL, (-L / 2.0 + 130, -W / 2.0 - 130, 120), (220, 220, 240))                      # the hut and its barrier
+    m.box(SNOW, (-L / 2.0 + 130, -W / 2.0 - 130, 258), (260, 260, 40))
+    m.box(PANE, (-L / 2.0 + 130, -W / 2.0 - 242, 150), (130, 6, 80))
+    m.box(RED, (-L / 2.0 + 430, -W / 2.0 - 130, 110), (380, 16, 16))
+
+
+def terrain_park(m, side=1):
+    """A terrain park lane: three kickers with painted lips and landing lines, a jib box, a rail, the netting down its
+    far side."""
+    _downhill(m, side)
+    L, W = 4400.0, 1300.0
+    m.box(SNOW_SH, (0, 0, 0), (L, W, 70))
+    m.box(ORANGE, (0, W / 2.0, 80), (L, 10, 90))
+    for k, col in enumerate((PINK, TEAL, YEL)):
+        x = -1700.0 + k * 1250.0
+        h = 150.0 + k * 25.0
+        m.side(SNOW, _ccw([(x - 380, 35), (x + 140, 35), (x + 140, 35 + h)]), -260, 260)
+        m.box(col, (x + 128, 0, 35 + h - 14), (30, 520, 30))
+        m.side(SNOW, _ccw([(x + 330, 35), (x + 800, 35), (x + 520, 35 + h * 0.6)]), -330, 330)
+        m.box(col, (x + 700, 0, 38), (40, 760, 8))
+    m.box(TEAL, (1900, -330, 78), (460, 120, 86))
+    m.box(YEL, (1900, -330, 124), (480, 130, 10))
+    for dx in (-200, 200):
+        m.box(STEEL_D, (1900 + dx, 330, 70), (30, 40, 70))
+    m.box(PINK, (1900, 330, 112), (560, 44, 20))
+
+
+def access_road(m):
+    """Fifty metres of the resort's ploughed service road: asphalt between two banks of ploughed snow, a centre line."""
+    _downhill(m, 1)                                                                          # right-hand side only
+    L, W = 5000.0, 640.0
+    m.box(ASPH, (0, 0, 0), (L, W, 70))
+    for s in (-1, 1):
+        m.box(SNOW, (0, s * (W / 2.0 + 120), 30), (L, 240, 130))
+    for k in range(5):
+        m.box(YEL, (-L / 2.0 + 500 + k * 1000, 0, 37), (460, 24, 6))
+
+
+def tarn(m, seed=43):
+    """The frozen lake a jump flies over. One level sheet of ice, far bigger than the lake: the track's land dips 18 m
+    under a jump, the table stands this sheet 6 m over the bottom of the dip (SiteAfloat: one height above the level's
+    floor), and the land itself hides everything outside the shore line. z = 0 is the ice. Along the road (x) the lake
+    shows for about 28 m either side of the middle; across it (y) for 140 m either side. On it: swept dark ice, drifted
+    snow, a pressure crack, a skating oval on one side and the ice fishers' huts on the other."""
+    r = random.Random(seed)
+    m.plan(ICE, _oval(3600, 15000, 20), -600, 0)
+    for (cx, cy, rx, ry) in ((-700, -2300, 1300, 1700), (900, 1400, 1000, 1200), (-300, -9000, 1100, 1600), (400, 9600, 1000, 1500)):
+        m.plan(ICE_D, _oval(rx, ry, 9, cx, cy, r.uniform(0, 1)), 0, 5)
+    for k in range(7):
+        m.sphere(SNOW, (r.uniform(-2300, 2300), r.uniform(-9800, 9800), 0), 100, scale=(r.uniform(5, 11), r.uniform(2.5, 5), 0.3), steps=(3, 7))
+    pts = [(-2600, -4200), (-1100, -3300), (-1500, -900), (200, 600), (-300, 2600), (1700, 3400)]
+    for a, b in zip(pts, pts[1:]):
+        tilt_box(m, ICE_DEEP, (a[0], a[1], 6), (b[0], b[1], 6), 70, 8)
+    m.plan(ICE_DEEP, _oval(1500, 2500, 16, 0, 6200), 0, 7)                                   # the oval: swept ice round a snow infield
+    m.plan(SNOW_SH, _oval(880, 1880, 16, 0, 6200), 0, 14)
+    m.box(TEAL, (0, 6200, 120), (240, 240, 220))
+    m.box(SNOW, (0, 6200, 244), (280, 280, 30))
+    for k, col in enumerate((RED, YEL, PINK, TEAL)):                                         # the fishers' huts, a hole by each
+        x, y = -1300.0 + k * 760.0, -6000.0 - (k % 2) * 700.0
+        m.box(col, (x, y, 110), (220, 220, 220))
+        m.box(SNOW, (x, y, 236), (260, 260, 32))
+        m.cyl(ICE_DEEP, (x + 230, y - 70, 0), 62, 6, steps=8)
+
+
+# The resort itself: what the level's shot asks for and the first pass had too little of.
+def groomer_shed(m):
+    """The piste crew's shed: a long garage with three bays (one open, a groomer's blade showing), a pink fascia, the
+    fuel tank on its cradle at one end, a lit workshop window at the other, snow sliding off the roof."""
+    L, W, H = 2600.0, 1200.0, 640.0
+    m.box(CONC, (0, 0, H / 2.0 - 200), (L, W, H + 400))
+    m.box(STEEL_D, (0, 0, H + 40), (L + 140, W + 180, 50), rot=(0, 0, -7))
+    m.box(SNOW, (0, 40, H + 110), (L + 180, W + 120, 100), rot=(0, 0, -7))
+    m.box(PINK, (0, -W / 2.0 - 6, H - 70), (L - 60, 10, 80))
+    for k in range(3):
+        x = -820.0 + k * 820.0
+        if k == 2:
+            m.box(PANE, (x, -W / 2.0 - 4, 230), (600, 10, 460))
+            m.box(ORANGE, (x, -W / 2.0 - 60, 150), (420, 110, 220))
+            m.box(STEEL, (x, -W / 2.0 - 130, 80), (520, 30, 150), rot=(0, 0, 10))
+        else:
+            m.box(TEAL, (x, -W / 2.0 - 4, 230), (600, 10, 460))
+            m.box(WHITE, (x, -W / 2.0 - 8, 330), (520, 6, 60))
+    m.box(PANE, (-L / 2.0 - 3, -200, 400), (6, 300, 150))
+    m.box(LIT, (-L / 2.0 - 7, -200, 400), (4, 260, 110), glow=1.4)
+    rod(m, ORANGE, (L / 2.0 + 260, -350, 190), (L / 2.0 + 260, 250, 190), 110, steps=10)
+    for y in (-250, 150):
+        m.box(STEEL_D, (L / 2.0 + 260, y, 40), (180, 60, 120))
+    _cap(m, L / 2.0 + 260, -50, 290, 130, 320, 36)
+    m.sphere(SNOW, (-300, W / 2.0 + 150, 0), 100, scale=(9, 3, 2.2), steps=(4, 7))
+
+
+def hotel(m):
+    """The resort's grand hotel on the slope: five floors of rooms lit in long bands over their balconies, a stone
+    ground floor with a pink canopy, a steep roof under snow, a lower wing, and a neon sign on the ridge (three peaks
+    over a bar: no name on it)."""
+    L, W, H = 4400.0, 1500.0, 2100.0
+    m.box(ROCK, (0, 0, -150), (L + 60, W + 60, 900))
+    m.box(HOTEL, (0, 0, 300 + (H - 300) / 2.0), (L, W, H - 300))
+    m.box(HOTEL, (0, 0, H + 170), (L, W * 0.5, 340))                                          # the attic under the ridge
+    m.box(WOOD_D, (0, 0, H + 20), (L + 160, W + 200, 40))                                     # the eaves
+    for s in (-1, 1):                                                                         # the roof: two slopes of snow, the ridge along the building
+        m.box(SNOW, (0, s * 425, H + 345), (L + 260, 1090, 80), rot=(0, 0, s * 37.4))
+    for f in range(5):
+        z = 560.0 + f * 310.0
+        m.box(WOOD_D, (0, -W / 2.0 - 60, z - 110), (L, 120, 34))
+        m.box(PANE, (0, -W / 2.0 - 3, z + 20), (L - 300, 6, 150))
+        for j in range(4):
+            if (j + f) % 4 != 3:
+                m.box(LIT, (-L / 2.0 + 620 + j * 1050 + (f % 2) * 110, -W / 2.0 - 7, z + 20), (780, 5, 120), glow=1.4)
+    m.box(PINK, (0, -W / 2.0 - 170, 330), (1000, 340, 40))
+    m.box(LIT, (0, -W / 2.0 - 5, 170), (700, 6, 220), glow=1.4)
+    wx = L / 2.0 + 700                                                                        # the wing
+    m.box(ROCK, (wx, 150, -150), (1440, 1240, 900))
+    m.box(HOTEL, (wx, 150, 750), (1400, 1200, 900))
+    m.side(SNOW, _ccw([(wx - 800, 1200), (wx + 800, 1200), (wx, 1750)]), 150 - 660, 150 + 660)
+    for f in range(2):
+        m.box(PANE, (wx, 150 - 603, 560 + f * 310), (1100, 6, 150))
+        m.box(LIT, (wx - 150 + f * 300, 150 - 607, 560 + f * 310), (640, 5, 120), glow=1.4)
+    zs = H + 660                                                                              # the sign, standing on the ridge
+    m.box(PANE, (0, 0, zs + 230), (2100, 40, 460))
+    for k in range(3):
+        x = -560.0 + k * 560.0
+        tilt_box(m, PINK, (x - 230, -26, zs + 150), (x, -26, zs + 400), 16, 46, glow=0.9)
+        tilt_box(m, PINK, (x, -26, zs + 400), (x + 230, -26, zs + 150), 16, 46, glow=0.9)
+    m.box(TEAL_LIT, (0, -26, zs + 80), (1800, 16, 40), glow=0.9)
+
+
+def avalanche_dam(m):
+    """A deflecting dam on the slope: a concrete wall with buttresses down its road side, a warning band, snow along
+    its top and the slide's snow piled against its back."""
+    L, H = 3000.0, 520.0
+    m.box(CONC, (0, 60, H / 2.0 - 400), (L, 200, H + 800))
+    for k in range(5):
+        m.box(STEEL, (-L / 2.0 + 300 + k * 600, -170, 170), (150, 560, 90), rot=(0, 0, -38))
+    m.box(ORANGE, (0, -44, H - 90), (L, 12, 110))
+    m.box(SNOW, (0, 80, H + 30), (L + 60, 300, 70))
+    m.sphere(SNOW, (0, 420, H * 0.35), 100, scale=(L / 190.0, 5.0, 3.6), steps=(4, 8))
+
+
+def feather_banners(m):
+    """Three race banners on tall masts, the cloth flying away from the road and facing along it: pink, teal, yellow.
+    They line the pipes' rims and the banked bends, the one thing near enough and tall enough to show over a pipe's
+    wall. The cloth is drawn in strips so that ft_life's Flutter can bend it (animate() below)."""
+    H = 1750.0
+    for k, col in enumerate((PINK, TEAL, YEL)):
+        x = (k - 1) * 1300.0
+        m.cyl(STEEL, (x, 0, -1200), 14, H + 1200, steps=6, top_r=8)       # footed 12 m down: on a banked bend it stands over the cutting
+        for j in range(5):
+            m.box(col, (x, 49 + j * 46, 1330), (5, 46, 760))
+            m.box(WHITE, (x, 49 + j * 46, 915), (5, 46, 70))
+
+
+# The horizon: two more silhouettes, so the skyline is not one cone at many sizes, and a near ridge to stand in front.
+def _axis(rot):
+    p, y = math.radians(rot[0]), math.radians(rot[1])
+    return (-math.sin(p) * math.cos(y), -math.sin(p) * math.sin(y), math.cos(p))
+
+
+def _spire(m, x, y, R, H, rot, rock, snow_from=0.5, steps=4):
+    """A leaning mountain: like _mount, but tipped over by rot (pitch, yaw, 0), so the summit hangs to one side."""
+    ax = _axis(rot)
+    D = 3000.0
+    k = snow_from
+    rt = R * (1.0 - k * 0.92)
+    m.cyl(rock, (x - ax[0] * D, y - ax[1] * D, -ax[2] * D), R * 1.2, D + H * k, rot=rot, steps=steps, top_r=rt)
+    m.cyl(SNOW, (x + ax[0] * H * k, y + ax[1] * H * k, ax[2] * H * k), rt, H * (1.0 - k), rot=rot, steps=steps, top_r=R * 0.02)
+
+
+def far_horn(m, H=26000.0):
+    """A leaning horn: a steep four-sided summit hanging to one side, rock most of the way up, with a shoulder, a
+    fore-peak and a hanging glacier in the notch."""
+    # snow from two fifths of the way up: with rock most of the way (the first build) the near ones were great flat
+    # lavender flanks over the chute
+    _spire(m, 0, 2500, H * 0.36, H, (11, 15, 0), FAR_ROCK, 0.4, 4)
+    _spire(m, H * 0.36, 1200, H * 0.30, H * 0.56, (-6, -25, 0), FAR_ROCK, 0.4, 5)
+    _spire(m, -H * 0.34, -600, H * 0.24, H * 0.34, (4, 50, 0), FAR_ROCK_D, 0.45, 4)
+    m.box(ICE_D, (H * 0.17, 300, H * 0.26), (H * 0.2, H * 0.1, H * 0.04), rot=(-16, 0, 6))
+    m.box(SNOW, (H * 0.17, 250, H * 0.285), (H * 0.19, H * 0.09, H * 0.02), rot=(-16, 0, 6))
+
+
+def far_twin(m, H=22000.0):
+    """A twin summit: two unequal horns leaning apart, a glacier coming down in steps between them, snow domes on its
+    shoulders."""
+    _spire(m, -H * 0.24, 2000, H * 0.33, H, (7, 0, 0), FAR_ROCK, 0.34, 5)
+    _spire(m, H * 0.26, 2600, H * 0.30, H * 0.82, (-8, 0, 0), FAR_ROCK, 0.36, 6)
+    for k in range(4):
+        z = H * (0.40 - 0.085 * k)
+        m.box(ICE if k % 2 else ICE_D, (0, 1500 - k * 1500, z / 2.0 - 1500), (H * (0.30 - 0.03 * k), 1700, z + 3000))
+        m.box(SNOW, (0, 1700 - k * 1500, z + 40), (H * (0.27 - 0.03 * k), 1100, 80))
+    m.box(ICE_DEEP, (0, -4000, H * 0.05 - 1500), (H * 0.2, 300, H * 0.1 + 3000))
+    m.sphere(SNOW, (-H * 0.62, 600, 0), H * 0.26, scale=(1.2, 0.6, 0.3), steps=(5, 9))       # low domes (taller, they read as boulders)
+    m.sphere(SNOW, (H * 0.6, 0, 0), H * 0.2, scale=(1.1, 0.6, 0.26), steps=(5, 9))
+
+
+def saw_ridge(m, seed=53, L=52000.0, H=9000.0):
+    """A long serrated ridge that stands in front of the far peaks: a rock crest in uneven teeth with snow on their
+    tips, a band of blue shadow under it and a snow apron under that, each layer leaning back like a slope."""
+    r = random.Random(seed)
+    n = 6
+    step = L / (2.0 * n)
+    crest = []
+    for k in range(2 * n + 1):
+        x = -L / 2.0 + k * step + (r.uniform(-0.3, 0.3) * step if 0 < k < 2 * n else 0.0)
+        crest.append((x, H * (r.uniform(0.3, 0.5) if k % 2 == 0 else r.uniform(0.62, 1.0))))
+    crest[0] = (-L / 2.0, H * 0.1)
+    crest[-1] = (L / 2.0, H * 0.14)
+    lean = (0, 0, 16)
+
+    def layer(col, f, y0, y1):
+        pts = [(-L / 2.0, -3000.0)] + [(x, z * f) for x, z in crest] + [(L / 2.0, -3000.0)]
+        m.side(col, _ccw(pts), y0, y1, rot=lean)
+    layer(FAR_ROCK_D, 1.0, 0.0, 4000.0)
+    layer(SNOW_SH, 0.58, -700.0, 0.0)
+    layer(SNOW, 0.44, -1500.0, -700.0)
+    for k in range(1, 2 * n, 2):
+        (x, z), (xa, za), (xb, zb) = crest[k], crest[k - 1], crest[k + 1]
+        t = 0.3
+        m.side(SNOW, _ccw([(x + (xa - x) * t, z + (za - z) * t + 30), (x + (xb - x) * t, z + (zb - z) * t + 30), (x, z + 30)]), -80.0, 4000.0, rot=lean)
+
+
+def animate():
+    """What moves (ft_life.animate puts M_Life on the named material slots and saves the mesh in place). Run it after
+    every export of one of these pieces: the export puts the plain palette back.
+      SM_PoleFeather   the banners' cloth ripples away from its mast (pinned at y = 26, flying along +y, flapping along x)
+      beacons          the red lamps on masts, pylons, groomers, the pad and the far lift line blink, each on its own clock
+      windows          the lodge, the huts and the lift station swell and dim; the hotel's rooms go on and off one by one,
+                       and its sign breathes"""
+    import ft_life
+    n = ft_life.animate(DIR + 'SM_PoleFeather', 'Flutter', [PINK, TEAL, YEL, WHITE], FlutterPin=(0.0, 26.0, 1300.0), FlutterAxis=(0.0, 1.0, 0.0),
+                        FlutterDir=(1.0, 0.0, 0.0), FlutterSpan=230.0, FlutterLen=300.0, FlutterRate=5.0, FlutterAmp=16.0,
+                        FlutterPhase=(0.00035, 0.0, 0.0))
+    for name in ('SM_PoleSignal', 'SM_Snowcat', 'SM_LiftSpan', 'SM_LiftTop', 'SM_WeatherStation', 'SM_Helipad', 'SM_RidgeLiftLine',
+                 'SM_PeakObservatory'):
+        n += ft_life.animate(DIR + name, 'Light', [RED + '*'], **ft_life.BLINK)
+    for name in ('SM_Lodge', 'SM_HutRescue', 'SM_LiftStation', 'SM_ShedGroomer'):
+        n += ft_life.animate(DIR + name, 'Light', [LIT + '*'], **ft_life.PULSE)
+    n += ft_life.animate(DIR + 'SM_Hotel', 'Light', [LIT + '*'], LightHash=0.25, LightCell=500.0, LightRate=0.12, LightMin=0.15, LightRand=1.0)
+    n += ft_life.animate(DIR + 'SM_Hotel', 'Light', [PINK + '*', TEAL_LIT + '*'], **ft_life.PULSE)
+    return n
+
+
 JOBS = [
+    ('SM_SnowRink', ice_rink), ('SM_SnowLot', car_park), ('SM_SnowPark', terrain_park), ('SM_SnowRoad', access_road), ('SM_SnowTarn', tarn),
+    ('SM_SnowRinkL', lambda m: ice_rink(m, -1)), ('SM_SnowLotL', lambda m: car_park(m, -1)), ('SM_SnowParkL', lambda m: terrain_park(m, -1)),
+    ('SM_SnowFenceL', lambda m: snow_fence(m, -1)),
+    ('SM_ShedGroomer', groomer_shed), ('SM_Hotel', hotel), ('SM_AvalancheDam', avalanche_dam), ('SM_PoleFeather', feather_banners),
+    ('SM_PeakHorn', far_horn), ('SM_PeakTwin', far_twin), ('SM_RidgeSaw', saw_ridge),
     ('SM_SnowFence', snow_fence), ('SM_SnowRockBank', snow_bank), ('SM_SnowRockBank2', lambda m: snow_bank(m, seed=21)),
     ('SM_PoleMarker', piste_marker), ('SM_PoleMarker2', lambda m: piste_marker(m, RED)), ('SM_SnowRockIce', ice_blocks),
     ('SM_SnowCannon', snow_cannon), ('SM_Sled', sled),

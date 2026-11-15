@@ -286,3 +286,225 @@ Zone(TEXT("Reactor two"), 21.4f, 25.6f);
 	Scatter(TEXT("SM_CoolingTower"), 230.f, 285.f, 4, 0, 0.8f, 1.f, 0.15f);
 	Far(TEXT("SM_FarStacks"), 380.f, 640.f, 3, 0, 0.9f, 1.f, 0.15f);
 	Far(TEXT("SM_FarCooling"), 820.f, 1200.f, 6, 3, 0.9f, 1.1f, 0.1f);
+
+// =====================================================================================================================
+// SECOND PASS (15 Nov 2026): the ground plane, what stands in the sky of the banked turns, and the reactor.
+// Everything from here on is APPENDED on purpose: a rule's random stream is seeded by its place in this file, so a rule
+// added among the districts above would re-deal every first-pass piece. These zones lie over the districts.
+//
+// The lie of this road (measured: SkyScratch\DevLog\jam\art_pass2\w2\track_L1.json): it is hardly ever straight.
+// S-bends banked 20 to 34 degrees, three "wall" hairpins banked 58 (2.62-2.99 km climbing 38 m to a plateau, 3.59-3.94
+// coming down off it, 7.90-8.11), fourteen glass pipes, eleven loops, two corkscrews, two jumps; and from 14.06 km the
+// finale laps a circuit that 22.18-25.58 km runs round a second time, a few metres beside the first.
+//
+// 1. SKY. A camera rolled with a banked road looks up over the outside of the bend: only tall things near the road
+//    stand there. SM_ColumnTrio (88 m) and SM_CoolingTower go on the OUTSIDE of the three hairpins and, more thinly,
+//    both sides of the S-bends; SM_Catwalk adds the lit walkways at 46 to 70 m.
+// 2. THE REACTOR. The jump at 4.37 km takes off heading straight at a point the road then swerves round (the S-bend at
+//    5.02-5.37 km): slot 115, 134 m to the left. SM_ReactorCore stands exactly there: dead ahead from the hairpin's
+//    foot at 3.9 km (1.3 km out), in the middle of the windscreen over the jump, and passed on the outside of a banked
+//    right-hander, where the camera looks up at it. The finale's stands the same way outside the hairpin at 21.2 km.
+// 3. GROUND. Flat pieces (under 2 m). The track keeps Scatter and Site pieces out of loops, pipes, corkscrews and jump
+//    gaps, which is where the camera sees most land. So, apart from the plant roads (Scatter, from 26 m: the track's
+//    rule applies to them), the ground is laid by Far rules with a metre's drop (a Far piece stands "drop" below the
+//    road's own level, and the land 26 to 100 m out lies 0.9 to 1.4 m below it), and so runs on under loops and
+//    beside pipes as the horizon does:
+//      26 to 47 m: unlit yards, sidings, channels, pipe fields (the "Yards:" zones at the very end of this file);
+//      43 to 65 m and 67 to 97 m: lots, ponds, pads, lagoons (the "Ground:" zones). The ponds glow a little: 40 m out.
+//    Every piece still goes through the clearance test. The ground zones stop short of the ramps (land steeper than
+//    6%: a level slab would hang or drown there) and of the two jumps (a jump's run-up and landing stay open), and
+//    the finale's doubled circuit (14.02-17.4 km, lapped again at 22.18-25.58) gets one unlit row 74 m out only.
+//    Within a zone the phases keep the ground's slots clear of the slots the district's own sets stand in.
+
+// ---- sky: tall pieces beside the banked road
+Zone(TEXT("Sky: gate"), 0.05f, 1.23f);
+	Scatter(TEXT("SM_ColumnTrio"), 85.f, 135.f, 4, 2, 0.8f, 1.f, 0.08f);
+Zone(TEXT("Sky: tank farm"), 1.23f, 2.6f);
+	Scatter(TEXT("SM_Gasholder"), 80.f, 120.f, 3, 1, 0.5f, 1.1f, 0.1f);
+	Scatter(TEXT("SM_ColumnTrio"), 95.f, 140.f, 6, 3, 0.9f, 1.f, 0.08f);
+Zone(TEXT("Sky: process units"), 2.6f, 3.98f);
+	Far(TEXT("SM_ColumnTrio"), 130.f, 210.f, 3, 0, 0.85f, 1.f, 0.1f, 0, 2.f, 180.f);
+	Scatter(TEXT("SM_Catwalk"), 46.f, 66.f, 4, 3, 0.8f);
+Zone(TEXT("Wall climb"), 2.6f, 2.99f);
+	Scatter(TEXT("SM_ColumnTrio"), 62.f, 100.f, 1, 0, 0.9f, 1.f, 0.08f, -1);
+	Scatter(TEXT("SM_CoolingTower"), 130.f, 180.f, 2, 1, 1.f, 0.9f, 0.1f, -1);
+Zone(TEXT("Wall descent"), 3.59f, 3.94f);
+	Scatter(TEXT("SM_ColumnTrio"), 62.f, 100.f, 1, 0, 0.9f, 1.f, 0.08f, 1);
+	Scatter(TEXT("SM_CoolingTower"), 130.f, 180.f, 2, 0, 1.f, 0.9f, 0.1f, 1);
+Zone(TEXT("Sky: reactor block"), 3.98f, 5.35f);
+	Scatter(TEXT("SM_Catwalk"), 46.f, 62.f, 5, 2, 0.8f);
+Zone(TEXT("Reactor core"), 5.19f, 5.22f);
+	Far(TEXT("SM_ReactorCore"), 134.f, 134.f, 1, 0, 1.f, 1.25f, 0.f, -1, 1.6f, 0.f);
+Zone(TEXT("Sky: pipe alley"), 5.35f, 6.72f);
+	Scatter(TEXT("SM_Catwalk"), 60.f, 70.f, 3, 1, 0.7f);
+	Far(TEXT("SM_ColumnTrio"), 140.f, 200.f, 5, 2, 0.8f, 1.f, 0.1f, 0, 2.f, 180.f);
+Zone(TEXT("Wall turn"), 7.88f, 8.11f);
+	Scatter(TEXT("SM_ColumnTrio"), 62.f, 100.f, 1, 0, 0.9f, 1.f, 0.08f, -1);
+	Scatter(TEXT("SM_Gasholder"), 115.f, 155.f, 2, 0, 1.f, 1.2f, 0.1f, -1);
+Zone(TEXT("Sky: waste run"), 8.09f, 9.46f);
+	Far(TEXT("SM_TankCluster"), 115.f, 175.f, 2, 1, 0.8f, 1.f, 0.1f, 0, 1.9f, 20.f);
+	Far(TEXT("/Game/Maps/ChemicalWorks/Props/SM_Vat"), 105.f, 150.f, 3, 0, 0.8f, 1.2f, 0.15f, 0, 1.8f, 180.f);
+	Far(TEXT("SM_Warehouse"), 190.f, 260.f, 3, 2, 0.8f, 1.1f, 0.1f, 0, 2.4f, 10.f);
+Zone(TEXT("Sky: export terminal"), 9.46f, 13.4f);
+	Scatter(TEXT("SM_Catwalk"), 48.f, 66.f, 6, 4, 0.7f);
+Zone(TEXT("Sky: cooling field"), 13.4f, 17.4f);
+	Scatter(TEXT("SM_ColumnTrio"), 70.f, 125.f, 5, 2, 0.8f, 1.f, 0.08f, -1);
+Zone(TEXT("Sky: tank farm B"), 17.4f, 21.4f);
+	Scatter(TEXT("SM_ColumnTrio"), 70.f, 125.f, 5, 3, 0.8f, 1.f, 0.08f, -1);
+Zone(TEXT("Reactor core two"), 21.24f, 21.27f);
+	Far(TEXT("SM_ReactorCore"), 150.f, 150.f, 1, 0, 1.f, 1.1f, 0.f, -1, 1.7f, 0.f);
+Zone(TEXT("Sky: reactor two"), 21.4f, 25.6f);
+	Scatter(TEXT("SM_ColumnTrio"), 75.f, 125.f, 4, 1, 0.8f, 1.f, 0.08f);
+	Scatter(TEXT("SM_Catwalk"), 46.f, 62.f, 5, 2, 0.8f);
+
+// ---- ground: the plant roads (26 m), then two rows of yards, ponds and pads (43-65 m and 67-97 m)
+Zone(TEXT("Ground: gate"), 0.05f, 1.24f);
+	Scatter(TEXT("SM_AccessRoad"), 43.f, 44.f, 5, 2, 0.85f);
+	Far(TEXT("SM_CarPark"), 51.f, 56.f, 4, 0, 0.8f, 1.f, 0.03f, 0, 1.1f, 5.f);
+	Far(TEXT("SM_YardLot"), 51.f, 57.f, 4, 2, 0.8f, 1.f, 0.03f, 0, 1.1f, 6.f);
+	Far(TEXT("SM_YardLot2"), 52.f, 57.f, 4, 3, 0.8f, 1.f, 0.03f, 0, 1.1f, 6.f);
+	Far(TEXT("SM_YardLot3"), 80.f, 87.f, 4, 1, 0.8f, 1.f, 0.03f, 0, 1.3f, 6.f);
+	Far(TEXT("SM_TankPad"), 80.f, 87.f, 4, 3, 0.8f, 1.f, 0.03f, 0, 1.3f, 6.f);
+	Far(TEXT("SM_HeliPad"), 82.f, 86.f, 9, 4, 1.f, 1.f, 0.f, 1, 1.3f, 20.f);
+Zone(TEXT("Ground: tank farm"), 1.4f, 2.04f);
+	Scatter(TEXT("SM_AccessRoad"), 43.f, 44.f, 6, 1, 0.85f);
+	Far(TEXT("SM_TankPad"), 51.f, 56.f, 3, 0, 0.8f, 1.f, 0.03f, 0, 1.1f, 5.f);
+	Far(TEXT("SM_Pond"), 51.f, 56.f, 3, 1, 0.8f, 1.f, 0.03f, 0, 1.1f, 5.f);
+	Far(TEXT("SM_PipeField"), 57.f, 60.f, 3, 2, 0.8f, 1.f, 0.03f, 0, 1.15f, 4.f);
+	Far(TEXT("SM_Clarifier"), 81.f, 86.f, 3, 1, 0.7f, 1.f, 0.03f, 0, 1.3f, 180.f);
+	Far(TEXT("SM_TankPad"), 80.f, 86.f, 3, 2, 0.7f, 1.f, 0.03f, 0, 1.3f, 5.f);
+Zone(TEXT("Ground: tank farm low"), 2.19f, 2.6f);
+	Far(TEXT("SM_TankPad"), 51.f, 56.f, 3, 0, 0.8f, 1.f, 0.03f, 0, 1.1f, 5.f);
+	Far(TEXT("SM_Pond"), 51.f, 56.f, 3, 1, 0.8f, 1.f, 0.03f, 0, 1.1f, 5.f);
+	Far(TEXT("SM_PipeField"), 57.f, 60.f, 3, 2, 0.8f, 1.f, 0.03f, 0, 1.15f, 4.f);
+	Far(TEXT("SM_Clarifier"), 81.f, 86.f, 3, 1, 0.7f, 1.f, 0.03f, 0, 1.3f, 180.f);
+	Far(TEXT("SM_YardLot3"), 80.f, 86.f, 3, 2, 0.7f, 1.f, 0.03f, 0, 1.3f, 5.f);
+Zone(TEXT("Ground: process units"), 2.93f, 3.6f);
+	Far(TEXT("SM_PipeField"), 57.f, 60.f, 3, 0, 0.85f, 1.f, 0.03f, 0, 1.15f, 4.f);
+	Far(TEXT("SM_Clarifier"), 52.f, 56.f, 3, 2, 0.85f, 1.f, 0.03f, 0, 1.1f, 180.f);
+	Far(TEXT("SM_Pond2"), 81.f, 86.f, 3, 0, 0.8f, 1.f, 0.03f, 0, 1.3f, 5.f);
+	Far(TEXT("SM_YardLot"), 80.f, 86.f, 3, 2, 0.8f, 1.f, 0.03f, 0, 1.3f, 6.f);
+Zone(TEXT("Ground: reactor plain"), 3.89f, 4.26f);
+	Far(TEXT("SM_Canal"), 50.f, 54.f, 3, 0, 0.85f, 1.f, 0.03f, 0, 1.1f, 3.f);
+	Far(TEXT("SM_Pond2"), 51.f, 56.f, 3, 1, 0.85f, 1.f, 0.03f, 0, 1.1f, 5.f);
+	Far(TEXT("SM_YardLot2"), 52.f, 57.f, 3, 2, 0.85f, 1.f, 0.03f, 0, 1.1f, 6.f);
+	Far(TEXT("SM_Clarifier"), 81.f, 86.f, 4, 1, 0.8f, 1.f, 0.03f, 0, 1.3f, 180.f);
+	Far(TEXT("SM_HeliPad"), 82.f, 86.f, 4, 3, 0.8f, 1.f, 0.f, 0, 1.3f, 20.f);
+Zone(TEXT("Ground: reactor block"), 4.55f, 5.35f);
+	Scatter(TEXT("SM_AccessRoad"), 43.f, 44.f, 6, 3, 0.85f);
+	Far(TEXT("SM_Canal"), 50.f, 54.f, 3, 0, 0.85f, 1.f, 0.03f, 0, 1.1f, 3.f);
+	Far(TEXT("SM_Pond2"), 51.f, 56.f, 3, 1, 0.85f, 1.f, 0.03f, 0, 1.1f, 5.f);
+	Far(TEXT("SM_YardLot2"), 52.f, 57.f, 3, 2, 0.85f, 1.f, 0.03f, 0, 1.1f, 6.f);
+	Far(TEXT("SM_Clarifier"), 81.f, 86.f, 4, 1, 0.8f, 1.f, 0.03f, 0, 1.3f, 180.f);
+	Far(TEXT("SM_CarPark"), 80.f, 85.f, 4, 3, 0.8f, 1.f, 0.03f, 0, 1.3f, 5.f);
+Zone(TEXT("Ground: pipe alley"), 5.35f, 6.43f);
+	Far(TEXT("SM_PipeField"), 57.f, 60.f, 3, 0, 0.8f, 1.f, 0.03f, 0, 1.15f, 4.f);
+	Far(TEXT("SM_Canal"), 60.f, 64.f, 3, 1, 0.8f, 1.f, 0.03f, 0, 1.15f, 3.f);
+	Far(TEXT("SM_YardLot"), 62.f, 66.f, 3, 2, 0.8f, 1.f, 0.03f, 0, 1.15f, 6.f);
+	Far(TEXT("SM_Pond"), 84.f, 88.f, 4, 0, 0.7f, 1.f, 0.03f, 0, 1.3f, 5.f);
+	Far(TEXT("SM_TankPad"), 84.f, 88.f, 4, 2, 0.7f, 1.f, 0.03f, 0, 1.3f, 5.f);
+Zone(TEXT("Ground: pipe alley low"), 6.58f, 6.72f);
+	Far(TEXT("SM_PipeField"), 57.f, 60.f, 2, 0, 0.8f, 1.f, 0.03f, 0, 1.15f, 4.f);
+	Far(TEXT("SM_YardLot"), 62.f, 66.f, 2, 1, 0.8f, 1.f, 0.03f, 0, 1.15f, 6.f);
+Zone(TEXT("Ground: loading yards"), 6.72f, 7.32f);
+	Scatter(TEXT("SM_AccessRoad"), 43.f, 44.f, 4, 1, 0.85f);
+	Far(TEXT("SM_RailFan"), 48.f, 52.f, 3, 0, 0.85f, 1.f, 0.03f, 0, 1.1f, 3.f);
+	Far(TEXT("SM_YardLot2"), 52.f, 57.f, 3, 1, 0.85f, 1.f, 0.03f, 0, 1.1f, 6.f);
+	Far(TEXT("SM_YardLot3"), 51.f, 56.f, 3, 2, 0.85f, 1.f, 0.03f, 0, 1.1f, 6.f);
+	Far(TEXT("SM_YardLot"), 82.f, 87.f, 4, 1, 0.8f, 1.f, 0.03f, 0, 1.3f, 6.f);
+	Far(TEXT("SM_CarPark"), 82.f, 86.f, 4, 3, 0.8f, 1.f, 0.03f, 0, 1.3f, 5.f);
+Zone(TEXT("Ground: loading yards east"), 7.72f, 8.09f);
+	Far(TEXT("SM_RailFan"), 48.f, 52.f, 3, 0, 0.85f, 1.f, 0.03f, 0, 1.1f, 3.f);
+	Far(TEXT("SM_YardLot2"), 52.f, 57.f, 3, 1, 0.85f, 1.f, 0.03f, 0, 1.1f, 6.f);
+	Far(TEXT("SM_YardLot3"), 51.f, 56.f, 3, 2, 0.85f, 1.f, 0.03f, 0, 1.1f, 6.f);
+	Far(TEXT("SM_YardLot"), 82.f, 87.f, 4, 1, 0.8f, 1.f, 0.03f, 0, 1.3f, 6.f);
+Zone(TEXT("Ground: waste run"), 8.09f, 9.46f);
+	Far(TEXT("SM_Lagoon"), 78.f, 86.f, 3, 0, 0.8f, 1.f, 0.05f, 0, 1.3f, 180.f);
+	Far(TEXT("SM_Lagoon"), 54.f, 58.f, 3, 1, 0.85f, 0.9f, 0.05f, 0, 1.1f, 180.f);
+	Far(TEXT("SM_YardLot3"), 51.f, 56.f, 3, 2, 0.85f, 1.f, 0.03f, 0, 1.1f, 6.f);
+	Far(TEXT("SM_Pond2"), 82.f, 87.f, 3, 1, 0.7f, 1.f, 0.03f, 0, 1.3f, 5.f);
+	Far(TEXT("SM_TankPad"), 82.f, 87.f, 3, 2, 0.7f, 1.f, 0.03f, 0, 1.3f, 5.f);
+Zone(TEXT("Ground: export terminal"), 9.46f, 13.4f);
+	Scatter(TEXT("SM_AccessRoad"), 43.f, 44.f, 5, 1, 0.85f);
+	Far(TEXT("SM_RailFan"), 48.f, 52.f, 3, 0, 0.8f, 1.f, 0.03f, 0, 1.1f, 3.f);
+	Far(TEXT("SM_YardLot"), 52.f, 57.f, 3, 1, 0.8f, 1.f, 0.03f, 0, 1.1f, 6.f);
+	Far(TEXT("SM_CarPark"), 51.f, 56.f, 6, 2, 0.8f, 1.f, 0.03f, 0, 1.1f, 5.f);
+	Far(TEXT("SM_YardLot2"), 52.f, 57.f, 6, 5, 0.8f, 1.f, 0.03f, 0, 1.1f, 6.f);
+	Far(TEXT("SM_TankPad"), 82.f, 87.f, 5, 1, 0.8f, 1.f, 0.03f, 0, 1.3f, 5.f);
+	Far(TEXT("SM_YardLot3"), 82.f, 87.f, 5, 3, 0.8f, 1.f, 0.03f, 0, 1.3f, 6.f);
+	Far(TEXT("SM_HeliPad"), 82.f, 86.f, 15, 4, 1.f, 1.f, 0.f, 0, 1.3f, 20.f);
+Zone(TEXT("Ground: cooling field"), 14.02f, 17.4f);
+	Far(TEXT("SM_Canal"), 86.f, 90.f, 3, 0, 0.5f, 1.f, 0.03f, 0, 1.3f, 3.f);
+	Far(TEXT("SM_YardLot"), 84.f, 88.f, 3, 1, 0.8f, 1.f, 0.03f, 0, 1.3f, 6.f);
+	Far(TEXT("SM_YardLot3"), 84.f, 88.f, 3, 2, 0.8f, 1.f, 0.03f, 0, 1.3f, 6.f);
+	Far(TEXT("SM_RailFan"), 101.f, 104.f, 6, 3, 0.7f, 1.f, 0.03f, 0, 1.4f, 3.f);
+	Far(TEXT("SM_YardLot2"), 106.f, 109.f, 6, 0, 0.7f, 1.f, 0.03f, 0, 1.45f, 6.f);
+Zone(TEXT("Ground: tank farm B"), 17.4f, 21.4f);
+	Scatter(TEXT("SM_AccessRoad"), 43.f, 44.f, 6, 4, 0.85f);
+	Far(TEXT("SM_TankPad"), 51.f, 56.f, 3, 0, 0.8f, 1.f, 0.03f, 0, 1.1f, 5.f);
+	Far(TEXT("SM_Pond"), 51.f, 56.f, 3, 1, 0.8f, 1.f, 0.03f, 0, 1.1f, 5.f);
+	Far(TEXT("SM_PipeField"), 57.f, 60.f, 3, 2, 0.8f, 1.f, 0.03f, 0, 1.15f, 4.f);
+	Far(TEXT("SM_Clarifier"), 81.f, 86.f, 3, 1, 0.7f, 1.f, 0.03f, 0, 1.3f, 180.f);
+	Far(TEXT("SM_YardLot"), 82.f, 87.f, 3, 2, 0.7f, 1.f, 0.03f, 0, 1.3f, 6.f);
+Zone(TEXT("Ground: reactor two"), 21.4f, 22.15f);
+	Far(TEXT("SM_Canal"), 50.f, 54.f, 4, 1, 0.85f, 1.f, 0.03f, 0, 1.1f, 3.f);
+	Far(TEXT("SM_Pond2"), 51.f, 56.f, 4, 3, 0.85f, 1.f, 0.03f, 0, 1.1f, 5.f);
+	Far(TEXT("SM_HeliPad"), 82.f, 86.f, 4, 1, 0.8f, 1.f, 0.f, 0, 1.3f, 20.f);
+	Far(TEXT("SM_Clarifier"), 81.f, 86.f, 4, 3, 0.8f, 1.f, 0.03f, 0, 1.3f, 180.f);
+
+// ---- correction round. The cooling field's ground before the circuit closes on itself (13.4-14.02 km). From 14.02 km
+// the finale's second lap weaves across the first, 2 to 50 m either side of it, crossing it again and again: there the
+// zone above lays one unlit row 74 m out and beyond, which no stretch of either lap comes nearer than 23 m to.
+Zone(TEXT("Ground: cooling field west"), 13.4f, 14.02f);
+	Far(TEXT("SM_Canal"), 50.f, 54.f, 3, 0, 0.8f, 1.f, 0.03f, 0, 1.1f, 3.f);
+	Far(TEXT("SM_Clarifier"), 52.f, 56.f, 3, 1, 0.8f, 1.f, 0.03f, 0, 1.1f, 180.f);
+	Far(TEXT("SM_Pond"), 51.f, 56.f, 3, 2, 0.8f, 1.f, 0.03f, 0, 1.1f, 5.f);
+	Far(TEXT("SM_Pond2"), 82.f, 87.f, 3, 1, 0.7f, 1.f, 0.03f, 0, 1.3f, 5.f);
+	Far(TEXT("SM_PipeField"), 82.f, 86.f, 3, 2, 0.7f, 1.f, 0.03f, 0, 1.3f, 4.f);
+
+// ---- correction round. Ground, the near row (26 to 47 m): UNLIT yards, sidings, channels and pipe fields under the
+// roadside's own pieces (the fence, the drums, the pump houses and the parked tankers then stand on something).
+// A camera rolled 20 to 30 degrees with an S-bend sees the land from 16 to 45 m and little beyond it; a camera in a
+// corkscrew, a loop or a pipe sees the same strip from above. Far rules, so the row runs on through those; it starts
+// 26 m out (beside a banked stretch the land is cut down to the road's low edge inside that), nothing in it is lit,
+// and it stops short of the ramps, the jumps and the finale's doubled circuit like the rows behind it.
+Zone(TEXT("Yards: gate"), 0.05f, 1.24f);
+	Far(TEXT("SM_YardLot2"), 37.5f, 38.f, 4, 1, 0.8f, 1.f, 0.03f, 0, 0.98f, 5.f);
+	Far(TEXT("SM_YardLot3"), 36.f, 37.f, 4, 3, 0.8f, 1.f, 0.03f, 0, 0.98f, 5.f);
+Zone(TEXT("Yards: tank farm"), 1.4f, 2.04f);
+	Far(TEXT("SM_PipeField"), 41.8f, 42.2f, 4, 0, 0.8f, 1.f, 0.03f, 0, 1.f, 4.f);
+	Far(TEXT("SM_YardLot3"), 36.f, 37.f, 4, 2, 0.8f, 1.f, 0.03f, 0, 0.98f, 5.f);
+Zone(TEXT("Yards: tank farm low"), 2.19f, 2.6f);
+	Far(TEXT("SM_PipeField"), 41.8f, 42.2f, 4, 0, 0.8f, 1.f, 0.03f, 0, 1.f, 4.f);
+	Far(TEXT("SM_YardLot3"), 36.f, 37.f, 4, 2, 0.8f, 1.f, 0.03f, 0, 0.98f, 5.f);
+Zone(TEXT("Yards: process units"), 2.93f, 3.6f);
+	Far(TEXT("SM_YardLot"), 36.5f, 37.f, 4, 1, 0.8f, 1.f, 0.03f, 0, 0.98f, 5.f);
+	Far(TEXT("SM_YardLot2"), 37.5f, 38.f, 4, 3, 0.8f, 1.f, 0.03f, 0, 0.98f, 5.f);
+Zone(TEXT("Yards: reactor plain"), 3.89f, 4.26f);
+	Far(TEXT("SM_Canal"), 32.5f, 33.f, 4, 0, 0.8f, 1.f, 0.03f, 0, 0.95f, 3.f);
+	Far(TEXT("SM_YardLot2"), 37.5f, 38.f, 4, 2, 0.8f, 1.f, 0.03f, 0, 0.98f, 5.f);
+Zone(TEXT("Yards: reactor block"), 4.55f, 5.35f);
+	Far(TEXT("SM_Canal"), 32.5f, 33.f, 4, 0, 0.8f, 1.f, 0.03f, 0, 0.95f, 3.f);
+	Far(TEXT("SM_YardLot2"), 37.5f, 38.f, 4, 2, 0.8f, 1.f, 0.03f, 0, 0.98f, 5.f);
+Zone(TEXT("Yards: pipe alley"), 5.35f, 6.43f);
+	Far(TEXT("SM_Canal"), 32.5f, 33.f, 4, 1, 0.8f, 1.f, 0.03f, 0, 0.95f, 3.f);
+	Far(TEXT("SM_YardLot"), 36.5f, 37.f, 4, 3, 0.8f, 1.f, 0.03f, 0, 0.98f, 5.f);
+Zone(TEXT("Yards: loading yards"), 6.58f, 7.32f);
+	Far(TEXT("SM_RailFan"), 31.f, 32.f, 4, 0, 0.8f, 1.f, 0.03f, 0, 0.95f, 3.f);
+	Far(TEXT("SM_YardLot2"), 37.5f, 38.f, 4, 2, 0.8f, 1.f, 0.03f, 0, 0.98f, 5.f);
+Zone(TEXT("Yards: loading yards east"), 7.72f, 8.09f);
+	Far(TEXT("SM_RailFan"), 31.f, 32.f, 4, 0, 0.8f, 1.f, 0.03f, 0, 0.95f, 3.f);
+	Far(TEXT("SM_YardLot2"), 37.5f, 38.f, 4, 2, 0.8f, 1.f, 0.03f, 0, 0.98f, 5.f);
+Zone(TEXT("Yards: waste run"), 8.09f, 9.46f);
+	Far(TEXT("SM_YardLot3"), 36.f, 37.f, 4, 0, 0.8f, 1.f, 0.03f, 0, 0.98f, 5.f);
+	Far(TEXT("SM_Canal"), 32.5f, 33.f, 4, 2, 0.7f, 1.f, 0.03f, 0, 0.95f, 3.f);
+Zone(TEXT("Yards: export terminal"), 9.46f, 14.02f);
+	Far(TEXT("SM_RailFan"), 31.f, 32.f, 4, 1, 0.8f, 1.f, 0.03f, 0, 0.95f, 3.f);
+	Far(TEXT("SM_YardLot"), 36.5f, 37.f, 4, 3, 0.8f, 1.f, 0.03f, 0, 0.98f, 5.f);
+	Far(TEXT("SM_YardLot2"), 37.5f, 38.f, 8, 0, 0.8f, 1.f, 0.03f, 0, 0.98f, 5.f);
+Zone(TEXT("Yards: tank farm B"), 17.4f, 21.4f);
+	Far(TEXT("SM_PipeField"), 41.8f, 42.2f, 4, 0, 0.8f, 1.f, 0.03f, 0, 1.f, 4.f);
+	Far(TEXT("SM_YardLot3"), 36.f, 37.f, 4, 2, 0.8f, 1.f, 0.03f, 0, 0.98f, 5.f);
+Zone(TEXT("Yards: reactor two"), 21.4f, 22.15f);
+	Far(TEXT("SM_Canal"), 32.5f, 33.f, 4, 0, 0.8f, 1.f, 0.03f, 0, 0.95f, 3.f);
+	Far(TEXT("SM_YardLot2"), 37.5f, 38.f, 4, 2, 0.8f, 1.f, 0.03f, 0, 0.98f, 5.f);

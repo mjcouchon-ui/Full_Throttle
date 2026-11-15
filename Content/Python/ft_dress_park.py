@@ -28,6 +28,7 @@ rise out of one sheet of water and the hollows between them hold it.
 import math
 import random
 import unreal
+import ft_art
 import ft_city
 import ft_visual_art
 from ft_desert import rod, tilt_box
@@ -36,6 +37,7 @@ NAVY, DEEP, PURPLE, PLUM = '#2b2350', '#2a2546', '#3a2f6a', '#4a3a78'
 MAG, CYAN, AMBER, BULB, CREAM = '#ff4fb8', '#2ee6ff', '#ffd23f', '#ffe28a', '#fff1d6'
 RED, WHITE, LAV, MINT, TEAL = '#ff2d3c', '#fff6ea', '#b9a4ff', '#7fe3c4', '#2fc6c0'
 WOOD, WOOD_D, PINE, GREY, GREY_L, ROCK, ROCK_D = '#9a6a44', '#6a4c36', '#2f6b52', '#6a6878', '#9a98a8', '#4a4466', '#3a3556'
+POOL = '#3a5fa8'      # a paddling pool's water: unlit (the lagoon's WATER glows, and stands far from the road)
 ORANGE, GOLD, SAND, WATER, SHED, SHED_D, GEN = '#ff8a2a', '#ffc93c', '#efcf9f', '#1c5f8a', '#5a5870', '#4a4860', '#3f6a5a'
 G1, G2, G3, G4 = 0.35, 0.9, 1.4, 2.0          # glow: soft, a lit window, a sign, a bulb
 GW = 0.2                                      # lit water
@@ -84,6 +86,15 @@ def animate():
     for name in ('SM_Lake', 'SM_Lake2', 'SM_Pond'):
         n += ft_life.animate(DIR + name, 'Light', slots=lambda slot, col, glow: 0.8 < glow < 1.0, LightHash=0.35, LightCell=300.0, LightRate=1.5,
                              LightMin=0.2)
+    # the swinging ship leaves the box it was built in: 4 m more of bounds along X, or it is culled at the screen's edge
+    try:
+        sm = unreal.EditorAssetLibrary.load_asset(DIR + 'SM_PirateShip')
+        if sm and abs(sm.get_editor_property('positive_bounds_extension').x - 400.0) > 1.0:
+            sm.set_editor_property('positive_bounds_extension', unreal.Vector(400.0, 0.0, 0.0))
+            sm.set_editor_property('negative_bounds_extension', unreal.Vector(400.0, 0.0, 0.0))
+            unreal.EditorAssetLibrary.save_loaded_asset(sm)
+    except Exception as e:  # noqa
+        unreal.log_warning('FTDRESS park: the pirate ship keeps its built bounds (%r)' % (e,))
     return n
 
 
@@ -967,6 +978,266 @@ def far_fort(m):
         m.sphere(ORANGE, (s * 3200, -1700, 2300), 200, scale=(1, 1, 1.4), steps=(4, 6), glow=G4)
 
 
+# ------------------------------------------------------------------------------------------ the park's floor (second pass)
+# What the land is made of where a banked, looping or flying camera looks down on it. Every piece here is FLAT (nothing
+# over 1.9 m, so the track's sight-line rule leaves it alone) and UNLIT but for the pool's water (placed 30 m out and
+# beyond). The track sinks a piece 15 cm into the land, so each has a kerb and skirt going 1.4 m down and its top 25 to
+# 45 cm up; each kind has its own top height, so two that overlap lie one over the other instead of flickering.
+# They are made for LEVEL ground: the table keeps them off the hills, the jumps and the coaster's valleys.
+def _disc(m, col, r, z0, z1, at=(0.0, 0.0), steps=20, glow=0.0):
+    m.cyl(col, (at[0], at[1], z0), r, z1 - z0, steps=steps, glow=glow)
+
+
+def _starpts(R, r, n, turn=0.0, at=(0.0, 0.0)):
+    """A star's outline in plan: n points of radius R, the notches between them at r."""
+    pts = []
+    for k in range(2 * n):
+        a = turn + k * math.pi / n
+        rr = R if k % 2 == 0 else r
+        pts.append((at[0] + math.cos(a) * rr, at[1] + math.sin(a) * rr))
+    return _ccw(pts)
+
+
+def _stadium(hl, r, n=10):
+    """A running-track outline in plan: two half circles of radius r, their centres hl either side of the middle."""
+    pts = []
+    for k in range(n + 1):
+        a = -math.pi / 2.0 + math.pi * k / n
+        pts.append((hl + math.cos(a) * r, math.sin(a) * r))
+    for k in range(n + 1):
+        a = math.pi / 2.0 + math.pi * k / n
+        pts.append((-hl + math.cos(a) * r, math.sin(a) * r))
+    return _ccw(pts)
+
+
+def floor_plaza(m, R=1300.0):
+    """A round plaza 26 m across: a stone kerb, pale paving, a pink ring, a compass star in two colours, planters
+    round the rim. The forecourt of a gate, the pad under a rocket ride, the hub the paths run to."""
+    _disc(m, GREY_L, R, -140, 30, steps=24)
+    _disc(m, CREAM, R - 70, 27, 34, steps=24)
+    _disc(m, MAG, R * 0.80, 32, 36, steps=24)
+    _disc(m, CREAM, R * 0.72, 34, 38, steps=24)
+    m.plan(TEAL, _starpts(R * 0.66, R * 0.20, 4, math.pi / 4.0), 36, 40)
+    m.plan(AMBER, _starpts(R * 0.70, R * 0.22, 4, 0.0), 38, 42)
+    _disc(m, PLUM, R * 0.15, 40, 45, steps=12)
+    for k in range(8):
+        a = (k + 0.5) * math.pi / 4.0
+        x, y = math.cos(a) * (R - 150), math.sin(a) * (R - 150)
+        m.cyl(PLUM, (x, y, 27), 70, 45, steps=8)
+        m.sphere(PINE if k % 2 else MAG, (x, y, 102), 62, scale=(1, 1, 0.8), steps=(4, 6))
+
+
+def floor_spoke(m, L=3000.0, W=600.0):
+    """A footpath 30 m long running AWAY from the road (along Y): pale slabs between pink bands, coloured diamonds down
+    the middle, a round node at each end. Paths leave the promenade for the rides behind it."""
+    m.box(GREY_L, (0, 0, -55), (W + 90, L, 170))
+    m.box(CREAM, (0, 0, 29), (W, L, 8))
+    for s in (-1, 1):
+        m.box(MAG, (s * (W / 2.0 - 50), 0, 32), (56, L, 6))
+    for k in range(5):
+        m.box(AMBER if k % 2 else TEAL, (0, -L / 2.0 + 500 + k * (L - 1000) / 4.0, 33), (170, 170, 6), rot=(0, 45, 0))
+    for s in (-1, 1):
+        at = (0, s * L / 2.0)
+        _disc(m, GREY_L, 430, -140, 31, at=at, steps=16)
+        _disc(m, CREAM, 370, 29, 36, at=at, steps=16)
+        _disc(m, MAG if s < 0 else TEAL, 190, 34, 39, at=at, steps=12)
+        _disc(m, CREAM, 110, 37, 41, at=at, steps=10)
+
+
+def floor_pave(m, L=3400.0, W=900.0):
+    """The paved terrace a row of stalls stands on, 34 m by 9 m: a line of big diamonds along the front, where the
+    crowd would stand, and a gold line along each edge."""
+    m.box(GREY_L, (0, 0, -57), (L, W, 166))
+    m.box(CREAM, (0, 0, 24), (L - 80, W - 80, 8))
+    for k in range(10):
+        m.box(LAV if k % 2 else MAG, (-L / 2.0 + 260 + k * (L - 520) / 9.0, -W / 2.0 + 150, 27), (150, 150, 5), rot=(0, 45, 0))
+    for s in (-1, 1):
+        m.box(AMBER, (0, s * (W / 2.0 - 70), 27), (L - 160, 40, 5))
+
+
+def floor_lawn(m, L=2600.0, W=1600.0):
+    """A lawn panel 26 m by 16 m inside a pale kerb: a star bed of pink flowers in the middle, a lavender bed with
+    yellow and white clumps at each end, a clipped hedge along both long sides with a cone tree at every corner."""
+    m.box(CREAM, (0, 0, -58), (L, W, 164))
+    m.box(MINT, (0, 0, 23), (L - 100, W - 100, 8))
+    m.plan(MAG, _starpts(430, 190, 5, math.pi / 2.0), 25, 36)
+    _disc(m, AMBER, 130, 34, 42, steps=10)
+    for sx in (-1, 1):
+        m.box(LAV, (sx * 880, 0, 30), (240, W - 420, 12))
+        for k in range(4):
+            m.sphere(AMBER if k % 2 else WHITE, (sx * 880, -420 + k * 280, 40), 70, scale=(1, 1, 0.5), steps=(3, 6))
+    for sy in (-1, 1):
+        m.box(PINE, (0, sy * (W / 2.0 - 110), 51), (L - 260, 90, 60))
+        for sx in (-1, 1):
+            m.cyl(PINE, (sx * (L / 2.0 - 130), sy * (W / 2.0 - 110), 25), 80, 150, steps=8, top_r=10)
+
+
+def floor_games(m, L=2200.0, W=1400.0):
+    """A court of painted games, 22 m by 14 m: a giant chessboard, a hopscotch, a target of rings."""
+    m.box(CREAM, (0, 0, -56), (L, W, 168))
+    m.box(PLUM, (0, 0, 26), (L - 70, W - 70, 8))
+    q = 150.0
+    m.box(MAG, (-560, 0, 30), (6 * q, 6 * q, 6))
+    for i in range(6):
+        for j in range(6):
+            if (i + j) % 2 == 0:
+                m.box(CREAM, (-560 - 2.5 * q + i * q, -2.5 * q + j * q, 32), (q, q, 5))
+    for k in range(7):
+        off = (0.0, 62.0, -62.0)[k % 3]
+        m.box((AMBER, CYAN, MINT)[k % 3], (230 + k * 118, -440 + off, 31), (108, 108, 5))
+    for k, (rr, c) in enumerate(((330, RED), (250, CREAM), (170, RED), (90, AMBER))):
+        _disc(m, c, rr, 28 + k, 32 + 1.5 * k, at=(620, 250), steps=16)
+
+
+def floor_queue(m, L=2000.0, W=1100.0):
+    """A queue yard, 20 m by 11 m: switchback lanes painted in yellow, a stout post with a pink knob at every turn, a
+    wait-time board lying low at the way in."""
+    m.box(GREY_L, (0, 0, -57), (L, W, 166))
+    m.box(PURPLE, (0, 0, 25), (L - 60, W - 60, 8))
+    n = 5
+    gap = (W - 320) / (n - 1.0)
+    for k in range(n):
+        y = -W / 2.0 + 160 + k * gap
+        m.box(AMBER, (0, y, 30), (L - 360, 46, 5))
+        e = 1 if k % 2 == 0 else -1
+        if k < n - 1:
+            m.box(AMBER, (e * (L / 2.0 - 180), y + gap / 2.0, 30), (46, gap + 46, 5))
+        m.cyl(CREAM, (-e * (L / 2.0 - 150), y, 27), 26, 95, steps=6)
+        m.sphere(MAG, (-e * (L / 2.0 - 150), y, 136), 34, steps=(3, 6))
+    m.box(TEAL, (-L / 2.0 + 150, -W / 2.0 + 60, 75), (220, 30, 92))
+    m.box(CREAM, (-L / 2.0 + 150, -W / 2.0 + 44, 84), (150, 6, 44))
+
+
+def floor_kart(m):
+    """A go-kart track, 41 m by 21 m: an oval of dark tarmac round a lawn, red and white kerbs on both bends, a
+    chequered start line, tyre stacks, three karts on the grid."""
+    hl, ro, ri = 1000.0, 1000.0, 470.0
+    m.plan(GREY_L, _stadium(hl, ro + 60), -140, 22)
+    m.plan(PURPLE, _stadium(hl, ro), 20, 25)
+    m.plan(CREAM, _stadium(hl, ri + 44), 23, 27)
+    m.plan(MINT, _stadium(hl, ri), 25, 29)
+    for s in (-1, 1):
+        for k in range(9):
+            a = -math.pi / 2.0 + math.pi * (k + 0.5) / 9.0
+            m.box(RED if k % 2 else WHITE, (s * (hl + math.cos(a) * (ro - 70)), math.sin(a) * (ro - 70), 26), (120, 170, 8),
+                  rot=(0, s * math.degrees(a), 0))
+    for k in range(6):
+        m.box(WHITE if k % 2 else NAVY, (-40 + (k % 2) * 80, -ro + 60 + k * 76, 27), (80, 76, 4))
+    for k, (x, y) in enumerate(((-hl, 0), (hl, 0), (-300, 0), (300, 0), (0, 300), (0, -300))):
+        m.cyl(NAVY, (x, y, 29), 52, 70, steps=8)
+        m.cyl((MAG, AMBER, CYAN)[k % 3], (x, y, 99), 40, 10, steps=8)
+    for k, c in enumerate((RED, CYAN, AMBER)):
+        x, y = 260 + k * 300, -ro + 200 + (k % 2) * 260
+        m.box(c, (x, y, 60), (190, 100, 46))
+        m.box(NAVY, (x - 20, y, 92), (70, 80, 30))
+        for sx in (-1, 1):
+            m.box(NAVY, (x + sx * 70, y, 45), (56, 130, 44))
+
+
+def floor_pool(m):
+    """A paddling pool in two lobes, 23 m by 13 m: blue water inside a pale kerb, stepping stones across the waist,
+    lily pads; unlit. Stood under the pirate ships (the swinging boat over water) and out on the lawns."""
+    lobes = ((-420, 60, 640), (430, -80, 520))
+    for x, y, r in lobes:
+        _disc(m, CREAM, r, -140, 34, at=(x, y), steps=18)
+    m.box(CREAM, (0, 0, -53), (860, 760, 174))
+    for x, y, r in lobes:
+        _disc(m, POOL, r - 70, 26, 37, at=(x, y), steps=18)
+    m.box(POOL, (0, -10, 32), (860, 620, 10))
+    for k in range(5):
+        _disc(m, GREY_L, 58, 30, 43, at=(-10 + (k % 2) * 60, -250 + k * 125), steps=8)
+    for k, (x, y) in enumerate(((-640, 260), (-300, -260), (520, -260), (640, 120), (-700, -120))):
+        _disc(m, PINE, 64, 36, 40, at=(x, y), steps=8)
+        m.sphere(MAG if k % 2 else WHITE, (x + 14, y + 10, 48), 22, steps=(3, 5))
+
+
+def floor_yard(m, seed=11):
+    """Backstage: a concrete service yard, 24 m by 16 m, with a hatched keep-clear bay, parking bays and a service cart
+    in one, crates on pallets, a skip, cable drums, bins and a spare coaster car on a trolley. Nothing over 1.9 m and
+    no colour to speak of: it stands behind the stall rows and in the back lot, where the park is not on show."""
+    r = random.Random(seed)
+    L, W = 2400.0, 1600.0
+    m.box(GREY, (0, 0, -59), (L, W, 162))
+    m.box(GREY_L, (0, 0, 21), (L - 60, W - 60, 8))
+    for k in range(7):
+        m.box(AMBER, (-960 + k * 110, -430, 27), (36, 500, 4), rot=(0, 35, 0))
+    for k in range(5):
+        m.box(CREAM, (120 + k * 250, -470, 27), (30, 520, 4))
+    m.box(GEN, (245, -470, 78), (170, 360, 96))
+    m.box(NAVY, (245, -570, 146), (150, 120, 40))
+    for sy in (-1, 1):
+        m.box(NAVY, (245, -470 + sy * 120, 50), (190, 70, 50))
+    for k in range(6):
+        m.box(WOOD if k % 2 else WOOD_D, (-960 + (k % 3) * 124, 380, 67 + (k // 3) * 82), (104, 104, 80), rot=(0, r.uniform(-10, 10), 0))
+    m.box(WOOD_D, (-836, 380, 34), (400, 130, 18))
+    for k in range(3):
+        m.box(WOOD_D, (-420 + k * 170, 470, 34), (140, 110, 18))
+    m.box(SHED, (520, 430, 86), (380, 180, 120))
+    m.box(SHED_D, (520, 430, 150), (400, 200, 10))
+    for k in range(2):
+        rod(m, WOOD, (930, 230 + k * 170, 88), (1010, 230 + k * 170, 88), 62, steps=8)
+    for k in range(4):
+        m.cyl((GEN, PLUM, SHED, RED)[k], (-80 + k * 84, 600, 25), 34, 100, steps=7)
+    m.box(GREY, (-860, -20, 46), (300, 170, 14))
+    m.box(RED, (-860, -20, 100), (260, 150, 90))
+    m.box(NAVY, (-860, -20, 156), (200, 110, 28))
+
+
+# ------------------------------------------------------------------------------------------ the banks of the banked bends
+# A bend banked 46 to 57 degrees sinks the road's inner edge 9 to 11 m; the track cuts the land down to it, and from the
+# road that cut bank (10 m of plain slope, 56.8 to 60.2 degrees steep) fills a third of the frame. These pieces lie ON
+# that bank: a planted bed in a kerb, built already tilted and already bent to the curve (three 8 m lengths on a 95 m
+# radius: the same piece fits the inside of a left bend and of a right one). The table stands them with a set whose
+# "up" is negative; their top edge stays 1.6 m and more below the road's centre line, which is what keeps the track's
+# clearance test from counting them as standing beside the road. Unlit, no arrows (a piece is turned round on the left).
+BANK_DEG = 58.6
+BANK_R = 9500.0
+
+
+def _bank_len(m, k, draw):
+    """Draw one 8 m length (k = -1, 0, 1) in the bank's own frame: x along the road, y up the slope, z out of it."""
+    xc = k * 800.0
+    m.base = ft_art._xf((xc, xc * xc / (2.0 * BANK_R), 0.0), (0.0, math.degrees(xc / BANK_R), _awn(BANK_DEG)))
+    try:
+        m.box(CREAM, (0, 0, -22), (806, 1060, 80))
+        m.box(MINT, (0, 0, 15), (806, 950, 10))
+        for s in (-1, 1):
+            m.box(PINE, (0, s * 430, 30), (806, 70, 40))
+        draw(k)
+    finally:
+        m.base = None
+
+
+def bank_star(m):
+    """The bank bed with the park's star: a big pink star with a gold heart in the middle length, three diamonds
+    stepping up the slope either side."""
+    def draw(k):
+        if k == 0:
+            m.plan(MAG, _starpts(350, 150, 5, math.pi / 2.0), 18, 30)
+            _disc(m, AMBER, 115, 28, 36, steps=10)
+        else:
+            for j, c in enumerate((LAV, AMBER, MAG)):
+                m.box(c, (k * (j - 1) * 150.0, -270 + j * 270, 24), (200, 200, 12), rot=(0, 45, 0))
+    for k in (-1, 0, 1):
+        _bank_len(m, k, draw)
+
+
+def bank_bands(m):
+    """The bank bed in terraces: three bands of flowers running the length of the bend, white clumps between them."""
+    def draw(k):
+        for j, c in enumerate((MAG, AMBER, LAV)):
+            m.box(c, (0, -270 + j * 270, 24), (806, 120, 10))
+        for j in range(2):
+            for i in range(2):
+                m.sphere(WHITE, (-200 + i * 400 + j * 200, -135 + j * 270, 30), 60, scale=(1, 1, 0.5), steps=(3, 6))
+    for k in (-1, 0, 1):
+        _bank_len(m, k, draw)
+
+
+_FLOOR = [('SM_FloorPlaza', floor_plaza), ('SM_FloorSpoke', floor_spoke), ('SM_FloorPave', floor_pave), ('SM_FloorLawn', floor_lawn),
+          ('SM_FloorGames', floor_games), ('SM_FloorQueue', floor_queue), ('SM_FloorKart', floor_kart), ('SM_FloorPool', floor_pool),
+          ('SM_FloorYard', floor_yard), ('SM_BankStar', bank_star), ('SM_BankBands', bank_bands)]
+
 _NEAR = [
     ('SM_QueueRails', queue_rails), ('SM_ParkFence', park_fence), ('SM_PlazaSeats', plaza_seats), ('SM_CoveBarrels', cove_barrels),
     ('SM_GameStall', game_stall), ('SM_GameStall2', lambda m: game_stall(m, TEAL, CREAM, MAG, seed=2)),
@@ -987,4 +1258,5 @@ _NEAR = [
 _WATER = [('SM_Pond', pond), ('SM_Lake', lake), ('SM_Lake2', lambda m: lake(m, seed=13, serpent=True))]
 _FAR = [('SM_FarCoaster', far_coaster), ('SM_FarWheel', far_wheel), ('SM_FarChute', far_chute), ('SM_FarBigTops', far_bigtops),
         ('SM_FarRocket', far_rocket), ('SM_FarFort', far_fort)]
-JOBS = [(n, _std(f)) for n, f in _NEAR] + [(n, _std(f, slab=0.0)) for n, f in _WATER + _FAR]
+# the floor and bank pieces are drawn with their own skirts and take no hidden post (it would double their bounds)
+JOBS = [(n, _std(f)) for n, f in _NEAR] + [(n, _std(f, slab=0.0)) for n, f in _WATER + _FAR] + list(_FLOOR)

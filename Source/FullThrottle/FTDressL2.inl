@@ -263,7 +263,7 @@ Zone(TEXT("Syndicate range"), 14.5f, 18.5f);
 	Scatter(TEXT("SM_RadarPost"), 90.f, 200.f, 3, 1, 0.8f);
 	Site(TEXT("RanchFence"), -1, 18.9f, 1, 0, 0.8f);
 	Site(TEXT("RanchFence"), 1, 18.9f, 1, 0, 0.8f);
-	Scatter(TEXT("SM_RockSpires"), 40.f, 110.f, 2, 0, 0.8f, 1.f, 0.3f, 0, 180.f);
+	Scatter(TEXT("SM_RockSpires"), 40.f, 58.f, 4, 0, 0.8f, 1.f, 0.3f, 0, 180.f);
 	Scatter(TEXT("SM_RockBank2"), 28.5f, 40.f, 2, 1, 0.7f);
 	Scatter(TEXT("SM_Sagebrush"), 20.f, 90.f, 1, 0, 0.7f, 1.f, 0.3f, 0, 180.f);
 	Scatter(TEXT("SM_Sagebrush2"), 90.f, 270.f, 1, 0, 0.9f, 1.5f, 0.3f, 0, 180.f);
@@ -276,11 +276,11 @@ Zone(TEXT("Red rock return"), 18.5f, 22.0f);
 	Site(TEXT("Canyon"), 0, 105.f, 4, 0, 1.f);
 	Scatter(TEXT("SM_RockWall2"), 180.f, 260.f, 3, 1, 0.9f, 1.3f, 0.2f);
 	Scatter(TEXT("SM_RockBank"), 28.5f, 35.f, 1, 0, 0.7f);
-	Scatter(TEXT("SM_RockSpires2"), 44.f, 90.f, 2, 0, 0.8f, 1.f, 0.3f, 0, 180.f);
+	Scatter(TEXT("SM_RockSpires2"), 44.f, 90.f, 4, 0, 0.8f, 1.f, 0.3f, 0, 180.f);
 	Scatter(TEXT("SM_RockArch"), 70.f, 130.f, 7, 4, 0.9f, 1.f, 0.15f, 0, 30.f);
 	Scatter(TEXT("SM_Sagebrush2"), 20.f, 80.f, 1, 0, 0.6f, 1.f, 0.3f, 0, 180.f);
 	Scatter(TEXT("SM_Sagebrush"), 60.f, 200.f, 1, 0, 0.8f, 1.4f, 0.3f, 0, 180.f);
-	Scatter(TEXT("SM_RockSpires"), 100.f, 180.f, 2, 1, 0.8f, 1.3f, 0.3f, 0, 180.f);
+	Scatter(TEXT("SM_RockSpires"), 100.f, 180.f, 4, 1, 0.8f, 1.3f, 0.3f, 0, 180.f);
 	Scatter(TEXT("SM_RidgeDune"), 130.f, 220.f, 4, 2, 0.8f, 1.f, 0.25f, 0, 25.f);
 	Scatter(TEXT("SM_RockWall"), 230.f, 290.f, 3, 0, 0.8f, 1.4f, 0.2f);
 	Site(TEXT("WashBedRun"), -1, 52.f, 14, 6, 1.f);
@@ -300,3 +300,159 @@ Zone(TEXT("Vegas approach"), 22.0f, 25.6f);
 	Scatter(TEXT("SM_Casino"), 180.f, 270.f, 3, 1, 0.8f, 1.2f, 0.15f);
 	Far(TEXT("SM_FarTown"), 380.f, 640.f, 3, 0, 0.95f, 1.15f, 0.15f);
 	Far(TEXT("SM_PeakRange"), 1200.f, 1700.f, 9, 4, 1.f, 1.f, 0.1f);
+
+// =====================================================================================================================
+// SECOND PASS (15 Nov 2026): the ground plane, the motel courts, the casino approach, more builds of rock.
+// Everything from here on is APPENDED on purpose: a rule's random stream is seeded by its place in this file, so a rule
+// added among the districts above would re-deal every first-pass piece. These zones lie over the districts. (Three
+// first-pass hoodoo rules above were thinned in place, every 2nd slot to every 4th: that keeps the survivors where
+// they stood.)
+//
+// The lie of this road (measured: SkyScratch\DevLog\jam\art_pass2\w2\track_L2.json): a straight, level highway with
+// four jumps (1.5, 4.6, 7.3, 9.7 km), three loops (3.1-3.3, 8.1-8.4, 9.9-10.1), two corkscrews (5.5-5.6, 8.5-8.6) and
+// one pair of "wall" bends banked 54 degrees in Red Rock Pass (5.17-5.40 right-handed, 5.75-5.99 left-handed).
+//
+// 1. GROUND. Flat pieces (under 2 m). The track keeps Scatter and Site pieces out of loops, corkscrews and jump gaps,
+//    which is where the camera sees most land. So, apart from the ranch tracks (Scatter, from 26 m: the track's rule
+//    applies to them), the ground is laid by Far rules with a metre's drop (a Far piece stands "drop" below the
+//    road's own level, and the land 26 to 115 m out lies 0.9 to 1.25 m below it), and so runs on under the loops as
+//    the horizon does. Three rows: 26 to 46 m (scrub, braids of the wash), 41 to 62 m (the businesses' forecourts,
+//    scrub), 76 to 105 m (scrub, and the Syndicate's strip). All unlit. Every piece still goes through the clearance
+//    test. The ground zones stop short of the ramps and the jumps (a level piece would hang or drown on land that
+//    steep, and a jump's run-up and landing stay open).
+//    Within a zone the phases put a forecourt in front of each business set and keep scrub out of the sets' slots.
+// 2. THE APPROACH. "Roadside businesses and worn motel courts, then an increasingly extravagant casino approach":
+//    SM_MotelCourt from Last Chance Gas on; SM_SignTower and the two SM_CasinoGrand from Jackpot Junction, more of
+//    them, nearer and larger stretch by stretch (every 4th and 6th slot at 0.85, then every 2nd and 3rd at 1.0, and in
+//    the finale's last stretch every 2nd and 3rd at 1.15 to 1.2). The motel courts take the slots between the road
+//    stops, both sides, through Last Chance Gas.
+// 3. ROCK. The two wall bends get canyon wall, 1.7 times the size (60 m), on their OUTSIDE (the rolled camera looks up
+//    there, and saw sky);
+//    SM_RockSpires3 (fins and a balanced rock) and SM_MesaStub share the finale's two rock stretches with the hoodoos.
+
+// ---- rock: the wall bends of Red Rock Pass, and a third and fourth build in the finale
+Zone(TEXT("Wall bend right"), 5.17f, 5.4f);
+	Scatter(TEXT("SM_RockWall"), 72.f, 90.f, 1, 0, 0.9f, 1.7f, 0.1f, -1);
+	Scatter(TEXT("SM_MesaStub"), 120.f, 170.f, 2, 1, 1.f, 1.2f, 0.1f, -1);
+Zone(TEXT("Corkscrew in the pass"), 5.4f, 5.75f);
+	Far(TEXT("SM_MesaStub"), 120.f, 190.f, 2, 0, 0.9f, 1.3f, 0.15f, 0, 0.8f, 180.f);
+Zone(TEXT("Wall bend left"), 5.75f, 5.99f);
+	Scatter(TEXT("SM_RockWall"), 72.f, 90.f, 1, 0, 0.9f, 1.7f, 0.1f, 1);
+	Scatter(TEXT("SM_MesaStub"), 120.f, 170.f, 2, 0, 1.f, 1.2f, 0.1f, 1);
+Zone(TEXT("Rock: syndicate range"), 14.5f, 18.5f);
+	Scatter(TEXT("SM_RockSpires3"), 40.f, 58.f, 4, 2, 0.8f, 1.f, 0.3f, 0, 180.f);
+	Scatter(TEXT("SM_MesaStub"), 125.f, 200.f, 5, 3, 0.8f, 1.f, 0.25f, 0, 180.f);
+	Scatter(TEXT("SM_RockSpires3"), 110.f, 180.f, 6, 1, 0.8f, 1.4f, 0.3f, 0, 180.f);
+Zone(TEXT("Rock: red rock return"), 18.5f, 22.f);
+	Scatter(TEXT("SM_RockSpires3"), 44.f, 90.f, 4, 2, 0.8f, 1.f, 0.3f, 0, 180.f);
+	Scatter(TEXT("SM_MesaStub"), 110.f, 180.f, 4, 3, 0.8f, 1.1f, 0.25f, 0, 180.f);
+
+// ---- the approach: motel courts, then the signs and the big houses, thicker and larger stretch by stretch
+Zone(TEXT("Motels: last chance gas"), 6.31f, 7.75f);
+	Scatter(TEXT("SM_MotelCourt"), 60.f, 66.f, 4, 2, 1.f, 1.f, 0.f, -1);
+	Scatter(TEXT("SM_MotelCourt"), 60.f, 66.f, 4, 2, 1.f, 1.f, 0.f, 1);
+Zone(TEXT("Approach: jackpot junction"), 7.75f, 9.05f);
+	Scatter(TEXT("SM_SignTower"), 34.f, 42.f, 4, 1, 0.9f, 0.85f, 0.05f);
+	Far(TEXT("SM_CasinoGrand"), 120.f, 150.f, 6, 2, 1.f, 0.85f, 0.05f, 0, 0.9f, 8.f);
+Zone(TEXT("Approach: city lights"), 9.05f, 10.69f);
+	Scatter(TEXT("SM_SignTower"), 34.f, 44.f, 2, 1, 0.9f, 1.f, 0.08f);
+	Far(TEXT("SM_CasinoGrand"), 112.f, 150.f, 6, 1, 0.95f, 1.f, 0.06f, 0, 0.9f, 8.f);
+	Far(TEXT("SM_CasinoGrand2"), 112.f, 150.f, 6, 4, 0.95f, 1.f, 0.06f, 0, 0.9f, 8.f);
+	Scatter(TEXT("SM_MotelCourt"), 60.f, 66.f, 10, 6, 1.f, 1.f, 0.f, -1);
+Zone(TEXT("Approach: vegas"), 22.f, 25.6f);
+	Scatter(TEXT("SM_SignTower"), 34.f, 44.f, 2, 0, 0.95f, 1.15f, 0.1f);
+	Scatter(TEXT("SM_CasinoGrand"), 105.f, 140.f, 6, 1, 0.95f, 1.2f, 0.08f, 0, 8.f);
+	Scatter(TEXT("SM_CasinoGrand2"), 105.f, 140.f, 6, 4, 0.95f, 1.2f, 0.08f, 0, 8.f);
+	Scatter(TEXT("SM_MotelCourt"), 60.f, 66.f, 10, 6, 1.f, 1.f, 0.f, 1);
+
+// ---- ground: ranch tracks (Scatter), then three rows by Far rules: 26-46 m, 41-62 m, 76-105 m
+Zone(TEXT("Ground: state line"), 0.05f, 1.17f);
+	Scatter(TEXT("SM_DirtTrack"), 43.f, 44.f, 6, 1, 0.9f);
+	Far(TEXT("SM_ScrubPatch"), 36.f, 37.f, 2, 0, 0.75f, 1.f, 0.08f, 0, 0.95f, 25.f);
+	Far(TEXT("SM_ScrubPatch2"), 52.f, 58.f, 4, 0, 0.8f, 1.f, 0.1f, 0, 1.f, 180.f);
+	Far(TEXT("SM_WashBraid"), 52.f, 58.f, 4, 2, 0.7f, 1.f, 0.05f, 0, 1.f, 12.f);
+	Far(TEXT("SM_ScrubPatch2"), 84.f, 94.f, 4, 1, 0.7f, 1.f, 0.1f, 0, 1.2f, 180.f);
+Zone(TEXT("Ground: dry wash west"), 1.17f, 1.34f);
+	Far(TEXT("SM_WashBraid"), 33.f, 34.f, 2, 1, 0.75f, 1.f, 0.05f, 0, 0.93f, 10.f);
+	Far(TEXT("SM_ScrubPatch"), 51.f, 58.f, 2, 0, 0.8f, 1.f, 0.1f, 0, 1.f, 180.f);
+Zone(TEXT("Ground: dry wash"), 1.64f, 2.43f);
+	Far(TEXT("SM_WashBraid"), 33.f, 34.f, 2, 1, 0.75f, 1.f, 0.05f, 0, 0.93f, 10.f);
+	Far(TEXT("SM_ScrubPatch"), 51.f, 58.f, 4, 0, 0.8f, 1.f, 0.1f, 0, 1.f, 180.f);
+	Far(TEXT("SM_ScrubPatch2"), 52.f, 58.f, 4, 2, 0.7f, 1.f, 0.1f, 0, 1.f, 180.f);
+	Far(TEXT("SM_ScrubPatch2"), 84.f, 94.f, 4, 1, 0.7f, 1.f, 0.1f, 0, 1.2f, 180.f);
+Zone(TEXT("Ground: snake eyes country"), 2.43f, 3.83f);
+	Scatter(TEXT("SM_DirtTrack"), 43.f, 44.f, 6, 3, 0.9f);
+	Far(TEXT("SM_ScrubPatch"), 36.f, 37.f, 2, 1, 0.75f, 1.f, 0.08f, 0, 0.95f, 25.f);
+	Far(TEXT("SM_ParkingLot"), 50.f, 52.f, 4, 0, 0.9f, 1.f, 0.03f, 0, 1.f, 5.f);
+	Far(TEXT("SM_ScrubPatch2"), 52.f, 58.f, 2, 1, 0.7f, 1.f, 0.1f, 0, 1.f, 180.f);
+Zone(TEXT("Ground: joshua flats"), 3.83f, 4.46f);
+	Scatter(TEXT("SM_DirtTrack"), 43.f, 44.f, 7, 2, 0.9f);
+	Far(TEXT("SM_ScrubPatch"), 36.f, 37.f, 2, 0, 0.75f, 1.f, 0.08f, 0, 0.95f, 25.f);
+	Far(TEXT("SM_ScrubPatch2"), 52.f, 58.f, 2, 1, 0.75f, 1.f, 0.1f, 0, 1.f, 180.f);
+	Far(TEXT("SM_ScrubPatch"), 84.f, 94.f, 4, 2, 0.6f, 1.f, 0.1f, 0, 1.2f, 180.f);
+Zone(TEXT("Ground: joshua flats east"), 4.77f, 5.14f);
+	Far(TEXT("SM_ScrubPatch"), 36.f, 37.f, 2, 0, 0.75f, 1.f, 0.08f, 0, 0.95f, 25.f);
+	Far(TEXT("SM_ScrubPatch2"), 52.f, 58.f, 2, 1, 0.75f, 1.f, 0.1f, 0, 1.f, 180.f);
+Zone(TEXT("Ground: red rock pass"), 5.14f, 5.97f);
+	Far(TEXT("SM_WashBraid"), 33.f, 34.f, 3, 1, 0.75f, 1.f, 0.05f, 0, 0.93f, 10.f);
+	Far(TEXT("SM_ScrubPatch2"), 52.f, 58.f, 3, 2, 0.8f, 1.f, 0.1f, 0, 1.f, 180.f);
+	Far(TEXT("SM_ScrubPatch"), 51.f, 58.f, 3, 0, 0.6f, 1.f, 0.1f, 0, 1.f, 180.f);
+Zone(TEXT("Ground: red rock pass east"), 6.07f, 6.31f);
+	Far(TEXT("SM_WashBraid"), 33.f, 34.f, 3, 1, 0.75f, 1.f, 0.05f, 0, 0.93f, 10.f);
+	Far(TEXT("SM_ScrubPatch2"), 52.f, 58.f, 3, 2, 0.8f, 1.f, 0.1f, 0, 1.f, 180.f);
+Zone(TEXT("Ground: last chance gas"), 6.31f, 7.01f);
+	Scatter(TEXT("SM_DirtTrack"), 43.f, 44.f, 8, 5, 0.9f);
+	Far(TEXT("SM_ScrubPatch"), 36.f, 37.f, 2, 1, 0.7f, 1.f, 0.08f, 0, 0.95f, 25.f);
+	Far(TEXT("SM_ParkingLot"), 50.f, 52.f, 4, 0, 0.95f, 1.f, 0.03f, 0, 1.f, 4.f);
+	Far(TEXT("SM_ScrubPatch2"), 52.f, 58.f, 2, 1, 0.7f, 1.f, 0.1f, 0, 1.f, 180.f);
+	Far(TEXT("SM_ScrubPatch2"), 86.f, 94.f, 4, 1, 0.6f, 1.f, 0.1f, 0, 1.2f, 180.f);
+	Far(TEXT("SM_Airstrip"), 100.f, 104.f, 12, 9, 1.f, 1.f, 0.f, -1, 0.95f, 3.f);
+Zone(TEXT("Ground: last chance gas east"), 7.39f, 7.75f);
+	Far(TEXT("SM_ScrubPatch"), 36.f, 37.f, 2, 1, 0.7f, 1.f, 0.08f, 0, 0.95f, 25.f);
+	Far(TEXT("SM_ParkingLot"), 50.f, 52.f, 4, 0, 0.95f, 1.f, 0.03f, 0, 1.f, 4.f);
+	Far(TEXT("SM_ScrubPatch2"), 52.f, 58.f, 2, 1, 0.7f, 1.f, 0.1f, 0, 1.f, 180.f);
+Zone(TEXT("Ground: jackpot junction"), 7.75f, 8.67f);
+	Far(TEXT("SM_ScrubPatch"), 36.f, 37.f, 3, 1, 0.7f, 1.f, 0.08f, 0, 0.95f, 25.f);
+	Far(TEXT("SM_ParkingLot"), 50.f, 52.f, 3, 0, 0.95f, 1.f, 0.03f, 0, 1.f, 4.f);
+	Far(TEXT("SM_ParkingLot"), 52.f, 56.f, 3, 2, 0.6f, 1.f, 0.03f, 0, 1.f, 4.f);
+	Far(TEXT("SM_ScrubPatch2"), 52.f, 58.f, 3, 1, 0.7f, 1.f, 0.1f, 0, 1.f, 180.f);
+Zone(TEXT("Ground: jackpot junction east"), 8.75f, 9.05f);
+	Far(TEXT("SM_ScrubPatch"), 36.f, 37.f, 3, 1, 0.7f, 1.f, 0.08f, 0, 0.95f, 25.f);
+	Far(TEXT("SM_ParkingLot"), 50.f, 52.f, 3, 0, 0.95f, 1.f, 0.03f, 0, 1.f, 4.f);
+	Far(TEXT("SM_ScrubPatch2"), 52.f, 58.f, 3, 1, 0.7f, 1.f, 0.1f, 0, 1.f, 180.f);
+Zone(TEXT("Ground: city lights"), 9.05f, 9.47f);
+	Far(TEXT("SM_ScrubPatch"), 36.f, 37.f, 2, 1, 0.6f, 1.f, 0.08f, 0, 0.95f, 25.f);
+	Far(TEXT("SM_ParkingLot"), 50.f, 52.f, 5, 0, 0.95f, 1.f, 0.03f, 0, 1.f, 4.f);
+	Far(TEXT("SM_ParkingLot"), 50.f, 52.f, 5, 2, 0.95f, 1.f, 0.03f, 0, 1.f, 4.f);
+	Far(TEXT("SM_ParkingLot"), 52.f, 56.f, 5, 3, 0.7f, 1.f, 0.03f, 0, 1.f, 4.f);
+	Far(TEXT("SM_ScrubPatch2"), 52.f, 58.f, 5, 4, 0.7f, 1.f, 0.1f, 0, 1.f, 180.f);
+Zone(TEXT("Ground: city lights east"), 9.76f, 10.69f);
+	Far(TEXT("SM_ScrubPatch"), 36.f, 37.f, 2, 1, 0.6f, 1.f, 0.08f, 0, 0.95f, 25.f);
+	Far(TEXT("SM_ParkingLot"), 50.f, 52.f, 5, 0, 0.95f, 1.f, 0.03f, 0, 1.f, 4.f);
+	Far(TEXT("SM_ParkingLot"), 50.f, 52.f, 5, 2, 0.95f, 1.f, 0.03f, 0, 1.f, 4.f);
+	Far(TEXT("SM_ParkingLot"), 52.f, 56.f, 5, 3, 0.7f, 1.f, 0.03f, 0, 1.f, 4.f);
+	Far(TEXT("SM_ScrubPatch2"), 52.f, 58.f, 5, 4, 0.7f, 1.f, 0.1f, 0, 1.f, 180.f);
+Zone(TEXT("Ground: salt flats"), 10.69f, 14.5f);
+	Scatter(TEXT("SM_DirtTrack"), 43.f, 44.f, 8, 3, 0.9f);
+	Far(TEXT("SM_ScrubPatch"), 36.f, 37.f, 2, 0, 0.75f, 1.f, 0.08f, 0, 0.95f, 25.f);
+	Far(TEXT("SM_WashBraid"), 33.f, 34.f, 4, 1, 0.7f, 1.f, 0.05f, 0, 0.93f, 10.f);
+	Far(TEXT("SM_ScrubPatch2"), 52.f, 58.f, 2, 1, 0.75f, 1.f, 0.1f, 0, 1.f, 180.f);
+	Far(TEXT("SM_WashBraid"), 52.f, 58.f, 4, 2, 0.7f, 1.f, 0.05f, 0, 1.f, 12.f);
+	Far(TEXT("SM_ScrubPatch"), 86.f, 96.f, 4, 0, 0.6f, 1.f, 0.1f, 0, 1.2f, 180.f);
+Zone(TEXT("Ground: syndicate range"), 14.5f, 18.5f);
+	Scatter(TEXT("SM_DirtTrack"), 43.f, 44.f, 8, 6, 0.9f);
+	Far(TEXT("SM_Airstrip"), 72.f, 73.f, 8, 0, 1.f, 1.f, 0.f, -1, 1.1f, 2.f);
+	Far(TEXT("SM_Airstrip"), 72.f, 73.f, 8, 4, 1.f, 1.f, 0.f, 1, 1.1f, 2.f);
+	Far(TEXT("SM_ScrubPatch"), 36.f, 37.f, 2, 1, 0.7f, 1.f, 0.08f, 0, 0.95f, 25.f);
+	Far(TEXT("SM_ScrubPatch2"), 50.f, 51.f, 2, 1, 0.7f, 1.f, 0.08f, 0, 1.f, 180.f);
+	Far(TEXT("SM_ScrubPatch"), 106.f, 114.f, 4, 2, 0.6f, 1.f, 0.1f, 0, 1.25f, 180.f);
+Zone(TEXT("Ground: red rock return"), 18.5f, 22.f);
+	Far(TEXT("SM_WashBraid"), 33.f, 34.f, 2, 1, 0.75f, 1.f, 0.05f, 0, 0.93f, 10.f);
+	Far(TEXT("SM_ScrubPatch2"), 52.f, 58.f, 4, 1, 0.8f, 1.f, 0.1f, 0, 1.f, 180.f);
+	Far(TEXT("SM_ScrubPatch"), 51.f, 58.f, 4, 3, 0.7f, 1.f, 0.1f, 0, 1.f, 180.f);
+Zone(TEXT("Ground: vegas approach"), 22.f, 25.6f);
+	Far(TEXT("SM_ScrubPatch"), 36.f, 37.f, 2, 1, 0.5f, 1.f, 0.08f, 0, 0.95f, 25.f);
+	Far(TEXT("SM_ParkingLot"), 50.f, 52.f, 5, 0, 0.95f, 1.f, 0.03f, 0, 1.f, 4.f);
+	Far(TEXT("SM_ParkingLot"), 50.f, 52.f, 5, 3, 0.95f, 1.f, 0.03f, 0, 1.f, 4.f);
+	Far(TEXT("SM_ParkingLot"), 52.f, 56.f, 5, 4, 0.8f, 1.f, 0.03f, 0, 1.f, 4.f);
+	Far(TEXT("SM_ParkingLot"), 52.f, 56.f, 5, 2, 0.7f, 1.f, 0.03f, 0, 1.f, 4.f);

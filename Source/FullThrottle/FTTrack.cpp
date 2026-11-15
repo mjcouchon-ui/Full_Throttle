@@ -1418,6 +1418,21 @@ void AFTTrack::BuildMeshes()
 		Chunks.Add(PM);
 		UE_LOG(LogFT, Display, TEXT("FTBED level=%d bed=%d triangles floor z=%.0f (lowest land %.0f) %s"), LevelIndex, BedTris, FloorZ, MinZ, bSea ? TEXT("sea") : TEXT("land colour"));
 		UE_LOG(LogFT, Display, TEXT("FTTRACK level=%d frames=%d route=%08x solid=%08x solidTriangles=%d"), LevelIndex, Frames.Num(), RouteCrc, SolidCrc, SolidTris);
+		// The two CRCs are of the raw numbers, so they differ between the editor's binary and a packaged game: the same
+		// code compiled another way rounds its last bits differently (seen 15 Nov: every level's CRC differed in the
+		// packaged build while frames and triangles matched). This line is the one to compare across them: the route's
+		// length, its box, the mean of its frames and of their up vectors, to a tenth of a centimetre.
+		{
+			double Len = 0.0; FVector Sum = FVector::ZeroVector, UpSum = FVector::ZeroVector; FBox Bx(ForceInit);
+			for (int32 i = 0; i < Frames.Num(); ++i)
+			{
+				if (i) Len += FVector::Dist(Frames[i].Pos, Frames[i - 1].Pos);
+				Sum += Frames[i].Pos; UpSum += Frames[i].Up; Bx += Frames[i].Pos;
+			}
+			const double Nf = FMath::Max(1, Frames.Num());
+			UE_LOG(LogFT, Display, TEXT("FTTRACKSUM level=%d length=%.1f min=(%.1f,%.1f,%.1f) max=(%.1f,%.1f,%.1f) mean=(%.1f,%.1f,%.1f) up=(%.4f,%.4f,%.4f)"),
+				LevelIndex, Len, Bx.Min.X, Bx.Min.Y, Bx.Min.Z, Bx.Max.X, Bx.Max.Y, Bx.Max.Z, Sum.X / Nf, Sum.Y / Nf, Sum.Z / Nf, UpSum.X / Nf, UpSum.Y / Nf, UpSum.Z / Nf);
+		}
 
 		// Under the Sea: the surface, seen from below, well above the highest road (MI_AbyssSurface, ft_world.py). Looks only.
 		if (UMaterialInterface* MTop = LevelIndex == 6 ? Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, TEXT("/Game/Maps/Abyss/Materials/MI_AbyssSurface.MI_AbyssSurface"), nullptr, LOAD_NoWarn | LOAD_Quiet)) : nullptr)

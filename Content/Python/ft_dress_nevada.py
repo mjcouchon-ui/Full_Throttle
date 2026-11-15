@@ -13,10 +13,11 @@ pass treats as rock (SM_Rock*, SM_Ridge*, SM_Butte*, SM_Peak*). Horizon pieces a
 """
 import math
 import random
+import unreal
 from ft_desert import (SAND, SANDST, SANDST_D, SANDST_L, SAGE, SAGE_D, BARK, BARK_D, WOOD, LEATHER, GREY, FLAME, RED, PURP, MAG,
                        TEAL, NAVY, rod, tilt_box)
 from ft_car import BLACK, GLASS, CHROME, STEEL, GOLD, CYAN, YEL, WHITE
-from ft_dress_chem import px, py, pz, buried as _buried, drum, QUERY, FAR_KEEP
+from ft_dress_chem import px, py, pz, buried as _buried, flat as _flat, drum, QUERY, FAR_KEEP
 
 LAND = '#a2507a'      # the desert's outer land and the floor under the level (FTTrack GroundBands, level 2)
 MIDLAND = '#c9805a'   # the land between the roadside and the edge: the footing of anything that stands on the land
@@ -35,6 +36,12 @@ SYN = '#1c1830'       # Syndicate black
 
 def buried(fn, col=MIDLAND, keep=0.0):
     return _buried(fn, col, keep=keep)
+
+
+def flat(fn, foot=60.0):
+    """A ground piece (second pass): a shallow footing in the desert's own colour under its footprint
+    (ft_dress_chem.flat says why it is shallow)."""
+    return _flat(fn, foot, MIDLAND)
 
 
 def piled(fn, half=60.0):
@@ -178,19 +185,19 @@ def wreck_car(m):
 
 
 def rock_bank(m, seed=0, L=2600, D=760):
-    """The wash's cut bank: banded earth stepping up from the road side, slumped boulders, sage on the lip."""
+    """The wash's cut bank: banded earth stepping up from the road side, slumped boulders, sage on the lip.
+    Second pass: every ledge has a lumpy outline of its own and the top is the rock's colour, not sand. The first
+    version stepped up in straight-edged, sand-topped slabs, which a high or banked camera read as planks."""
     r = random.Random(seed + 5)
-    n = 7
-    front = [(-L / 2.0 + L * k / (n - 1), -D / 2.0 + r.uniform(0, 150)) for k in range(n)]
-    for k, (z0, z1, col) in enumerate(((0, 90, SANDST_D), (90, 170, SANDST), (170, 230, SANDST_L), (230, 262, SAND))):
-        pts = [(x, y + k * 95) for (x, y) in front] + [(L / 2.0, D / 2.0), (-L / 2.0, D / 2.0)]
-        m.plan(col, pts, z0, z1)
+    base = ring(r, 0, 0, L / 2.0, D / 2.0, 12, 0.2)
+    for k, (z0, z1, col, f) in enumerate(((0, 90, SANDST_D, 1.0), (90, 170, SANDST, 0.88), (170, 230, ROCK_R, 0.74), (230, 262, SANDST_L, 0.56))):
+        m.plan(col, [(x * f + r.uniform(-50, 50), y * f * 0.86 + k * 62 + r.uniform(-30, 30)) for (x, y) in base], z0, z1)
     for k in range(6):
-        x = r.uniform(-L * 0.45, L * 0.45)
+        x = r.uniform(-L * 0.42, L * 0.42)
         rr = r.uniform(40, 95)
-        m.sphere(SANDST if k % 2 else ROCK_R, (x, -D / 2.0 + r.uniform(-60, 60), rr * 0.5), rr, scale=(1.2, 1, 0.7), steps=(5, 8), rot=(0, r.uniform(0, 180), 0))
+        m.sphere(SANDST if k % 2 else ROCK_R, (x, -D * 0.46 + r.uniform(-60, 60), rr * 0.5), rr, scale=(1.2, 1, 0.7), steps=(5, 8), rot=(0, r.uniform(0, 180), 0))
     for k in range(5):
-        m.sphere(SAGE if k % 2 else SAGE_D, (r.uniform(-L * 0.45, L * 0.45), r.uniform(0, D * 0.4), 290), r.uniform(40, 62), scale=(1, 1, 0.7), steps=(5, 8))
+        m.sphere(SAGE if k % 2 else SAGE_D, (r.uniform(-L * 0.24, L * 0.24), r.uniform(60, D * 0.3), 290), r.uniform(40, 62), scale=(1, 1, 0.7), steps=(5, 8))
 
 
 def wash_bed(m, L=6400, W=1500):
@@ -678,6 +685,288 @@ def far_town(m, seed=0):
     m.sphere(RED, (9600, 600, 11260), 110, steps=(4, 6), glow=1.4)
 
 
+# ------------------------------------------------------------------------------------------ the ground plane (second pass)
+# Flat pieces (nothing over 2 m: the track's sight-line rule leaves them alone) that make the desert floor beside the
+# road a place: scrub, the wash's braids, ranch tracks, the lots and courts of the roadside businesses, the Syndicate's
+# strip. A banked, looping or airborne camera sees mostly these, so they are drawn to be read from above.
+ASPH = '#5a4a62'      # sun-bleached asphalt: a lot, a court, a strip
+ASPH_L = '#8a7a8a'    # the same worn pale: bays, patches, old paint
+POOLB = '#3fd6d0'     # a motel pool
+
+
+def scrub_patch(m, seed=0, L=3000, D=1900, ground=SANDST_L, top=SAND, T=42):
+    """A patch of the desert floor: a low swell of paler (or redder) ground with a dry-grass flat on it, sage over it,
+    stones, a dead bush. Wide and low. (Prepared after the first pass and not applied then; the colours are now the
+    kit's own.) The bushes are blocky on purpose: these stand out in the middle distance, hundreds at a time."""
+    r = random.Random(seed + 91)
+    m.plan(ground, ring(r, 0, 0, L / 2.0, D / 2.0, 9, 0.24), 0, T)
+    m.plan(top, ring(r, r.uniform(-300, 300), r.uniform(-200, 200), L * 0.27, D * 0.29, 7, 0.28), T, T + 8)
+    for k in range(8):
+        a, q = r.uniform(0, 2 * math.pi), r.uniform(0.15, 0.85)
+        rr = r.uniform(62, 104)      # with the table's largest scale (1.1) the tallest bush still tops out under 2 m
+        m.sphere(SAGE if k % 3 else SAGE_D, (math.cos(a) * L * 0.5 * q, math.sin(a) * D * 0.5 * q, T + rr * 0.5), rr, scale=(1, r.uniform(0.75, 1.0), 0.78),
+                 steps=(5, 7), rot=(0, r.uniform(0, 180), 0))
+    for k in range(3):
+        a, q = r.uniform(0, 2 * math.pi), r.uniform(0.3, 0.95)
+        rr = r.uniform(36, 80)
+        m.sphere(SANDST if k % 2 else SANDST_D, (math.cos(a) * L * 0.5 * q, math.sin(a) * D * 0.5 * q, T + rr * 0.3), rr, scale=(1.2, 1, 0.6), steps=(3, 6),
+                 rot=(0, r.uniform(0, 180), 0))
+    for k in range(6):
+        a, q = r.uniform(0, 2 * math.pi), r.uniform(0.1, 0.8)
+        m.box(DRYG, (math.cos(a) * L * 0.5 * q, math.sin(a) * D * 0.5 * q, T + 30), (12, 40, 64), rot=(r.uniform(-14, 14), r.uniform(0, 180), 0))
+    x, y = r.uniform(-L * 0.3, L * 0.3), r.uniform(-D * 0.3, D * 0.3)
+    for k in range(3):
+        a = 2 * math.pi * k / 3 + 0.4
+        tilt_box(m, BARK_D, (x, y, T), (x + math.cos(a) * 60, y + math.sin(a) * 60, T + 100 + 15 * k), 9)
+
+
+def wash_braid(m, seed=0, L=4400, D=1300):
+    """A braid of the dry wash running beside the road: a pale gravel bed inside a darker cut edge, bars of pebbles,
+    plates of dried mud, a stranded log, sage along the banks."""
+    r = random.Random(seed + 13)
+    out = ring(r, 0, 0, L / 2.0, D / 2.0, 12, 0.22)
+    m.plan(SANDST_D, out, 0, 44)
+    m.plan('#ecd2a8', [(x * 0.9, y * 0.72) for (x, y) in out], 44, 50)
+    for k in range(5):
+        x, y = r.uniform(-L * 0.36, L * 0.36), r.uniform(-D * 0.2, D * 0.2)
+        m.plan('#c9a078', ring(r, x, y, r.uniform(160, 300), r.uniform(90, 160), 6, 0.2), 50, 55)
+    for k in range(7):
+        rr = r.uniform(40, 90)
+        m.sphere(GREY if k % 3 == 0 else (SANDST if k % 2 else ROCK_R), (r.uniform(-L * 0.4, L * 0.4), r.uniform(-D * 0.24, D * 0.24), 50 + rr * 0.3), rr,
+                 scale=(1.2, 1, 0.6), steps=(4, 6), rot=(0, r.uniform(0, 180), 0))
+    a = r.uniform(0, math.pi)
+    rod(m, BARK_D, (-L * 0.1, 0, 66), (-L * 0.1 + math.cos(a) * 320, math.sin(a) * 320, 80), 16, steps=6)
+    for k in range(6):
+        t = 2 * math.pi * (k + 0.3) / 6
+        m.sphere(SAGE if k % 2 else SAGE_D, (math.cos(t) * L * 0.46, math.sin(t) * D * 0.44, 84), r.uniform(46, 70), scale=(1, 1, 0.7), steps=(4, 6))
+
+
+def dirt_track(m, W=560, L=3400):
+    """A ranch track running out from the highway: a graded strip, two pale wheel ruts, sage down the middle, a pole
+    gate at the road end (shut) with a mail box, a turning circle at the far end. It runs along Y: the table stands
+    its near end 26 m from the centre line."""
+    r = random.Random(4)
+    m.box(SANDST_L, (0, -180, 15), (W, L - 360, 30))
+    m.plan(SANDST_L, ring(r, 0, L / 2.0 - 620, 620, 600, 10, 0.1), 0, 30)
+    for s in (-1, 1):
+        m.box(SAND, (s * 150, -180, 33), (110, L - 420, 6))
+    m.plan(SAND, ring(r, 0, L / 2.0 - 620, 470, 450, 10, 0.08), 30, 36)
+    m.plan(SANDST_L, ring(r, 0, L / 2.0 - 620, 250, 240, 8, 0.1), 36, 40)
+    for k in range(5):
+        m.sphere(SAGE if k % 2 else SAGE_D, (r.uniform(-30, 30), -L / 2.0 + 500 + k * 480, 44), r.uniform(30, 44), scale=(1, 1, 0.7), steps=(4, 6))
+    y = -L / 2.0 + 150
+    for s in (-1, 1):
+        m.box(WOOD, (s * (W / 2.0 + 20), y, 80), (26, 26, 160))
+    m.box(WOOD, (0, y, 112), (W + 40, 16, 16))
+    tilt_box(m, BARK, (-W / 2.0, y, 40), (W / 2.0, y, 112), 14)
+    m.box(WOOD, (W / 2.0 + 90, y - 40, 55), (14, 14, 110))
+    m.box(TEAL, (W / 2.0 + 90, y - 40, 122), (56, 34, 26))
+
+
+def parking_lot(m, L=3000, D=1800, T=40):
+    """The worn forecourt of a roadside business: sun-bleached asphalt in a cracked kerb, faded bays with kerb stops,
+    oil stains, three cars that have been there a while, a dumpster, weeds coming through."""
+    r = random.Random(31)
+    m.box(CONC, (0, 0, T / 2.0), (L, D, T))
+    m.box(ASPH, (0, 0, T + 3), (L - 100, D - 100, 6))
+    z = T + 6
+    n = 7
+    w = (L - 500) / n
+    for k in range(n + 1):
+        if k != 3:
+            m.box(ASPH_L, (-L / 2.0 + 250 + k * w, D * 0.14, z + 1), (30, 540, 4))
+    for k in range(n):
+        m.box(CONC, (-L / 2.0 + 250 + (k + 0.5) * w, D * 0.14 + 300, z + 8), (190, 30, 16))
+    for k in range(4):
+        m.plan(SYN, ring(r, r.uniform(-L * 0.36, L * 0.36), r.uniform(-D * 0.3, D * 0.1), r.uniform(60, 130), r.uniform(50, 90), 6, 0.3), z, z + 2)
+    for k, (slot, col, roof) in enumerate(((0, '#7fe3c4', CREAM), (2, RUST, None), (5, '#ffd23f', None))):
+        car(m, -L / 2.0 + 250 + (slot + 0.5) * w, D * 0.14, 90 + r.uniform(-6, 6), col, roof, wheels=False)
+    m.box(TEAL, (L / 2.0 - 260, -D / 2.0 + 220, z + 65), (220, 130, 130))
+    m.box(NAVY, (L / 2.0 - 260, -D / 2.0 + 220, z + 134), (230, 140, 8))
+    for k in range(5):
+        m.sphere(SAGE if k % 2 else SAGE_D, (r.uniform(-L * 0.46, L * 0.46), r.choice((-1, 1)) * D * 0.47, z + 10), r.uniform(26, 40), scale=(1, 1, 0.7), steps=(4, 6))
+
+
+def airstrip(m, L=8000, W=1500, T=38):
+    """The Syndicate's strip: a length of dark runway laid on the flat, threshold bars, a centre line, yellow edge
+    blocks, a turning pad with a painted ring. Nothing on it: whatever lands here does not stay."""
+    m.box(SYN, (0, 0, T / 2.0), (L, W, T))
+    for k in range(7):
+        m.box(CREAM, (-L / 2.0 + 300, -W / 2.0 + 210 + k * 180, T + 2), (420, 70, 4))
+    for k in range(8):
+        m.box(CREAM, (-L / 2.0 + 1300 + k * 800, 0, T + 2), (420, 44, 4))
+    for k in range(9):
+        for s in (-1, 1):
+            m.box(YEL, (-L / 2.0 + 400 + k * 900, s * (W / 2.0 - 40), T + 10), (120, 60, 20))
+    pz(m, SYN, L / 2.0 - 200, W / 2.0 + 500, 0, T, 900, steps=14)
+    pz(m, CREAM, L / 2.0 - 200, W / 2.0 + 500, T, T + 3, 620, steps=14)
+    pz(m, SYN, L / 2.0 - 200, W / 2.0 + 500, T, T + 6, 520, steps=14)
+
+
+# ------------------------------------------------------------------------------------------ the businesses (second pass)
+def motel_court(m):
+    """A worn motel court: an L of rooms under a turquoise walkway roof, doors in faded candy colours, one window lit,
+    the office at the road corner under a tilted roof, the pool in the court (still full), loungers, cars at the
+    doors, a dead palm, and the sign on its pole: an arrow, a board, two bars of bulbs (one out)."""
+    PINK, MINT, LEMON = '#ff9ec4', '#7fe3c4', '#ffe9a8'
+    r = random.Random(3)
+    m.box(ASPH, (0, 0, 12), (4200, 3000, 24))
+    m.box(CREAM, (-200, 1100, 189), (3600, 700, 330))                 # the long wing, along the back
+    m.box(TEAL, (-200, 1000, 369), (3800, 920, 30))
+    for k in range(6):
+        m.box(WHITE, (-1900 + k * 680, 600, 189), (16, 16, 330))
+    for k in range(8):
+        x = -1800 + k * 440
+        m.box((PINK, MINT, LEMON, MINT)[k % 4], (x, 746, 124), (90, 8, 200))
+        if k == 5:
+            m.box(WARM, (x + 160, 746, 150), (130, 8, 100), glow=0.6)
+        else:
+            m.box(GLASS, (x + 160, 746, 150), (130, 8, 100))
+    m.box(CREAM, (1750, 0, 189), (700, 1500, 330))                    # the short wing
+    m.box(TEAL, (1700, 0, 369), (900, 1700, 30))
+    for k in range(3):
+        m.box((LEMON, PINK, MINT)[k], (1396, -450 + k * 450, 124), (8, 90, 200))
+    m.box(PINK, (-1700, -900, 214), (700, 600, 380))                  # the office
+    m.box(WARM, (-1700, -1204, 230), (360, 8, 150), glow=0.6)
+    m.box(WHITE, (-1700, -950, 440), (1000, 860, 26), rot=(7, 0, 0))
+    pool = ring(r, -250, -350, 640, 400, 10, 0.12)
+    m.plan(CREAM, [(-250 + (x + 250) * 1.16, -350 + (y + 350) * 1.2) for (x, y) in pool], 24, 44)
+    m.plan(POOLB, pool, 44, 50)
+    for k in range(4):
+        m.box(WHITE if k % 2 else PINK, (-900 + k * 130, -980, 40), (60, 180, 30), rot=(0, r.uniform(-12, 12), 0))
+    car(m, -1100, 360, 90, '#ffd23f', None, wheels=False)
+    car(m, -220, 350, 92, RUST, CREAM, wheels=False)
+    car(m, 1080, 340, 88, '#7fe3c4', None, wheels=False)
+    tilt_box(m, BARK, (1850, -1300, 0), (1930, -1300, 560), 30)       # the dead palm
+    for k in range(4):
+        a = 2 * math.pi * k / 4 + 0.5
+        tilt_box(m, DRYG, (1930, -1300, 560), (1930 + math.cos(a) * 190, -1300 + math.sin(a) * 190, 430), 34, 8)
+    m.box(SYN, (-1950, -1400, 450), (44, 44, 900))                    # the sign
+    m.box(TEAL, (-1950, -1408, 800), (560, 40, 260))
+    m.side(YEL, [(-2270, 1000), (-1730, 1000), (-1730, 960), (-1600, 1060), (-1730, 1160), (-1730, 1120), (-2270, 1120)], -1432, -1424, glow=1.1)
+    m.box('#fff3a8', (-1950, -1432, 630), (420, 8, 44), glow=1.4)
+    m.box(GREY, (-1950, -1432, 566), (420, 8, 44))
+
+
+def sign_tower(m):
+    """A great roadside sign of the casino approach: two leaning legs, a boomerang board, blank lit panels stacked up
+    it, an arrow of bulbs pointing down at the door, and a starburst on top (life() runs the bulbs and the panels)."""
+    for s in (-1, 1):
+        tilt_box(m, SYN, (s * 260, 0, 0), (s * 120, 0, 2500), 70, 60)
+    m.side(MAG, [(-520, 1500), (560, 1750), (640, 2050), (-360, 1950), (-600, 1700)], -60, -44, glow=0.9)
+    for k in range(3):
+        m.box(SYN, (0, -50, 620 + k * 290), (620, 40, 240))
+        m.box((CYAN, GOLD, CYAN)[k], (0, -74, 620 + k * 290), (560, 8, 180), glow=1.0)
+    m.side(YEL, [(-340, 420), (-140, 420), (-140, 470), (0, 330), (-140, 190), (-140, 240), (-340, 240)], -90, -78, glow=1.1)
+    for k in range(8):
+        m.box('#fff3a8', (-560 + k * 160, -66, 1480 + k * 36), (54, 10, 54), glow=1.4)
+    cx, cz = 60, 2700
+    m.sphere(CYAN, (cx, -20, cz), 110, steps=(5, 8), glow=1.2)
+    for k in range(8):
+        a = 2 * math.pi * k / 8
+        L = 420 if k % 2 == 0 else 260
+        tilt_box(m, YEL, (cx + math.cos(a) * 130, -20, cz + math.sin(a) * 130), (cx + math.cos(a) * L, -20, cz + math.sin(a) * L), 30, 34, glow=1.2)
+
+
+def casino_grand(m, DEEP='#3a2a6a', MIDP='#4a3a8a', fins=(MAG, CYAN, GOLD, CYAN, MAG), pyramid=False):
+    """The big house of the approach: a podium with lit floors, a tower with fins of neon up its face, a crown of
+    light and a spire with a star (or, the second house, a pyramid of light), an arch of bulbs over the door, a
+    canopy, palms, cars at the kerb. 48 m."""
+    m.box(DEEP, (0, 300, 450), (3600, 1800, 900))
+    m.box(MIDP, (0, 500, 1900), (1500, 1100, 2000))
+    m.box(DEEP, (0, 500, 3300), (1100, 800, 800))
+    for k in range(5):
+        m.box(fins[k], (-560 + k * 280, -56, 1950), (56, 16, 2000), glow=1.2)
+    for f in range(3):
+        for k in range(12):
+            if (k + f) % 5 != 4:
+                m.box(WARM if (k + f) % 3 else '#9ff0ff', (-1540 + k * 280, -604, 300 + f * 200), (170, 8, 100), glow=0.6)
+    m.box(GOLD, (0, -606, 880), (3600, 8, 40), glow=1.0)
+    if pyramid:
+        m.box(MIDP, (0, 500, 3740), (1300, 1000, 80))
+        pz(m, GOLD, 0, 500, 3780, 4700, 640, steps=4, top_r=12, glow=1.0)
+        pz(m, CYAN, 0, 500, 4700, 4800, 30, steps=4, glow=1.2)
+    else:
+        pz(m, GOLD, 0, 500, 3700, 3790, 760, steps=12, glow=1.1)
+        pz(m, DEEP, 0, 500, 3790, 3810, 700, steps=12)
+        pz(m, STEEL, 0, 500, 3700, 4650, 40, steps=6)
+        for k in range(4):
+            m.box(YEL, (0, 500, 4760), (520, 30, 60), rot=(45 * k, 0, 0), glow=1.2)
+    n = 9
+    for k in range(n):                       # the arch over the door
+        a0, a1 = math.pi * k / n, math.pi * (k + 1) / n
+        tilt_box(m, GOLD, (math.cos(a0) * 880, -700, 40 + math.sin(a0) * 880), (math.cos(a1) * 880, -700, 40 + math.sin(a1) * 880), 70, 70, glow=1.1)
+    for k in range(11):
+        a = math.pi * (k + 0.5) / 11
+        m.box('#fff3a8', (math.cos(a) * 980, -700, 40 + math.sin(a) * 980), (50, 50, 50), glow=1.4)
+    m.box(SYN, (0, -820, 340), (1300, 620, 50))
+    m.box(GOLD, (0, -1132, 340), (1300, 6, 50), glow=1.1)
+    for x in (-600, 600):
+        m.box(GOLD, (x, -1080, 158), (34, 34, 316))
+    for x in (-1500, 1500):                  # palms
+        tilt_box(m, BARK, (x, -900, 0), (x + 40, -900, 700), 36)
+        m.sphere(SAGE_D, (x + 40, -900, 730), 230, scale=(1, 1, 0.45), steps=(4, 8))
+    car(m, -950, -1250, 90, '#ffd23f', None, wheels=False)
+    car(m, 420, -1260, 92, CREAM, None, wheels=False)
+    car(m, 1000, -1250, 88, '#ff7ad9', None, wheels=False)
+
+
+# ------------------------------------------------------------------------------------------ more rock (second pass)
+def rock_fins(m, seed=0):
+    """Fins and a balanced rock: three thin banded walls standing in echelon and a boulder on a waisted pedestal. A
+    third build of hoodoo country, so the finale's two rock stretches stop repeating the same two groups of pillars."""
+    r = random.Random(seed + 41)
+    tones = (SANDST_D, SANDST, ROCK_R, SANDST_L)
+    for k in range(3):
+        cx, cy = -760 + k * 600 + r.uniform(-80, 80), r.uniform(-260, 260)
+        out = ring(r, cx, cy, r.uniform(380, 560), r.uniform(90, 140), 8, 0.18)
+        h = r.uniform(900, 2100)
+        strata(m, out, [(h * a, h * b, tones[j]) for j, (a, b) in enumerate(((0, 0.36), (0.36, 0.62), (0.62, 0.82), (0.82, 1.0)))], 0.09, cx, cy)
+    x, y = 900, -260
+    pz(m, SANDST_D, x, y, 0, 520, 150, steps=8, top_r=80)
+    pz(m, ROCK_R, x, y, 520, 700, 80, steps=8, top_r=120)
+    m.sphere(SANDST, (x + 20, y, 880), 260, scale=(1.2, 1, 0.75), steps=(5, 8))
+
+
+def mesa_stub(m, seed=0, RX=2200, RY=1500, H=2600):
+    """A small mesa for the middle distance: a scree skirt, four bands of cliff, a pale cap, a pillar standing off it."""
+    r = random.Random(seed + 57)
+    out = ring(r, 0, 0, RX, RY, 11, 0.16)
+    m.plan(TALUS, [(x * 1.25, y * 1.25) for (x, y) in out], 0, H * 0.14)
+    strata(m, out, [(0, H * 0.4, SANDST_D), (H * 0.4, H * 0.62, ROCK_R), (H * 0.62, H * 0.84, SANDST), (H * 0.84, H, SANDST_L)], 0.05)
+    m.plan(SAND, [(x * 0.74, y * 0.74) for (x, y) in out], H, H + 30)
+    px_, hh = RX * 1.2, H * 0.7
+    strata(m, ring(r, px_, 300, 360, 320, 7, 0.12), [(0, hh * 0.5, SANDST_D), (hh * 0.5, hh * 0.8, SANDST), (hh * 0.8, hh, SANDST_L)], 0.14, px_, 300)
+
+
+# ------------------------------------------------------------------------------------------ what moves (second pass)
+def life():
+    """What moves on this kit: ft_life.animate() on the signs' bulbs and panels, the far town's windows, the pool.
+    The export puts the palette's still instances back on a mesh's slots, so run this again after any export:
+        import ft_dress_nevada; ft_dress_nevada.life()
+    All of it is light on signs 45 m out and beyond; nothing near the road moves."""
+    import ft_life
+    D = '/Game/Maps/Nevada/Dress/'
+    A = ft_life.animate
+    n = 0
+
+    def glows(v):
+        return lambda slot, colour, glow: abs(glow - v) < 0.011
+
+    # bulbs run along the marquees and up the signs; the neon fins and panels swell and fade
+    for name in ('SM_Casino', 'SM_CasinoGrand', 'SM_CasinoGrand2', 'SM_SignTower', 'SM_Chapel', 'SM_MotelCourt'):
+        n += A(D + name, 'Light', glows(1.4), **ft_life._chase((1.0, 0.0, 0.35), 520.0, rate=0.9, duty=0.5, low=0.3, rand=1.0))
+    for name in ('SM_Casino', 'SM_CasinoGrand', 'SM_CasinoGrand2'):
+        n += A(D + name, 'Light', glows(1.2), **ft_life._chase((0.0, 0.0, 1.0), 900.0, rate=0.5, duty=0.55, low=0.4, rand=1.0))
+        n += A(D + name, 'Light', glows(0.6), **ft_life._windows(240.0, rate=0.08, off=0.2, low=0.3))
+    n += A(D + 'SM_SignTower', 'Light', glows(1.0), **ft_life._chase((0.0, 0.0, 1.0), 870.0, rate=0.6, duty=0.5, low=0.35, rand=1.0))
+    n += A(D + 'SM_SignTower', 'Light', glows(1.2), **dict(ft_life.BLINK, LightRate=0.5, LightDuty=0.6))
+    n += A(D + 'SM_FarTown', 'Light', glows(0.7), **ft_life._windows(620.0, rate=0.08, off=0.2, low=0.3))
+    n += A(D + 'SM_FarTown', 'Light', glows(1.4), **dict(ft_life.PULSE, LightRate=0.2, LightMin=0.6))
+    unreal.log('FTDRESS nevada life: %d slots animated' % n)
+    return n
+
+
 JOBS = [
     ('SM_WireFence', buried(wire_fence)), ('SM_WireLine', buried(wire_line)), ('SM_Sagebrush', buried(sagebrush)),
     ('SM_Sagebrush2', buried(lambda m: sagebrush(m, 9))), ('SM_JunkPile', buried(junk_pile)), ('SM_WreckCar', buried(wreck_car)),
@@ -689,6 +978,13 @@ JOBS = [
     ('SM_BridgeRuin', buried(bridge_ruin)),
     ('SM_RockWall', buried(rock_wall)), ('SM_RockWall2', buried(lambda m: rock_wall(m, 5, 5200, 1500, 2700))), ('SM_RockArch', buried(rock_arch)),
     ('SM_RockSpires', buried(rock_spires)), ('SM_RockSpires2', buried(lambda m: rock_spires(m, 6))), ('SM_RidgeDune', buried(ridge_dune)),
+    # second pass. The ground plane: flat pieces on a shallow footing
+    ('SM_ScrubPatch', flat(scrub_patch)), ('SM_ScrubPatch2', flat(lambda m: scrub_patch(m, 5, 3600, 2200, ROCK_R, SANDST, 32))),
+    ('SM_WashBraid', flat(wash_braid)), ('SM_DirtTrack', flat(dirt_track)), ('SM_ParkingLot', flat(parking_lot)), ('SM_Airstrip', flat(airstrip)),
+    # second pass. The businesses of the approach, and a third and fourth build of rock
+    ('SM_MotelCourt', buried(motel_court)), ('SM_SignTower', buried(sign_tower)), ('SM_CasinoGrand', buried(casino_grand)),
+    ('SM_CasinoGrand2', buried(lambda m: casino_grand(m, '#6a2440', '#8a3050', (GOLD, CYAN, GOLD, CYAN, GOLD), True))),
+    ('SM_RockSpires3', buried(rock_fins)), ('SM_MesaStub', buried(mesa_stub)),
     # the horizon stands past the land's edge, below it: its footing shows from a high camera, so it is the rock's own
     # colour (a bench under the mesa), and 30 m wider than the piece all round (see ft_dress_chem.buried, keep)
     ('SM_ButteFar', buried(butte_far, SANDST_D, FAR_KEEP)),

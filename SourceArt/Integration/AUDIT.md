@@ -53,6 +53,24 @@ all eight levels pass; every track fingerprint is unchanged; no error logged; 88
 was uncooked (see the note on the preload below), each screenshot at that size is itself a long frame, and other
 Unreal jobs shared the PC.
 
+### The packaged build
+
+`SourceArt/Jam/unreal/jam_package.ps1 -Name RC_Development` packages a checkout into its own folder under
+`K:\Full Throttle\PortBuilds`; `jam_verify.ps1 -Root <that folder>\Windows` runs the per-level check on the packaged
+game. Runs of 15 Nov on `main` 223c349 (Development, 1,357 MB, built in 12 to 19 minutes):
+
+- Every level: the boss arrives, the reel plays, the pay is banked, 11 frames, no error in the log.
+- 3.4's preload runs (`FT WARM start assets=278`, done in 0.25 s) and **no level loads anything mid-race**
+  (the uncooked runs above show 19 to 23 a level only because the preload finds nothing there).
+- The track: its checksums differ from the editor binary's on every level, with the same frame and triangle counts.
+  The checksums are of raw numbers, and the same code compiled two ways rounds differently while the route is summed
+  step by step. The `FTTRACKSUM` log line (added for this: length, box, mean position and mean up vector) shows the
+  two tracks **within 0.5 cm of each other over 25 km on every level**. `track_baseline.txt` now holds three tables:
+  the editor's checksums, a packaged game's, and the summaries; `jam_verify.ps1` compares a build against its own
+  checksum table and the summaries within 2 cm.
+- Frames over 40 ms were counted but mean little: each 3440x1440 screenshot is itself one, and other Unreal jobs
+  shared the PC.
+
 ## Open: confirmed in code, not changed
 
 Progression and saves
@@ -89,6 +107,13 @@ Runtime
 - Frame-rate dependence: the limo's stream is about 12 % sparser at 30 fps; player missiles have no swept test and
   pass through a bike below about 27 fps.
 - The generic range cull covers the boss; once released the level cannot end until a wreck.
+- LIKELY, for Matt: on Ice Mountain the harness's autopilot comes to a stop against the track's own wall now and
+  then and is moved on (`FTSTALL`): at 2.37 and 2.39 km (just after the first jump) and once at 5.77 km, three times in
+  about nine autopilot runs of 15 Nov, on builds with and without the second dressing pass (dressed pieces have no
+  collision). No other level logged one that night bar a single stall on Chemical Works at 1.23 km. It may be the
+  autopilot's line and nothing a player meets; the landing after the first jump is the place to look.
+- A level's first build in a session read its scenery meshes from a cold disk in 6.2 s (Theme Park, `props=6155ms`,
+  an uncooked run on a hard disk); with the meshes in memory the same placement takes 0.05 to 0.3 s.
 - Shipping: `-ftexec`, `ft.Press`, `ft.Click`, `-ftauto` and `-fthp` still work, and Remote Control ships in every
   target. `/Engine/BasicShapes/Cylinder` (pillars, the SWAT rope) is named only in code: check it is cooked.
 

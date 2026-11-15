@@ -556,6 +556,433 @@ def cooling_tower(m, H=4600):
         m.sphere(STEAM, (dx, 140 * j, H + dz), rr, scale=(1.15, 1, 0.8), steps=(5, 8))
 
 
+# ------------------------------------------------------------------------------------------ the ground plane (second pass)
+# Flat pieces (nothing over 2 m, so the track's sight-line rule leaves them alone) that turn the land beside the road
+# from one dark colour into ground somebody built on: yards, lots, ponds, bunds, pipe fields, plant roads, sidings.
+# They are what a banked, looping or airborne camera sees, so they are drawn to be read from above as much as from
+# the side: pale slabs on the dark land, chunky paint, a few saturated liquids. Each has its own slab height, so two
+# that overlap never share a top (no flicker). The table puts them 26 m out and beyond (FTDressL1.inl).
+PAVE = '#7f8fc6'      # floodlit plant concrete: slabs, pads, kerbs. Much paler than the land, so a slab reads as made
+PAVE_D = '#56659f'    # the same in shade: aprons, rims, ballast
+POOL = 0.35           # how much a pond's liquor glows (the ponds stand 40 m out and beyond)
+
+
+def flat(fn, foot=60.0, col=MIDLAND):
+    """Wrap a ground piece's draw function: a footing `foot` cm deep under its whole footprint, in the land's colour.
+    The track stands a piece level where it is put, sunk 15 cm; where the land falls gently along the road the
+    downhill edge would show daylight under it, and with this it shows a low terrace instead. Shallow on purpose:
+    with it a ground piece is still under 2.5 m from its lowest point to its top (the table keeps these pieces off
+    the steep ramps, where no footing would save a level slab)."""
+    def draw(m):
+        fn(m)
+        lo, hi = [1e9] * 3, [-1e9] * 3
+        for mesh in m.meshes.values():
+            b = QUERY.get_mesh_bounding_box(mesh)
+            for i, k in enumerate('xyz'):
+                lo[i] = min(lo[i], getattr(b.min, k))
+                hi[i] = max(hi[i], getattr(b.max, k))
+        m.box(col, ((lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0, lo[2] - foot / 2.0), (hi[0] - lo[0], hi[1] - lo[1], foot))
+    return draw
+
+
+def blob(r, rx, ry, n=9, wob=0.2, cx=0.0, cy=0.0):
+    """An irregular outline (a lagoon, a puddle): n points round an ellipse, each pushed in or out a little."""
+    return [(cx + math.cos(2 * math.pi * k / n) * rx * (1.0 + r.uniform(-wob, wob)),
+             cy + math.sin(2 * math.pi * k / n) * ry * (1.0 + r.uniform(-wob, wob))) for k in range(n)]
+
+
+def slab(m, L, D, T, col=PAVE, rim=PAVE_D, lip=30.0):
+    """A yard's slab: the pale top on a darker apron that shows as a rim all round it."""
+    m.box(rim, (0, 0, (T - 12) / 2.0), (L + 2 * lip, D + 2 * lip, T - 12))
+    m.box(col, (0, 0, T / 2.0), (L, D, T))
+
+
+def yard_lot(m, seed=0, L=3000, D=2000, T=46):
+    """A maintenance yard: a slab with a blocked front edge and painted bays, and what is kept on it: pipe in chocked
+    stacks (seed 0), skips and crates (1), drums on pallets and cable reels (2)."""
+    r = random.Random(seed + 61)
+    slab(m, L, D, T)
+    n = 10
+    for k in range(n):       # the front edge, blocked yellow and dark: chunky enough to read from the road
+        m.box(HAZ if k % 2 == 0 else NAVY, (-L / 2.0 + L * (k + 0.5) / n, -D / 2.0 + 50, T + 2), (L / n, 100, 4))
+    for k in range(1, 5):    # bays
+        m.box(WHITE, (-L / 2.0 + L * k / 5.0, -D * 0.14, T + 2), (40, D * 0.46, 4))
+    kind = seed % 3
+    if kind == 0:
+        for (x, y, rows, col) in ((-L * 0.26, D * 0.24, 2, TEAL), (L * 0.16, D * 0.26, 2, STEELB), (L * 0.3, -D * 0.08, 1, WHITE)):
+            for i in range(rows):
+                for j in range(3 - i):
+                    px(m, col, x - 520, x + 520, y + (j - (2 - i) / 2.0) * 80, T + 38 + i * 66, 38, steps=6)
+            for sx in (-1, 1):
+                m.box(RUST, (x + sx * 400, y, T + 8), (26, 300, 16))
+    elif kind == 1:
+        for k in range(5):
+            x, y = -L * 0.38 + k * L * 0.19, r.uniform(D * 0.04, D * 0.3)
+            m.side((TEAL, MAG, STEELB, HAZ, TEAL_D)[k], [(-190, T), (190, T), (240, T + 126), (-240, T + 126)], y - 100, y + 100, loc=(x, 0, 0))
+            m.box(NAVY, (x, y, T + 131), (486, 206, 10))
+        for k in range(3):
+            m.box((STEELB_D, TEAL_D, RUST)[k], (-L * 0.3 + k * L * 0.3, -D * 0.3, T + 60), (150, 120, 120))
+    else:
+        for (ax, ay) in ((-L * 0.3, D * 0.2), (-L * 0.02, D * 0.27)):
+            m.box(RUST, (ax, ay, T + 8), (190, 190, 16))
+            for i in range(2):
+                for j in range(2):
+                    drum(m, ax - 44 + i * 88, ay - 44 + j * 88, T + 16, r.choice([HAZ, TEAL, MAG, VIOLET, STEELB]))
+        for k, x in enumerate((L * 0.3, L * 0.4)):       # cable reels standing on their rims
+            y = -D * 0.1 + k * 320
+            py(m, RUST, x, y - 54, y + 54, T + 66, 66, steps=10)
+            py(m, STEELB_D, x, y - 40, y + 40, T + 66, 38, steps=8)
+
+
+def car_park(m, L=3200, D=1900, T=50):
+    """The shift's car park: asphalt in a pale kerb, bays in white, cars nose to the road, one bay hatched off, and the
+    attendant's booth with its window lit (so the table keeps this one 40 m out)."""
+    r = random.Random(23)
+    m.box(PAVE, (0, 0, T / 2.0), (L, D, T))
+    m.box(NAVY, (0, 0, T + 3), (L - 90, D - 90, 6))
+    z = T + 6
+    n = 8
+    w = (L - 500) / n
+    cols = [TEAL, MAG, WHITE, STEELB, HAZ, TEAL_D, VIOLET, WHITE]
+    for k in range(n + 1):
+        m.box(WHITE, (-L / 2.0 + 140 + k * w, -D * 0.18, z + 1), (34, 560, 4))
+    for k in range(n):
+        x = -L / 2.0 + 140 + (k + 0.5) * w
+        if k == 5:           # the hatched bay
+            for j in range(3):
+                m.box(HAZ, (x, -D * 0.18 - 170 + j * 170, z + 1), (w * 0.8, 46, 4), rot=(0, 35, 0))
+            continue
+        if k == 2:
+            continue         # an empty bay
+        y = -D * 0.18 + r.uniform(-30, 30)
+        m.box(BLACK, (x, y, z + 14), (176, 400, 28))
+        m.box(cols[k], (x, y, z + 58), (190, 430, 64))
+        m.box(GLASS, (x, y + 26, z + 110), (170, 220, 44))
+    m.box(WHITE, (0, D * 0.3, z + 1), (L * 0.7, 34, 4))                  # the lane's line
+    m.box(STEELB, (L / 2.0 - 260, D / 2.0 - 250, z + 62), (220, 220, 124))
+    m.box(NAVY, (L / 2.0 - 260, D / 2.0 - 250, z + 130), (260, 260, 12))
+    m.box(WARM, (L / 2.0 - 260, D / 2.0 - 363, z + 78), (140, 6, 56), glow=0.55)
+
+
+def pond(m, a=MAG, b=CYAN, L=2600, D=1700, H=64):
+    """Twin settling ponds: a concrete rim, two basins of process liquor (they glow a little: the table keeps them
+    40 m out), the weir between them with foam below it, feed pipes over the back wall, a slab across for the operator."""
+    W = 90
+    m.box(PAVE_D, (0, 0, 14), (L + 70, D + 70, 28))
+    for (x, y, sx, sy) in ((0, -D / 2.0 + W / 2.0, L, W), (0, D / 2.0 - W / 2.0, L, W), (-L / 2.0 + W / 2.0, 0, W, D),
+                           (L / 2.0 - W / 2.0, 0, W, D), (0, 0, W, D)):
+        m.box(PAVE, (x, y, H / 2.0), (sx, sy, H))
+    for s, col in ((-1, a), (1, b)):
+        m.box(col, (s * L / 4.0, 0, (H - 18) / 2.0), (L / 2.0 - W, D - 2 * W + 2, H - 18), glow=POOL)
+    m.box(WHITE, (W / 2.0 + 60, 0, H - 14), (120, D * 0.3, 10))
+    for k in range(3):
+        m.sphere(WHITE, (W / 2.0 + 160 + k * 90, (k - 1) * D * 0.12, H - 18), 62, scale=(1, 1, 0.3), steps=(4, 6))
+    for k, x in enumerate((-L * 0.36, -L * 0.2)):
+        col = TEAL if k == 0 else TEAL_D
+        py(m, col, x, D / 2.0 - 300, D / 2.0 + 240, H + 46, 36, steps=8)
+        pz(m, col, x, D / 2.0 + 240, 0, H + 46, 36, steps=8)
+        pz(m, col, x, D / 2.0 - 300, H - 18, H + 46, 36, steps=8)
+    m.box(STEELB_D, (L / 4.0 + 120, 0, H + 7), (170, D - 40, 14))
+
+
+def clarifier(m, R=950, H=72, liquor=TEAL):
+    """A clarifier: a round tank let into the ground, the rake bridge from its hub to the rim and the drive on the end
+    of it (the only steel-grey and orange on the piece: life() turns just those, slowly), foam round the hub, the feed
+    pipe coming up to the wall."""
+    pz(m, PAVE_D, 0, 0, 0, 30, R + 160, steps=16)
+    n = 16
+    seg = 2 * math.pi * (R + 40) / n + 8
+    for k in range(n):
+        a = 2 * math.pi * (k + 0.5) / n
+        m.box(PAVE, (math.cos(a) * (R + 40), math.sin(a) * (R + 40), H / 2.0), (80, seg, H), rot=(0, math.degrees(a), 0))
+    pz(m, liquor, 0, 0, 0, H - 22, R + 6, steps=16, glow=POOL)
+    pz(m, PAVE, 0, 0, 0, 150, 110, steps=10)
+    pz(m, WHITE, 0, 0, H - 22, H - 14, 300, steps=10)
+    m.box(STEEL, (R / 2.0 + 20, 0, 150), (R + 60, 110, 24))
+    m.box(STEEL, (R / 2.0 + 60, 0, 112), (R - 220, 18, 56))
+    m.box(ORANGE, (R + 20, 0, 158), (120, 130, 50))
+    py(m, TEAL_D, -R * 0.4, R * 0.94, R + 320, 60, 36, steps=8)
+    pz(m, TEAL_D, -R * 0.4, R + 320, 0, 60, 36, steps=8)
+
+
+def tank_pad(m, L=3000, D=2000):
+    """An empty bund: the wall, the dark floor, two ring foundations (one still carrying the bottom course of its
+    tank), the manifold along the front and the stubs to it, a puddle of the chemical in the low corner."""
+    W, H = 50, 96
+    m.box(PAVE_D, (0, 0, 18), (L, D, 36))
+    for (x, y, sx, sy) in ((0, -D / 2.0, L + W, W), (0, D / 2.0, L + W, W), (-L / 2.0, 0, W, D), (L / 2.0, 0, W, D)):
+        m.box(PAVE, (x, y, H / 2.0), (sx, sy, H))
+    m.box(HAZ, (0, -D / 2.0 - W / 2.0 - 2, H - 18), (L + W, 4, 24))
+    ym = -D / 2.0 + 240
+    px(m, TEAL_D, -L / 2.0 + 220, L / 2.0 - 220, ym, 74, 32, steps=8)
+    for (x, y, R, stub, col) in ((-650, 140, 560, True, TEAL), (720, 60, 400, False, MAG)):
+        pz(m, PAVE, x, y, 30, 66, R, steps=14)
+        pz(m, PAVE_D, x, y, 66, 70, R * 0.3, steps=10)
+        if stub:
+            pz(m, col, x, y, 66, 166, R - 70, steps=14)
+            pz(m, NAVY, x, y, 166, 170, R - 110, steps=14)
+        py(m, col, x, ym, y - R + 60, 72, 26, steps=6)
+    r = random.Random(8)
+    m.plan(VIOLET, blob(r, 300, 190, 8, 0.25, L * 0.3, D * 0.3), 36, 42, glow=POOL)
+
+
+def pipe_field(m, W=1500, L=3200):
+    """A field of process lines running straight out from the road to the units behind: five pipes on sleepers, going
+    to ground at each end, flanges, hand wheels, and a slab bridge over them for the operators."""
+    n = 6
+    for k in range(n + 1):
+        m.box(PAVE_D, (0, -L / 2.0 + 220 + (L - 440) * k / n, 22), (W, 70, 44))
+    for i, (x, r, col) in enumerate(((-560, 42, TEAL), (-290, 30, MAG), (-50, 38, WHITE), (220, 30, TEAL_D), (490, 42, STEELB))):
+        z = 44 + r
+        py(m, col, x, -L / 2.0 + 120, L / 2.0 - 120, z, r, steps=6)
+        for y in (-L / 2.0 + 120, L / 2.0 - 120):
+            pz(m, col, x, y, 0, z + r * 0.7, r, steps=6)
+        for y in (-L * 0.24, L * 0.3):
+            py(m, BLACK, x, y - 9, y + 9, z, r + 9, steps=6)
+        if i in (1, 3):
+            m.cyl(RED, (x, L * 0.08, z + r + 14), 32, 8, steps=8)
+            pz(m, STEEL, x, L * 0.08, z, z + r + 14, 7, steps=4)
+    # the bridge: deck, two ramps, solid side plates
+    yb, zb = -L * 0.06, 140
+    m.box(STEELB_D, (0, yb, zb), (W + 60, 250, 16))
+    for s in (-1, 1):
+        tilt_box(m, STEELB_D, (s * (W / 2.0 + 30), yb, zb), (s * (W / 2.0 + 330), yb, 0), 250, 14)
+        m.box(STEELB, (0, yb + s * 122, zb + 22), (W + 60, 10, 30))
+
+
+def access_road(m, W=760, L=3400):
+    """A plant road running out from the perimeter towards the units: asphalt between pale kerbs, a centre line, a
+    crossing and a stop bar at the road end, a boom across it (down), a turning head at the far end. It runs along Y:
+    the table stands its near end 26 m from the centre line."""
+    m.box(PAVE, (0, 0, 21), (W + 130, L, 42))
+    m.box(NAVY, (0, 0, 44), (W, L - 70, 6))
+    for k in range(4):
+        m.box(WHITE, (0, -L / 2.0 + 1050 + k * 560, 49), (36, 300, 4))
+    for k in range(5):
+        m.box(WHITE, (-W / 2.0 + 76 + k * 152, -L / 2.0 + 560, 49), (84, 250, 4))
+    m.box(WHITE, (0, -L / 2.0 + 300, 49), (W - 60, 60, 4))
+    m.box(STEELB, (-W / 2.0 - 30, -L / 2.0 + 150, 44 + 55), (44, 44, 110))
+    for k in range(4):
+        m.box(WHITE if k % 2 == 0 else NAVY, (-W / 2.0 + (k + 0.5) * (W + 40) / 4.0, -L / 2.0 + 150, 44 + 92), ((W + 40) / 4.0, 22, 22))
+    m.box(PAVE, (0, L / 2.0 - 380, 21), (W + 760, 760, 42))
+    m.box(NAVY, (0, L / 2.0 - 380, 44), (W + 620, 620, 6))
+    m.box(WHITE, (0, L / 2.0 - 380, 49), (300, 60, 4), rot=(0, 45, 0))
+    m.box(WHITE, (0, L / 2.0 - 380, 49), (300, 60, 4), rot=(0, -45, 0))
+
+
+def heli_pad(m, R=1050, T=56):
+    """The works' helipad: an octagon of slab, the yellow ring, the H, four red edge lights (steady)."""
+    def octagon(rr):
+        return [(math.cos(math.pi / 8 + k * math.pi / 4) * rr, math.sin(math.pi / 8 + k * math.pi / 4) * rr) for k in range(8)]
+    m.plan(PAVE_D, octagon(R + 70), 0, T - 12)
+    m.plan(PAVE, octagon(R), 0, T)
+    m.plan(HAZ, octagon(R * 0.8), T, T + 3)
+    m.plan(PAVE, octagon(R * 0.68), T, T + 6)
+    for x in (-170, 170):
+        m.box(WHITE, (x, 0, T + 8), (90, 540, 4))
+    m.box(WHITE, (0, 0, T + 8), (340, 90, 4))
+    for k in range(4):
+        a = math.pi / 4 + k * math.pi / 2
+        m.sphere(RED, (math.cos(a) * R * 0.9, math.sin(a) * R * 0.9, T + 6), 30, scale=(1, 1, 0.6), steps=(4, 6), glow=1.2)
+
+
+def lagoon(m, seed=0, RX=1500, RY=1050):
+    """A waste lagoon: a dark liner bermed up out of the ground, the chemical standing in it (glowing a little), drums
+    half sunk, the outfall pipe and its foam at the back, concrete blocks along the road side."""
+    r = random.Random(seed + 17)
+    out = blob(r, RX, RY, 11, 0.16)
+    m.plan(NAVY, out, 0, 52)
+    m.plan(VIOLET, [(x * 0.86, y * 0.86) for x, y in out], 52, 58, glow=POOL)
+    for k in range(5):
+        a, q = r.uniform(0, 2 * math.pi), r.uniform(0.15, 0.6)
+        drum(m, math.cos(a) * RX * q, math.sin(a) * RY * q, 30, r.choice([HAZ, TEAL, MAG, STEELB]), lying=(k % 2 == 0), yaw=r.uniform(0, 180))
+    py(m, TEAL_D, RX * 0.2, RY * 0.5, RY + 320, 98, 44, steps=8)
+    pz(m, TEAL_D, RX * 0.2, RY + 320, 0, 98, 44, steps=8)
+    m.sphere(WHITE, (RX * 0.2, RY * 0.42, 60), 150, scale=(1, 1.3, 0.25), steps=(4, 8))
+    for k in range(4):
+        x = -RX * 0.6 + k * RX * 0.4
+        m.box(PAVE, (x, -RY - 150, 40), (300, 70, 80))
+        m.box(HAZ if k % 2 == 0 else NAVY, (x, -RY - 187, 46), (150, 4, 40))
+
+
+def rail_fan(m, L=4000, W=780, T=44):
+    """A pair of sidings on their ballast: the turnout where they part, buffer stops, a flat wagon loaded with pipe.
+    Heavy rails and a few wide sleepers, so the track still reads (and does not turn to scribble) from the road."""
+    m.box(PAVE_D, (0, 0, T / 2.0), (L, W, T))
+    for y in (-190, 190):
+        for s in (-1, 1):
+            m.box(STEEL, (0, y + s * 80, T + 9), (L - 200, 24, 18))
+        for k in range(9):
+            m.box(RUST, (-L / 2.0 + 300 + k * (L - 600) / 8.0, y, T + 3), (90, 270, 6))
+        m.box(RED, (L / 2.0 - 90, y, T + 60), (50, 250, 120))
+        m.box(WHITE, (L / 2.0 - 118, y, T + 70), (8, 250, 34))
+    for s in (-1, 1):
+        tilt_box(m, STEEL, (-L * 0.42, -190 + s * 80, T + 9), (-L * 0.12, 190 + s * 80, T + 9), 24, 18)
+    x = L * 0.14
+    m.box(NAVY, (x, 190, T + 70), (1040, 240, 26))
+    for xx in (x - 330, x + 330):
+        m.box(BLACK, (xx, 190, T + 34), (200, 190, 44))
+    for j in range(3):
+        px(m, (TEAL, WHITE, TEAL)[j], x - 480, x + 480, 190 + (j - 1) * 66, T + 113, 30, steps=6)
+
+
+def canal(m, L=3600, W=640, H=84):
+    """A length of the cooling-water channel between two culvert headwalls: the water (life() makes it run), two weirs
+    with foam below them, a pipe crossing on its saddles."""
+    m.box(PAVE_D, (0, 0, 14), (L + 60, W + 260, 28))
+    for s in (-1, 1):
+        m.box(PAVE, (0, s * (W / 2.0 + 35), H / 2.0), (L, 70, H))
+        m.box(PAVE, (s * (L / 2.0 - 60), 0, 80), (120, W + 140, 160))
+        m.box(NAVY, (s * (L / 2.0 - 124), 0, 64), (10, W * 0.6, 72))
+        m.box(PAVE_D, (L * 0.03, s * (W / 2.0 + 150), (H + 16) / 2.0), (90, 90, H + 16))
+    m.box(CYAN, (0, 0, (H - 30) / 2.0), (L - 130, W + 2, H - 30))
+    for x in (-L * 0.18, L * 0.2):
+        m.box(PAVE, (x, 0, (H - 12) / 2.0), (60, W, H - 12))
+        m.box(WHITE, (x + 85, 0, H - 28), (110, W * 0.9, 6))
+    py(m, TEAL, L * 0.03, -W / 2.0 - 200, W / 2.0 + 200, H + 50, 34, steps=8)
+
+
+# ------------------------------------------------------------------------------------------ what stands in the sky (second pass)
+def catwalk(m, L=4200, H=1350):
+    """A lit catwalk: a walkway bridge between two stair towers, solid parapets, a strip of light under the deck its
+    whole length (life() runs it along), landing windows and a lamp on each tower, a line slung underneath."""
+    for s in (-1, 1):
+        x = s * (L / 2.0 - 190)
+        m.box(STEELB_D, (x, 0, (H + 260) / 2.0), (380, 380, H + 260))
+        m.box(NAVY, (x, 0, H + 271), (430, 430, 22))
+        for k in range(3):
+            m.box(WARM, (x, -192, 300 + k * 420), (150, 6, 110), glow=0.55)
+        m.box(ORANGE, (x, -200, H + 215), (90, 40, 30), glow=0.9)
+    m.box(STEELB, (0, 0, H), (L - 380, 260, 50))
+    for y in (-124, 124):
+        m.box(STEELB, (0, y, H + 85), (L - 380, 14, 120))
+    m.box(CYAN, (0, -131, H - 40), (L - 520, 6, 30), glow=0.5)
+    px(m, TEAL, -L / 2.0 + 380, L / 2.0 - 380, 60, H - 60, 34, steps=8)
+    for x in (-L / 6.0, L / 6.0):
+        m.box(STEELB_D, (x, 0, (H - 25) / 2.0), (60, 200, H - 25))
+
+
+def column_trio(m):
+    """Three distillation columns on one plinth, 88, 72 and 56 m: platforms ringing each one with a band of light under
+    every platform (life() sends the light up them), the overhead line from the tallest down to the next, a vent and
+    its steam on the middle one, a bridge between two, a beacon. Tall enough to stand in the sky of a banked turn."""
+    m.box(PAVE_D, (0, 0, 40), (3000, 1700, 80))
+    cols = ((-950, 80, 300, 8800, WHITE, TEAL), (60, -120, 250, 7200, TEAL, MAG), (980, 100, 210, 5600, STEELB, HAZ))
+    for i, (x, y, R, H, col, band) in enumerate(cols):
+        pz(m, PAVE, x, y, 80, 260, R + 90, steps=8)
+        pz(m, col, x, y, 260, H, R, steps=8)
+        m.sphere(col, (x, y, H), R, scale=(1, 1, 0.5), steps=(4, 8))
+        nr = 3 if i == 2 else 4
+        for k in range(nr):
+            z = 260 + (H - 700) * (k + 1) / float(nr)
+            pz(m, STEELB_D, x, y, z, z + 36, R + 180, steps=8)
+            pz(m, CYAN, x, y, z - 96, z - 20, R + 14, steps=8, glow=0.5)
+        pz(m, band, x, y, 700, 800, R + 10, steps=8)
+    rod(m, WHITE, (-950, 80, 8900), (60, 200, 6900), 60, steps=6)
+    pz(m, WHITE, 60, 200, 5200, 6900, 60, steps=6)
+    tilt_box(m, STEELB_D, (60, -120, 3300), (980, 100, 3300), 110, 130)
+    px(m, TEAL_D, 60, 980, -10, 3410, 44, steps=6)
+    pz(m, STEEL, 60, -120, 7300, 7750, 64, steps=6)
+    for j, (dx, dz, rr) in enumerate(((0, 330, 340), (260, 950, 430), (720, 1650, 490), (1350, 2350, 400))):
+        m.sphere(STEAM, (60 + dx, -120 + 60 * j, 7700 + dz), rr, scale=(1.15, 1, 0.8), steps=(4, 6))
+    m.sphere(RED, (-950, 80, 8800 + 210), 62, steps=(4, 6), glow=1.3)
+
+
+def reactor_core(m):
+    """THE reactor, the one landmark of the level: a containment dome on a pale concrete drum 84 m across and 110 m
+    tall (violet slit windows up it, the control gallery's lit band under the roof ring, a corona of violet at the
+    dome's foot), four banded stacks at its corners, and the needle on the dome with its column of violet light and
+    three rings round the light (life() sends the light up them). 147 m to the top of the dome, 297 m to the top of
+    the light. The table stands ONE of these in the reactor block (and one in the finale's), dead ahead of the jump at
+    4.4 km, a kilometre out: FTDressL1.inl says why there.
+    The first version (a dark drum 56 m tall, a thin needle of light) was lost a kilometre out: dark on a black sky,
+    and no taller than the stacks and cooling towers in front of it. So the drum is pale and twice the height, and
+    the light is a column 10 m through."""
+    R, HD = 4200, 11000
+    pz(m, PAVE_D, 0, 0, 0, 500, R + 900, steps=20)
+    pz(m, PAVE, 0, 0, 500, HD, R, steps=20)
+    for z in (HD * 0.3, HD * 0.62):
+        pz(m, STEELB_D, 0, 0, z, z + 260, R + 14, steps=20)
+    n = 10
+    for k in range(n):
+        a = 2 * math.pi * (k + 0.5) / n
+        m.box(VIOLET, (math.cos(a) * (R - 30), math.sin(a) * (R - 30), 500 + HD * 0.44), (120, 420, HD * 0.7), rot=(0, math.degrees(a), 0), glow=1.0)
+    pz(m, WARM, 0, 0, HD - 620, HD - 240, R + 30, steps=20, glow=0.6)
+    pz(m, NAVY, 0, 0, HD - 240, HD + 60, R + 420, steps=20)
+    RD = R - 200
+    m.sphere(WHITE, (0, 0, HD), RD, scale=(1, 1, 0.92), steps=(8, 20))
+    pz(m, VIOLET, 0, 0, HD + 40, HD + 320, RD + 70, steps=20, glow=1.0)
+    pz(m, MAG, 0, 0, HD + RD * 0.92 * 0.6, HD + RD * 0.92 * 0.6 + 200, RD * 0.8 + 30, steps=20)
+    top = HD + RD * 0.92
+    for k in range(4):
+        a = math.pi / 4 + k * math.pi / 2
+        x, y = math.cos(a) * (R + 1000), math.sin(a) * (R + 1000)
+        for j in range(5):
+            pz(m, WHITE if j % 2 == 0 else ORANGE, x, y, 500 + j * 3100, 500 + (j + 1) * 3100, 700 - j * 60, steps=8, top_r=700 - (j + 1) * 60)
+        m.sphere(RED, (x, y, 500 + 5 * 3100 + 140), 150, steps=(4, 6), glow=1.3)
+    pz(m, STEEL, 0, 0, top - 150, top + 4200, 300, steps=8, top_r=110)
+    pz(m, VIOLET, 0, 0, top + 600, top + 15000, 520, steps=8, top_r=150, glow=1.4)
+    for (dz, rr) in ((3200, 2600), (7200, 2000), (11200, 1400)):
+        nseg = 12
+        for k in range(nseg):
+            a = 2 * math.pi * (k + 0.5) / nseg
+            m.box(VIOLET, (math.cos(a) * rr, math.sin(a) * rr, top + dz), (260, 2 * math.pi * rr / nseg + 14, 220), rot=(0, math.degrees(a), 0), glow=1.4)
+
+
+# ------------------------------------------------------------------------------------------ what moves (second pass)
+def life():
+    """What moves on this kit: ft_life.animate() on the slots that should (steam, beacons, lights that run, liquor,
+    the clarifier's rake, the crane's trolley). The export puts the palette's still instances back on a mesh's slots,
+    so run this again after any export:   import ft_dress_chem; ft_dress_chem.life()
+    Near the road nothing moves: the nearest of these (the catwalk's light, the canal's water) stand 40 m out."""
+    import ft_life
+    D = '/Game/Maps/ChemicalWorks/Dress/'
+    A = ft_life.animate
+    n = 0
+
+    def beacon(slot, colour, glow):
+        return colour == 'ff3355' and glow > 1.0
+
+    def glows(v):
+        return lambda slot, colour, glow: abs(glow - v) < 0.011
+
+    # steam churns and leans down the wind, more the higher it stands (far: it must be seen moving from a long way off)
+    steam = dict(SwayPow=1.2, SwayRate=0.45, SwayLean=0.5, BreatheRate=0.8, BreatheVar=1.5)
+    for name, base, height, amp, swell in (('SM_CoolingTower', 4600.0, 3200.0, 260.0, 36.0), ('SM_CoolingCells', 900.0, 900.0, 90.0, 16.0),
+                                           ('SM_FarCooling', 10000.0, 8000.0, 600.0, 80.0), ('SM_FarStacks', 14000.0, 6000.0, 420.0, 60.0),
+                                           ('SM_ColumnTrio', 7600.0, 2600.0, 200.0, 28.0)):
+        n += A(D + name, ('Sway', 'Breathe'), ['#d8d0f0'], far=True, SwayBase=base, SwayHeight=height, SwayAmp=amp, BreatheAmp=swell, **steam)
+    # beacons blink, each at its own moment
+    for name in ('SM_ReactorHall', 'SM_GantryCrane', 'SM_Gasholder', 'SM_FarStacks', 'SM_FarPlant', 'SM_FarPlant2', 'SM_FarGasworks',
+                 'SM_ColumnTrio', 'SM_ReactorCore'):
+        n += A(D + name, 'Light', beacon, **ft_life.BLINK)
+    # lit floors of the far works come and go; the reactor's windows swell and fade
+    for name in ('SM_FarPlant', 'SM_FarPlant2'):
+        n += A(D + name, 'Light', ['#5ff0ff*', '#ffd23f*'], **ft_life._windows(700.0, rate=0.1, off=0.2, low=0.25))
+    n += A(D + 'SM_FarStacks', 'Light', ['#ffe9a8*', '#5ff0ff*'], **ft_life._windows(1040.0, rate=0.08, off=0.2, low=0.25))
+    n += A(D + 'SM_ReactorHall', 'Light', ['#b44dff*'], **dict(ft_life.PULSE, LightRate=0.25, LightMin=0.55))
+    # the reactor: the slits swell, the gallery's windows change, the light climbs the needle and its rings
+    n += A(D + 'SM_ReactorCore', 'Light', glows(1.0), **dict(ft_life.PULSE, LightRate=0.2, LightMin=0.5))
+    n += A(D + 'SM_ReactorCore', 'Light', ['#ffe9a8*'], **ft_life._windows(900.0, rate=0.08, off=0.15, low=0.3))
+    n += A(D + 'SM_ReactorCore', 'Light', glows(1.4), **ft_life._chase((0.0, 0.0, 1.0), 5200.0, rate=0.3, duty=0.6, low=0.4))
+    # lights that run: along the racks and the catwalks, up the columns
+    for name in ('SM_PipeRack', 'SM_Catwalk'):
+        n += A(D + name, 'Light', ['#5ff0ff*'], **ft_life._chase((1.0, 0.0, 0.0), 1600.0, rate=0.5, duty=0.5, low=0.35, rand=1.0))
+    n += A(D + 'SM_ColumnTrio', 'Light', ['#5ff0ff*'], **ft_life._chase((0.0, 0.0, 1.0), 2600.0, rate=0.4, duty=0.5, low=0.3, rand=1.0))
+    # liquor: the ponds swell a little, the channel's water runs, the clarifier's rake goes round
+    for name in ('SM_Pond', 'SM_Pond2', 'SM_Lagoon', 'SM_TankPad'):
+        n += A(D + name, 'Light', glows(POOL), **dict(ft_life.PULSE, LightRate=0.12, LightMin=0.7))
+    n += A(D + 'SM_Canal', 'Light', ['#5ff0ff-'], FlowMix=1.0, Color2=(0.75, 1.0, 1.0),
+           **ft_life._chase((1.0, 0.0, 0.0), 900.0, rate=0.25, duty=0.5, low=0.6, rand=1.0))
+    n += A(D + 'SM_Clarifier', 'Light', glows(POOL), **dict(ft_life.PULSE, LightRate=0.12, LightMin=0.7))
+    n += A(D + 'SM_Clarifier', 'Spin', ['#8f9bb3', '#ff9e3d'], SpinRate=0.15, SpinRand=1.0)
+    # loading: the yard crane's trolley and its load travel the bridge (a box in the mesh's own space picks them out)
+    n += A(D + 'SM_GantryCrane', 'Bob', ['#2a3f8f', '#233a63', '#1c1a26', '#19b5c9', '#ffd23f'], far=True, BobDir=(0.0, 1.0, 0.0), BobAmp=450.0,
+           BobRate=0.035, BobRand=1.0, MaskMin=(-130.0, -400.0, 620.0), MaskMax=(250.0, -120.0, 1520.0))
+    unreal.log('FTDRESS chem life: %d slots animated' % n)
+    return n
+
+
 # ------------------------------------------------------------------------------------------ the horizon
 def far_cooling(m):
     """Two cooling towers and their steam. 110 m tall, built from z = 0."""
@@ -670,6 +1097,16 @@ JOBS = [
     ('SM_LoadingBay', buried(loading_bay)), ('SM_Warehouse', buried(warehouse)), ('SM_ReactorHall', buried(reactor_hall)),
     ('SM_GantryCrane', buried(gantry_crane)), ('SM_RailSpur', buried(rail_spur)), ('SM_Gasholder', buried(gasholder)),
     ('SM_Substation', buried(substation)), ('SM_CoolingCells', buried(cooling_cells)), ('SM_CoolingTower', buried(cooling_tower)),
+    # second pass. The ground plane: flat pieces on a shallow footing
+    ('SM_YardLot', flat(yard_lot)), ('SM_YardLot2', flat(lambda m: yard_lot(m, 1, 2600, 2200, 52))),
+    ('SM_YardLot3', flat(lambda m: yard_lot(m, 2, 3400, 1800, 58))), ('SM_CarPark', flat(car_park)),
+    ('SM_Pond', flat(pond)), ('SM_Pond2', flat(lambda m: pond(m, VIOLET, TEAL, 2200, 1900, 58))), ('SM_Clarifier', flat(clarifier)),
+    ('SM_TankPad', flat(tank_pad)), ('SM_PipeField', flat(pipe_field)), ('SM_AccessRoad', flat(access_road)),
+    ('SM_HeliPad', flat(heli_pad)), ('SM_Lagoon', flat(lagoon)), ('SM_RailFan', flat(rail_fan)), ('SM_Canal', flat(canal)),
+    # second pass. What stands in the sky of the banked turns, and the reactor (its footing reaches 15 m past it, so
+    # the track's clearance test keeps the whole landmark that far off every stretch of road)
+    ('SM_Catwalk', buried(catwalk)), ('SM_ColumnTrio', buried(column_trio)),
+    ('SM_ReactorCore', buried(reactor_core, depth=0.12, keep=1500.0)),
     # the horizon stands on the floor past the land's edge: its footing takes the floor's colour
     ('SM_FarCooling', buried(far_cooling, LAND, keep=FAR_KEEP)), ('SM_FarStacks', buried(far_stacks, LAND, keep=FAR_KEEP)),
     ('SM_FarPlant', buried(far_plant, LAND, keep=FAR_KEEP)), ('SM_FarPlant2', buried(lambda m: far_plant(m, 12), LAND, keep=FAR_KEEP)),

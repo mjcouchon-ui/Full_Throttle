@@ -6,15 +6,15 @@
 // level's own props stay where they were: bulb lamps on the barrier, trees 27-119 m, booths 30-44 m, balloons 24-64 m,
 // big tops on the left and carousels on the right at 46-137 m, a Ferris wheel (right, 219 m), drop towers (left, 238 m) and
 // lattice at 238-384 m. The dressing puts a park round them, one LAND after another, each with its own landmark ride, its own
-// horizon and its name in lights where it begins:
+// horizon and its name in lights where it begins (kilometres on the track of 3.3: the coaster grew by 877 m):
 //
 //   0.00  FRONT GATE     the ticket gates and their forecourts (STARRY the mascot, fountains), the first stalls, the big wheel
 //   1.15  THE MIDWAY     an unbroken double row of game stalls and food stands each side; chair swings behind; big tops beyond
 //   2.22  PIRATE COVE    swinging ships, skull rocks with lit eyes, barrels and palms; a fort and its ship's masts on the skyline
 //   3.21  THE LAGOON     the coaster's valleys: lakes under the rails, lit paths across them, other coasters end on, either side
-//   5.84  ROCKET LAND    rocket rides, saucers, planets on poles; a moon rocket and its gantry on the skyline
-//   7.24  THE FUNHOUSE   funhouses, chair swings, the mascot; then the back lot: sheds, spare cars, generators, plain fence
-//   8.42  THE LAST RIDE  the finale's promenade: every land comes round again, a block at a time, under all the horizons
+//   6.72  ROCKET LAND    rocket rides, saucers, planets on poles; a moon rocket and its gantry on the skyline
+//   8.12  THE FUNHOUSE   funhouses, chair swings, the mascot; then the back lot: sheds, spare cars, generators, plain fence
+//   9.30  THE LAST RIDE  the finale's promenade: every land comes round again, a block at a time, under all the horizons
 //
 // Three rules of this table:
 //   - within 24 m of the centre line only unlit things under 2 m stand (fences, queue rails, benches, barrels). Round a
@@ -28,11 +28,29 @@
 //     150, 2.3 at 200, 2.8 at 260), a little more so that nothing floats.
 //
 // THE LAGOON'S WATER is one level. The land under the coaster falls 26 m and follows the rails' hills, so each coaster
-// section has a hollow at its middle, all nine at the same height (the corkscrewing section's valley is flat). The lakes
-// (SM_Lake, SM_Lake2) are stood by SiteAfloat at 3.65 m above the level's floor, which is 15 cm under those hollows' ground:
-// the water then lies 1.15 m deep in every hollow and the humps between rise out of it. The two jump lakes lie the same way
-// in the valleys under the jumps. These heights come from the track's own numbers (floor z -1935, hollows at -1485 - 70,
-// the jump valleys' beds at -1014 and -255): if the track's heights ever change, FTBED's "floor z" in the log says so.
+// section has a hollow at its middle, all at the same height. The lakes (SM_Lake, SM_Lake2) are stood by SiteAfloat at
+// 3.65 m above the level's floor, which is 15 cm under those hollows' ground: the water then lies 1.15 m deep in every
+// hollow and the humps between rise out of it. These heights come from the track's own numbers (floor z -1935, hollows at
+// -1485 - 70, the jump valleys' beds at -1014 and -252): if the track's heights ever change, FTBED's "floor z" in the log
+// says so, and the "Lagoon" districts and both jump rivers must be laid out again.
+//
+// SECOND PASS (15 Nov 2026), on the track of 3.3:
+//   - the coaster now has fifteen sections, two of them loops and two corkscrews. Eleven have a hollow that takes a lake
+//     under the rails. Under a coaster loop or corkscrew the track leaves out EVERYTHING within 39.6 m of the centre line,
+//     whatever its height (FTTrack.cpp, RoadSpan), so those four valleys have their lakes lengthways along both shores,
+//     from 42 m out, and the ground straight under the rails there is the land's own;
+//   - THE FLOOR: flat pieces (SM_Floor...: plazas, paths, lawns, painted games, queue yards, pools, a kart track, service
+//     yards) under the sets and, by Far rules, across the level stretches ("Floor ..." districts at the end). Flat pieces
+//     are made for level ground: those districts stop at every hill, rise and jump. A Far rule's drop for a floor piece
+//     is the land's depth at the NEAR end of its range plus 10 cm, so it never drowns;
+//   - THE BANKS: beside a bend banked 46 degrees or more the land is cut down to the road's sunken inner edge, and that
+//     cut fills a third of the frame. SM_BankStar and SM_BankBands are planted beds built to lie on it; the "Bank..."
+//     sets stand them with a negative "up", one where the bank is at its full angle (the "Bend ..." districts at the end,
+//     one slot each, worked out from the track's section list). Three sets, because the cut's place and size go with the
+//     bank's angle: 57 degrees (bank 1.0), 52 (0.9, at 0.9 size) and 46 (0.8, at 0.78 size). Each bend also gets one giant
+//     on its OUTSIDE (a horizon piece at a third of its size, 44-62 m out): the camera, rolled with the road, looks up
+//     that side;
+//   - a river crosses under each jump (five lakes in a row across the valley) instead of the one lake under the flight.
 
 // ---------------------------------------------------------------- the verge (low, unlit: nearer than 24 m)
 Set(TEXT("FenceRun"), { { TEXT("SM_ParkFence"), -11.3f, 0, 0, 0, 1 }, { TEXT("SM_ParkFence"), 11.3f, 0, 0, 0, 1 } });
@@ -47,6 +65,7 @@ Set(TEXT("StallRow"), {                                   // anchor 31 m: a row 
 	{ TEXT("SM_FoodStand"),   0.2f,  0.3f, 0,  0, 1 },
 	{ TEXT("SM_GameStall3"),  7.6f,  0,    0,  0, 1 },
 	{ TEXT("SM_CandyCart"),  14.2f, -2,    0, 20, 1 },
+	{ TEXT("SM_FloorPave"),   0,    -1,    0,  0, 1 },   // the terrace the row stands on
 });
 Set(TEXT("StallRow2"), {
 	{ TEXT("SM_FoodStand"),  -16,    0.3f, 0,  0, 1 },
@@ -54,6 +73,7 @@ Set(TEXT("StallRow2"), {
 	{ TEXT("SM_HighStriker"), -2.6f, 1,    0,  0, 1 },
 	{ TEXT("SM_GameStall"),   3.4f,  0,    0,  0, 1 },
 	{ TEXT("SM_GameStall2"), 11,     0,    0,  0, 1 },
+	{ TEXT("SM_FloorPave"),   0,    -1,    0,  0, 1 },
 });
 Set(TEXT("Gateway"), {                                    // anchor 46 m: a ticket gate, its forecourt between it and the road
 	{ TEXT("SM_TicketGate"),   0,   0,     0,  0, 1 },
@@ -63,6 +83,7 @@ Set(TEXT("Gateway"), {                                    // anchor 46 m: a tick
 	{ TEXT("SM_PlazaSeats"),  18, -19.5f,  0,  0, 1 },
 	{ TEXT("SM_GameStall"),  -22,  -1,     0,  0, 1 },
 	{ TEXT("SM_GameStall3"),  22,  -1,     0,  0, 1 },
+	{ TEXT("SM_FloorPlaza"),   0, -13.5f,  0,  0, 1 },   // the forecourt: a round plaza, 19 to 45 m out
 });
 Set(TEXT("WheelPlaza"), {                                 // anchor 170 m: the big wheel over its own little fair
 	{ TEXT("SM_BigWheel"),     0,   0, 0, 0, 1 },
@@ -71,6 +92,9 @@ Set(TEXT("WheelPlaza"), {                                 // anchor 170 m: the b
 	{ TEXT("SM_GameStall"),   15, -13, 0, 0, 1 },
 	{ TEXT("SM_Fountain"),     0, -22, 0, 0, 1.3f },
 	{ TEXT("SM_Bandstand"),   27, -15, 0, 0, 1 },
+	{ TEXT("SM_FloorPlaza"),    0, -24, 0, 0, 1.5f },
+	{ TEXT("SM_FloorLawn"),   -40, -34, 0, 0, 1 },
+	{ TEXT("SM_FloorLawn"),    40, -34, 0, 0, 1 },
 });
 Set(TEXT("PirateDock"), {                                 // anchor 40 m: the swinging ship on its dock
 	{ TEXT("SM_PirateShip"),    0,  0, 0,   0, 1 },
@@ -79,6 +103,7 @@ Set(TEXT("PirateDock"), {                                 // anchor 40 m: the sw
 	{ TEXT("/Game/Maps/Bayshore/Props/SM_Palm"),  -14,  5, 0,  40, 1 },
 	{ TEXT("/Game/Maps/Bayshore/Props/SM_Palm2"),  15,  6, 0, 200, 1 },
 	{ TEXT("/Game/Maps/Bayshore/Props/SM_Palm"),   21, -5, 0, 130, 0.85f },
+	{ TEXT("SM_FloorPool"),     0,  1, 0,   0, 1.35f },   // the ship swings over water
 });
 Set(TEXT("SkullCove"), {                                  // anchor 64 m: the skull rock in its palms
 	{ TEXT("SM_SkullRock"),     0,   0, 0,   0, 1 },
@@ -93,18 +118,21 @@ Set(TEXT("RocketPad"), {                                  // anchor 44 m: the ro
 	{ TEXT("SM_PlanetPosts"), -15,  -6, 0,   0, 1 },
 	{ TEXT("SM_PlanetPosts"),  15,  -5, 0, 180, 1 },
 	{ TEXT("SM_CandyCart"),    11, -11, 0, -20, 1 },
+	{ TEXT("SM_FloorPlaza"),    0,   0, 0,   0, 0.9f },   // the pad
 });
 Set(TEXT("SaucerPark"), {                                 // anchor 38 m
 	{ TEXT("SM_Saucer"),        0,  0, 0, 0, 1 },
 	{ TEXT("SM_PlanetPosts"),  13, -1, 0, 0, 1 },
 	{ TEXT("SM_PlazaSeats"),  -14, -3, 0, 0, 1 },
 	{ TEXT("SM_GameStall3"),  -14,  6, 0, 0, 1 },
+	{ TEXT("SM_FloorPlaza"),    0,  1, 0, 0, 0.7f },
 });
 Set(TEXT("FunCourt"), {                                   // anchor 40 m: the funhouse, the mascot, a chair swing behind
 	{ TEXT("SM_Funhouse"),      0,  0, 0,   0, 1 },
 	{ TEXT("SM_Mascot"),       12, -5, 0, -10, 1 },
 	{ TEXT("SM_GameStall2"),  -12, -3, 0,   0, 1 },
 	{ TEXT("SM_SwingRide"),   -30, 10, 0,   0, 1 },
+	{ TEXT("SM_FloorGames"),    5, -9, 0,   0, 1 },   // painted games before the door
 });
 Set(TEXT("BackLot"), {                                    // anchor 58 m: two sheds back to back, their yard fenced
 	{ TEXT("SM_Maintenance"),   0,  0, 0,   0, 1 },
@@ -112,23 +140,42 @@ Set(TEXT("BackLot"), {                                    // anchor 58 m: two sh
 	{ TEXT("SM_ParkFence"),    -4, -8, 0,   0, 1 },
 	{ TEXT("SM_ParkFence"),    18, -8, 0,   0, 1 },
 	{ TEXT("SM_CoveBarrels"), -17, -3, 0,  90, 1 },
+	{ TEXT("SM_FloorYard"),    11, -17, 0,   0, 1 },   // the service yard before the sheds
 });
 Set(TEXT("PathCross"), { { TEXT("SM_PathLights"), 0, 0, 0, 90, 1 } });       // a lit path running away from the road
 Set(TEXT("HillRibR"), { { TEXT("SM_CoasterHill"), 0, 0, 0, -90, 1 } });      // a coaster end on, its front to the oncoming car
 Set(TEXT("HillRibL"), { { TEXT("SM_CoasterHill"), 0, 0, 0, 90, 1 } });
 // the lagoon's lakes: placed afloat, so "up" is metres above the level's floor (see THE LAGOON'S WATER above); "along"
-// moves each lake from its slot to the middle of its hollow
-Set(TEXT("LakeA_m20"), { { TEXT("SM_Lake"),  -20.6f, 0, 3.65f, 0, 1 } });
-Set(TEXT("LakeA_m9"),  { { TEXT("SM_Lake"),   -9.0f, 0, 3.65f, 0, 1 } });
-Set(TEXT("LakeA_p20"), { { TEXT("SM_Lake"),   20.6f, 0, 3.65f, 0, 1 } });
-Set(TEXT("LakeB_p5"),  { { TEXT("SM_Lake2"),   5.5f, 0, 3.65f, 0, 1 } });
-Set(TEXT("LakeB_m9"),  { { TEXT("SM_Lake2"),  -8.2f, 0, 3.65f, 0, 1 } });
-Set(TEXT("LakeB_p20"), { { TEXT("SM_Lake2"),  20.6f, 0, 3.65f, 0, 1 } });
-Set(TEXT("LakeB_p12"), { { TEXT("SM_Lake2"),  12.3f, 0, 3.65f, 0, 1 } });
+// moves each lake from its slot to the middle of its hollow (the number in a set's name is the track's section)
+Set(TEXT("Hollow23"), { { TEXT("SM_Lake"), -2.742f, 0, 3.65f, 0, 1 } });
+Set(TEXT("Hollow24"), { { TEXT("SM_Lake2"), -17.823f, 0, 3.65f, 0, 1 } });
+Set(TEXT("Hollow25"), { { TEXT("SM_Lake"), -18.28f, 0, 6.95f, 0, 1 } });     // a short hollow next to a loop or corkscrew: stood at 0.6 size
+Set(TEXT("Hollow27"), { { TEXT("SM_Lake2"), 11.425f, 0, 6.95f, 0, 1 } });     // a short hollow next to a loop or corkscrew: stood at 0.6 size
+Set(TEXT("Hollow28"), { { TEXT("SM_Lake"), 13.71f, 0, 3.65f, 0, 1 } });
+Set(TEXT("Hollow29"), { { TEXT("SM_Lake2"), 34.275f, 0, 6.95f, 0, 1 } });     // a short hollow next to a loop or corkscrew: stood at 0.6 size
+Set(TEXT("Hollow31"), { { TEXT("SM_Lake"), -18.28f, 0, 6.95f, 0, 1 } });     // a short hollow next to a loop or corkscrew: stood at 0.6 size
+Set(TEXT("Hollow33"), { { TEXT("SM_Lake2"), 11.425f, 0, 6.95f, 0, 1 } });     // a short hollow next to a loop or corkscrew: stood at 0.6 size
+Set(TEXT("Hollow34"), { { TEXT("SM_Lake"), -17.823f, 0, 3.65f, 0, 1 } });
+Set(TEXT("Hollow35"), { { TEXT("SM_Lake2"), 4.57f, 0, 6.95f, 0, 1 } });     // a short hollow next to a loop or corkscrew: stood at 0.6 size
+Set(TEXT("Hollow37"), { { TEXT("SM_Lake"), -15.081f, 0, 3.65f, 0, 1 } });
+// a lake on a shore of a corkscrew's valley (anchor 87 m: 51 to 123 m out) and beside a coaster loop's pit (anchor 108 m;
+// "along" brings it to the middle of the pit, and its sign goes with the side, because the loop's frame points backwards there)
+Set(TEXT("ShoreLakeA"), { { TEXT("SM_Lake"),  0, 0, 3.65f, 0, 1 } });
+Set(TEXT("ShoreLakeB"), { { TEXT("SM_Lake2"), 0, 0, 3.65f, 0, 1 } });
+Set(TEXT("PitLakeR"), { { TEXT("SM_Lake"),  -7.9f, 0, 3.65f, 0, 1 } });
+Set(TEXT("PitLakeL"), { { TEXT("SM_Lake2"),  7.9f, 0, 3.65f, 0, 1 } });
 Set(TEXT("HelixRibR"), { { TEXT("SM_CoasterHill"), 20, 0, 3.2f, -90, 1 } });
 Set(TEXT("HelixRibL"), { { TEXT("SM_CoasterHill"), 20, 0, 3.2f,  90, 1 } });
-Set(TEXT("JumpLake1"), { { TEXT("SM_Lake"),   6.8f, 0, 10.56f, 0, 1 } });
-Set(TEXT("JumpLake2"), { { TEXT("SM_Lake2"), 19.7f, 0, 18.15f, 0, 1 } });
+// a river across each jump's valley: five lakes in a row, 72 m apart, the middle one under the flight
+Set(TEXT("JumpRiver1"), { { TEXT("SM_Lake"), 6.822f, 0, 10.555f, 0, 1 }, { TEXT("SM_Lake2"), 6.822f, -72, 10.555f, 0, 1 }, { TEXT("SM_Lake"), 6.822f, 72, 10.555f, 0, 1 }, { TEXT("SM_Lake2"), 6.822f, -144, 10.555f, 0, 1 }, { TEXT("SM_Lake"), 6.822f, 144, 10.555f, 0, 1 } });
+Set(TEXT("JumpRiver2"), { { TEXT("SM_Lake2"), -7.142f, 0, 18.184f, 0, 1 }, { TEXT("SM_Lake"), -7.142f, -72, 18.184f, 0, 1 }, { TEXT("SM_Lake2"), -7.142f, 72, 18.184f, 0, 1 }, { TEXT("SM_Lake"), -7.142f, -144, 18.184f, 0, 1 }, { TEXT("SM_Lake2"), -7.142f, 144, 18.184f, 0, 1 } });
+// the bank beds (see THE BANKS above): anchor and size go with the bank's angle; "up" is from the land beside the road
+Set(TEXT("Bank10A"), { { TEXT("SM_BankStar"),  0, 0, -5.82f, 0, 1 } });     // anchor 12.1 m
+Set(TEXT("Bank10B"), { { TEXT("SM_BankBands"), 0, 0, -5.82f, 0, 1 } });
+Set(TEXT("Bank09A"), { { TEXT("SM_BankStar"),  0, 0, -5.814f, 0, 1 } });    // anchor 12.72 m, size 0.9
+Set(TEXT("Bank09B"), { { TEXT("SM_BankBands"), 0, 0, -5.814f, 0, 1 } });
+Set(TEXT("Bank08A"), { { TEXT("SM_BankStar"),  0, 0, -6.135f, 0, 1 } });    // anchor 13.17 m, size 0.78
+Set(TEXT("Bank08B"), { { TEXT("SM_BankBands"), 0, 0, -6.135f, 0, 1 } });
 
 // ---- 0 to 1.15 km: THE FRONT GATE. A ticket gate and its forecourt every 540 m on each side (270 m apart, turn about),
 // stall rows between them, ponds and carts in the gaps; bandstands, fountains and chair swings behind; the big wheel on
@@ -144,7 +191,7 @@ Zone(TEXT("Front Gate"), 0.f, 1.15f);
 	Site(TEXT("StallRow2"), 1, 31, 6, 5, 1.f);
 	Site(TEXT("StallRow2"), -1, 31, 12, 2, 1.f);
 	Site(TEXT("StallRow"), 1, 31, 12, 8, 1.f);
-	Scatter(TEXT("SM_Pond"), 34, 44, 3, 0, 0.7f, 1.f, 0.1f, 0, 180.f);
+	Scatter(TEXT("SM_Pond"), 36, 46, 3, 0, 0.7f, 1.f, 0.1f, 0, 180.f);
 	Scatter(TEXT("SM_CandyCart"), 27, 33, 3, 1, 0.6f, 1.f, 0.f, 0, 30.f);
 	Scatter(TEXT("SM_Mascot"), 38, 43, 6, 1, 1.f, 1.f, 0.f, 0, 8.f);
 	Far(TEXT("SM_Bandstand"), 54, 66, 4, 2, 0.9f, 1.f, 0.f, 0, 1.2f, 20.f);
@@ -204,8 +251,8 @@ Zone(TEXT("The big jump"), 1.84f, 2.22f);
 	Far(TEXT("SM_CoasterHill"), 170, 250, 3, 1, 0.9f, 1.1f, 0.1f, 0, 2.75f, 10.f);
 	Far(TEXT("SM_FarBigTops"), 340, 430, 4, 0, 1.f, 1.8f, 0.15f, 0, 22.f, 12.f);
 	Far(TEXT("SM_FarWheel"), 600, 800, 7, 3, 1.f, 1.3f, 0.1f, 1, 25.f, 15.f);
-Zone(TEXT("Jump lake 1"), 2.0772f, 2.0852f);
-	SiteAfloat(TEXT("JumpLake1"), 1, 0, 1, 0, 1.f);
+Zone(TEXT("Jump river 1"), 2.0782f, 2.0842f);
+	SiteAfloat(TEXT("JumpRiver1"), 1, 0, 1, 0, 1.f);
 
 // ---- 2.22 to 2.98 km: PIRATE COVE. Swinging ships on their docks, skull rocks opposite them, barrels on the verge,
 // Bayshore's palms. Round the loop (near things are left out of it) ships, rocks and palms are stood by Far rules:
@@ -252,13 +299,13 @@ Zone(TEXT("The lift hill"), 2.98f, 3.21f);
 	Far(TEXT("SM_FarCoaster"), 360, 460, 3, 1, 1.f, 1.f, 0.1f, 0, 30.f, 10.f);
 	Far(TEXT("SM_FarWheel"), 520, 640, 5, 2, 1.f, 1.2f, 0.1f, -1, 30.f, 15.f);
 
-// ---- 3.21 to 5.84 km: THE LAGOON, under the coaster. The land is 26 m under the rails here (and comes up to meet them
+// ---- 3.21 to 6.72 km: THE LAGOON, under the coaster. The land is 26 m under the rails here (and comes up to meet them
 // where two coaster sections join), so low things may stand right under the rails: lit paths running out across the
 // valley from under them, ponds on the humps. The park's other coasters stand end on at 52-116 m, a loop nearest the
 // rails; bandstands, big tops and carousels between; a big wheel and more coasters behind; coasters all round the sky.
-// The corkscrewing section (4.14-4.50 km) gets no near things from the track, so its valley is dressed by the Far rules
-// here and by the afloat sets in "Lagoon 4" below.
-Zone(TEXT("The Lagoon"), 3.21f, 5.84f);
+// The loops and corkscrews (3.95-4.24, 4.84-5.17, 5.31-5.59 and 6.22-6.55 km) get no near things from the track, so
+// their valleys are dressed by the Far rules here and by the afloat sets in the "Lagoon" districts below.
+Zone(TEXT("The Lagoon"), 3.21f, 6.7174f);
 	Site(TEXT("PathCross"), -1, 24.5f, 2, 0, 1.f);
 	Site(TEXT("PathCross"), 1, 24.5f, 2, 1, 1.f);
 	Site(TEXT("HillRibR"), 1, 84, 3, 0, 1.f);
@@ -274,26 +321,47 @@ Zone(TEXT("The Lagoon"), 3.21f, 5.84f);
 	Far(TEXT("SM_FarWheel"), 480, 560, 11, 4, 1.f, 1.f, 0.1f, -1, 34.f, 15.f);
 	Far(TEXT("SM_FarChute"), 620, 820, 13, 8, 1.f, 1.1f, 0.1f, 1, 34.f, 0.f);
 // the ponds under the rails keep clear of the coaster's first and last 40 m, where the road is back on the land
-Zone(TEXT("Lagoon, under the rails"), 3.25f, 5.80f);
+Zone(TEXT("Lagoon, under the rails"), 3.25f, 6.68f);
 	Scatter(TEXT("SM_Pond"), 6, 34, 2, 1, 0.8f, 1.f, 0.15f, -1, 180.f);
 	Scatter(TEXT("SM_Pond"), 6, 34, 2, 0, 0.8f, 1.f, 0.15f, 1, 180.f);
-// the lagoon's lakes, one in each section's hollow (a district of one slot each), five in a row along the corkscrew's valley
-Zone(TEXT("Lagoon 1"), 3.3892f, 3.3972f); SiteAfloat(TEXT("LakeA_m20"), 1, 0, 1, 0, 1.f);
-Zone(TEXT("Lagoon 2"), 3.7059f, 3.7139f); SiteAfloat(TEXT("LakeB_p5"), 1, 0, 1, 0, 1.f);
-Zone(TEXT("Lagoon 3"), 4.0226f, 4.0306f); SiteAfloat(TEXT("LakeA_m9"), 1, 0, 1, 0, 1.f);
-Zone(TEXT("Lagoon 4"), 4.19f, 4.40f);
-	SiteAfloat(TEXT("LakeA_p20"), 1, 0, 2, 1, 1.f);
-	SiteAfloat(TEXT("LakeB_p20"), 1, 0, 2, 0, 1.f);
-	SiteAfloat(TEXT("HelixRibR"), 1, 84, 2, 1, 1.f);
-	SiteAfloat(TEXT("HelixRibL"), -1, 84, 2, 0, 1.f);
-Zone(TEXT("Lagoon 5"), 4.6108f, 4.6188f); SiteAfloat(TEXT("LakeB_m9"), 1, 0, 1, 0, 1.f);
-Zone(TEXT("Lagoon 6"), 4.8822f, 4.8902f); SiteAfloat(TEXT("LakeA_p20"), 1, 0, 1, 0, 1.f);
-Zone(TEXT("Lagoon 7"), 5.1989f, 5.2069f); SiteAfloat(TEXT("LakeB_p20"), 1, 0, 1, 0, 1.f);
-Zone(TEXT("Lagoon 8"), 5.5156f, 5.5236f); SiteAfloat(TEXT("LakeA_m9"), 1, 0, 1, 0, 1.f);
-Zone(TEXT("Lagoon 9"), 5.7419f, 5.7499f); SiteAfloat(TEXT("LakeB_p12"), 1, 0, 1, 0, 1.f);
+// the lagoon's lakes on today's coaster: one under the rails in each hollow (a district of one slot each)
+Zone(TEXT("Lagoon 23"), 3.3450f, 3.3510f); SiteAfloat(TEXT("Hollow23"), 1, 0, 1, 0, 1.f);
+Zone(TEXT("Lagoon 24"), 3.6617f, 3.6677f); SiteAfloat(TEXT("Hollow24"), 1, 0, 1, 0, 1.f);
+Zone(TEXT("Lagoon 25"), 3.8879f, 3.8939f); SiteAfloat(TEXT("Hollow25"), 1, 0, 1, 0, 1.f, 0.6f);
+Zone(TEXT("Lagoon 27"), 4.2951f, 4.3011f); SiteAfloat(TEXT("Hollow27"), 1, 0, 1, 0, 1.f, 0.6f);
+Zone(TEXT("Lagoon 28"), 4.5213f, 4.5273f); SiteAfloat(TEXT("Hollow28"), 1, 0, 1, 0, 1.f);
+Zone(TEXT("Lagoon 29"), 4.7475f, 4.7535f); SiteAfloat(TEXT("Hollow29"), 1, 0, 1, 0, 1.f, 0.6f);
+Zone(TEXT("Lagoon 31"), 5.2452f, 5.2512f); SiteAfloat(TEXT("Hollow31"), 1, 0, 1, 0, 1.f, 0.6f);
+Zone(TEXT("Lagoon 33"), 5.6524f, 5.6584f); SiteAfloat(TEXT("Hollow33"), 1, 0, 1, 0, 1.f, 0.6f);
+Zone(TEXT("Lagoon 34"), 5.9238f, 5.9298f); SiteAfloat(TEXT("Hollow34"), 1, 0, 1, 0, 1.f);
+Zone(TEXT("Lagoon 35"), 6.1500f, 6.1560f); SiteAfloat(TEXT("Hollow35"), 1, 0, 1, 0, 1.f, 0.6f);
+Zone(TEXT("Lagoon 37"), 6.6477f, 6.6537f); SiteAfloat(TEXT("Hollow37"), 1, 0, 1, 0, 1.f);
+// the two corkscrews' valleys (sections 30 and 36, flat for 210 m): a lake on each shore at every slot, so each shore is
+// one sheet of water 180 m long from 51 to 123 m out, and the park's coasters end on behind it
+Zone(TEXT("Lagoon 30, the corkscrew's shores"), 4.925f, 5.075f);
+	SiteAfloat(TEXT("ShoreLakeA"), -1, 87, 2, 1, 1.f);
+	SiteAfloat(TEXT("ShoreLakeB"), -1, 87, 2, 0, 1.f);
+	SiteAfloat(TEXT("ShoreLakeB"), 1, 87, 2, 1, 1.f);
+	SiteAfloat(TEXT("ShoreLakeA"), 1, 87, 2, 0, 1.f);
+	SiteAfloat(TEXT("HelixRibL"), -1, 162, 2, 0, 1.f);
+	SiteAfloat(TEXT("HelixRibR"), 1, 162, 2, 1, 1.f);
+Zone(TEXT("Lagoon 36, the double corkscrew's shores"), 6.328f, 6.476f);
+	SiteAfloat(TEXT("ShoreLakeA"), -1, 87, 2, 1, 1.f);
+	SiteAfloat(TEXT("ShoreLakeB"), -1, 87, 2, 0, 1.f);
+	SiteAfloat(TEXT("ShoreLakeB"), 1, 87, 2, 1, 1.f);
+	SiteAfloat(TEXT("ShoreLakeA"), 1, 87, 2, 0, 1.f);
+	SiteAfloat(TEXT("HelixRibL"), -1, 162, 2, 0, 1.f);
+	SiteAfloat(TEXT("HelixRibR"), 1, 162, 2, 1, 1.f);
+// the two coaster loops' pits (sections 26 and 32): a lake either side of the loop, seen from its top
+Zone(TEXT("Lagoon 26, the loop's pit"), 4.0689f, 4.0749f);
+	SiteAfloat(TEXT("PitLakeL"), -1, 108, 1, 0, 1.f);
+	SiteAfloat(TEXT("PitLakeR"), 1, 108, 1, 0, 1.f);
+Zone(TEXT("Lagoon 32, the second loop's pit"), 5.4262f, 5.4322f);
+	SiteAfloat(TEXT("PitLakeL"), -1, 108, 1, 0, 1.f);
+	SiteAfloat(TEXT("PitLakeR"), 1, 108, 1, 0, 1.f);
 
-// ---- 5.84 to 6.03 km: SPLASHDOWN. Off the rails and down 8 m: planets on poles line the drop, saucers behind.
-Zone(TEXT("Splashdown"), 5.84f, 6.03f);
+// ---- 6.72 to 6.91 km: SPLASHDOWN. Off the rails and down 8 m: planets on poles line the drop, saucers behind.
+Zone(TEXT("Splashdown"), 6.7174f, 6.9074f);
 	Scatter(TEXT("SM_SignRocket"), 27.5f, 27.5f, 5, 0, 1.f, 1.f, 0.f, 0, 0.f);
 	Scatter(TEXT("SM_PlanetPosts"), 28, 31, 1, 0, 0.9f, 1.f, 0.f, 0, 10.f);
 	Scatter(TEXT("SM_GameStall3"), 36, 40, 2, 0, 0.9f, 1.f, 0.f, 0, 4.f);
@@ -303,9 +371,9 @@ Zone(TEXT("Splashdown"), 5.84f, 6.03f);
 	Far(TEXT("SM_CoasterHill"), 150, 250, 2, 0, 0.9f, 1.2f, 0.1f, 0, 2.75f, 10.f);
 	Far(TEXT("SM_FarRocket"), 360, 460, 3, 1, 1.f, 1.f, 0.1f, -1, 30.f, 20.f);
 
-// ---- 6.03 to 7.24 km: ROCKET LAND. A rocket ride or a saucer every 90 m on each side, planets on poles between; more
+// ---- 6.91 to 8.12 km: ROCKET LAND. A rocket ride or a saucer every 90 m on each side, planets on poles between; more
 // rides and saucers behind, carried through the corkscrew and the loop; a moon rocket on its pad on the skyline.
-Zone(TEXT("Rocket Land"), 6.03f, 7.24f);
+Zone(TEXT("Rocket Land"), 6.9074f, 8.1174f);
 	Site(TEXT("FenceRun"), -1, 19, 2, 0, 0.9f);
 	Site(TEXT("SeatsRun"), -1, 19, 2, 1, 0.9f);
 	Site(TEXT("FenceRun"), 1, 19, 2, 1, 0.9f);
@@ -326,19 +394,19 @@ Zone(TEXT("Rocket Land"), 6.03f, 7.24f);
 	Far(TEXT("SM_FarRocket"), 520, 700, 9, 1, 1.f, 1.5f, 0.1f, -1, 25.f, 20.f);
 	Far(TEXT("SM_FarChute"), 420, 520, 8, 6, 1.f, 1.f, 0.1f, -1, 25.f, 0.f);
 	Far(TEXT("SM_FarCoaster"), 600, 800, 9, 5, 1.f, 1.4f, 0.1f, 1, 25.f, 10.f);
-Zone(TEXT("Rocket corkscrew"), 6.465f, 6.61f);
+Zone(TEXT("Rocket corkscrew"), 7.33f, 7.52f);
 	Far(TEXT("SM_PlanetPosts"), 28, 30, 1, 0, 0.9f, 1.f, 0.f, 0, 0.9f, 15.f);
 	Far(TEXT("SM_PlanetPosts"), 46, 52, 2, 0, 0.9f, 1.3f, 0.f, 0, 1.05f, 15.f);
 	Far(TEXT("SM_GameStall3"), 33, 36, 2, 0, 1.f, 1.f, 0.f, 0, 0.94f, 4.f);
 	Far(TEXT("SM_Saucer"), 37, 42, 2, 1, 1.f, 1.f, 0.f, 0, 0.97f, 30.f);
-Zone(TEXT("Rocket loop"), 6.963f, 7.243f);
+Zone(TEXT("Rocket loop"), 7.8404f, 8.1204f);
 	Far(TEXT("SM_PlanetPosts"), 66, 72, 2, 1, 0.9f, 1.3f, 0.f, -1, 1.2f, 15.f);
 	Far(TEXT("SM_Saucer"), 68, 78, 2, 0, 1.f, 1.2f, 0.f, -1, 1.3f, 30.f);
 	Far(TEXT("SM_PlanetPosts"), 68, 76, 1, 0, 0.9f, 1.2f, 0.f, 1, 1.25f, 15.f);
 
-// ---- 7.24 to 7.56 km: THE FUNHOUSE. A funhouse court every 135 m on each side (the mascot at its door, a chair swing
+// ---- 8.12 to 8.44 km: THE FUNHOUSE. A funhouse court every 135 m on each side (the mascot at its door, a chair swing
 // behind), STARRY between them, bigger funhouses behind.
-Zone(TEXT("The Funhouse"), 7.24f, 7.56f);
+Zone(TEXT("The Funhouse"), 8.1174f, 8.4374f);
 	Scatter(TEXT("SM_SignFun"), 27.5f, 27.5f, 7, 0, 1.f, 1.f, 0.f, 0, 0.f);
 	Site(TEXT("SeatsRun"), -1, 19, 2, 0, 0.9f);
 	Site(TEXT("QueueLine"), -1, 19, 2, 1, 0.9f);
@@ -354,9 +422,9 @@ Zone(TEXT("The Funhouse"), 7.24f, 7.56f);
 	Far(TEXT("SM_FarBigTops"), 340, 430, 4, 1, 1.f, 1.8f, 0.15f, 0, 22.f, 12.f);
 	Far(TEXT("SM_FarWheel"), 520, 700, 6, 3, 1.f, 1.2f, 0.1f, 1, 25.f, 15.f);
 
-// ---- 7.56 to 8.03 km: THE FUNHOUSE JUMP. A steep climb, a long jump over a valley and down 14 m: single pieces, a lake
+// ---- 8.44 to 8.91 km: THE FUNHOUSE JUMP. A steep climb, a long jump over a valley and down 14 m: single pieces, a lake
 // with the lagoon's serpent in the valley under the flight.
-Zone(TEXT("The funhouse jump"), 7.56f, 8.03f);
+Zone(TEXT("The funhouse jump"), 8.4374f, 8.9074f);
 	Scatter(TEXT("SM_Mascot"), 27, 30, 1, 0, 0.9f, 1.f, 0.f, 0, 6.f);
 	Scatter(TEXT("SM_GameStall"), 36, 39, 2, 0, 0.9f, 1.f, 0.f, 0, 4.f);
 	Scatter(TEXT("SM_HighStriker"), 36, 39, 2, 1, 0.9f, 1.2f, 0.f, 0, 4.f);
@@ -369,12 +437,12 @@ Zone(TEXT("The funhouse jump"), 7.56f, 8.03f);
 	Far(TEXT("SM_CoasterHill"), 170, 250, 3, 0, 0.9f, 1.1f, 0.1f, 0, 2.75f, 10.f);
 	Far(TEXT("SM_FarBigTops"), 340, 430, 4, 2, 1.f, 1.8f, 0.15f, 0, 40.f, 12.f);
 	Far(TEXT("SM_FarWheel"), 520, 700, 6, 1, 1.f, 1.2f, 0.1f, -1, 40.f, 15.f);
-Zone(TEXT("Jump lake 2"), 7.8683f, 7.8763f);
-	SiteAfloat(TEXT("JumpLake2"), 1, 0, 1, 0, 1.f);
+Zone(TEXT("Jump river 2"), 8.7741f, 8.7801f);
+	SiteAfloat(TEXT("JumpRiver2"), 1, 0, 1, 0, 1.f);
 
-// ---- 8.03 to 8.42 km: THE BACK LOT. Where the park is not on show: sheds by the road with spare coaster cars and
+// ---- 8.91 to 9.30 km: THE BACK LOT. Where the park is not on show: sheds by the road with spare coaster cars and
 // generators, yards behind plain fence, the back of a coaster close by. No lights but the lamp over each door.
-Zone(TEXT("The back lot"), 8.03f, 8.42f);
+Zone(TEXT("The back lot"), 8.9074f, 9.2974f);
 	Site(TEXT("FenceRun"), 0, 19, 1, 0, 0.9f);
 	Site(TEXT("BackLot"), -1, 58, 3, 0, 1.f);
 	Site(TEXT("BackLot"), 1, 58, 3, 1, 1.f);
@@ -385,12 +453,12 @@ Zone(TEXT("The back lot"), 8.03f, 8.42f);
 	Far(TEXT("SM_FarBigTops"), 340, 430, 4, 0, 1.f, 1.8f, 0.15f, 0, 30.f, 12.f);
 	Far(TEXT("SM_FarCoaster"), 480, 640, 5, 2, 1.f, 1.3f, 0.1f, 0, 30.f, 10.f);
 
-// ---- 8.42 km to the end: THE LAST RIDE, the finale's promenade. Every land comes round again, a block at a time: on
+// ---- 9.30 km to the end: THE LAST RIDE, the finale's promenade. Every land comes round again, a block at a time: on
 // each side a corner of one land every 90 m (stall rows, a pirate dock, a rocket pad or a saucer, a ticket gate, a
 // funhouse court), ponds, carts and STARRY in the gaps; behind them the rides of all the lands, kept through the
 // circuit's loops; two big wheels; and every horizon the level has, turn about.
-Zone(TEXT("The Last Ride"), 8.42f, 99.f);
-	Scatter(TEXT("SM_SignRide"), 27.5f, 27.5f, 28, 9, 1.f, 1.f, 0.f, 0, 0.f);
+Zone(TEXT("The Last Ride"), 9.2974f, 99.f);
+	Scatter(TEXT("SM_SignRide"), 27.5f, 27.5f, 28, 18, 1.f, 1.f, 0.f, 0, 0.f);
 	Site(TEXT("FenceRun"), -1, 19, 3, 0, 0.9f);
 	Site(TEXT("QueueLine"), -1, 19, 3, 1, 0.8f);
 	Site(TEXT("FenceRun"), 1, 19, 3, 1, 0.9f);
@@ -407,9 +475,9 @@ Zone(TEXT("The Last Ride"), 8.42f, 99.f);
 	Site(TEXT("Gateway"), 1, 46, 12, 5, 1.f);
 	Site(TEXT("SaucerPark"), 1, 38, 12, 3, 1.f);
 	Site(TEXT("PirateDock"), 1, 40, 12, 1, 1.f);
-	Scatter(TEXT("SM_Pond"), 34, 44, 4, 1, 0.7f, 1.f, 0.1f, -1, 180.f);
+	Scatter(TEXT("SM_Pond"), 36, 46, 4, 1, 0.7f, 1.f, 0.1f, -1, 180.f);
 	Scatter(TEXT("SM_Mascot"), 28, 34, 4, 3, 0.8f, 1.f, 0.f, -1, 8.f);
-	Scatter(TEXT("SM_Pond"), 34, 44, 4, 0, 0.7f, 1.f, 0.1f, 1, 180.f);
+	Scatter(TEXT("SM_Pond"), 36, 46, 4, 0, 0.7f, 1.f, 0.1f, 1, 180.f);
 	Scatter(TEXT("SM_PlanetPosts"), 29, 35, 4, 2, 0.8f, 1.f, 0.f, 1, 15.f);
 	Scatter(TEXT("SM_Bandstand"), 56, 70, 5, 0, 0.9f, 1.f, 0.f, 0, 20.f);
 	Scatter(TEXT("SM_Fountain"), 54, 68, 5, 2, 0.9f, 1.3f, 0.f, 0, 20.f);
@@ -430,3 +498,142 @@ Zone(TEXT("The Last Ride"), 8.42f, 99.f);
 	Far(TEXT("SM_FarChute"), 560, 760, 11, 6, 1.f, 1.1f, 0.1f, 0, 30.f, 0.f);
 	Far(TEXT("SM_FarRocket"), 620, 820, 19, 12, 1.f, 1.2f, 0.1f, 1, 30.f, 20.f);
 	Far(TEXT("SM_FarFort"), 620, 820, 19, 3, 1.f, 1.3f, 0.1f, -1, 30.f, 10.f);
+
+// ================================================================ SECOND PASS: THE FLOOR
+// Flat pieces across the level stretches, by Far rules (they stay through the loops and corkscrews; the track's own test
+// still moves them off the road). Every range starts 26 m out or more: nearer, beside a banked bend, is the cut bank.
+// Odd slots carry the lawns and the far pools, even slots the courts, plazas and yards, and the paths keep to the slots
+// between a land's sets, so two kinds seldom lie on each other; where they do, each kind has its own height.
+const auto ParkLawns = [&]()
+{
+	Far(TEXT("SM_FloorLawn"), 58, 72, 2, 1, 0.9f, 1.f, 0.1f, 0, 1.04f, 4.f);
+	Far(TEXT("SM_FloorPool"), 92, 110, 4, 1, 0.9f, 1.3f, 0.1f, 0, 1.33f, 30.f);
+};
+Zone(TEXT("Floor: the front gate"), 0.f, 0.53f);
+	ParkLawns();
+	Far(TEXT("SM_FloorSpoke"), 46, 46, 3, 0, 1.f, 1.f, 0.f, 0, 0.93f, 0.f);
+	Far(TEXT("SM_FloorQueue"), 36, 38, 6, 3, 0.9f, 1.f, 0.f, 0, 0.88f, 3.f);
+	Far(TEXT("SM_FloorGames"), 50, 54, 4, 0, 0.9f, 1.f, 0.f, 0, 0.97f, 4.f);
+	Far(TEXT("SM_FloorKart"), 108, 118, 12, 6, 1.f, 1.f, 0.f, 1, 1.46f, 3.f);
+Zone(TEXT("Floor: the gate's end"), 0.72f, 1.14f);
+	ParkLawns();
+	Far(TEXT("SM_FloorSpoke"), 46, 46, 3, 0, 1.f, 1.f, 0.f, 0, 0.93f, 0.f);
+	Far(TEXT("SM_FloorGames"), 50, 54, 4, 0, 0.9f, 1.f, 0.f, 0, 0.97f, 4.f);
+	Far(TEXT("SM_FloorKart"), 108, 118, 12, 0, 1.f, 1.f, 0.f, -1, 1.46f, 3.f);
+// the midway's rows are unbroken, so no paths cross them: behind the second row the park is backstage (service yards,
+// a shed every 180 m), then lawns
+Zone(TEXT("Floor: behind the midway"), 1.15f, 1.86f);
+	ParkLawns();
+	Far(TEXT("SM_FloorYard"), 60, 66, 2, 0, 0.9f, 1.f, 0.f, 0, 1.05f, 4.f);
+	Far(TEXT("SM_Maintenance"), 78, 84, 4, 2, 0.9f, 1.f, 0.f, 0, 1.3f, 8.f);
+	Far(TEXT("SM_FloorPlaza"), 84, 96, 6, 4, 1.f, 1.2f, 0.1f, 0, 1.26f, 0.f);
+Zone(TEXT("Floor: pirate cove"), 2.23f, 3.0f);
+	ParkLawns();
+	Far(TEXT("SM_FloorSpoke"), 46, 46, 6, 0, 1.f, 1.f, 0.f, 0, 0.93f, 0.f);
+	Far(TEXT("SM_FloorPool"), 52, 62, 2, 0, 0.9f, 1.2f, 0.1f, 0, 0.99f, 40.f);
+	Far(TEXT("SM_FloorPlaza"), 84, 96, 6, 2, 1.f, 1.2f, 0.1f, 0, 1.26f, 0.f);
+Zone(TEXT("Floor: rocket land"), 6.92f, 8.11f);
+	ParkLawns();
+	Far(TEXT("SM_FloorSpoke"), 46, 46, 4, 1, 1.f, 1.f, 0.f, 0, 0.93f, 0.f);
+	Far(TEXT("SM_FloorPlaza"), 62, 70, 4, 3, 1.f, 1.f, 0.1f, 0, 1.07f, 0.f);
+	Far(TEXT("SM_FloorKart"), 108, 118, 12, 4, 1.f, 1.f, 0.f, 1, 1.46f, 3.f);
+	Far(TEXT("SM_FloorKart"), 108, 118, 12, 10, 1.f, 1.f, 0.f, -1, 1.46f, 3.f);
+Zone(TEXT("Floor: the funhouse"), 8.12f, 8.45f);
+	ParkLawns();
+	Far(TEXT("SM_FloorSpoke"), 46, 46, 3, 0, 1.f, 1.f, 0.f, 0, 0.93f, 0.f);
+	Far(TEXT("SM_FloorGames"), 50, 54, 2, 0, 0.9f, 1.f, 0.f, 0, 0.97f, 4.f);
+	Far(TEXT("SM_FloorQueue"), 36, 38, 3, 0, 0.9f, 1.f, 0.f, 0, 0.88f, 3.f);
+Zone(TEXT("Floor: the back lot"), 8.93f, 9.29f);
+	Far(TEXT("SM_FloorYard"), 78, 86, 2, 1, 1.f, 1.2f, 0.f, 0, 1.21f, 4.f);
+// the finale: its sets stand on even slots on the left and odd slots on the right, so the paths take the others
+const auto ParkFinale = [&]()
+{
+	ParkLawns();
+	Far(TEXT("SM_FloorSpoke"), 46, 46, 4, 1, 1.f, 1.f, 0.f, -1, 0.93f, 0.f);
+	Far(TEXT("SM_FloorSpoke"), 46, 46, 4, 0, 1.f, 1.f, 0.f, 1, 0.93f, 0.f);
+	Far(TEXT("SM_FloorGames"), 50, 54, 6, 0, 0.9f, 1.f, 0.f, 1, 0.97f, 4.f);
+	Far(TEXT("SM_FloorGames"), 50, 54, 6, 3, 0.9f, 1.f, 0.f, -1, 0.97f, 4.f);
+	Far(TEXT("SM_FloorPlaza"), 84, 96, 6, 2, 1.f, 1.2f, 0.1f, 0, 1.26f, 0.f);
+	Far(TEXT("SM_FloorYard"), 64, 70, 8, 6, 1.f, 1.f, 0.f, 0, 1.09f, 4.f);
+	Far(TEXT("SM_FloorQueue"), 36, 38, 6, 1, 0.9f, 1.f, 0.f, -1, 0.88f, 3.f);
+	Far(TEXT("SM_FloorQueue"), 36, 38, 6, 4, 0.9f, 1.f, 0.f, 1, 0.88f, 3.f);
+	Far(TEXT("SM_FloorKart"), 108, 118, 12, 8, 1.f, 1.f, 0.f, -1, 1.46f, 3.f);
+	Far(TEXT("SM_FloorKart"), 108, 118, 12, 2, 1.f, 1.f, 0.f, 1, 1.46f, 3.f);
+};
+Zone(TEXT("Floor: the last ride, to the arena's hill"), 9.3f, 11.23f);
+	ParkFinale();
+Zone(TEXT("Floor: the last ride, after the hill"), 11.94f, 99.f);
+	ParkFinale();
+
+// ================================================================ SECOND PASS: THE BANKED BENDS
+// One district a slot: the bank bed on the bend's INSIDE where the bank is at its full angle for the bed's whole length
+// (24 m), and one giant on the OUTSIDE of each bend. From the track's section list; the track is locked.
+Zone(TEXT("Bend 1.04"), 1.0376f, 1.0436f); Site(TEXT("Bank08A"), 1, 13.17f, 1, 0, 1.f, 0.78f);
+Zone(TEXT("Bend 1.09"), 1.0828f, 1.0888f); Site(TEXT("Bank08B"), 1, 13.17f, 1, 0, 1.f, 0.78f);
+Zone(TEXT("Bend 1.13"), 1.1281f, 1.1341f); Site(TEXT("Bank08A"), 1, 13.17f, 1, 0, 1.f, 0.78f);
+Zone(TEXT("Bend 1.09, outside"), 1.0828f, 1.0888f); Far(TEXT("SM_FarBigTops"), 55, 57, 1, 0, 1.f, 0.42f, 0.f, -1, 1.06f, 6.f);
+Zone(TEXT("Bend 1.63"), 1.6257f, 1.6317f); Site(TEXT("Bank09B"), 1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 1.63, outside"), 1.6257f, 1.6317f); Far(TEXT("SM_FarWheel"), 62, 64, 1, 0, 1.f, 0.5f, 0.f, -1, 1.12f, 6.f);
+Zone(TEXT("Bend 1.76"), 1.7615f, 1.7675f); Site(TEXT("Bank09A"), -1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 1.76, outside"), 1.7615f, 1.7675f); Far(TEXT("SM_FarWheel"), 62, 64, 1, 0, 1.f, 0.5f, 0.f, 1, 1.12f, 6.f);
+Zone(TEXT("Bend 2.40"), 2.3949f, 2.4009f); Site(TEXT("Bank10B"), 1, 12.1f, 1, 0, 1.f, 1);
+Zone(TEXT("Bend 2.44"), 2.4401f, 2.4461f); Site(TEXT("Bank10A"), 1, 12.1f, 1, 0, 1.f, 1);
+Zone(TEXT("Bend 2.44, outside"), 2.4401f, 2.4461f); Far(TEXT("SM_FarFort"), 50, 52, 1, 0, 1.f, 0.3f, 0.f, -1, 1.03f, 6.f);
+Zone(TEXT("Bend 2.53"), 2.5306f, 2.5366f); Site(TEXT("Bank10B"), -1, 12.1f, 1, 0, 1.f, 1);
+Zone(TEXT("Bend 2.58"), 2.5759f, 2.5819f); Site(TEXT("Bank10A"), -1, 12.1f, 1, 0, 1.f, 1);
+Zone(TEXT("Bend 2.58, outside"), 2.5759f, 2.5819f); Far(TEXT("SM_FarFort"), 50, 52, 1, 0, 1.f, 0.3f, 0.f, 1, 1.03f, 6.f);
+Zone(TEXT("Bend 7.01"), 7.0097f, 7.0157f); Site(TEXT("Bank10B"), 1, 12.1f, 1, 0, 1.f, 1);
+Zone(TEXT("Bend 7.01, outside"), 7.0097f, 7.0157f); Far(TEXT("SM_FarRocket"), 46, 48, 1, 0, 1.f, 0.32f, 0.f, -1, 1, 6.f);
+Zone(TEXT("Bend 7.15"), 7.1454f, 7.1514f); Site(TEXT("Bank10A"), -1, 12.1f, 1, 0, 1.f, 1);
+Zone(TEXT("Bend 7.15, outside"), 7.1454f, 7.1514f); Far(TEXT("SM_FarRocket"), 46, 48, 1, 0, 1.f, 0.32f, 0.f, 1, 1, 6.f);
+Zone(TEXT("Bend 7.24"), 7.2359f, 7.2419f); Site(TEXT("Bank10B"), 1, 12.1f, 1, 0, 1.f, 1);
+Zone(TEXT("Bend 7.24, outside"), 7.2359f, 7.2419f); Far(TEXT("SM_FarRocket"), 46, 48, 1, 0, 1.f, 0.32f, 0.f, -1, 1, 6.f);
+Zone(TEXT("Bend 7.60"), 7.5978f, 7.6038f); Site(TEXT("Bank09A"), -1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 7.60, outside"), 7.5978f, 7.6038f); Far(TEXT("SM_FarRocket"), 46, 48, 1, 0, 1.f, 0.32f, 0.f, 1, 1, 6.f);
+Zone(TEXT("Bend 7.74"), 7.7336f, 7.7396f); Site(TEXT("Bank09B"), 1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 7.74, outside"), 7.7336f, 7.7396f); Far(TEXT("SM_FarRocket"), 46, 48, 1, 0, 1.f, 0.32f, 0.f, -1, 1, 6.f);
+Zone(TEXT("Bend 8.28"), 8.2765f, 8.2825f); Site(TEXT("Bank10A"), -1, 12.1f, 1, 0, 1.f, 1);
+Zone(TEXT("Bend 8.28, outside"), 8.2765f, 8.2825f); Far(TEXT("SM_FarBigTops"), 55, 57, 1, 0, 1.f, 0.42f, 0.f, 1, 1.06f, 6.f);
+Zone(TEXT("Bend 8.42"), 8.4122f, 8.4182f); Site(TEXT("Bank10B"), 1, 12.1f, 1, 0, 1.f, 1);
+Zone(TEXT("Bend 8.42, outside"), 8.4122f, 8.4182f); Far(TEXT("SM_FarBigTops"), 55, 57, 1, 0, 1.f, 0.42f, 0.f, -1, 1.06f, 6.f);
+Zone(TEXT("Bend 9.09"), 9.0908f, 9.0968f); Site(TEXT("Bank08A"), -1, 13.17f, 1, 0, 1.f, 0.78f);
+Zone(TEXT("Bend 9.09, outside"), 9.0908f, 9.0968f); Far(TEXT("SM_FarChute"), 46, 48, 1, 0, 1.f, 0.3f, 0.f, 1, 1, 6.f);
+Zone(TEXT("Bend 9.23"), 9.2266f, 9.2326f); Site(TEXT("Bank08B"), 1, 13.17f, 1, 0, 1.f, 0.78f);
+Zone(TEXT("Bend 9.23, outside"), 9.2266f, 9.2326f); Far(TEXT("SM_FarChute"), 46, 48, 1, 0, 1.f, 0.3f, 0.f, -1, 1, 6.f);
+Zone(TEXT("Bend 15.02"), 15.0177f, 15.0237f); Site(TEXT("Bank09A"), 1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 15.07"), 15.0629f, 15.0689f); Site(TEXT("Bank09B"), 1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 15.07, outside"), 15.0629f, 15.0689f); Far(TEXT("SM_FarWheel"), 62, 64, 1, 0, 1.f, 0.5f, 0.f, -1, 1.12f, 6.f);
+Zone(TEXT("Bend 15.16"), 15.1534f, 15.1594f); Site(TEXT("Bank09A"), -1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 15.20"), 15.1986f, 15.2046f); Site(TEXT("Bank09B"), -1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 15.20, outside"), 15.1986f, 15.2046f); Far(TEXT("SM_FarRocket"), 46, 48, 1, 0, 1.f, 0.32f, 0.f, 1, 1, 6.f);
+Zone(TEXT("Bend 16.29"), 16.2845f, 16.2905f); Site(TEXT("Bank09A"), 1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 16.33"), 16.3297f, 16.3357f); Site(TEXT("Bank09B"), 1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 16.33, outside"), 16.3297f, 16.3357f); Far(TEXT("SM_FarFort"), 50, 52, 1, 0, 1.f, 0.3f, 0.f, -1, 1.03f, 6.f);
+Zone(TEXT("Bend 16.42"), 16.4202f, 16.4262f); Site(TEXT("Bank09A"), -1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 16.47"), 16.4655f, 16.4715f); Site(TEXT("Bank09B"), -1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 16.47, outside"), 16.4655f, 16.4715f); Far(TEXT("SM_FarBigTops"), 55, 57, 1, 0, 1.f, 0.42f, 0.f, 1, 1.06f, 6.f);
+Zone(TEXT("Bend 17.55"), 17.5513f, 17.5573f); Site(TEXT("Bank09A"), 1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 17.55, outside"), 17.5513f, 17.5573f); Far(TEXT("SM_FarChute"), 46, 48, 1, 0, 1.f, 0.3f, 0.f, -1, 1, 6.f);
+Zone(TEXT("Bend 17.69"), 17.6870f, 17.6930f); Site(TEXT("Bank09B"), -1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 17.69, outside"), 17.6870f, 17.6930f); Far(TEXT("SM_FarWheel"), 62, 64, 1, 0, 1.f, 0.5f, 0.f, 1, 1.12f, 6.f);
+Zone(TEXT("Bend 18.82"), 18.8181f, 18.8241f); Site(TEXT("Bank09A"), 1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 18.82, outside"), 18.8181f, 18.8241f); Far(TEXT("SM_FarRocket"), 46, 48, 1, 0, 1.f, 0.32f, 0.f, -1, 1, 6.f);
+Zone(TEXT("Bend 18.96"), 18.9538f, 18.9598f); Site(TEXT("Bank09B"), -1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 18.96, outside"), 18.9538f, 18.9598f); Far(TEXT("SM_FarFort"), 50, 52, 1, 0, 1.f, 0.3f, 0.f, 1, 1.03f, 6.f);
+Zone(TEXT("Bend 20.09"), 20.0849f, 20.0909f); Site(TEXT("Bank09A"), 1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 20.09, outside"), 20.0849f, 20.0909f); Far(TEXT("SM_FarBigTops"), 55, 57, 1, 0, 1.f, 0.42f, 0.f, -1, 1.06f, 6.f);
+Zone(TEXT("Bend 20.22"), 20.2206f, 20.2266f); Site(TEXT("Bank09B"), -1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 20.22, outside"), 20.2206f, 20.2266f); Far(TEXT("SM_FarChute"), 46, 48, 1, 0, 1.f, 0.3f, 0.f, 1, 1, 6.f);
+Zone(TEXT("Bend 21.35"), 21.3517f, 21.3577f); Site(TEXT("Bank09A"), 1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 21.35, outside"), 21.3517f, 21.3577f); Far(TEXT("SM_FarWheel"), 62, 64, 1, 0, 1.f, 0.5f, 0.f, -1, 1.12f, 6.f);
+Zone(TEXT("Bend 21.49"), 21.4874f, 21.4934f); Site(TEXT("Bank09B"), -1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 21.49, outside"), 21.4874f, 21.4934f); Far(TEXT("SM_FarRocket"), 46, 48, 1, 0, 1.f, 0.32f, 0.f, 1, 1, 6.f);
+Zone(TEXT("Bend 22.62"), 22.6185f, 22.6245f); Site(TEXT("Bank09A"), 1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 22.62, outside"), 22.6185f, 22.6245f); Far(TEXT("SM_FarFort"), 50, 52, 1, 0, 1.f, 0.3f, 0.f, -1, 1.03f, 6.f);
+Zone(TEXT("Bend 22.76"), 22.7542f, 22.7602f); Site(TEXT("Bank09B"), -1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 22.76, outside"), 22.7542f, 22.7602f); Far(TEXT("SM_FarBigTops"), 55, 57, 1, 0, 1.f, 0.42f, 0.f, 1, 1.06f, 6.f);
+Zone(TEXT("Bend 23.84"), 23.8401f, 23.8461f); Site(TEXT("Bank09A"), 1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 23.89"), 23.8853f, 23.8913f); Site(TEXT("Bank09B"), 1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 23.89, outside"), 23.8853f, 23.8913f); Far(TEXT("SM_FarChute"), 46, 48, 1, 0, 1.f, 0.3f, 0.f, -1, 1, 6.f);
+Zone(TEXT("Bend 24.02"), 24.0210f, 24.0270f); Site(TEXT("Bank09A"), -1, 12.72f, 1, 0, 1.f, 0.9f);
+Zone(TEXT("Bend 24.02, outside"), 24.0210f, 24.0270f); Far(TEXT("SM_FarWheel"), 62, 64, 1, 0, 1.f, 0.5f, 0.f, 1, 1.12f, 6.f);

@@ -27,6 +27,7 @@ its colour under the street's own lamps (yellow cabs, gold-and-black barriers).
 import math
 import random
 import unreal
+import ft_art
 import ft_city
 import ft_visual_art
 from ft_desert import rod, tilt_box
@@ -38,6 +39,18 @@ CREAM, WHITE, TEAL, GREEN_D, PINE, BLUE, WOOD, WOOD_D = '#fff1d6', '#fff6ea', '#
 GLASS, GLASS_D, TYRE, SILVER, GOLD, BLACK, GREY_D, SAND_D = '#233a63', '#1c1f4a', '#26232e', '#c9c4d6', '#ffc93c', '#1c1a26', '#3f3d50', '#b89a6a'
 G1, G2, G3, G4 = 0.35, 0.9, 1.4, 2.0          # glow: soft, a lit window, a sign, a bulb
 DIR = '/Game/Maps/Metro/Dress/'
+
+
+def animate():
+    """What moves here (ft_life.py, the living-world pass; run it again after any export of these two meshes: the export
+    puts the plain palette back). The picture house's bulbs run in a chase along its canopy, and the radio mast's beacons
+    wink slowly, far off and high up. Nothing else: the Syndicate's red lights and the bank's ticker stand at the height
+    the Chairman's shots fly in the finale, and stay steady so that his fire is what flickers there."""
+    import ft_life
+    n = ft_life.animate(DIR + 'SM_Marquee', 'Light', slots=lambda slot, col, glow: glow >= 1.9, LightAxis=(1, 0, 0), LightLen=260.0,
+                        LightRate=0.8, LightDuty=0.6, LightMin=0.25)
+    n += ft_life.animate(DIR + 'SM_FarRadio', 'Light', slots=lambda slot, col, glow: glow >= 1.9, LightRate=0.35, LightDuty=0.5, LightMin=0.15)
+    return n
 
 
 def _ccw(pts):
@@ -845,8 +858,210 @@ def far_syndicate(m):
         m.sphere(WARM_L, (-7500 + k * 3000, -960, 2900), 190, steps=(4, 6), glow=G4)
 
 
+# ------------------------------------------------------------------------------------------ second pass: the ground plane
+# What the city is made of where a banked, looping or flying camera looks down on it: side streets between the blocks,
+# parking lots, a corporate plaza, and the faces of the cut banks beside the banked bends. All of it FLAT or lying on
+# the bank, and UNLIT. The track sinks a piece 15 cm into the land, so each has a kerb going 1.4 m down and its top
+# 25 to 35 cm up; each kind has its own top height, so two that overlap lie one over the other instead of flickering.
+def _disc(m, col, r, z0, z1, at=(0.0, 0.0), steps=20, glow=0.0):
+    m.cyl(col, (at[0], at[1], z0), r, z1 - z0, steps=steps, glow=glow)
+
+
+def _turned(m, x, y, z, yaw, draw):
+    """Draw with the model's own frame moved to (x, y, z) and turned by yaw: for a car parked across a piece."""
+    m.base = ft_art._xf((x, y, z), (0.0, yaw, 0.0))
+    try:
+        draw()
+    finally:
+        m.base = None
+
+
+def floor_cross(m, L=5000.0, W=1100.0):
+    """A side street between two blocks, 50 m long, running AWAY from the avenue (along Y): tarmac between pale kerbs, a
+    zebra crossing and a stop line at its mouth, a yellow centre line, manholes, three cars parked along it."""
+    m.box(STONE_L, (0, 0, -57), (W + 160, L, 166))
+    m.box(INDIGO, (0, 0, 24), (W, L, 8))
+    for k in range(6):
+        m.box(CREAM, (-W / 2.0 + 110 + k * (W - 220) / 5.0, -L / 2.0 + 300, 29), (100, 420, 5))
+    m.box(CREAM, (0, -L / 2.0 + 600, 29), (W - 80, 44, 5))
+    for k in range(6):
+        m.box(AMBER, (0, -L / 2.0 + 1000 + k * 640, 29), (22, 330, 5))
+    for y in (-600, 1300):
+        _disc(m, GREY_D, 46, 27, 30.5, at=(-200, y), steps=10)
+    for k, (y, col, kind) in enumerate(((-900, AMBER, 'taxi'), (400, RED, 'sedan'), (1700, TEAL, 'van'))):
+        _turned(m, (W / 2.0 - 130) * (1 if k % 2 else -1), y, 28, 90.0, lambda col=col, kind=kind: _car(m, 0, 0, col, kind))
+
+
+def floor_lot(m, L=2800.0, W=1700.0):
+    """A parking lot, 28 m by 17 m: tarmac inside a pale kerb, bays painted down both sides of a lane, an arrow, seven
+    cars, a pay booth, a clipped tree in a tub at two corners."""
+    m.box(STONE_L, (0, 0, -58), (L, W, 164))
+    m.box(INDIGO, (0, 0, 21), (L - 70, W - 70, 8))
+    for sy in (-1, 1):
+        for k in range(9):
+            m.box(CREAM, (-L / 2.0 + 190 + k * 300, sy * (W / 2.0 - 290), 26), (16, 460, 4))
+    m.plan(CREAM, _ccw([(-420, -36), (120, -36), (120, -110), (420, 0), (120, 110), (120, 36), (-420, 36)]), 25, 28)
+    cars = ((0, -1, AMBER, 'taxi'), (2, -1, RED, 'sedan'), (3, -1, SILVER, 'sedan'), (6, -1, TEAL, 'van'), (1, 1, BLUE, 'sedan'),
+            (4, 1, CREAM, 'van'), (7, 1, AMBER, 'taxi'))
+    for k, sy, col, kind in cars:
+        _turned(m, -L / 2.0 + 340 + k * 300, sy * (W / 2.0 - 300), 25, 90.0 * sy, lambda col=col, kind=kind: _car(m, 0, 0, col, kind))
+    m.box(CREAM, (L / 2.0 - 150, 0, 110), (150, 150, 170))
+    m.box(RED, (L / 2.0 - 150, 0, 200), (180, 180, 14))
+    for sy in (-1, 1):
+        m.box(CONC_D, (L / 2.0 - 150, sy * (W / 2.0 - 150), 56), (150, 150, 64))
+        m.sphere(PINE, (L / 2.0 - 150, sy * (W / 2.0 - 150), 138), 60, steps=(4, 7))
+
+
+def floor_plaza(m, S=2400.0):
+    """A corporate plaza, 24 m square: pale stone laid in big squares of two tones, a round basin with a gold figure
+    in it, a tub with a clipped tree at each corner, four benches. Nothing over 1.9 m, nothing lit."""
+    m.box(STONE, (0, 0, -57), (S, S, 166))
+    m.box(STONE_L, (0, 0, 24), (S - 80, S - 80, 8))
+    q = (S - 80) / 4.0
+    for i in range(4):
+        for j in range(4):
+            if (i + j) % 2 == 0:
+                m.box(CREAM, (-1.5 * q + i * q, -1.5 * q + j * q, 27), (q - 40, q - 40, 5))
+    _disc(m, STONE, 420, 26, 64, steps=16)
+    _disc(m, BLUE, 370, 60, 67, steps=16)
+    m.cyl(GOLD, (0, 0, 64), 40, 60, steps=6, top_r=70)
+    m.sphere(GOLD, (0, 0, 150), 44, scale=(1, 1, 1.3), steps=(4, 6))
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            m.box(CONC_D, (sx * (S / 2.0 - 190), sy * (S / 2.0 - 190), 60), (190, 190, 64))
+            m.sphere(PINE, (sx * (S / 2.0 - 190), sy * (S / 2.0 - 190), 146), 66, steps=(4, 7))
+        m.box(WOOD, (sx * 640, 0, 70), (60, 300, 10))
+        m.box(WOOD, (0, sx * 640, 70), (300, 60, 10))
+        for e in (-1, 1):
+            m.box(GREY_D, (sx * 640, e * 120, 46), (50, 12, 40))
+            m.box(GREY_D, (e * 120, sx * 640, 46), (12, 50, 40))
+
+
+# The sidewalk, brighter: everything on it must be under 2 m and unlit, so these read by colour under the street's lamps.
+def kerb_cafe(m):
+    """A pavement cafe, 17 m of it: four striped parasols over round tables and bright chairs, a planter of flowers
+    towards the road, a menu board."""
+    for k in range(4):
+        x = -600 + k * 400
+        a, b = ((RED, CREAM), (TEAL, CREAM))[k % 2]
+        m.cyl(WOOD_D, (x, 40, 0), 5, 150, steps=5)
+        m.cyl(a, (x, 40, 150), 150, 42, steps=8, top_r=10)
+        m.cyl(b, (x, 40, 144), 156, 7, steps=8)
+        m.cyl(GREY_D, (x, 40, 0), 6, 70, steps=5)
+        m.cyl(CREAM, (x, 40, 70), 48, 6, steps=8)
+        for e in (-1, 1):
+            m.box(MAG if k % 2 else AMBER, (x + e * 84, 40, 24), (40, 40, 48))
+            m.box(MAG if k % 2 else AMBER, (x + e * 102, 40, 62), (6, 40, 40))
+    m.box(CONC_D, (0, -80, 24), (1700, 44, 48))
+    for k in range(9):
+        m.sphere((MAG, AMBER, WHITE)[k % 3] if k % 2 else PINE, (-760 + k * 190, -80, 62), 44, scale=(1.6, 0.8, 0.7), steps=(3, 6))
+    m.box(NAVY, (900, 20, 62), (12, 76, 124))
+    m.box(CREAM, (893, 20, 70), (4, 56, 84))
+
+
+def kerb_works(m):
+    """Road works on the sidewalk, 15 m of them: orange barrels with white bands, cones, a striped barrier on trestles,
+    a striped tent over a manhole, a cable drum. Bright, low and unlit."""
+    for k in range(5):
+        x = -700 + k * 150
+        m.cyl(ORANGE, (x, -30 + (k % 2) * 50, 0), 30, 100, steps=8)
+        m.cyl(WHITE, (x, -30 + (k % 2) * 50, 30), 31, 14, steps=8)
+        m.cyl(WHITE, (x, -30 + (k % 2) * 50, 66), 31, 14, steps=8)
+    for k in range(4):
+        x = 80 + k * 110
+        m.box(NAVY, (x, -60, 4), (44, 44, 8))
+        m.cyl(ORANGE, (x, -60, 8), 20, 66, steps=6, top_r=4)
+        m.cyl(WHITE, (x, -60, 34), 14, 12, steps=6, top_r=11)
+    for e in (-1, 1):
+        m.box(GREY_D, (300 + e * 200, 60, 50), (10, 60, 100))
+    for k in range(6):
+        m.box(ORANGE if k % 2 else WHITE, (125 + k * 70, 60, 96), (70, 8, 30))
+    _side(m, AMBER, [(540, 0), (700, 0), (620, 150)], -40, 110)
+    for k in range(3):
+        m.box(WHITE, (566 + k * 54, -42, 60 - abs(k - 1) * 30), (22, 4, 110 - abs(k - 1) * 60))
+    rod(m, WOOD, (-60, 30, 62), (-60, 110, 62), 62, steps=8)
+    rod(m, WOOD_D, (-60, 22, 62), (-60, 30, 62), 76, steps=8)
+    rod(m, WOOD_D, (-60, 110, 62), (-60, 118, 62), 76, steps=8)
+
+
+# The banks of the banked bends (see ft_dress_park.py's note on them: the same cut, the same way of standing a piece
+# on it; these are bent to the city's tighter bends, a 70 m radius). Unlit; nothing on them points left or right.
+BANK_DEG = 58.6
+BANK_R = 7000.0
+
+
+def _bank_len(m, k, kerb, face, draw):
+    """Draw one 8 m length (k = -1, 0, 1) in the bank's own frame: x along the road, y up the slope, z out of it."""
+    xc = k * 800.0
+    m.base = ft_art._xf((xc, xc * xc / (2.0 * BANK_R), 0.0), (0.0, math.degrees(xc / BANK_R), _awn(BANK_DEG)))
+    try:
+        m.box(kerb, (0, 0, -22), (812, 1060, 80))
+        m.box(face, (0, 0, 15), (812, 950, 10))
+        draw(k)
+    finally:
+        m.base = None
+
+
+def bank_tiles(m):
+    """A tiled embankment: dark tiles carrying the decade's shapes in the street's colours. A banded sun in the middle
+    length; a disc, a triangle, a zigzag and a block of squares either side."""
+    def draw(k):
+        if k == 0:
+            _disc(m, AMBER, 330, 18, 28, at=(0, 40), steps=20)
+            for j, (y, t) in enumerate(((-30, 30), (-110, 40), (-200, 54))):
+                m.box(NAVY, (0, y, 26), (700, t, 8))
+            for j, c in enumerate((MAG, CYAN)):
+                m.box(c, (0, -360 - j * 60, 23), (812, 30, 8))
+        else:
+            a, b, c = ((MAG, AMBER, CYAN), (TEAL, MAG, AMBER))[0 if k < 0 else 1]
+            _disc(m, a, 190, 18, 28, at=(-k * 150, 230), steps=16)
+            m.plan(b, _ccw([(k * 40, -330), (k * 330, -330), (k * 185, -60)]), 18, 27)
+            for j in range(4):
+                m.box(c, (-k * 250 + j * k * 95, -200 + (j % 2) * 70, 23), (150, 30, 8), rot=(0, 38 if j % 2 else -38, 0))
+            for i in range(3):
+                for j in range(2):
+                    m.box(CREAM, (k * 150 + i * 80, 150 + j * 80, 23), (46, 46, 8))
+    for k in (-1, 0, 1):
+        _bank_len(m, k, STONE_L, NAVY, draw)
+
+
+def syn_bank(m):
+    """The Syndicate's embankment: black plates, the gold double chevron on every length, a red line top and bottom.
+    Unlit: the gold and the red are paint here."""
+    def draw(k):
+        for ya in (300, 40):
+            for s in (-1, 1):
+                m.box(GOLD, (s * 150, ya - 126, 23), (400, 64, 8), rot=(0, -s * 40.0, 0))
+        for s in (-1, 1):
+            m.box(RED, (0, s * 440, 23), (812, 36, 8))
+    for k in (-1, 0, 1):
+        _bank_len(m, k, GREY_D, BLACK, draw)
+
+
+def blade_sign(m, word='HOTEL', col=MAG, trim=CYAN, base=1150.0):
+    """A blade sign on a tower's front, over its podium: a dark blade standing out towards the avenue from 11.5 m up,
+    the word stacked in lights on both faces (it is read along the street, from either way), a tube of light down each
+    edge, a gold ball on top. Lit and STEADY (nothing on it blinks), and stood 31.8 m out, so its lights are 30 m and
+    more from the road's centre line. Its mast is inside the podium."""
+    lh = 150.0
+    H = len(word) * lh * 1.3 + 160.0
+    yc = -40.0
+    m.box(NAVY, (0, yc, base + H / 2.0), (36, 250, H))
+    for s in (-1, 1):
+        m.box(trim, (0, yc + s * 132, base + H / 2.0), (44, 14, H), glow=G2)
+        _turned(m, s * 18.0, yc, 0.0, s * 90.0, lambda: _stack(m, word, 0.0, -2.0, base + H - 60.0, lh, col))
+    m.sphere(AMBER, (0, yc, base + H + 44), 44, steps=(4, 6), glow=G4)
+    for z in (base + H * 0.2, base + H * 0.8):
+        m.box(GREY_D, (0, yc + 205, z), (20, 170, 20))
+    m.box(GREY_D, (0, 110, base / 2.0 + H * 0.4), (26, 26, base + H * 0.8))
+
+
 W = 300.0     # the street wall's foundation
 JOBS = [
+    ('SM_BladeHotel', lambda m: blade_sign(m, 'HOTEL', MAG, CYAN)), ('SM_BladeClub', lambda m: blade_sign(m, 'CLUB', CYAN, MAG)),
+    ('SM_BladeDiner', lambda m: blade_sign(m, 'DINER', AMBER, MAG)),
+    ('SM_FloorCross', floor_cross), ('SM_FloorLot', floor_lot), ('SM_FloorPlaza', floor_plaza), ('SM_KerbCafe', kerb_cafe),
+    ('SM_KerbWorks', kerb_works), ('SM_BankTiles', bank_tiles), ('SM_SynBank', syn_bank),
     ('SM_Shops1', _std(shops, slab=W)),
     ('SM_Shops2', _std(lambda m: shops(m, ('BAR', 'HATS', 'LOANS'), (TAN, BRICK_D, STONE), ((MAG, CREAM), (BLUE, CREAM), (GREEN_D, CREAM)),
                                      (MAG, AMBER, CYAN), tall=(0, 2), seed=2), slab=W)),

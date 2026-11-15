@@ -88,9 +88,26 @@ Remove-Item -Recurse -Force $dst -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $dst | Out-Null
 Get-ChildItem (Join-Path $save "shots") -Filter *.png -ErrorAction SilentlyContinue | Copy-Item -Destination $dst
 # ---- the report
-$base = @{}
-foreach ($b in (Get-Content "K:\Full Throttle\SkyScratch\DevLog\jam\track_baseline.txt" -ErrorAction SilentlyContinue)) { if ($b -match "^FTTRACK level=(\d+) (.*)$") { $base[[int]$Matches[1]] = $Matches[2].Trim() } }
+# The baseline file holds three tables: FTTRACK (the editor binary's checksums), FTTRACK-PACKAGED (a packaged game's:
+# the checksums are of raw numbers and differ between the two binaries) and FTTRACKSUM (length, box and means to a
+# tenth of a centimetre: the same in both).
+$base = @{}; $baseSum = @{}
+$crcTag = if ($packaged) { "FTTRACK-PACKAGED" } else { "FTTRACK" }
+foreach ($b in (Get-Content "K:\Full Throttle\SkyScratch\DevLog\jam\track_baseline.txt" -ErrorAction SilentlyContinue)) {
+  if ($b -match "^$crcTag level=(\d+) (.*)$") { $base[[int]$Matches[1]] = $Matches[2].Trim() }
+  if ($b -match "^FTTRACKSUM level=(\d+) (.*)$") { $baseSum[[int]$Matches[1]] = $Matches[2].Trim() }
+}
 $names = @("Bayshore", "Chemical Works", "Nevada", "Volcano", "Theme Park", "Ice Mountain", "Under the Sea", "City Center")
+# Two summary lines are the same track if every length and position is within 2 cm and the mean up vector within
+# 0.001: the editor binary and a packaged game drift apart by a few millimetres over 25 km (15 Nov: 0.5 cm at most),
+# because the same code compiled two ways rounds differently and the route is summed step by step.
+function Same-Sum([string]$a, [string]$b) {
+  $na = @([regex]::Matches($a, "-?\d+\.\d+") | ForEach-Object { [double]$_.Value })
+  $nb = @([regex]::Matches($b, "-?\d+\.\d+") | ForEach-Object { [double]$_.Value })
+  if ($na.Count -ne 13 -or $nb.Count -ne 13) { return $false }
+  for ($i = 0; $i -lt 13; $i++) { $tol = if ($i -lt 10) { 2.0 } else { 0.001 }; if ([Math]::Abs($na[$i] - $nb[$i]) -gt $tol) { return $false } }
+  return $true
+}
 $out = New-Object System.Collections.Generic.List[string]
 $out.Add(("# jam_verify {0}  {1}  quality {2}  {3}x{4}  {5}  (other Unreal processes running at the start: {6})" -f $Tag, (Get-Date -Format "yyyy-MM-dd HH:mm"), $Quality, $ResX, $ResY, $(if ($packaged) { "packaged: $Root" } else { "uncooked: $Checkout" }), $others))
 $cur = -1; $racing = $false; $st = $null; $all = @{}
@@ -98,11 +115,12 @@ foreach ($line in [IO.File]::ReadLines($log)) {
   if ($line -match "LogFT: (Display|Warning): FT WARM ") { $out.Add("  " + $line.Substring($line.IndexOf("FT WARM"))) }
   if ($line -match "LogFT: Display: FTTRACK level=(\d+) (.*)$") {
     $cur = [int]$Matches[1]
-    $st = @{ track = $Matches[2].Trim(); dress = ""; flush = 0; hitch = 0; worst = 0.0; errors = @(); boss = $false; reel = $false; pay = $false; stall = @() }
+    $st = @{ track = $Matches[2].Trim(); dress = ""; flush = 0; hitch = 0; worst = 0.0; errors = @(); boss = $false; reel = $false; pay = $false; stall = @(); sum = "" }
     $all[$cur] = $st; $racing = $false; continue
   }
   if ($null -eq $st) { continue }
   if ($line -match "LogFT: Display: FTDRESS level=\d+ (.*)$") { $st.dress = $Matches[1].Trim() }
+  if ($line -match "LogFT: Display: FTTRACKSUM level=\d+ (.*)$") { $st.sum = $Matches[1].Trim() }
   if ($line -match "LogFT: Display: FT LEVEL id=") { $racing = $true }
   if ($line -match "FT EXEC line=\d+ cmd=(FTStartLevel|quit)") { $racing = $false }
   if ($line -match "LogFT: Display: FT BOSS state=Arrive") { $st.boss = $true }
@@ -118,13 +136,18 @@ foreach ($line in [IO.File]::ReadLines($log)) {
 $bad = 0
 foreach ($k in ($all.Keys | Sort-Object)) {
   $s = $all[$k]
-  $same = $base.ContainsKey($k) -and ($base[$k] -eq $s.track)
+  $crcKnown = $base.ContainsKey($k); $sumKnown = $baseSum.ContainsKey($k) -and $s.sum
+  $crcSame = $crcKnown -and ($base[$k] -eq $s.track); $sumSame = $sumKnown -and (Same-Sum $baseSum[$k] $s.sum)
+  # the track passes if every table that has this level agrees (and at least one has it)
+  $same = ($crcKnown -or $sumKnown) -and (-not $crcKnown -or $crcSame) -and (-not $sumKnown -or $sumSame)
+  $trackSays = if (-not ($crcKnown -or $sumKnown)) { "NO BASELINE " + $s.track } elseif ($same) { "unchanged" + $(if ($sumKnown -and -not $crcKnown) { " (by its summary, within 2 cm)" } else { "" }) } else { "CHANGED " + $s.track + " " + $s.sum }
   $frames = @(Get-ChildItem $dst -Filter ("L{0}_*.png" -f ($k + 1))).Count
   $ok = $same -and $s.boss -and $s.reel -and $s.pay -and ($s.errors.Count -eq 0) -and ($frames -ge 11)
   if (-not $ok) { $bad++ }
   $out.Add(("{0}  level {1} {2}: track {3}; boss {4}; reel {5}; pay banked {6}; frames {7}; loads mid-race {8}; frames over 40 ms {9}{10}" -f $(if ($ok) { "PASS" } else { "FAIL" }),
-    ($k + 1), $names[$k], $(if ($same) { "unchanged" } else { "CHANGED " + $s.track }), $s.boss, $s.reel, $s.pay, $frames, $s.flush, $s.hitch, $(if ($s.hitch) { " (worst {0:N0} ms)" -f $s.worst } else { "" })))
+    ($k + 1), $names[$k], $trackSays, $s.boss, $s.reel, $s.pay, $frames, $s.flush, $s.hitch, $(if ($s.hitch) { " (worst {0:N0} ms)" -f $s.worst } else { "" })))
   $out.Add("        dressing: " + $s.dress)
+  if ($s.sum) { $out.Add("        track: " + $s.track + " | " + $s.sum) }
   if ($s.stall.Count) { $out.Add("        the autopilot stalled " + $s.stall.Count + " time(s): " + (($s.stall | Select-Object -First 3) -join "; ")) }
   foreach ($e in $s.errors) { $out.Add("        ! " + $e) }
 }
