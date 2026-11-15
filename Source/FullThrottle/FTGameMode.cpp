@@ -1484,6 +1484,15 @@ void AFTGameMode::HurtPlayer(float Dmg, const TCHAR* LineKey, float PushX)
 	if (bHarnessInvuln) Dmg = 0.f;
 	Hp = FMath::Max(0.f, Hp - Dmg);
 	Invuln = 0.6f;
+	{
+		// loop cycle 7: what hurt the car (difficulty review): the nearest live foe, and the line the director would say
+		const FFTEnt* Near = nullptr; float Best = 1e9f;
+		for (const FFTEnt& O : Ents)
+			if (!O.bDead && O.Kind != EFTKind::Crate && O.Kind != EFTKind::Wrench && O.Kind != EFTKind::Missile)
+			{ const float Dd = FMath::Abs(O.D - Car->D) + FMath::Abs(O.X - Car->X) * 0.5f; if (Dd < Best) { Best = Dd; Near = &O; } }
+		UE_LOG(LogFT, Display, TEXT("FT HURT dmg=%.1f hp=%.0f line=%s push=%.0f near=%s gap=%.0f scene=%d"), Dmg, Hp, LineKey ? LineKey : TEXT("-"), PushX,
+			Near ? *KindName(Near->Kind) : TEXT("-"), Near ? Best : -1.f, Scene);
+	}
 	Sfx(TEXT("PlayerHit")); Duck(0.7f, 0.2f);
 	Shake(0.4f + Dmg * 0.03f);
 	if (bDrifting) DriftCharge = FMath::Max(0.f, DriftCharge - (0.6f + Dmg * 0.02f));
@@ -2564,7 +2573,9 @@ void AFTGameMode::TickEnts(float Dt)
 		// LEFT BEHIND (05 §2): a sliding car that drops past the bottom of the screen is gone for good, not wrecked
 		if (E.Slide > 0.f && E.Slide >= SlideLeavePx(E) && Ahead < -(CarL + E.L) * 0.5f && !E.bAdd) { LeftBehindEnt(E); continue; }
 		// gone
-		if (Ahead < -12000.f || Ahead > 45000.f)
+		// loop cycle 7 (Justin's audit): never the boss: his escape clock only runs while he exists, so a culled boss left a level
+		// that could not end until the player wrecked (he steers to keep his spot on the player, so he comes back by himself)
+		if ((Ahead < -12000.f || Ahead > 45000.f) && E.Kind != EFTKind::Boss)
 		{
 			if ((E.Kind == EFTKind::Moto || E.Kind == EFTKind::Rammer || E.Kind == EFTKind::Suv || E.Kind == EFTKind::Truck || E.Kind == EFTKind::Heli || E.Kind == EFTKind::Hog) && E.bCarnage)
 				UE_LOG(LogFT, Display, TEXT("FT LEAVE kind=%s"), *KindName(E.Kind));
