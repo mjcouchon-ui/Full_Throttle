@@ -287,7 +287,12 @@ void UFTGameInstance::ApplyQuality(int32 Q, bool bSave)
 		{
 			// once a session; the result is kept, so AUTO after picking another preset is AUTO again
 			// (until 2.8, ApplyHardwareBenchmarkResults re-applied whatever preset was picked last)
-			if (!bAutoMeasured) { S->RunHardwareBenchmark(); AutoLevels = S->ScalabilityQuality; bAutoMeasured = true; }
+			if (!bAutoMeasured)
+			{
+				S->RunHardwareBenchmark(); AutoLevels = S->ScalabilityQuality; bAutoMeasured = true;
+				UE_LOG(LogFT, Display, TEXT("FT AUTO cpuIndex=%.0f gpuIndex=%.0f overall=%d shadow=%d gi=%d res=%.0f"), S->GetLastCPUBenchmarkResult(), S->GetLastGPUBenchmarkResult(),
+					AutoLevels.GetMinQualityLevel(), AutoLevels.ShadowQuality, AutoLevels.GlobalIlluminationQuality, AutoLevels.ResolutionQuality);
+			}
 			S->ScalabilityQuality = AutoLevels;
 			if (IsAppleGpu()) AppleCap = CapAutoForApple(S);
 			S->ApplyHardwareBenchmarkResults();
