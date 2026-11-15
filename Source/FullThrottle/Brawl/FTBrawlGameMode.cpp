@@ -249,7 +249,8 @@ void AFTBrawlGameMode::BeginPlay()
 	BuildVenue();
 	if (bDay)
 	{
-		// day 1: the film set and its cutscene only (no fight, no fight music); the bar is built but never seen
+		// day 1: the film set and its cutscene only (no fight; the day track, not the fight music); the bar is built but never seen
+		GetWorld()->SpawnActor<AFTBrawlMusic>();   // the day track (S_DayMusic, "Descending Staircase"), looping through the scene
 		ResetState(0, false);
 		BuildSet();
 		bCuts = true;

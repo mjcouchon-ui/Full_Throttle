@@ -1,0 +1,36 @@
+# Fresh isolated profile. No -ftday1/-ftdays: explicit New Game reaches a race directly in the harness.
+wait 2
+ft.SaveDelayMs 2000
+ft.Press Enter
+wait 0.4
+ft.SessionState
+shot main-async-01-newgame-saving
+waitfor FT TITLE start level=1 | 25
+waitfor FT LEVEL id= | 35
+r.SetRes 1280x720w
+wait 4
+FTInvuln 1
+ft.SaveDelayMs 4000
+FTSetCash 13579
+FTSaveCareer
+wait 0.2
+ft.WindowClose
+wait 0.4
+ft.SessionState
+shot main-async-01-exit-saving
+ft.Press Gamepad_FaceButton_Right
+wait 0.4
+ft.SessionState
+# Gameplay responds while the worker remains pending. Reopen pause to freeze it again.
+ft.Press Gamepad_Special_Right
+wait 0.4
+ft.SessionState
+wait 5
+ft.SessionState
+ft.WindowClose
+waitfor FT SYSTEM dialog=2 action=1 | 10
+ft.Press Right
+wait 0.4
+ft.Press Enter
+wait 6
+quit

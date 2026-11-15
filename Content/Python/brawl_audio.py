@@ -2,6 +2,8 @@
 
 S_FightMusic = Matt's fight music (Docs/audio/matt-fight-music.mp3, 2:12), saved looping.
 S_BossMusic = the boss track (Docs/audio/boss-battle.mp3, "Bit-Reduced Boss Battle", 2:51), saved looping.
+S_DayMusic = the days' cutscenes (Docs/audio/descending-staircase.mp3, "Descending Staircase", 2:04, owner 15 Nov), saved looping:
+BEFORE THE DRIVE and THE WRAP, days 1-8, on L_Day1Set.
 AFTBrawlMusic (Source/.../Brawl/FTBrawlMusic.cpp) plays the fight track through the waves and the boss track from
 the moment the boss comes out. A track whose mp3 is missing is skipped (its asset is left as it is).
 SFX/S_brawl_* = the fight's sounds (run 38222): beat-em-up-unreal/Docs/audio/sfx/*.wav, made by Tools/brawl_sfx_synth.py;
@@ -19,7 +21,8 @@ import sys
 import unreal
 
 DEST = "/Game/Brawl/Audio"
-TRACKS = [("matt-fight-music.mp3", "S_FightMusic"), ("boss-battle.mp3", "S_BossMusic")]
+TRACKS = [("matt-fight-music.mp3", "S_FightMusic"), ("boss-battle.mp3", "S_BossMusic"),
+          ("descending-staircase.mp3", "S_DayMusic")]
 
 
 def _proj():

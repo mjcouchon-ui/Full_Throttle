@@ -1124,8 +1124,9 @@ void AFTHUD::DrawPreProduction(AFTGameMode* G)
 		else if (bEquipped) { Action = bRequiredSlot ? TEXT("EQUIPPED") : TEXT("UNEQUIP"); Hint = bRequiredSlot ? TEXT("REQUIRED SLOT") : TEXT("ENTER / A / CLICK"); }
 		else if (Tile.Id == TEXT("sequel") && Tile.State == EFTTile::Owned) { Action = TEXT("SWITCH"); Hint = TEXT("ENTER / A / CLICK"); }
 		else if (Tile.State != EFTTile::Available) { Action = States[static_cast<int32>(Tile.State)]; Hint = Tile.State == EFTTile::Pending ? TEXT("KEPT ON READY") : FString(); }
-		const bool bEnabled = (Tile.State == EFTTile::Available && bCanAfford)
-			|| (Tile.State == EFTTile::Owned && (bShop || Tile.Id == TEXT("sequel"))) || (bEquipped && !bRequiredSlot);
+		const bool bEnabled = !Career->bSaving && ((Tile.State == EFTTile::Available && bCanAfford)
+			|| (Tile.State == EFTTile::Owned && (bShop || Tile.Id == TEXT("sequel"))) || (bEquipped && !bRequiredSlot));
+		if (Career->bSaving) { Action = TEXT("SAVING..."); Hint = TEXT("PLEASE WAIT"); }
 		const FBox2D Buy = Rect(Dx, ActionY, Dw, 48 * S);
 		G->BuyRect = Control(Buy, Action, Hint, G->BuyHoldT > 0.f && bEnabled ? EControl::Pressed : ControlState(Buy, bEnabled, bEnabled), Cyan);
 		if (Tile.bCash && Tile.State == EFTTile::Available)
@@ -1133,15 +1134,15 @@ void AFTHUD::DrawPreProduction(AFTGameMode* G)
 		if (bSkills)
 		{
 			const FBox2D Undo = Rect(Dx, ActionY + 59 * S, Dw, 31 * S);
-			G->UndoRect = Control(Undo, TEXT("UNDO  /  BACKSPACE OR B"), FString(), ControlState(Undo, false, !Career->C.PendingSkills.IsEmpty()), Yellow);
+			G->UndoRect = Control(Undo, TEXT("UNDO  /  BACKSPACE OR B"), FString(), ControlState(Undo, false, !Career->bSaving && !Career->C.PendingSkills.IsEmpty()), Yellow);
 		}
 	}
 	else Print(TEXT("NO ITEMS AVAILABLE"), DetailX + 18 * S, BoardY + 20 * S, Grey, Strong, 0, true);
 
 	const FBox2D Ready = Rect(R - 344 * S, Bottom + 13 * S, 344 * S, 54 * S);
 	const FString ReadyLabel = G->bPPFromTitle || G->PPNextLevel < 0 ? TEXT("READY / TITLE") : FString::Printf(TEXT("READY / LEVEL %d"), G->PPNextLevel + 1);
-	G->ReadyRect = Control(Ready, ReadyLabel, TEXT("SPACE / Y / CLICK"), ControlState(Ready, false, G->PhaseT >= .3f), Cyan);
-	const bool bFeedback = T - G->PPMsgT < 2.2f && !G->PPMsg.IsEmpty();
+	G->ReadyRect = Control(Ready, ReadyLabel, TEXT("SPACE / Y / CLICK"), ControlState(Ready, false, !Career->bSaving && G->PhaseT >= .3f), Cyan);
+	const bool bFeedback = (Career->bSaving || T - G->PPMsgT < 2.2f) && !G->PPMsg.IsEmpty();
 	if (bFeedback)
 	{
 		if (!bSkills)
@@ -1313,7 +1314,7 @@ void AFTHUD::DrawPause(AFTGameMode* G)
 		const FBox2D Row = Rect(X + 24 * S, Y + (108 + 60 * I) * S, WidthPx - 48 * S, 51 * S);
 		const FLinearColor& Accent = I == 0 ? Cyan : Pink;
 		const bool bSelected = G->PauseRow == I;
-		G->OverlayRects.Add(Control(Row, Names[I], Hints[I], ControlState(Row, bSelected, !G->bPendingSystemSave), Accent));
+		G->OverlayRects.Add(Control(Row, G->bPendingSystemSave && I == 0 ? TEXT("STAY HERE") : Names[I], Hints[I], ControlState(Row, bSelected, !G->bPendingSystemSave || I == 0), Accent));
 		if (bSelected) FocusAccent(Row, MenuAge(EMenuView::Pause, true), Accent);
 	}
 	Print(G->bPendingSystemSave ? G->SystemMessage : TEXT("UP-DOWN / D-PAD   NAVIGATE     ENTER / A   SELECT     R   RETRY SAVE"),
@@ -1329,23 +1330,23 @@ void AFTHUD::DrawSystemDialog(AFTGameMode* G)
 	const float X = W * .5f - 328 * S, Y = (H - CanvasHeight * S) * .5f + 157 * S;
 	const FLinearColor Accent = bFailure ? Red : Amber;
 	Plate(Rect(X, Y, 656 * S, 382 * S), Accent, Ink);
-	Print(bFailure ? TEXT("SAVE COULD NOT COMPLETE") : bNew ? TEXT("START A NEW CAMPAIGN?") : TEXT("LEAVE THIS TAKE?"),
+	Print(G->bPendingSystemSave ? TEXT("SAVING PROGRESS...") : bFailure ? TEXT("SAVE COULD NOT COMPLETE") : bNew ? TEXT("START A NEW CAMPAIGN?") : TEXT("LEAVE THIS TAKE?"),
 		X + 25 * S, Y + 25 * S, White, Heading, 0, true, 606 * S);
-	FString Message = bNew ? TEXT("This replaces your campaign, including cash, XP, skills, gear and story progress. Your controls and display preferences are kept.") : G->SystemMessage;
+	FString Message = G->bPendingSystemSave ? G->SystemMessage : bNew ? TEXT("This replaces your campaign, including cash, XP, skills, gear and story progress. Your controls and display preferences are kept.") : G->SystemMessage;
 	if (bFailure && Message.IsEmpty()) Message = TEXT("Your last successful save is still available. Retry the save, or cancel and stay here.");
 	const TArray<FString> Lines = WrapText(Message, 596 * S, Strong);
 	for (int32 I = 0; I < Lines.Num() && I < 5; ++I)
 		Print(Lines[I], X + 29 * S, Y + (88 + 26 * I) * S, bFailure ? Amber : Grey, Strong);
 	if (!bNew && !bFailure)
 		Print(G->ResumeDescription(), X + 29 * S, Y + 221 * S, Cyan, Body, 0, false, 596 * S);
-	const int32 Rows = bFailure && bExit ? 3 : 2;
+	const int32 Rows = G->bPendingSystemSave ? 1 : bFailure && bExit ? 3 : 2;
 	const float Bw = (598.f - 12.f * (Rows - 1)) / Rows;
 	for (int32 I = 0; I < Rows; ++I)
 	{
-		const TCHAR* Label = bFailure ? (I == 0 ? TEXT("RETRY") : I == 1 ? TEXT("CANCEL") : TEXT("QUIT WITHOUT SAVING"))
+		const TCHAR* Label = G->bPendingSystemSave ? TEXT("STAY HERE") : bFailure ? (I == 0 ? TEXT("RETRY") : I == 1 ? TEXT("CANCEL") : TEXT("QUIT WITHOUT SAVING"))
 			: (I == 0 ? TEXT("CANCEL") : bNew ? TEXT("START NEW GAME") : G->SystemAction == 1 ? TEXT("SAVE AND QUIT") : TEXT("SAVE AND RETURN"));
 		const FBox2D Row = Rect(X + (29 + I * (Bw + 12)) * S, Y + 273 * S, Bw * S, 57 * S);
-		G->OverlayRects.Add(Control(Row, Label, FString(), ControlState(Row, G->SystemRow == I, !G->bPendingSystemSave), I == 2 ? Red : Cyan));
+		G->OverlayRects.Add(Control(Row, Label, FString(), ControlState(Row, G->SystemRow == I, true), I == 2 ? Red : Cyan));
 	}
 	Print(TEXT("LEFT-RIGHT / D-PAD   CHOOSE     ENTER / A   SELECT     ESC / B   CANCEL"),
 		X + 29 * S, Y + 349 * S, Grey, LabelSize, 0, false, 598 * S);

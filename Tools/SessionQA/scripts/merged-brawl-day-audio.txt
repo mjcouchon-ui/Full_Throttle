@@ -1,0 +1,19 @@
+waitfor FT BRAWL SYSTEM screen=1|15
+press Enter
+waitfor FTBRAWL music day start S_DayMusic|20
+wait 1
+ftb.AudioState
+press Escape
+waitfor FT BRAWL SYSTEM screen=2|5
+wait 1
+ftb.AudioState
+shot merged-brawl-day-pause
+press Escape
+waitfor FT BRAWL SYSTEM screen=0|5
+wait 1
+ftb.AudioState
+ftb.WindowClose
+waitfor FT BRAWL SYSTEM screen=5|5
+press Down
+wait 0.3
+press Enter

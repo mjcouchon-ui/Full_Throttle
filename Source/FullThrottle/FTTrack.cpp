@@ -2049,20 +2049,40 @@ void AFTTrack::BuildProps()
 		auto LandAt = [this](float Xcm) { return GroundZ(Xcm) - 15.f; };
 		// 3.4, Bank (FTDress.h): panels on the cutting inside a banked bend. The cutting is read from the bed itself
 		// (BedCut: the line the bed was drawn with), so a panel lies on the mesh that is there, at any bank and grade.
-		// A panel is one flat piece: its plane goes through the cutting at the panel's middle and along the cutting's
-		// middle line from one end to the other, then half way towards the cutting at the panel's four corners (seen
-		// from the road the cutting is round along its length, like the outside of a drum: under 11 m of panel it falls
-		// away about 10 cm at the ends). Where one flat panel would still stand more than BankTol off the cutting (the
-		// quickest part of a bend's lead-in, where the bank turns as it goes) two panels of half the length are laid
-		// instead; what even those cannot fit is left bare and counted as "too bent" in the log.
-		int32 BankPlaced = 0, BankFitted = 0, BankHalved = 0, BankBent = 0, BankRoad = 0;
+		// A panel is one flat piece: its plane goes through the cutting at the panel's middle, its long side runs with
+		// the land's edge (the top of the cutting: level, and parallel to the road), and it stands half way towards
+		// the cutting at its four corners (seen from the road the cutting is round along its length, like the outside
+		// of a drum: under 11 m of panel it falls away about 10 cm at the ends).
+		// Through a bend's lead-in and lead-out the cutting is not a rectangle: its top stays at the land's edge while
+		// its foot sinks as the bank comes on, so it is deeper at one end of a panel than at the other. The piece is a
+		// rectangle, and it is kept INSIDE the cutting at both of its ends: its top edge "top" metres under the land's
+		// edge all along (one level line from panel to panel), its bottom edge no lower than where the cutting starts
+		// at its shallower end. That leaves a bare wedge at the foot of the deeper end, and the facing steps down
+		// along the foot as the cutting deepens, like a wall's footing on falling ground.
+		// Where the wedge would be over BankWedge, or the piece would stand more than BankTol off the cutting (the
+		// quickest part of a lead-in, where the bank turns as it goes), two pieces of half the length are laid
+		// instead: halves, quarters for a half, eighths for a quarter (BankDepth). An eighth (1.4 m of road) takes
+		// whatever wedge is left, and what even an eighth cannot lie flat on is left bare and counted as "too bent"
+		// in the log. A shorter piece is the panel's own design, squeezed along the road.
+		// The same trim applies in the body of a bend, where the bank is constant: a flat piece is a chord of the
+		// bend, so the cutting's foot stands a few cm higher at its ends than at its middle, and on a grade the
+		// cross-section is not square to the land's edge (a rectangle "Usable" tall would be about 2% too tall at
+		// 12 degrees). Such panels come out up to 9 cm shorter than the middle cross-section alone would give on a
+		// level bend, and up to 31 cm on the Chemical Works' two climbing hairpins.
+		int32 BankPlaced = 0, BankFitted = 0, BankHalved = 0, BankBent = 0, BankRoad = 0, BankShort = 0;
 		float BankRun = 0.f;
 		const bool bBanks = CVarFTDressBank.GetValueOnAnyThread() != 0;
 		// cm off the cutting; how far a panel laps over the next, as a share of its length (a gap showed the bare bank as
-		// a pale post every 11 m; lapped, a bend reads as one face, and inside the tightest bend, where the cutting's foot
-		// is 3.5% longer than its middle, the lap just closes); and how far every other panel is lifted so that two
-		// lapped faces never lie in one plane
-		constexpr float BankTol = 12.f, BankLap = 0.03f, BankLift = 1.5f;
+		// a pale post every 11 m; lapped, a bend reads as one face. Inside the tightest bend, where the cutting's foot
+		// is 3.5% longer than its middle, the lap just closes on a level road. Where that bend also climbs (the
+		// Chemical Works' two hairpins, at 2.6 and 3.6 km) the road is hollow along its length and the foot longer
+		// still: up to 12 cm of bank shows between two panels' bottom corners, closing 1.5 m up; 0.045 would close
+		// it, with 15 cm more lap on every panel of every level); how far every other panel is lifted so that two
+		// lapped faces never lie in one plane (a panel's second half half of that again, a half's second quarter a
+		// quarter of it, a quarter's second eighth an eighth); and the deepest bare wedge, measured up the cutting,
+		// that a piece longer than an eighth may leave at the foot of its deeper end
+		constexpr float BankTol = 12.f, BankLap = 0.03f, BankLift = 1.5f, BankWedge = 80.f;
+		constexpr int32 BankDepth = 3;   // a whole panel is depth 0; it may be laid as halves (1), quarters (2), eighths (3)
 		auto CutAt = [this](float D, int32 Side, FVector& Foot, FVector& Top) -> bool
 		{
 			const float Fi = FMath::Clamp(D / Step, 0.f, float(Frames.Num() - 1));
@@ -2092,10 +2112,13 @@ void AFTTrack::BuildProps()
 			const float PLen = SlotLen / Per;
 			const uint16 Skip = FTFlag::Loop | FTFlag::Gap | FTFlag::Pipe | FTFlag::Twist | FTFlag::Kicker | FTFlag::Landing | FTFlag::HalfPipe | FTFlag::Coaster | FTFlag::Building;
 			FDrop& Rp = Report.FindOrAdd(FPaths::GetBaseFilename(Q.Mesh));
-			// One panel over the road from A0 to A1, on side Sd. Returns 0 = nothing to lay it on here (or the rule does
-			// not want it), 1 = laid, 2 = too bent for a flat panel this long, 3 = it would touch another part of the road.
-			auto LayOne = [&](float A0, float A1, int32 Sd, int32 Seed, float Lift, bool bWhole) -> int32
+			// One flat piece over the road from A0 to A1, on side Sd: a whole panel (Depth 0), a half (1), a quarter (2)
+			// or an eighth (3 = BankDepth). Returns 0 = nothing to lay it on here (or the rule does not want it),
+			// 1 = laid, 2 = the cutting bends or tapers too much under a piece this long (the caller lays two of half
+			// the length, down to eighths), 3 = it would touch another part of the road.
+			auto LayOne = [&](float A0, float A1, int32 Sd, int32 Seed, float Lift, int32 Depth) -> int32
 			{
+				const bool bWhole = Depth == 0;
 				const float Ac = (A0 + A1) * 0.5f;
 				FVector Fa, Ta, Fc, Tc, Fb, Tb;
 				if (!CutAt(A0, Sd, Fa, Ta) || !CutAt(Ac, Sd, Fc, Tc) || !CutAt(A1, Sd, Fb, Tb)) return 0;
@@ -2103,57 +2126,77 @@ void AFTTrack::BuildProps()
 				if (Run.Z < Run.Size2D() * 0.7f) return 0;                 // no cutting here (it climbs under 35 degrees, or not at all)
 				const float RunLen = Run.Size();
 				const FVector Yd = Run / RunLen;
-				// Where the panel starts. Under a steep bank the cutting's foot is the low barrier's top corner (less
-				// the bed's 45 cm). Under a gentle one the bed goes on down under the deck's outer corner, behind the
-				// barrier, where nothing is seen: the panel starts no lower than 30 cm under the barrier's top.
-				const FFTFrame G = Sample(Ac);
-				const float BarTop = (G.Pos + G.Right * (Sd * (FT::Edge + WallW)) + G.Up * (SurfaceH(Ac, Sd * FT::Edge) + FT::WallH)).Z;
-				const float Start = FMath::Max(Q.Foot * 100.f, (BarTop - 30.f - Fc.Z) / Yd.Z);
+				// Where the piece starts, measured up the cutting from its foot. Under a steep bank the cutting's foot is
+				// the low barrier's top corner (less the bed's 45 cm). Under a gentle one the bed goes on down under the
+				// deck's outer corner, behind the barrier, where nothing is seen: the piece starts no lower than 30 cm
+				// under the barrier's top.
+				auto StartOf = [&](float D, const FVector& Foot, const FVector& Up) -> float
+				{
+					const FFTFrame G = Sample(D);
+					const float BarTop = (G.Pos + G.Right * (Sd * (FT::Edge + WallW)) + G.Up * (SurfaceH(D, Sd * FT::Edge) + FT::WallH)).Z;
+					return FMath::Max(Q.Foot * 100.f, (BarTop - 30.f - Foot.Z) / FMath::Max((float)Up.Z, 0.3f));
+				};
+				const float Start = StartOf(Ac, Fc, Yd);
 				const float Usable = RunLen - Start - Q.Top * 100.f;
 				if (bWhole)
 				{
-					// the rule's own choice (which design, and its chance) is made once, for the whole panel: a half
-					// takes what its panel was given
+					// the rule's own choice (which design, and its chance) is made once, for the whole panel: a shorter
+					// piece takes what its panel was given
 					if (Usable < FMath::Max(Q.RunMin * 100.f, 100.f) || Usable >= Q.RunMax * 100.f) return 0;
 					FRandomStream Rs(Seed * 7919 + Idx * 104729 + LevelIndex * 31 + 1543);
 					if (Rs.FRand() > Q.Chance) return 0;
 				}
-				else if (Usable < 100.f) return 0;
-				FVector Xd = (Fb + Tb) * 0.5f - (Fa + Ta) * 0.5f;
-				const float Chord = Xd.Size();
+				// A shorter piece lies only where its own middle has two fifths of the run its design was drawn for (a
+				// metre at the least): just before a corkscrew the bed's last run is a 2 m strip under the land's edge,
+				// and a tall design was laid there alone, squeezed to a ninth of its height.
+				else if (Usable < FMath::Max(Q.RunMin * 40.f, 100.f)) return 0;
+				// The piece's own frame: x along the land's edge, y up the cutting, z out of it. Its length is the
+				// cutting's middle line's, measured along x.
+				FVector Xd = Tb - Ta;
+				if (!Xd.Normalize(1.f)) return 0;
+				const float Chord = FVector::DotProduct((Fb + Tb) * 0.5f - (Fa + Ta) * 0.5f, Xd);
 				if (Chord < 50.f) return 0;
-				++Tried;
-				Xd = Xd / Chord * float(Sd);                               // turned round on the left, like every dressed piece
+				Xd *= float(Sd);                                           // turned round on the left, like every dressed piece
 				const FMatrix Rm = FRotationMatrix::MakeFromXY(Xd, Yd);
-				const FVector Zd = Rm.GetUnitAxis(EAxis::Z);
+				const FVector Yp = Rm.GetUnitAxis(EAxis::Y), Zd = Rm.GetUnitAxis(EAxis::Z);
 				FVector O = Fc + Yd * (Start + Usable * 0.5f);
+				// The cutting at the piece's two ends, in that frame (y measured from O): where it starts and where it
+				// must stop under the land's edge. The piece's rectangle is the part both ends have, and the middle too.
+				const FVector Ya = (Ta - Fa).GetSafeNormal(), Yb = (Tb - Fb).GetSafeNormal();
+				const float Ka = FVector::DotProduct(Ya, Yp), Kb = FVector::DotProduct(Yb, Yp);
+				if (Ka < 0.5f || Kb < 0.5f) return Depth < BankDepth ? 2 : 0; // at one end the cutting lies another way altogether
+				const float Kc = FVector::DotProduct(Yd, Yp);               // the middle's own limits in the piece's y, like the two ends' (under 1 where the land's edge climbs with the road)
+				const float FootA = FVector::DotProduct(Fa - O, Yp), FootB = FVector::DotProduct(Fb - O, Yp);
+				const float LoA = FootA + StartOf(A0, Fa, Ya) * Ka, LoB = FootB + StartOf(A1, Fb, Yb) * Kb;
+				const float HiA = FVector::DotProduct(Ta - Ya * (Q.Top * 100.f) - O, Yp), HiB = FVector::DotProduct(Tb - Yb * (Q.Top * 100.f) - O, Yp);
+				const float Lo = FMath::Max3(LoA, LoB, -Usable * 0.5f * Kc), Hi = FMath::Min3(HiA, HiB, Usable * 0.5f * Kc);
+				if (Hi - Lo < 100.f) return Depth < BankDepth ? 2 : 0;      // no room under a piece this long: a shorter one may find some
+				if (Depth < BankDepth && Lo - FMath::Min(LoA, LoB) > BankWedge) return 2;   // the wedge at the deeper end's foot: shorter pieces step down closer
+				// how far the cutting stands off the piece's plane at the rectangle's four corners
 				float Dv[4];
-				{
-					const FVector Ya = (Ta - Fa).GetSafeNormal(), Yb = (Tb - Fb).GetSafeNormal();
-					Dv[0] = FVector::DotProduct(Fa + Ya * Start - O, Zd); Dv[1] = FVector::DotProduct(Ta - Ya * (Q.Top * 100.f) - O, Zd);
-					Dv[2] = FVector::DotProduct(Fb + Yb * Start - O, Zd); Dv[3] = FVector::DotProduct(Tb - Yb * (Q.Top * 100.f) - O, Zd);
-				}
+				Dv[0] = FVector::DotProduct(Fa + Ya * ((Lo - FootA) / Ka) - O, Zd); Dv[1] = FVector::DotProduct(Fa + Ya * ((Hi - FootA) / Ka) - O, Zd);
+				Dv[2] = FVector::DotProduct(Fb + Yb * ((Lo - FootB) / Kb) - O, Zd); Dv[3] = FVector::DotProduct(Fb + Yb * ((Hi - FootB) / Kb) - O, Zd);
 				const float Half = (Dv[0] + Dv[1] + Dv[2] + Dv[3]) * 0.125f;
 				float Worst = FMath::Abs(Half);
 				for (const float V : Dv) Worst = FMath::Max(Worst, FMath::Abs(V - Half));
-				if (Worst > BankTol) return 2;
-				O += Zd * (Half + Lift);
-				const FVector Sc3(Chord * (1.f + BankLap) / (Bd.BoxExtent.X * 2.f), Usable / (Bd.BoxExtent.Y * 2.f), 1.f);
+				if (Worst > BankTol) { if (Depth >= BankDepth) ++Tried; return 2; }
+				O += Yp * ((Hi + Lo) * 0.5f) + Zd * (Half + Lift);
+				const FVector Sc3(Chord * (1.f + BankLap) / (Bd.BoxExtent.X * 2.f), (Hi - Lo) / (Bd.BoxExtent.Y * 2.f), 1.f);
 				const FQuat Qr = Rm.ToQuat();
 				const FTransform T(Qr, O - Qr.RotateVector(FVector(Bd.Origin.X * Sc3.X, Bd.Origin.Y * Sc3.Y, 0.f)), Sc3);
-				if (KeptOut(O)) return 3;
+				if (KeptOut(O)) { ++Tried; return 3; }
 				if (CVarFTClear.GetValueOnAnyThread())
 				{
 					// the road's other parts (the route passing itself, a lap beside the last one). The panel's own road
 					// is the bed it lies on: 120 m of it either way is not asked.
 					const FBox Wb = Bd.GetBox().TransformBy(T);
 					const int32 Own = FMath::RoundToInt(Ac / Step);
-					if (RoadHitBox(Wb.GetCenter(), FQuat::Identity, Wb.GetExtent(), 150.f, Wb.Min.Z, Wb.Max.Z, Own - 60, Own + 60) != INDEX_NONE) { ++Rp.Dropped; return 3; }
+					if (RoadHitBox(Wb.GetCenter(), FQuat::Identity, Wb.GetExtent(), 150.f, Wb.Min.Z, Wb.Max.Z, Own - 60, Own + 60) != INDEX_NONE) { ++Tried; ++Rp.Dropped; return 3; }
 				}
 				if (C->GetInstanceCount() == 0) { C->SetCastShadow(false); DressOnly.Add(C); } // flat on a slope: no shadow worth a page
 				DressIn.Add(C);
 				C->AddInstance(T, false);
-				++Placed; ++BankPlaced; ++Rp.Kept; BankRun += Chord;
+				++Tried; ++Placed; ++BankPlaced; ++Rp.Kept; BankRun += Chord;
 				return 1;
 			};
 			for (int32 n = s0 * Per; n < (s1 + 1) * Per; ++n)
@@ -2166,14 +2209,35 @@ void AFTTrack::BuildProps()
 				const float Up0 = (n & 1) ? BankLift : 0.f;
 				for (int32 Side = -1; Side <= 1; Side += 2) // the low side has the cutting; the other side's "run" is the land, level
 				{
-					const int32 Res = LayOne(D0, D1, Side, n, Up0, true);
+					const int32 Res = LayOne(D0, D1, Side, n, Up0, 0);
 					if (Res == 0) continue;
 					++BankFitted;
 					if (Res == 3) ++BankRoad;
 					if (Res != 2) continue;
-					const int32 Ra = LayOne(D0, Dc, Side, n, Up0, false), Rb = LayOne(Dc, D1, Side, n, Up0 + BankLift * 0.5f, false);
-					if (Ra == 1 || Rb == 1) ++BankHalved;
-					if (Ra != 1 || Rb != 1) ++BankBent;
+					// Two pieces of half the length instead, and again for a piece that still bends or tapers too much,
+					// down to eighths. Every piece has a lift of its own, so that no two lapped faces lie in one plane.
+					// A length is counted once under each thing that left some of it bare.
+					int32 Laid = 0, Bent = 0, Road = 0, Short = 0;
+					TFunction<void(float, float, int32, float)> SplitBank = [&](float PartFrom, float PartTo, int32 PartDepth, float PartLift)
+					{
+						const float PartMid = (PartFrom + PartTo) * 0.5f;
+						for (int32 PartIdx = 0; PartIdx < 2; ++PartIdx)
+						{
+							const float HalfFrom = PartIdx ? PartMid : PartFrom, HalfTo = PartIdx ? PartTo : PartMid;
+							const float HalfLift = PartLift + BankLift * 0.5f * PartIdx / float(1 << (PartDepth - 1));
+							const int32 Got = LayOne(HalfFrom, HalfTo, Side, n, HalfLift, PartDepth);
+							if (Got == 1) ++Laid;
+							else if (Got == 3) ++Road;
+							else if (Got == 0) ++Short;
+							else if (PartDepth < BankDepth) SplitBank(HalfFrom, HalfTo, PartDepth + 1, HalfLift);
+							else ++Bent;
+						}
+					};
+					SplitBank(D0, D1, 1, Up0);
+					if (Laid) ++BankHalved;
+					if (Bent) ++BankBent;
+					if (Road) ++BankRoad;
+					if (Short) ++BankShort;
 				}
 			}
 		};
@@ -2242,11 +2306,12 @@ void AFTTrack::BuildProps()
 		int32 InComps = 0, Casting = 0;
 		for (const UHierarchicalInstancedStaticMeshComponent* C : DressIn) { InComps += C->GetInstanceCount(); if (C->CastShadow) Casting += C->GetInstanceCount(); }
 		UE_LOG(LogFT, Display, TEXT("FTDRESS level=%d districts=%d sets=%d pieces placed=%d of %d tried shadows=%d of %d"), LevelIndex, Dr.Zones.Num(), Dr.Sets.Num(), Placed, Tried, Casting, InComps);
-		// the cut banks: panels laid, on how many 11 m lengths of cutting; how many of those lengths took two half
-		// panels; and the lengths left bare, wholly or by half, because the bank is too bent there for a flat piece or
-		// a panel would have touched another part of the road
-		UE_LOG(LogFT, Display, TEXT("FTBANK level=%d panels laid=%d on %d lengths of cutting (%d as two halves; left bare: too bent %d, at another part of the road %d) along %.0f m%s"),
-			LevelIndex, BankPlaced, BankFitted, BankHalved, BankBent, BankRoad, BankRun / 100.f, bBanks ? TEXT("") : TEXT(" (ft.DressBank 0)"));
+		// the cut banks: pieces laid (a whole panel, a half, a quarter and an eighth count one each), on how many 11 m
+		// lengths of cutting; how many of those lengths were laid in shorter pieces; and the lengths left bare, wholly
+		// or in part, because an eighth is still too bent for a flat piece, a piece would have touched another part of
+		// the road, or a shorter piece found too little cutting to lie on (where a cutting begins and ends)
+		UE_LOG(LogFT, Display, TEXT("FTBANK level=%d pieces laid=%d on %d lengths of cutting (%d in shorter pieces; left bare, wholly or in part: too bent %d, at another part of the road %d, too little cutting %d) along %.0f m%s"),
+			LevelIndex, BankPlaced, BankFitted, BankHalved, BankBent, BankRoad, BankShort, BankRun / 100.f, bBanks ? TEXT("") : TEXT(" (ft.DressBank 0)"));
 	}
 
 	// PlanAds already keeps every sign clear of the road, so the signs skip 2.7's road test

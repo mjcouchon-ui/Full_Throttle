@@ -1,0 +1,7 @@
+# Asynchronous save acceptance probes
+
+Run after the final Development Editor build. Use the existing Run-SessionProbe.ps1 with no extra story flags and a 180-second timeout. Run main-async-01-newgame-delay-cancel.txt and main-async-02-continue-failure-retry.txt in order against the same NEW isolated profile. Run main-async-03-shop-feedback.txt against another NEW profile. Use each script basename as its output-directory name, then run check-main-async.ps1 -RunsRoot <the parent of those three output directories>.
+
+The delay hook ft.SaveDelayMs affects only the worker thread. Probes observe the real saving flag, interact while writes are pending, and require menu/native-close exits before the emergency fallback quit. Case 1 verifies durable Reset and Run before gameplay, cancels a waiting native close with controller B, and reopens pause with Start while the write continues. Case 2 reloads that file, injects a delayed write failure, retries it, confirms the whole-race restart warning, and verifies the replacement money is durable. Case 3 verifies pending shop feedback, blocked duplicate purchases, atomic purchase+equip, failed equipment rollback, and successful equipment retry.
+
+Case 3 uses fixture money and the existing FTPress Buy 0.6 hold-completion helper for the purchase transaction. Equipment and all navigation use actual ft.Press input events. No physical controller, physical button hold, listening, or Shipping-runtime claim is implied by these tests. Screenshots and audio-state logs require separate review.

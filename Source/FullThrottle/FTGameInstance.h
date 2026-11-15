@@ -41,16 +41,20 @@ public:
 	bool bPendingPreProd = false;
 	FString TitleBanner;
 	// -ftexec=<file>: run FT* harness commands from a file (lines: a console command, "wait <s>", "waitfor <text> [s]",
-	// "shot <name>", "quit"), so the spec's checks run in a Development package
+	// "shot <name>", "film <name> <frames> [fps]", "quit"), so the spec's checks run in a Development package
 	bool bExecScript = false;
 	TArray<FString> ExecLines;
 	int32 ExecIdx = 0;
 	double ExecWaitUntil = 0.0;
 	FString ExecWaitFor; double ExecWaitForUntil = 0.0; int32 ExecWaitFrom = 0;
+	// "film": a frame every rendered frame, at a fixed step of game time while it lasts (see TickExec)
+	FString ExecFilm; int32 ExecFilmLeft = 0, ExecFilmN = 0; bool bExecFilmWasFixed = false; double ExecFilmWasDt = 0.0;
 	bool TickExec(float Dt);
 	/** Loop cycle 10: frames over 40 ms on any map (the nights too), FTHITCH2 lines with the map's name. */
 	bool TickHitch(float Dt);
 	double HitchLastT = 0.0;
+	/** Run 2 cycle 5: what a hitch frame did (non-Shipping): synchronous package loads and garbage collections since the last frame. */
+	TArray<FString> HitchLoads; int32 HitchLoadN = 0, HitchGCs = 0;
 	virtual void Shutdown() override;
 
 	// carried between maps

@@ -5,6 +5,7 @@
 #include "FTGameMode.h"
 #include "Brawl/FTBrawlGameMode.h"
 #include "Containers/Ticker.h"
+#include "Misc/CoreDelegates.h"
 #include "UnrealClient.h"
 #include "Misc/OutputDeviceRedirector.h"
 #include "GameFramework/GameUserSettings.h"
@@ -14,11 +15,15 @@
 #include "Engine/Engine.h"
 #include "AudioDevice.h"
 #include "Components/AudioComponent.h"
+#include "Sound/SoundBase.h"
+#include "UObject/UObjectIterator.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundBase.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Misc/CommandLine.h"
+#include "Misc/App.h"
 #include "HAL/PlatformFileManager.h"
 #include "HAL/PlatformMisc.h"
 #include "HAL/IConsoleManager.h"
@@ -80,6 +85,10 @@ void UFTGameInstance::Init()
 	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &UFTGameInstance::OnPostLoadMap);
 	FCoreUObjectDelegates::PreLoadMap.AddUObject(this, &UFTGameInstance::OnPreLoadMap);
 	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &UFTGameInstance::TickHitch));   // loop cycle 6: mute survives map loads
+#if !UE_BUILD_SHIPPING
+	FCoreDelegates::OnSyncLoadPackage.AddWeakLambda(this, [this](const FString& Pkg) { if (HitchLoads.Num() < 4) HitchLoads.Add(FPaths::GetBaseFilename(Pkg)); ++HitchLoadN; });
+	FCoreUObjectDelegates::GetPreGarbageCollectDelegate().AddWeakLambda(this, [this]() { ++HitchGCs; });
+#endif
 #if UE_BUILD_SHIPPING
 	{
 		// WispOS launch ticket: WispOS writes $WISPOS_APP_DATA/launch-ticket and passes the same value in
@@ -528,6 +537,30 @@ bool UFTGameInstance::TickExec(float Dt)
 	if (!bExecScript) return false;
 	if (!GTap) { GTap = new FFTLogTap(); GLog->AddOutputDevice(GTap); }
 	const double Now = FPlatformTime::Seconds();
+	if (ExecFilmLeft != 0)
+	{
+		// "film": one frame of the sequence per rendered frame. The request made here is taken at the end of the next
+		// frame's draw, so a new one is only made once the last has gone. Game time moves by a fixed step meanwhile
+		// (set where the line is read), so the sequence plays back smoothly however long each frame took to save.
+		// The step is put back one look after the last request (ExecFilmLeft -1 meanwhile): the last frame is drawn in
+		// the engine frame AFTER its request, and that frame's step must still be the film's.
+		if (!FScreenshotRequest::IsScreenshotRequested())
+		{
+			if (ExecFilmLeft > 0)
+			{
+				FScreenshotRequest::RequestScreenshot(FPaths::Combine(SaveDir(), TEXT("shots"), FString::Printf(TEXT("%s_%04d.png"), *ExecFilm, ++ExecFilmN)), true, false);
+				if (--ExecFilmLeft == 0) ExecFilmLeft = -1;
+			}
+			else
+			{
+				ExecFilmLeft = 0;
+				FApp::SetFixedDeltaTime(ExecFilmWasDt); FApp::SetUseFixedTimeStep(bExecFilmWasFixed);
+				UE_LOG(LogFT, Display, TEXT("FT EXEC film=%s frames=%d done"), *ExecFilm, ExecFilmN);
+				ExecWaitUntil = Now + 0.5;
+			}
+		}
+		return true;
+	}
 	if (Now < ExecWaitUntil) return true;
 	if (!ExecWaitFor.IsEmpty())
 	{
@@ -565,6 +598,22 @@ bool UFTGameInstance::TickExec(float Dt)
 		{
 			FScreenshotRequest::RequestScreenshot(FPaths::Combine(SaveDir(), TEXT("shots"), Line.RightChop(5) + TEXT(".png")), true, false);
 			ExecWaitUntil = Now + 0.5;
+			return true;
+		}
+		if (Line.StartsWith(TEXT("film ")))
+		{
+			// film <name> <frames> [fps]: <frames> consecutive frames as <name>_0001.png ..., game time stepping 1/fps
+			// (30 by default) a frame while it lasts. For clips: the script's own waits are in real seconds and hold
+			// again as soon as the film ends.
+			TArray<FString> P; Line.RightChop(5).ParseIntoArrayWS(P);
+			const int32 Frames = P.Num() > 1 ? FMath::Clamp(FCString::Atoi(*P[1]), 1, 3600) : 0;
+			const float Fps = P.Num() > 2 ? FMath::Clamp(FCString::Atof(*P[2]), 5.f, 120.f) : 30.f;
+			if (Frames > 0)
+			{
+				ExecFilm = P[0]; ExecFilmLeft = Frames; ExecFilmN = 0;
+				bExecFilmWasFixed = FApp::UseFixedTimeStep(); ExecFilmWasDt = FApp::GetFixedDeltaTime();
+				FApp::SetFixedDeltaTime(1.0 / Fps); FApp::SetUseFixedTimeStep(true);
+			}
 			return true;
 		}
 		if (Line == TEXT("quit")) { FPlatformMisc::RequestExit(false); return false; }
@@ -619,11 +668,14 @@ bool UFTGameInstance::TickHitch(float Dt)
 	HitchLastT = Now;
 	// map loads are expected stalls: only frames of a running world count (the race's own FTHITCH says more there)
 	UWorld* W = GetWorld();
-	if (bWindowCloseQueued && !bSessionLoading && W && W->HasBegunPlay() && W->GetAuthGameMode()) HandleWindowClose();
+	if (bWindowCloseQueued && !bSessionLoading && W && W->HasBegunPlay() && W->GetAuthGameMode() && HandleWindowClose())
+		UKismetSystemLibrary::QuitGame(this, W->GetFirstPlayerController(), EQuitPreference::Quit, false);
 	if (Ms > 40.0 && W && W->HasBegunPlay() && W->GetTimeSeconds() > 1.f)
 	{
-		UE_LOG(LogFT, Display, TEXT("FTHITCH2 ms=%.0f map=%s t=%.1f"), Ms, *W->GetMapName(), W->GetTimeSeconds());
+		UE_LOG(LogFT, Display, TEXT("FTHITCH2 ms=%.0f map=%s t=%.1f loads=%d gc=%d %s"), Ms, *W->GetMapName(), W->GetTimeSeconds(),
+			HitchLoadN, HitchGCs, *FString::Join(HitchLoads, TEXT(",")));
 	}
+	HitchLoads.Reset(); HitchLoadN = 0; HitchGCs = 0;
 	return true;
 }
 
@@ -647,10 +699,15 @@ bool UFTGameInstance::HandleWindowClose()
 	else if (AFTBrawlGameMode* Brawl = W->GetAuthGameMode<AFTBrawlGameMode>()) Brawl->RequestSystemQuit(true);
 	else
 	{
-		if (UFTCareerSubsystem* CS = GetSubsystem<UFTCareerSubsystem>(); CS && !CS->Save(TEXT("WindowClose")))
+		if (UFTCareerSubsystem* CS = GetSubsystem<UFTCareerSubsystem>())
 		{
-			UE_LOG(LogFT, Warning, TEXT("FT SESSION close=save_failed"));
-			return false;
+			if (CS->bSaving) { bWindowCloseQueued = true; return false; }
+			if (!CS->Save(TEXT("WindowClose")))
+			{
+				UE_LOG(LogFT, Warning, TEXT("FT SESSION close=save_failed"));
+				return false;
+			}
+			if (CS->bSaving) { bWindowCloseQueued = true; return false; }
 		}
 		AllowWindowClose();
 		return true;
@@ -668,6 +725,19 @@ namespace
 			if (World && World->GetGameInstance() && World->GetGameInstance()->GetGameViewportClient())
 				World->GetGameInstance()->GetGameViewportClient()->WindowCloseRequested();
 		}));
+	FAutoConsoleCommandWithWorldAndArgs GFTAudioState(TEXT("ft.AudioState"), TEXT("Read-only active audio pause acceptance snapshot"),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>&, UWorld* World)
+		{
+			if (!World) return;
+			int32 Active=0, Paused=0;
+			for (TObjectIterator<UAudioComponent> It; It; ++It)
+				if (It->GetWorld()==World && It->Sound && (It->IsPlaying() || It->bIsPaused))
+				{
+					++Active; Paused += It->bIsPaused ? 1 : 0;
+					UE_LOG(LogFT, Display, TEXT("FT AUDIO sound=%s playing=%d paused=%d volume=%.3f"), *It->Sound->GetName(), It->IsPlaying()?1:0, It->bIsPaused?1:0, It->VolumeMultiplier);
+				}
+			UE_LOG(LogFT, Display, TEXT("FT AUDIO STATE active=%d paused=%d worldPaused=%d"), Active, Paused, UGameplayStatics::IsGamePaused(World)?1:0);
+		}));
 	FAutoConsoleCommandWithWorldAndArgs GFTSessionState(TEXT("ft.SessionState"), TEXT("Read-only session acceptance snapshot"),
 		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>&, UWorld* World)
 		{
@@ -677,7 +747,7 @@ namespace
 			if (AFTBrawlGameMode* B=World->GetAuthGameMode<AFTBrawlGameMode>())
 				UE_LOG(LogFT, Display, TEXT("FT SESSION STATE screen=%d paused=%d wave=%d cut=%d time=%.3f worldT=%.3f hp=%.1f"),B->SystemScreen,UGameplayStatics::IsGamePaused(World)?1:0,B->Wave,B->CutId,B->Time,World->GetTimeSeconds(),B->P.Hp);
 			if (UFTCareerSubsystem* C=UFTCareerSubsystem::Get(World))
-				UE_LOG(LogFT, Display, TEXT("FT SESSION SAVE kind=%s level=%d stage=%d wrap=%d valid=%d error=%d cash=%lld xp=%lld run=%s commit=%s"),*C->C.ResumeKind,C->C.ResumeLevel,C->C.ResumeStage,C->C.bResumeWrap?1:0,C->HasContinue()?1:0,C->bSaveError?1:0,C->C.Cash,C->C.XP,*C->C.RunId,*C->C.LastCommitId);
+				UE_LOG(LogFT, Display, TEXT("FT SESSION SAVE kind=%s level=%d stage=%d wrap=%d valid=%d error=%d cash=%lld xp=%lld run=%s commit=%s saving=%d"),*C->C.ResumeKind,C->C.ResumeLevel,C->C.ResumeStage,C->C.bResumeWrap?1:0,C->HasContinue()?1:0,C->bSaveError?1:0,C->C.Cash,C->C.XP,*C->C.RunId,*C->C.LastCommitId,C->bSaving?1:0);
 		}));
 }
 #endif

@@ -7,7 +7,7 @@ for($case=1;$case -le 2;$case++){
  $out=Join-Path $RunsRoot $script.BaseName
  $logPath=Join-Path $out 'game.log'
  $snapshotPath=Join-Path $out 'save-snapshot'
- $log=if(Test-Path -LiteralPath $logPath){Get-Content -Raw -LiteralPath $logPath}else{''}
+ [string]$log=if(Test-Path -LiteralPath $logPath){Get-Content -Raw -LiteralPath $logPath}else{''}
  Require ($log -notmatch 'result=timeout|Fatal error:|Assertion failed:|Ensure condition failed:') "Night case $case has a runtime error or timeout."
  if(!(Test-Path -LiteralPath $snapshotPath)){if($CompletedOnly){"PENDING night=$case";continue};throw "Night case $case has not completed."}
  Require ($log -notmatch 'FT EXEC line=\d+ cmd=quit\s*(?:\r?\n|$)') "Night case $case needed the fallback quit."

@@ -19,10 +19,19 @@ Please do not snapshot or merge a `claude/*` branch or those two checkouts' unco
 | Dressing, second pass, all eight levels (`WORLD_PASS_2.md`) | `FTDressL0.inl` to `FTDressL7.inl`, `Content/Python/ft_dress_*.py`, `Content/Maps/*/Dress`, new instances in `Content/Core/Life/Instances` | on `main` |
 | The per-level release check and the packaged build (`AUDIT.md`) | `SourceArt/Jam/unreal/jam_verify.ps1`, `jam_package.ps1`; one log line in `FTTrack.cpp` (`FTTRACKSUM`) | on `main` |
 | The cut banks inside banked bends: a Bank rule for the dressing, and faces on five levels (`WORLD.md`, "The cut banks") | `FTDress.h`, `FTTrackDress.cpp`, `FTTrack.h`, `FTTrack.cpp` (the dressing's part of `BuildProps`; in `BuildMeshes` two lines that only remember the bed's line), `FTDressL1/2/3/5/6.inl`, `Content/Python/ft_dress_bank.py` and five kits, `Content/Maps/*/Dress/SM_Cut*` | on `main` |
+| The cut banks' lead-ins refitted (a panel stood a corner out of the ground where a bend's bank comes on); the dressing tables read one function per level | `FTTrack.cpp` (the Bank rule in `BuildProps` only), `FTDress.h`, `FTTrackDress.cpp` | on `main` |
+| Tools: a job queue that serves the longest-waiting checkout, several jobs in one turn, a runner for staged scenes; the test runner's `film` line | `SourceArt/Jam/unreal/jam_global.ps1`, `jam_turn.ps1`, `jam_exec.ps1`, `jam_verify.ps1`; `FTGameInstance.cpp` (`TickExec` only) | on `main` |
+| **The world, boss and gameplay polish overhaul** (the owner's brief of 15 Nov; lands as one batch) | Zones: `FTDressL0.inl` to `FTDressL7.inl`, `Content/Python/ft_dress_*.py`, `Content/Maps/*/Dress`, `Content/Core/Life/Instances`. Racing bosses: `FTEntity.cpp/.h` (the boss models and how they move), the bosses' drawing in `FTGameMode.cpp` (`TickBoss*`), `ft_enemy_vehicles.py`, `ft_v25.py`, `ft_v28.py`, `ft_v33.py`, `ft_fx_boss.py`. Combat effects and driving feel: `ft_fx.py`, `Content/FX`, `FTFx.cpp`, `FTPlayerCar.cpp`, effect calls in `FTEntity.cpp` and `FTGameMode.cpp`. Menus, HUD, transitions, sound: `FTHUD.cpp/.h`, `FTFlow.cpp` (how screens come and go, not what they do), `AFTGameMode::Sfx`, `ft_audio.py` | **IN FLIGHT** in `K:\Full Throttle\VisualAssetsWorktree`, `OverhaulBosses` and `OverhaulFx` (branches `claude/overhaul-zones`, `-bosses`, `-fx`). Looks only: no gameplay value, timing or hitbox changes, and the track is not touched |
 | Frame-time and load-time measurements | none | left to the 3.4 performance loop; findings for it are in `AUDIT.md` |
 
-Nothing of this session's is in flight at the time of the last push. The next things it would take up are listed
-in `WORLD_PASS_2.md` ("Still weak" and "What the workers asked of the shared files").
+In flight at the time of the last push: the overhaul row above. Until it lands, a change on `main` to `FTHUD.cpp`,
+`FTFlow.cpp`, `FTEntity.cpp` or to the boss and effect code in `FTGameMode.cpp` is merged with it by hand by this
+session (the session menus of `d999efe` are being merged that way, kept whole): if something in such a change must
+not be touched, say so in the commit message. The next things after it are listed in `WORLD_PASS_2.md` ("Still
+weak" and "What the workers asked of the shared files").
+
+The job queue (`jam_global.ps1`) changed on 15 Nov: a checkout that has merged this push queues fairly with the
+others; a checkout still on the older copy takes a free slot as it finds it, ahead of jobs that have waited longer.
 
 Not this session's: the track and its collision (locked), gameplay values, the skill tree, missions, the Canvas HUD's
 layout, vehicle rigs and wheels, `M_PP_Cel`.

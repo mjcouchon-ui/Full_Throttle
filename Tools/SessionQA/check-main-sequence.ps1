@@ -12,7 +12,7 @@ for($case=1;$case -le 5;$case++){
  $logPath=Join-Path $out 'game.log'
  $snapshotPath=Join-Path $out 'save-snapshot'
  $careerPath=Join-Path $snapshotPath 'career_pie.json'
- $log=if(Test-Path -LiteralPath $logPath){Get-Content -Raw -LiteralPath $logPath}else{''}
+ [string]$log=if(Test-Path -LiteralPath $logPath){Get-Content -Raw -LiteralPath $logPath}else{''}
  Require ($log -notmatch 'result=timeout|Fatal error:|Assertion failed:|Ensure condition failed:') "Case $case has a runtime error or timeout."
  if(!(Test-Path -LiteralPath $snapshotPath)){
   if($CompletedOnly){"PENDING case=$case output=$out";continue}

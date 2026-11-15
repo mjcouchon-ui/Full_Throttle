@@ -133,15 +133,27 @@ Zone(TEXT("Cut banks"), 0.f, 99.f);
 
 - `BuildMeshes` remembers, for every frame, where the bed's last straight run up to the land's edge starts
   (`AFTTrack::BedCut`: the very line the bed is drawn with). Nothing of the track reads it.
-- `BuildProps` lays a panel on that run every `45 m / per slot` of road: turned to the slope, pitched to the grade,
-  stretched along to its share of the bend and up the slope to the cutting's length, lapped 3% over the next.
-  So one flat piece serves every bank angle, a bend's lead-in and lead-out, and a hill (Ice Mountain falls 7 in
+- `BuildProps` lays a panel on that run every `45 m / per slot` of road: turned to the slope, its long side along
+  the land's edge, pitched to the grade, stretched along to its share of the bend and up the slope to the cutting's
+  length, lapped 3% over the next. So one flat piece serves every bank angle and a hill (Ice Mountain falls 7 in
   100 all the way; two of the Chemical Works' hairpins climb 1 in 8 while banked 57 degrees).
 - Every and phase count panels, so two designs can take alternate panels. `run min` and `run max` give a tall
-  design to the deep cuttings (5.5 m and more: bends banked 32 degrees and up) and a low one to the rest. Under a
-  gentle bank the bed's foot is hidden behind the barrier: the run is counted from 30 cm under the barrier's top,
-  and a bend that shows under 2.4 m of cutting (banked under about 19 degrees) is left alone.
-- A panel that would stand more than 12 cm off the cutting (a lead-in at its quickest) is laid as two halves.
+  design to the deep cuttings (5.5 m and more: bends banked 32 degrees and up) and a low one to the rest; the run
+  is measured at the panel's middle. Under a gentle bank the bed's foot is hidden behind the barrier: the run is
+  counted from 30 cm under the barrier's top, and a bend that shows under 2.4 m of cutting (banked under about
+  19 degrees) is left alone.
+- Through a bend's lead-in and lead-out the cutting deepens under a panel: its foot sinks as the bank comes on,
+  its top stays at the land's edge. The panel is a rectangle and is kept inside the cutting at both of its ends:
+  its top edge runs half a metre under the land's edge from panel to panel, and its bottom edge stops where the
+  cutting starts at its shallower end, which leaves a bare wedge at the foot of the deeper end. The facing steps
+  down along the foot, like a wall's footing on falling ground. (Sized from its middle alone, as it first was, a
+  panel there stood a corner 30 to 60 cm out of the ground at the land's edge.)
+- A piece that would leave over 80 cm bare at the foot of its deeper end, or would stand more than 12 cm off the
+  cutting (a lead-in at its quickest), is laid as two halves, a half as two quarters, a quarter as two eighths:
+  the panel's own design, squeezed along the road. An eighth (1.4 m of road) takes whatever wedge is left. A
+  shorter piece lies only where its own middle has two fifths of the run its design was drawn for.
+- The same trim applies in the body of a bend: a flat piece is a chord of the bend, so panels there come out up
+  to 9 cm shorter than their middle alone would give, and up to 31 cm on the Chemical Works' climbing hairpins.
 - A panel is tested against OTHER parts of the road only, and left out if it would touch one (the Chemical Works'
   finale laps beside itself). Its own road is the bed it lies on. Panels cast no shadow.
 
@@ -161,7 +173,10 @@ stood by one-piece Sets where the bank is at its full angle (`ft_dress_bay.py`, 
 The first 60 m of each of their bends, and their bends banked under 40 degrees, are still bare; a Bank rule and a
 flat piece would cover those too.
 
-The build logs `FTBANK level=N panels laid=A on B lengths of cutting (C as two halves; left bare: ...)`.
+The build logs `FTBANK level=N pieces laid=A on B lengths of cutting (C in shorter pieces; left bare, wholly or in
+part: too bent D, at another part of the road E, too little cutting F) along G m`: a length is 11.3 m of one side's
+cutting that a rule wanted to face, a piece is a whole panel, a half, a quarter or an eighth, and "too little
+cutting" counts the lengths where a cutting begins or ends inside the panel.
 `ft.DressBank 0` builds without the panels: the same build gives a before and an after.
 
 ## Checking a change

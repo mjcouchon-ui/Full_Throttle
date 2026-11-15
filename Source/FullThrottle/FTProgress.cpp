@@ -12,6 +12,7 @@
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonWriter.h"
 #include "Serialization/JsonSerializer.h"
+#include "UObject/StrongObjectPtr.h"
 
 namespace
 {
@@ -421,9 +422,15 @@ void UFTCareerSubsystem::Fresh()
 
 bool UFTCareerSubsystem::Reset()
 {
+	if (bSaving) return false; // the menu waits for the existing transaction before replacing a campaign
 	const FFTCareer Before = C;
 	const bool WasLoadError = bLoadError, WasPreserveBackup = bPreserveBackup;
 	const FString PreviousLoadError = LoadError;
+	if (UsesAsyncSave())
+	{
+		bResetRollback = true; ResetBefore = Before;
+		bResetHadLoadError = WasLoadError; bResetPreservedBackup = WasPreserveBackup; ResetLoadError = PreviousLoadError;
+	}
 	Fresh();
 	bPreserveBackup = bPreserveBackup || bLoadError;
 	bLoadError = false; LoadError.Reset();
@@ -433,8 +440,10 @@ bool UFTCareerSubsystem::Reset()
 	if (!Save(TEXT("Reset")))
 	{
 		C = Before; bLoadError = WasLoadError; LoadError = PreviousLoadError; bPreserveBackup = WasPreserveBackup;
+		bResetRollback = false;
 		return false;
 	}
+	if (!bSaving) bResetRollback = false;
 	LogCareer();
 	bRecoveredFromBackup = false;
 	return true;
@@ -442,6 +451,7 @@ bool UFTCareerSubsystem::Reset()
 
 void UFTCareerSubsystem::Drop()
 {
+	if (bSaving) return;
 	// the backup and any half-written file go with it: a dropped career must not come back from its .bak
 	for (const TCHAR* Ext : { TEXT(""), TEXT(".bak"), TEXT(".tmp") }) IFileManager::Get().Delete(*(FilePath() + Ext));
 	bHasPersistedCareer = false; LastSavedText.Reset();
@@ -560,13 +570,71 @@ namespace
 	}
 }
 
+bool UFTCareerSubsystem::UsesAsyncSave() const
+{
+#if WITH_DEV_AUTOMATION_TESTS
+	if (!TestSavePath.IsEmpty()) return bTestAsyncSave;
+#endif
+	return true;
+}
+
+void UFTCareerSubsystem::BeginQueuedWrite()
+{
+	check(IsInGameThread());
+	check(bHasQueuedSave);
+	const FFTCareer Snapshot = QueuedCareer;
+	const FString Compare = QueuedSaveCompare, Reason = QueuedSaveReason;
+	FString Text = MoveTemp(QueuedSaveText);
+	const uint64 Generation = QueuedGeneration;
+	bHasQueuedSave = false; ActiveSaveCompare = Compare; bSaving = true;
+	const TWeakObjectPtr<UFTCareerSubsystem> Weak(this);
+	const double WriteT0 = FPlatformTime::Seconds();   // run 2 cycle 5: queue -> durable on disk, off the game thread
+	FTSaveIO::WriteAsync(FilePath(), MoveTemp(Text), bPreserveBackup,
+		[Weak, Snapshot, Compare, Reason, Generation, WriteT0](bool bOk, const FString& Error)
+	{
+		UFTCareerSubsystem* Self = Weak.Get();
+		if (!Self) return;
+		if (bOk)
+		{
+			Self->PersistedCareer = Snapshot; Self->bHasPersistedCareer = true;
+			Self->LastSavedText = Compare; Self->SavedGeneration = Generation;
+			// Only publish save metadata into live C. A newer queued snapshot may
+			// already contain purchases or progression that this write did not include.
+			Self->C.Updated = Snapshot.Updated;
+			Self->LastSaveTime = FPlatformTime::Seconds(); Self->bPreserveBackup = false;
+			Self->bRecoveredFromBackup = false;
+			if (Self->bMutationRollback) Self->MutationBase = Snapshot;
+			Self->bResetRollback = false;
+		}
+		UE_LOG(LogFT, Display, TEXT("FT SAVE slot=%s reason=%s generation=%llu result=%s async_ms=%.1f"), *Self->Slot, *Reason, Generation, bOk ? TEXT("ok") : TEXT("failed"),
+			(FPlatformTime::Seconds() - WriteT0) * 1000.0);
+		if (Self->bHasQueuedSave)
+		{
+			if (bOk && Self->QueuedSaveCompare == Compare)
+			{ Self->SavedGeneration = Self->QueuedGeneration; Self->bHasQueuedSave = false; }
+			else { Self->BeginQueuedWrite(); return; }
+		}
+		Self->bSaving = false; Self->bSaveError = !bOk;
+		Self->SaveError = bOk ? FString() : Error;
+		if (!bOk && Self->bResetRollback)
+		{
+			Self->C = Self->ResetBefore; Self->bLoadError = Self->bResetHadLoadError;
+			Self->LoadError = Self->ResetLoadError; Self->bPreserveBackup = Self->bResetPreservedBackup;
+		}
+		else if (!bOk && Self->bMutationRollback)
+		{
+			Self->C = Self->MutationBase;
+			Self->SaveError += TEXT(" Unconfirmed changes were rolled back.");
+		}
+		Self->bResetRollback = Self->bMutationRollback = false;
+	});
+}
+
 bool UFTCareerSubsystem::Save(const TCHAR* Reason)
 {
 	if (bLoadError) { bSaveError = true; SaveError = LoadError; UE_LOG(LogFT, Warning, TEXT("FT SAVE slot=%s reason=%s result=refused (%s)"), *Slot, Reason, *LoadError); return false; }
 	if (const UFTGameInstance* GI = Cast<UFTGameInstance>(GetGameInstance()); GI && GI->bBench) return true;
 	if (!bHasPersistedCareer && C.ResumeKind == TEXT("none")) { bSaveError = false; SaveError.Reset(); return true; }   // first-launch exit has no campaign to save
-	if (bSaving) { bSaveError = true; SaveError = TEXT("A save is already in progress. Please retry."); return false; }
-	bSaving = true;
 	C.V = 2;
 	TSharedRef<FJsonObject> J = MakeShared<FJsonObject>();
 	J->SetNumberField(TEXT("v"), C.V);
@@ -605,7 +673,7 @@ bool UFTCareerSubsystem::Save(const TCHAR* Reason)
 	St->SetBoolField(TEXT("cleanWrap"), S.bCleanWrap); St->SetBoolField(TEXT("armorWrap"), S.bArmorWrap);
 	J->SetObjectField(TEXT("stats"), St);
 	J->SetBoolField(TEXT("tipSeen"), C.bTipSeen);
-	J->SetStringField(TEXT("updated"), C.Updated);
+	J->SetStringField(TEXT("updated"), FString()); // exclude wall-clock metadata from coalescing
 	TSharedRef<FJsonObject> Resume = MakeShared<FJsonObject>();
 	Resume->SetStringField(TEXT("kind"), C.ResumeKind); Resume->SetNumberField(TEXT("level"), C.ResumeLevel);
 	Resume->SetNumberField(TEXT("stage"), C.ResumeStage); Resume->SetBoolField(TEXT("wrap"), C.bResumeWrap);
@@ -616,23 +684,39 @@ bool UFTCareerSubsystem::Save(const TCHAR* Reason)
 #if !UE_BUILD_SHIPPING
 	if (const IConsoleVariable* Fault = IConsoleManager::Get().FindConsoleVariable(TEXT("ft.SaveFail"))) bFaultInjected = Fault->GetInt() != 0;
 #endif
-	if (!bFaultInjected && !bPreserveBackup && bHasPersistedCareer && Out == LastSavedText)
-	{ bSaving = false; bSaveError = false; SaveError.Reset(); return true; }
+	const FString Compare = Out;
+	if (!bFaultInjected && bSaving && Compare == (bHasQueuedSave ? QueuedSaveCompare : ActiveSaveCompare)) return true;
+	if (!bFaultInjected && !bSaving && !bPreserveBackup && bHasPersistedCareer && Compare == LastSavedText)
+	{ bSaveError = false; SaveError.Reset(); return true; }
 	const FString Updated = FDateTime::UtcNow().ToIso8601(); J->SetStringField(TEXT("updated"), Updated);
 	Out.Reset(); FJsonSerializer::Serialize(J, TJsonWriterFactory<>::Create(&Out));
-	bool bOk = ValidateCareer(J, SaveError) && FTSaveIO::Write(FilePath(), Out, SaveError, bPreserveBackup);
+	if (!ValidateCareer(J, SaveError)) { bSaveError = true; return false; }
+	if (UsesAsyncSave())
+	{
+		QueuedSaveText = MoveTemp(Out); QueuedSaveCompare = Compare; QueuedSaveReason = Reason;
+		QueuedCareer = C; QueuedCareer.Updated = Updated; QueuedGeneration = ++SaveGeneration;
+		bHasQueuedSave = true; bSaveError = false; SaveError.Reset();
+		if (!bSaving) BeginQueuedWrite();
+		return true;
+	}
+	bSaving = true;
+	const double SaveT0 = FPlatformTime::Seconds();   // run 2 cycle 5: how long a synchronous flushed write holds the game thread
+	bool bOk = FTSaveIO::Write(FilePath(), Out, SaveError, bPreserveBackup);
+	const double SaveMs = (FPlatformTime::Seconds() - SaveT0) * 1000.0;
 	bSaving = false; bSaveError = !bOk;
 	if (bOk)
 	{
-		C.Updated = Updated; PersistedCareer = C; bHasPersistedCareer = true; LastSavedText = Out;
+		C.Updated = Updated; PersistedCareer = C; bHasPersistedCareer = true; LastSavedText = Compare;
 		LastSaveTime = FPlatformTime::Seconds(); bPreserveBackup = false; SaveError.Reset();
 	}
-	UE_LOG(LogFT, Display, TEXT("FT SAVE slot=%s reason=%s result=%s"), *Slot, Reason, bOk ? TEXT("ok") : TEXT("failed"));
+	UE_LOG(LogFT, Display, TEXT("FT SAVE slot=%s reason=%s result=%s ms=%.2f bytes=%d"), *Slot, Reason, bOk ? TEXT("ok") : TEXT("failed"), SaveMs, Out.Len());
 	return bOk;
 }
 
 void UFTCareerSubsystem::Load()
 {
+	if (bSaving) { UE_LOG(LogFT, Warning, TEXT("FT LOAD deferred: checkpoint write is still pending")); return; }
+	bHasQueuedSave = bMutationRollback = bResetRollback = false;
 	bLoadError = false; LoadError.Reset(); bSaveError = false; SaveError.Reset();
 	bRecoveredFromBackup = false; bPreserveBackup = false; bHasPersistedCareer = false;
 	LastSavedText.Reset(); LastSaveTime = 0; LastCommitOut = FFTCommitOut();
@@ -745,7 +829,11 @@ void UFTCareerSubsystem::Load()
 	C.V = 2;
 	UE_LOG(LogFT, Display, TEXT("FT LOAD slot=%s result=ok"), *Slot);
 	PersistedCareer = C; bHasPersistedCareer = true;
-	if (V == 2 && !bRecoveredFromBackup) LastSavedText = Text;
+	if (V == 2 && !bRecoveredFromBackup)
+	{
+		J->SetStringField(TEXT("updated"), FString());
+		FJsonSerializer::Serialize(J.ToSharedRef(), TJsonWriterFactory<>::Create(&LastSavedText));
+	}
 	LogCareer();
 }
 
@@ -776,6 +864,7 @@ bool UFTCareerSubsystem::SetCheckpoint(const FString& Kind, int32 Level, int32 S
 {
 	if (!ValidCheckpoint(Kind, Level, Stage))
 	{ bSaveError = true; SaveError = TEXT("The requested checkpoint is not supported."); return false; }
+	bMutationRollback = false; // progression remains staged for Retry, unlike an unconfirmed shop transaction
 	if (Kind == TEXT("race") && (C.RunId.IsEmpty() || C.RunId == C.LastCommitId || C.ResumeKind != Kind || C.ResumeLevel != Level))
 		C.RunId = FGuid::NewGuid().ToString(EGuidFormats::Digits);
 	C.ResumeKind = Kind; C.ResumeLevel = Level; C.ResumeStage = Stage; C.bResumeWrap = bWrap;
@@ -784,8 +873,11 @@ bool UFTCareerSubsystem::SetCheckpoint(const FString& Kind, int32 Level, int32 S
 
 bool UFTCareerSubsystem::SaveMutation(const FFTCareer& Before, const TCHAR* Reason)
 {
-	if (Save(Reason)) return true;
+	const bool WasRollback = bMutationRollback;
+	if (UsesAsyncSave() && !bMutationRollback) { MutationBase = Before; bMutationRollback = true; }
+	if (Save(Reason)) { if (!bSaving) bMutationRollback = false; return true; }
 	C = Before;
+	bMutationRollback = WasRollback;
 	return false;
 }
 
@@ -1076,7 +1168,7 @@ EFTTile UFTCareerSubsystem::CosmeticState(FName Id, FString* Needs) const
 	return Why.Num() ? EFTTile::Locked : EFTTile::Available;
 }
 
-bool UFTCareerSubsystem::BuyCosmetic(FName Id)
+bool UFTCareerSubsystem::BuyCosmetic(FName Id, bool bEquip)
 {
 	const FFTCareer Before = C;
 	FString Why;
@@ -1084,6 +1176,7 @@ bool UFTCareerSubsystem::BuyCosmetic(FName Id)
 	const FFTCosmeticRow* R = FFTProgressData::Get().Cosmetic(Id);
 	if (!Spend(R->Price, *Id.ToString())) return false;
 	C.Own.AddUnique(Id);
+	if (bEquip) C.Wear.Add(R->Slot, Id);
 	UE_LOG(LogFT, Display, TEXT("FT SHOP id=%s price=%d"), *Id.ToString(), R->Price);
 	return SaveMutation(Before, TEXT("Purchase"));
 }
@@ -1156,6 +1249,7 @@ TSet<FString> UFTCareerSubsystem::LockedSet() const
 // ------------------------------------------------------------------------------------------------ the paycheck commit
 FFTCommitOut UFTCareerSubsystem::Commit(const FFTLevelCommit& In)
 {
+	bMutationRollback = false; // keep a failed reward+checkpoint transaction intact for Retry
 	const FFTProgressData& D = FFTProgressData::Get();
 	FFTCommitOut Out;
 	const FFTLevelResult& R = In.R;
@@ -1264,7 +1358,8 @@ struct FFTSaveTestScope
 {
 	FString Directory, Path;
 	IConsoleVariable* Fault = nullptr;
-	int32 PreviousFault = 0;
+	IConsoleVariable* Delay = nullptr;
+	int32 PreviousFault = 0, PreviousDelay = 0;
 	FFTSaveTestScope()
 	{
 		Directory = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Automation"), TEXT("Career-") + FGuid::NewGuid().ToString(EGuidFormats::Digits));
@@ -1272,10 +1367,13 @@ struct FFTSaveTestScope
 		IFileManager::Get().MakeDirectory(*Directory, true);
 		Fault = IConsoleManager::Get().FindConsoleVariable(TEXT("ft.SaveFail"));
 		if (Fault) { PreviousFault = Fault->GetInt(); Fault->Set(0, ECVF_SetByConsole); }
+		Delay = IConsoleManager::Get().FindConsoleVariable(TEXT("ft.SaveDelayMs"));
+		if (Delay) { PreviousDelay = Delay->GetInt(); Delay->Set(0, ECVF_SetByConsole); }
 	}
 	~FFTSaveTestScope()
 	{
 		if (Fault) Fault->Set(PreviousFault, ECVF_SetByConsole);
+		if (Delay) Delay->Set(PreviousDelay, ECVF_SetByConsole);
 		FPlatformFileManager::Get().GetPlatformFile().SetReadOnly(*Path, false);
 		IFileManager::Get().DeleteDirectory(*Directory, false, true);
 	}
@@ -1475,6 +1573,95 @@ bool FFTCareerRewardTransactionTest::RunTest(const FString&)
 	TestEqual(TEXT("Equipment failure and retry do not lose confirmed purchases"), Stable->C.Cash, ExpectedCash);
 	TestEqual(TEXT("Original equipment remains durable after failure and retry"), Stable->Worn(TEXT("paint")), Blue);
 	TestTrue(TEXT("Confirmed skill remains durable after failure and retry"), Stable->C.Skills.Contains(Skill));
+	return true;
+}
+
+namespace
+{
+// Uses the production worker and game-thread completion path. The four fixture
+// tests above intentionally use synchronous TestSavePath mode for deterministic
+// fault/schema assertions; this test covers real pending time and queue order.
+class FFTAsyncSaveCommand : public IAutomationLatentCommand
+{
+	FAutomationTestBase* Test;
+	TUniquePtr<FFTSaveTestScope> Files;
+	TStrongObjectPtr<UFTCareerSubsystem> Career;
+	FString DurableBeforeFailure;
+	int32 Phase = 0, PendingTicks = 0;
+	double Started = FPlatformTime::Seconds();
+	const FName Blue = TEXT("p-bayshore-blue");
+public:
+	explicit FFTAsyncSaveCommand(FAutomationTestBase* InTest) : Test(InTest) {}
+	virtual bool Update() override
+	{
+		if (FPlatformTime::Seconds() - Started > 30.) { Test->AddError(TEXT("Async save queue did not complete within 30 seconds")); return true; }
+		if (Phase == 0)
+		{
+			Files = MakeUnique<FFTSaveTestScope>(); Career.Reset(Files->Career());
+			Test->TestTrue(TEXT("Create isolated durable async fixture"), Career->Reset());
+			Test->TestNotNull(TEXT("Async delay hook"), Files->Delay);
+			Test->TestNotNull(TEXT("Async failure hook"), Files->Fault);
+			if (!Files->Delay || !Files->Fault) return true;
+			Files->Delay->Set(200, ECVF_SetByConsole); Career->bTestAsyncSave = true;
+			const FString Before = Files->Read();
+			Test->TestTrue(TEXT("First async checkpoint accepted"), Career->SetCheckpoint(TEXT("race"), 0));
+			Test->TestTrue(TEXT("Saving remains visible after caller returns"), Career->bSaving);
+			Career->C.Cash = 2000000; Test->TestTrue(TEXT("Intermediate snapshot accepted"), Career->Save(TEXT("QueueIntermediate")));
+			Career->C.Cash = 3000000; Test->TestTrue(TEXT("Latest snapshot accepted"), Career->Save(TEXT("QueueLatest")));
+			const uint64 Requested = Career->SaveGeneration;
+			Test->TestTrue(TEXT("Duplicate pending snapshot is accepted"), Career->Save(TEXT("QueueDuplicate")));
+			Test->TestEqual(TEXT("Duplicate pending snapshot is coalesced"), Career->SaveGeneration, Requested);
+			Test->TestEqual(TEXT("Pending worker leaves prior durable bytes available"), Files->Read(), Before);
+			Phase = 1; return false;
+		}
+		if (Career->bSaving) { ++PendingTicks; return false; }
+		if (Phase == 1)
+		{
+			Test->TestTrue(TEXT("Game-thread latent ticks run while saving"), PendingTicks > 1);
+			Test->TestFalse(TEXT("Ordered queue completes without error"), Career->bSaveError);
+			Test->TestEqual(TEXT("Exit barrier covers the latest requested generation"), Career->SavedGeneration, Career->SaveGeneration);
+			Test->TestEqual(TEXT("Earlier completion cannot overwrite newer live state"), Career->C.Cash, int64(3000000));
+			Test->TestEqual(TEXT("Latest queued snapshot is durable"), Files->Career()->C.Cash, int64(3000000));
+			DurableBeforeFailure = Files->Read(); Files->Fault->Set(1, ECVF_SetByConsole);
+			Test->TestTrue(TEXT("Async atomic buy-and-equip accepted"), Career->BuyCosmetic(Blue, true));
+			Test->TestTrue(TEXT("Overlapping equipment change queued"), Career->Equip(TEXT("paint"), TEXT("p-kestrel-red")));
+			Phase = 2; return false;
+		}
+		if (Phase == 2)
+		{
+			Test->TestTrue(TEXT("Failed queued mutation surfaces final error"), Career->bSaveError);
+			Test->TestFalse(TEXT("Failed queued purchase rolls back ownership"), Career->Owns(Blue));
+			Test->TestEqual(TEXT("Failed queued purchase restores money"), Career->C.Cash, int64(3000000));
+			Test->TestEqual(TEXT("Failed queue preserves the prior durable file"), Files->Read(), DurableBeforeFailure);
+			Files->Fault->Set(0, ECVF_SetByConsole);
+			Test->TestTrue(TEXT("Rolled-back purchase can be confirmed again"), Career->BuyCosmetic(Blue, true));
+			Phase = 3; return false;
+		}
+		if (Phase == 3)
+		{
+			Test->TestFalse(TEXT("Successful retry clears final error"), Career->bSaveError);
+			Test->TestEqual(TEXT("Atomic purchase also equips after reload"), Files->Career()->Worn(TEXT("paint")), Blue);
+			Test->TestTrue(TEXT("First mutation in mixed-result queue accepted"), Career->BuyFilm());
+			Files->Fault->Set(1, ECVF_SetByConsole); // first request already captured normal mode
+			Test->TestTrue(TEXT("Second mutation queued under injected failure"), Career->BuySequel());
+			Phase = 4; return false;
+		}
+		Test->TestTrue(TEXT("Latest failed mutation reports failure"), Career->bSaveError);
+		Test->TestEqual(TEXT("Rollback retains the earlier successful purchase"), Career->C.Film, 1);
+		Test->TestFalse(TEXT("Rollback removes only the unconfirmed later purchase"), Career->C.bSequel);
+		UFTCareerSubsystem* Reloaded = Files->Career();
+		Test->TestEqual(TEXT("Rollback cash matches most recent durable transaction"), Career->C.Cash, Reloaded->C.Cash);
+		Test->TestEqual(TEXT("Earlier confirmed film remains on disk"), Reloaded->C.Film, 1);
+		Test->TestFalse(TEXT("Failed sequel never appears on disk"), Reloaded->C.bSequel);
+		return true;
+	}
+};
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFTCareerAsyncQueueTest, "FT.Save.AsyncQueueAndRollback", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+bool FFTCareerAsyncQueueTest::RunTest(const FString&)
+{
+	FAutomationTestFramework::Get().EnqueueLatentCommand(MakeShared<FFTAsyncSaveCommand>(this));
 	return true;
 }
 #endif

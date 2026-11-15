@@ -167,7 +167,13 @@ public:
 	void AttemptSystemAction(bool bWithoutSaving = false);
 	void OpenSystemDialog(EFTSystemDialog Dialog, int32 Action);
 	void CloseSystemDialog();
-	bool RequireProgressSaved();
+	bool RequireProgressSaved(TFunction<void()> OnSaved = {});
+	void WaitForProgressSave(TFunction<void()> OnSaved, TFunction<bool()> Retry = {});
+	void FinishSystemAction(bool bWithoutSaving = false);
+	void ContinueCampaign();
+	void StartSelectedRace();
+	void FinishPreProduction();
+	void ContinuePaycheck(int32 Kind);
 	FString ResumeDescription() const;
 
 	// ---- state the HUD reads
@@ -204,7 +210,11 @@ public:
 	EFTSystemDialog SystemDialog = EFTSystemDialog::None;
 	int32 SystemRow = 0, SystemAction = 0; // 1 desktop, 2 title, 3 new campaign, 4 retry checkpoint
 	bool bSystemPaused = false, bDialogFromPause = false, bOverlayFromPause = false;
-	bool bPauseMouse = false, bPendingSystemSave = false;
+	bool bPauseMouse = false, bPendingSystemSave = false, bSystemSaveSubmitted = false;
+	bool bExitWarningAfterSave = false;
+	TFunction<void()> SavedContinuation;
+	TFunction<bool()> SaveRetryOperation;
+	FString PPPendingMessage;
 	bool bMusicWasPaused = false, bRotorWasPaused = false, bPropWasPaused = false, bTitleMusicWasPaused = false;
 	FString SystemMessage;
 	EFTOverlay DrawnOverlay = EFTOverlay::None;

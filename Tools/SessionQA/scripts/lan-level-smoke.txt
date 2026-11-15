@@ -1,0 +1,69 @@
+wait 2
+FTInvuln 1
+FTGo L1boss
+waitfor FT GO landed level=L1|40
+wait 1
+r.SetRes 1280x720w
+wait 1
+shot lan-level-1-boss
+ft.Press Escape
+waitfor FT SYSTEM pause|10
+ft.SessionState
+wait 1
+ft.SessionState
+ft.Press Escape
+waitfor FT SYSTEM resumed|10
+FTGo L2boss
+waitfor FT GO landed level=L2|40
+wait 1
+r.SetRes 1280x720w
+wait 1
+shot lan-level-2-boss
+FTGo L3boss
+waitfor FT GO landed level=L3|40
+wait 1
+r.SetRes 1280x720w
+wait 1
+shot lan-level-3-boss
+FTGo L4boss
+waitfor FT GO landed level=L4|40
+wait 1
+r.SetRes 1280x720w
+wait 1
+shot lan-level-4-boss
+FTGo L5boss
+waitfor FT GO landed level=L5|40
+wait 1
+r.SetRes 1280x720w
+wait 1
+shot lan-level-5-boss
+FTGo L6boss
+waitfor FT GO landed level=L6|40
+wait 1
+r.SetRes 1280x720w
+wait 1
+shot lan-level-6-boss
+FTGo L7boss
+waitfor FT GO landed level=L7|40
+wait 1
+r.SetRes 1280x720w
+wait 1
+shot lan-level-7-boss
+FTGo L8boss
+waitfor FT GO landed level=L8|40
+wait 1
+r.SetRes 1280x720w
+wait 1
+shot lan-level-8-boss
+ft.Press Escape
+wait 0.5
+ft.Press T
+waitfor FT SYSTEM dialog=2 action=2|10
+ft.Press Right
+wait 0.2
+ft.Press Enter
+waitfor FT SESSION return=title|15
+wait 2
+ft.Press Escape
+wait 4
+quit

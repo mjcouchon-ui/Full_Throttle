@@ -1,0 +1,31 @@
+# Relaunch the exact profile from async-01. Continue uses its durable race and money.
+wait 2
+ft.SessionState
+ft.Press Enter
+waitfor FT SESSION continue kind=race | 25
+waitfor FT LEVEL id= | 35
+r.SetRes 1280x720w
+wait 4
+FTInvuln 1
+ft.SaveDelayMs 3000
+ft.SaveFail 1
+FTSetCash 24680
+FTSaveCareer
+wait 0.2
+ft.WindowClose
+wait 0.4
+ft.SessionState
+waitfor FT SYSTEM dialog=3 action=1 | 10
+ft.SessionState
+shot main-async-02-failed-exit
+ft.SaveFail 0
+ft.SaveDelayMs 1000
+ft.Press Enter
+wait 0.3
+ft.SessionState
+waitfor FT SYSTEM dialog=2 action=1 | 10
+ft.Press Right
+wait 0.4
+ft.Press Enter
+wait 5
+quit

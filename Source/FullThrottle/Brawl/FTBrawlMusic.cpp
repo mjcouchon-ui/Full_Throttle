@@ -28,6 +28,26 @@ AFTBrawlMusic::AFTBrawlMusic()
 void AFTBrawlMusic::BeginPlay()
 {
 	Super::BeginPlay();
+	// the day set: the day track only (no fight, no boss)
+	const AFTBrawlGameMode* GM = GetWorld() ? GetWorld()->GetAuthGameMode<AFTBrawlGameMode>() : nullptr;
+	if (GM && GM->bDay)
+	{
+		bDayTrack = true;
+		USoundWave* Day = LoadObject<USoundWave>(nullptr, DayTrackPath);
+		if (!Day)
+		{
+			UE_LOG(LogFTBrawlMusic, Warning, TEXT("FTBRAWL music missing %s (import Docs/audio/descending-staircase.mp3: Content/Python/brawl_audio.py)"), DayTrackPath);
+			return;
+		}
+		Day->bLooping = true;
+		Audio->SetSound(Day);
+		Audio->SetVolumeMultiplier(Volume);
+		Audio->OnAudioPlaybackPercentNative.AddUObject(this, &AFTBrawlMusic::OnPercent);
+		Audio->Play();
+		UE_LOG(LogFTBrawlMusic, Log, TEXT("FTBRAWL music day start %s %.1fs loop=%d day=%d %s"), *Day->GetName(), Day->Duration, Day->bLooping ? 1 : 0,
+			GM->DayN, GM->bDayWrap ? TEXT("wrap") : TEXT("before"));
+		return;
+	}
 	USoundWave* Track = LoadObject<USoundWave>(nullptr, TrackPath);
 	if (!Track)
 	{
@@ -70,6 +90,19 @@ void AFTBrawlMusic::Tick(float Dt)
 	Super::Tick(Dt);
 	const AFTBrawlGameMode* GM = GetWorld() ? GetWorld()->GetAuthGameMode<AFTBrawlGameMode>() : nullptr;
 	if (!GM || !Audio->Sound) return;
+	if (bDayTrack)   // the day set: keep the day track going, nothing to switch or duck
+	{
+		if (!GetWorld()->GetAudioDeviceRaw()) return;   // -nosound: nothing can play (it would "restart" every frame)
+		if (!Audio->IsPlaying()) { Audio->Play(); UE_LOG(LogFTBrawlMusic, Log, TEXT("FTBRAWL music restarted %s"), *Audio->Sound->GetName()); }
+		BeatT += Dt;
+		if (BeatT >= 10.f)   // heartbeat for the tests (the scenes are short)
+		{
+			BeatT = 0;
+			UE_LOG(LogFTBrawlMusic, Log, TEXT("FTBRAWL music day playing=%d track=%s percent=%.3f loops=%d"),
+				Audio->IsPlaying() ? 1 : 0, *Audio->Sound->GetName(), LastPercent, Loops);
+		}
+		return;
+	}
 	// the boss track from the moment the boss comes out (after the waves) to the end of the night; back to Matt's
 	// track only if the night goes back before the boss (a retry in the boss fight stays on the boss track)
 	const bool bBossWant = BossAudio->Sound && (GM->bBossOut || (bBossOn && GM->Wave >= GM->NumWaves));

@@ -1,0 +1,42 @@
+# Separate fresh profile. Fixture money; FTPress Buy invokes the existing hold-complete shop hook.
+# Equip/rollback/retry below use actual player input. This does not claim physical hold-button coverage.
+wait 2
+FTCareerReset
+wait 1
+FTSetCash 3000000
+FTSaveCareer
+wait 1
+FTGoto PreProduction
+wait 1
+FTSelect p-bayshore-blue
+ft.SaveDelayMs 3000
+FTPress Buy 0.6
+wait 0.3
+ft.SessionState
+shot main-async-03-purchase-saving
+# A second attempt while busy must not purchase another item.
+FTSelect p-lifeguard-yellow
+FTPress Buy 0.6
+waitfor FT SHOP save=complete message=BAYSHORE BLUE | 20
+FTDumpCareer
+FTSelect p-kestrel-red
+ft.SaveFail 1
+ft.Press Enter
+wait 0.3
+ft.SessionState
+waitfor FT SHOP save=failed | 20
+FTDumpCareer
+wait 0.2
+shot main-async-03-equipment-failed
+ft.SaveFail 0
+ft.SaveDelayMs 1000
+ft.Press Enter
+wait 0.3
+ft.SessionState
+waitfor FT SHOP save=complete message=KESTREL RED EQUIPPED | 20
+FTDumpCareer
+wait 0.2
+shot main-async-03-equipment-saved
+ft.WindowClose
+wait 5
+quit

@@ -105,6 +105,17 @@ banks"), merged with 3.6.0 and the enemy visual overhaul:
 
 Not run for this change: Low, the packaged builds. Frame time: see `WORLD_PASS_2.md`.
 
+**Refitted the same afternoon (the lead-ins).** An independent review of the rule (five readers, two skeptics a finding)
+confirmed one defect in play: a panel in a bend's lead-in stood a corner 30 to 60 cm above the land's edge. The fix
+(a piece runs with the land's edge, is kept inside the cutting at both ends, and is laid in halves, quarters or
+eighths where the cutting deepens fast) was itself simulated over every banked bend of five levels by an independent
+port of the code and reviewed three ways before it was compiled: no corner passes the land's edge, no length is left
+bare for being too bent, and the simulation's piece count for Ice Mountain (874) is the game's. Checked in the build:
+all eight levels loaded (tracks' fingerprints equal the baseline, every other rule's placements identical piece for
+piece: the placed totals differ by exactly the bank pieces added), close frames of the two steepest bends' lead-ins
+on the five levels, and Chemical Works, Ice Mountain and City Center whole in the real game.
+Not checked: Low settings, a packaged build, frame time (about 1,000 more flat, shadowless instances over five levels).
+
 ## Open: confirmed in code, not changed
 
 Progression and saves

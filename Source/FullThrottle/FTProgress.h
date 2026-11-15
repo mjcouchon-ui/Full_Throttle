@@ -203,14 +203,16 @@ public:
 	bool bSaveError = false, bSaving = false, bRecoveredFromBackup = false;
 	FString SaveError;
 	double LastSaveTime = 0;
+	uint64 SaveGeneration = 0, SavedGeneration = 0;
 #if WITH_DEV_AUTOMATION_TESTS
 	FString TestSavePath;   // automation never touches a player's real slot
+	bool bTestAsyncSave = false; // deterministic fixtures stay synchronous; latent queue tests opt in
 #endif
 
 	FString FilePath() const;
 	void UseTestSlot();
 	void Load();
-	bool Save(const TCHAR* Reason);
+	bool Save(const TCHAR* Reason); // accepted/already durable; bSaving is the completion/exit barrier
 	bool Reset();          // explicit New Game; a failed replacement restores the previous career
 	bool HasContinue() const;
 	FString ContinueLabel() const;
@@ -249,7 +251,7 @@ public:
 	bool Owns(FName Id) const { return C.Own.Contains(Id); }
 	FName Worn(FName SlotName) const { const FName* W = C.Wear.Find(SlotName); return W ? *W : NAME_None; }
 	EFTTile CosmeticState(FName Id, FString* Needs = nullptr) const;
-	bool BuyCosmetic(FName Id);
+	bool BuyCosmetic(FName Id, bool bEquip = false);
 	bool Equip(FName SlotName, FName Id);
 
 	// extras
@@ -274,7 +276,15 @@ private:
 	FFTCareer PersistedCareer;
 	bool bHasPersistedCareer = false, bPreserveBackup = false;
 	FString LastSavedText;
+	bool bHasQueuedSave = false, bMutationRollback = false, bResetRollback = false;
+	FString QueuedSaveText, QueuedSaveCompare, QueuedSaveReason, ActiveSaveCompare;
+	FFTCareer QueuedCareer, MutationBase, ResetBefore;
+	uint64 QueuedGeneration = 0;
+	bool bResetHadLoadError = false, bResetPreservedBackup = false;
+	FString ResetLoadError;
 	FFTCommitOut LastCommitOut;
+	bool UsesAsyncSave() const;
+	void BeginQueuedWrite();
 	bool SaveMutation(const FFTCareer& Before, const TCHAR* Reason);
 	void Fix();            // the load integrity rules (09 §4)
 	void Fresh();

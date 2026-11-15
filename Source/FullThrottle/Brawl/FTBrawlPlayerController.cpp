@@ -56,6 +56,7 @@ void AFTBrawlPlayerController::PlayerTick(float DeltaTime)
 {
 	Super::PlayerTick(DeltaTime);
 	AFTBrawlGameMode* G=GetWorld()->GetAuthGameMode<AFTBrawlGameMode>();
+	if (G) G->PollSystemSave();
 	const bool bMenu=G && G->SystemScreen!=0;
 	float X=0,Y=0;
 	if(GetMousePosition(X,Y))

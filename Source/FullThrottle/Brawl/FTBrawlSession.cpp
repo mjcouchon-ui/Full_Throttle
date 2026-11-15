@@ -22,7 +22,7 @@
 #endif
 
 // Screen: 0 gameplay, 1 title, 2 pause, 3 options, 4 replace campaign,
-// 5 checkpoint-aware exit confirmation, 6 save failure. Menu input never enters combat.
+// 5 checkpoint-aware exit confirmation, 6 save failure, 7 asynchronous save barrier. Menu input never enters combat.
 void AFTBrawlGameMode::InitializeSession()
 {
 	bSessionReady=true;
@@ -98,19 +98,19 @@ FString AFTBrawlGameMode::SaveStatus(bool& bError) const
 #if FTB_SESSION_CAREER
 	if (UFTCareerSubsystem* CS=UFTCareerSubsystem::Get(this))
 	{
+		if (CS->bSaving) return TEXT("SAVING...");
 		bError=CS->bSaveError;
 		if (bError) return TEXT("SAVE FAILED / Open Pause to retry");
-		if (CS->bSaving) return TEXT("SAVING...");
-		if (CS->LastSaveTime>0 && FPlatformTime::Seconds()-CS->LastSaveTime<3.) return TEXT("CHECKPOINT SAVED");
+		if (CS->LastSaveTime>0 && FPlatformTime::Seconds()-CS->LastSaveTime<3.) return TEXT("SAVED");
 		if (CS->bRecoveredFromBackup) return TEXT("BACKUP RECOVERED");
 	}
 #else
 	if (UFTBrawlGameInstance* GI=Cast<UFTBrawlGameInstance>(GetGameInstance()))
 	{
-		bError=GI->bSaveError || !GI->PreferenceError.IsEmpty();
-		if (bError) return TEXT("SAVE FAILED / Open Pause to retry");
 		if (GI->bSaving) return TEXT("SAVING...");
-		if (GI->LastSaveTime>0 && FPlatformTime::Seconds()-GI->LastSaveTime<3.) return TEXT("CHECKPOINT SAVED");
+		bError=GI->bSaveError || !GI->PreferenceError.IsEmpty();
+		if (bError) return TEXT("SAVE FAILED / Open menu to retry");
+		if (GI->LastSaveTime>0 && FPlatformTime::Seconds()-GI->LastSaveTime<3.) return TEXT("SAVED");
 		if (GI->bRecovered) return TEXT("BACKUP RECOVERED");
 	}
 #endif
@@ -121,7 +121,7 @@ void AFTBrawlGameMode::SetSystemScreen(int32 Screen)
 {
 	const bool bOpening=SystemScreen==0 && Screen!=0;
 	SystemScreen=Screen; SystemSelection=0;
-	if (Screen==1 && !SystemRowEnabled(0)) SystemSelection=1;
+	if (Screen==1) while (SystemSelection<3 && !SystemRowEnabled(SystemSelection)) ++SystemSelection;
 	if (APlayerController* PC=GetWorld()->GetFirstPlayerController())
 	{
 		if (bOpening)
@@ -164,6 +164,7 @@ void AFTBrawlGameMode::ToggleSystemMenu()
 }
 void AFTBrawlGameMode::SystemBack()
 {
+	if (SystemScreen==7) { bSystemSaveWait=false; bSystemExitNeedsConfirm=false; bSystemDiscardAfterWait=false; SetSystemScreen(MenuHome); return; }
 	if (SystemScreen==1) return;
 	if (SystemScreen==2) SetSystemScreen(0);
 	else SetSystemScreen(MenuHome);
@@ -171,16 +172,17 @@ void AFTBrawlGameMode::SystemBack()
 void AFTBrawlGameMode::SystemNavigate(int32 Delta)
 {
 	if (!SystemScreen) return;
-	const int32 N=SystemRows().Num(); SystemSelection=(SystemSelection+Delta+N)%N;
-	if (!SystemRowEnabled(SystemSelection)) SystemSelection=(SystemSelection+Delta+N)%N;
+	const int32 N=SystemRows().Num();
+	for (int32 Attempt=0; Attempt<N; ++Attempt) { SystemSelection=(SystemSelection+Delta+N)%N; if (SystemRowEnabled(SystemSelection)) break; }
 	UE_LOG(LogTemp,Log,TEXT("FT BRAWL SYSTEM selection=%d label=%s"),SystemSelection,*SystemRows()[SystemSelection]);
 }
 bool AFTBrawlGameMode::SystemRowEnabled(int32 Index) const
 {
 #if !FTB_SESSION_CAREER
-	if (SystemScreen==1 && Index==0)
+	if (SystemScreen==1 && Index<=1)
 	{
-		const UFTBrawlGameInstance* GI=Cast<UFTBrawlGameInstance>(GetGameInstance()); return GI&&GI->bValid;
+		const UFTBrawlGameInstance* GI=Cast<UFTBrawlGameInstance>(GetGameInstance());
+		return GI && !GI->bSaving && (Index==1 || GI->HasContinue());
 	}
 #endif
 	return true;
@@ -202,6 +204,7 @@ TArray<FString> AFTBrawlGameMode::SystemRows() const
 	}
 	if (SystemScreen==4) return {TEXT("CANCEL"),TEXT("REPLACE CAMPAIGN")};
 	if (SystemScreen==5) return {TEXT("CANCEL"),RequestedExit==2?TEXT("SAVE AND QUIT TO DESKTOP"):TEXT("SAVE AND QUIT TO TITLE")};
+	if (SystemScreen==7) return {TEXT("CANCEL REQUEST / SAVE CONTINUES")};
 	if (SystemScreen==6) return {TEXT("RETRY SAVE"),RequestedExit>0&&RequestedExit<3?TEXT("QUIT WITHOUT SAVING"):TEXT("BACK")};
 	return {};
 }
@@ -210,19 +213,20 @@ FString AFTBrawlGameMode::SystemHeading() const
 	switch(SystemScreen)
 	{
 	case 1:return TEXT("FULL THROTTLE / BRAWL"); case 2:return TEXT("PAUSED"); case 3:return TEXT("OPTIONS");
-	case 4:return TEXT("START A NEW CAMPAIGN?"); case 5:return TEXT("LEAVE THIS SESSION?"); case 6:return TEXT("PROGRESS WAS NOT SAVED"); default:return {};
+	case 4:return TEXT("START A NEW CAMPAIGN?"); case 5:return TEXT("LEAVE THIS SESSION?"); case 6:return TEXT("PROGRESS WAS NOT SAVED"); case 7:return TEXT("SAVING..."); default:return {};
 	}
 }
 FString AFTBrawlGameMode::SystemDetail() const
 {
+	if (SystemScreen==7) return TEXT("Your request is queued until saving finishes. You can cancel the request while the save continues.\nContinue currently restores:\n")+CheckpointLabel();
 	if (SystemScreen==3) return TEXT("Audio and accessibility preferences are kept when starting a New Game.");
 	if (SystemScreen==4) return TEXT("This replaces campaign progress with Day 1. Audio and accessibility preferences stay unchanged. Cancel leaves the save untouched.");
 	if (SystemScreen==6)
 	{
 #if FTB_SESSION_CAREER
-		if (UFTCareerSubsystem* CS=UFTCareerSubsystem::Get(this)) return CS->SaveError+TEXT("\nRetry, or explicitly leave without saving. The previous valid file is retained.");
+		if (UFTCareerSubsystem* CS=UFTCareerSubsystem::Get(this)) return CS->SaveError+TEXT("\nContinue still restores:\n")+CheckpointLabel();
 #else
-		if (UFTBrawlGameInstance* GI=Cast<UFTBrawlGameInstance>(GetGameInstance())) return (GI->PreferenceError.IsEmpty()?GI->SaveError:GI->PreferenceError)+TEXT("\nThe previous valid save is retained.");
+		if (UFTBrawlGameInstance* GI=Cast<UFTBrawlGameInstance>(GetGameInstance())) return (GI->PreferenceError.IsEmpty()?GI->SaveError:GI->PreferenceError)+TEXT("\nContinue still restores:\n")+CheckpointLabel();
 #endif
 	}
 	FString Detail=CheckpointLabel();
@@ -248,7 +252,7 @@ void AFTBrawlGameMode::SystemActivate()
 		if (Row==1)
 		{
 			RequestedExit=3;
-			if (GI->bValid || !GI->LoadNotice.IsEmpty()) SetSystemScreen(4); else FinishSystemAction(false);
+			if (GI->HasContinue() || !GI->LoadNotice.IsEmpty()) SetSystemScreen(4); else FinishSystemAction(false);
 		}
 		if (Row==2) SetSystemScreen(3);
 		if (Row==3) { RequestedExit=2; FinishSystemAction(false); }
@@ -278,6 +282,7 @@ void AFTBrawlGameMode::SystemActivate()
 #endif
 		return;
 	}
+	if (SystemScreen==7) { SystemBack(); return; }
 	if (SystemScreen==4 || SystemScreen==5) { if (Row==0) SetSystemScreen(MenuHome); else FinishSystemAction(false); return; }
 	if (SystemScreen==6) { if (Row==0) FinishSystemAction(false); else if (RequestedExit>0&&RequestedExit<3) FinishSystemAction(true); else SetSystemScreen(MenuHome); }
 }
@@ -286,29 +291,81 @@ void AFTBrawlGameMode::RequestSystemQuit(bool bDesktop)
 	RequestedExit=bDesktop?2:1;
 	// A close request inside title Options/confirmation still belongs to the title.
 	MenuHome=SystemScreen==0?2:SystemScreen==1?1:MenuHome;
+	if (IsSystemSaving())
+	{
+		bSystemSaveWait=true; bSystemExitNeedsConfirm=true; SetSystemScreen(7);
+		UE_LOG(LogTemp,Log,TEXT("FT BRAWL SYSTEM exit queued=%s"),bDesktop?TEXT("desktop"):TEXT("title")); return;
+	}
 	if (MenuHome==1 || (StT<0.5f && CutT<0.5f)) FinishSystemAction(false);
 	else SetSystemScreen(5);
 }
-void AFTBrawlGameMode::FinishSystemAction(bool bDiscard)
+bool AFTBrawlGameMode::IsSystemSaving() const
 {
-#if !FTB_SESSION_CAREER
-	UFTBrawlGameInstance* GI=Cast<UFTBrawlGameInstance>(GetGameInstance());
-	// Preferences can fail before a campaign exists. Retry them for every orderly action,
-	// including title exits; only the explicit discard choice may bypass this write.
-	if (!bDiscard && GI && !GI->PreferenceError.IsEmpty() && !GI->SavePreferences())
-	{ SetSystemScreen(6); return; }
-	if (RequestedExit==3)
+#if FTB_SESSION_CAREER
+	if (UFTCareerSubsystem* CS=UFTCareerSubsystem::Get(this)) return CS->bSaving;
+#else
+	if (const UFTBrawlGameInstance* GI=Cast<UFTBrawlGameInstance>(GetGameInstance())) return GI->bSaving;
+#endif
+	return false;
+}
+bool AFTBrawlGameMode::HasSystemSaveError() const
+{
+#if FTB_SESSION_CAREER
+	if (UFTCareerSubsystem* CS=UFTCareerSubsystem::Get(this)) return CS->bSaveError;
+#else
+	if (const UFTBrawlGameInstance* GI=Cast<UFTBrawlGameInstance>(GetGameInstance())) return GI->bSaveError || !GI->PreferenceError.IsEmpty();
+#endif
+	return false;
+}
+void AFTBrawlGameMode::PollSystemSave()
+{
+	if (IsSystemSaving()) return;
+	if (!bSystemSaveWait)
 	{
-		if (GI && GI->NewGame()) GI->Continue(); else SetSystemScreen(6);
+#if !FTB_SESSION_CAREER
+		if (SystemScreen==3) if (const UFTBrawlGameInstance* GI=Cast<UFTBrawlGameInstance>(GetGameInstance()))
+			if (!GI->PreferenceError.IsEmpty()) { RequestedExit=0; SetSystemScreen(6); }
+#endif
 		return;
 	}
-#endif
-	bool Ok=true;
-	if (!bDiscard && MenuHome!=1)
+	bSystemSaveWait=false;
+	if (bSystemDiscardAfterWait) { bSystemDiscardAfterWait=false; CompleteSystemAction(true); return; }
+	if (HasSystemSaveError()) { bSystemExitNeedsConfirm=false; SetSystemScreen(6); return; }
+	if (bSystemExitNeedsConfirm) { bSystemExitNeedsConfirm=false; RequestSystemQuit(RequestedExit==2); return; }
+	CompleteSystemAction(false);
+}
+void AFTBrawlGameMode::FinishSystemAction(bool bDiscard)
+{
+	if (bDiscard)
 	{
-		Ok=SaveCheckpoint(TEXT("Exit"));
+		if (IsSystemSaving()) { bSystemSaveWait=true; bSystemDiscardAfterWait=true; bSystemExitNeedsConfirm=false; SetSystemScreen(7); return; }
+		CompleteSystemAction(true); return;
 	}
-	if (!Ok) { SetSystemScreen(6); return; }
+	bSystemDiscardAfterWait=false;
+	bool Accepted=true;
+#if !FTB_SESSION_CAREER
+	UFTBrawlGameInstance* GI=Cast<UFTBrawlGameInstance>(GetGameInstance());
+	if (GI && !GI->PreferenceError.IsEmpty()) Accepted=GI->SavePreferences();
+	if (RequestedExit==3) Accepted=GI && GI->NewGame() && Accepted;
+	else
+#endif
+	if (MenuHome!=1) Accepted=SaveCheckpoint(TEXT("Exit")) && Accepted;
+	if (!Accepted && !IsSystemSaving()) { SetSystemScreen(6); return; }
+	if (IsSystemSaving())
+	{
+		bSystemSaveWait=true; bSystemExitNeedsConfirm=false; SetSystemScreen(7);
+		UE_LOG(LogTemp,Log,TEXT("FT BRAWL SYSTEM save wait action=%d"),RequestedExit); return;
+	}
+	if (HasSystemSaveError()) { SetSystemScreen(6); return; }
+	CompleteSystemAction(false);
+}
+void AFTBrawlGameMode::CompleteSystemAction(bool bDiscard)
+{
+	bSystemSaveWait=false; bSystemExitNeedsConfirm=false; bSystemDiscardAfterWait=false;
+#if !FTB_SESSION_CAREER
+	UFTBrawlGameInstance* GI=Cast<UFTBrawlGameInstance>(GetGameInstance());
+	if (RequestedExit==3) { if (GI) GI->Continue(); return; }
+#endif
 	if (RequestedExit==0) { SetSystemScreen(MenuHome==1?3:2); return; }
 	UE_LOG(LogTemp,Log,TEXT("FT BRAWL SYSTEM exit=%s discard=%d"),RequestedExit==2?TEXT("desktop"):TEXT("title"),bDiscard);
 	SetSystemScreen(0);

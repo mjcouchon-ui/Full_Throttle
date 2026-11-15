@@ -390,17 +390,20 @@ void AFTGameMode::TickPaycheck(float RDt)
 	if (Shown != LastLine && bPayValid && Shown >= 0 && Shown <= Pay.Pay.Lines.Num()) { LastLine = Shown; Sfx(TEXT("Pickup"), 0.25f, 1.4f); }
 	auto Next = [this](int32 Kind)
 	{
-		if (!RequireProgressSaved()) return;
-		const int32 To = Kind == 2 ? -2 : (Kind == 1 ? Level : Level + 1);
-		// the day's cutscene THE WRAP after a wrapped race, then the night (run 77694; after the last level THE WRAP, then the title)
-		const bool bLastWrap = Kind == 2 && Level >= FTData::NumLevels() - 1 && !bEscaped && !bOutOfFilm && bPayValid;   // = LeavePreProduction's THAT'S A WRAP
-		if ((Kind == 0 || bLastWrap) && UFTNightFlow::GoToDayCut(this, Level, true)) return;
-		if (Kind == 0 && UFTNightFlow::GoToNight(this, Level, To)) return;   // the night between the races (FTNightFlow)
-		EnterPreProduction(To, false);
+		if (RequireProgressSaved([this, Kind]() { ContinuePaycheck(Kind); })) ContinuePaycheck(Kind);
 	};
 	if (PC->Hit(EKeys::R)) { PayNext = 1; Next(1); return; }
 	if (PC->MenuBack()) { RequestSystemQuit(false); return; }
 	if (PC->MenuOk() || PC->Clicked(ResultsContinueRect)) Next(PayNext);
+}
+
+void AFTGameMode::ContinuePaycheck(int32 Kind)
+{
+	const int32 To = Kind == 2 ? -2 : (Kind == 1 ? Level : Level + 1);
+	const bool bLastWrap = Kind == 2 && Level >= FTData::NumLevels() - 1 && !bEscaped && !bOutOfFilm && bPayValid;
+	if ((Kind == 0 || bLastWrap) && UFTNightFlow::GoToDayCut(this, Level, true)) return;
+	if (Kind == 0 && UFTNightFlow::GoToNight(this, Level, To)) return;
+	EnterPreProduction(To, false);
 }
 
 // ============================================================================================== PRE-PRODUCTION (10 §4)
@@ -447,14 +450,25 @@ void AFTGameMode::EnterPreProduction(int32 NextLevel, bool bFromTitle)
 
 void AFTGameMode::LeavePreProduction()
 {
+	if (!RequireProgressSaved([this]() { LeavePreProduction(); })) return;
 	UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this);
-	UFTGameInstance* G = GI();
-	if (CS && !CS->Ready())
+	const bool bAccepted = CS && CS->Ready();
+	if (!bAccepted || CS->bSaving || CS->bSaveError)
 	{
-		SystemMessage = CS->SaveError;
-		OpenSystemDialog(EFTSystemDialog::SaveFailed, 4);
+		WaitForProgressSave([this]() { FinishPreProduction(); }, [this]()
+		{
+			UFTCareerSubsystem* Career = UFTCareerSubsystem::Get(this);
+			return Career && Career->Ready();
+		});
 		return;
 	}
+	FinishPreProduction();
+}
+
+void AFTGameMode::FinishPreProduction()
+{
+	UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this);
+	UFTGameInstance* G = GI();
 	if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->SetMenuMouse(false);
 	Sfx(TEXT("Clap"));
 	if (bPPFromTitle)
@@ -468,7 +482,16 @@ void AFTGameMode::LeavePreProduction()
 	{
 		// the run is over: back to the title (after the last level, "THAT'S A WRAP")
 		const bool bWrapBanner = PayNext == 2 && !bEscaped && !bOutOfFilm && Level >= FTData::NumLevels() - 1;
-		if (CS) { CS->C.Film = 0; CS->Save(TEXT("RunEnd")); }
+		if (CS && CS->C.Film != 0)
+		{
+			CS->C.Film = 0;
+			const bool bAccepted = CS->Save(TEXT("RunEnd"));
+			if (!bAccepted || CS->bSaving || CS->bSaveError)
+			{
+				WaitForProgressSave([this]() { FinishPreProduction(); });
+				return;
+			}
+		}
 		if (G) { G->TitleBanner = bWrapBanner ? TEXT("THAT'S A WRAP") : FString(); }
 		UE_LOG(LogFT, Display, TEXT("FT SCREEN name=Title banner=\"%s\""), bWrapBanner ? TEXT("THAT'S A WRAP") : TEXT(""));
 		if (bWrapBanner) GoToLevel(0, false);
@@ -484,7 +507,16 @@ void AFTGameMode::LeavePreProduction()
 
 void AFTGameMode::PPSay(const FString& M, bool bBad)
 {
+	const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this);
+	if (!bBad && CS && CS->bSaving)
+	{
+		PPPendingMessage = M;
+		PPMsg = TEXT("SAVING..."); PPMsgT = GetWorld()->GetRealTimeSeconds(); bPPMsgBad = false;
+		UE_LOG(LogFT, Display, TEXT("FT SHOP save=pending result=%s"), *M);
+		return;
+	}
 	PPMsg = M; PPMsgT = GetWorld()->GetRealTimeSeconds(); bPPMsgBad = bBad;
+	UE_LOG(LogFT, Display, TEXT("FT SHOP save=%s message=%s"), bBad ? TEXT("failed") : TEXT("complete"), *M);
 	Sfx(bBad ? TEXT("Empty") : TEXT("Pickup"), bBad ? 0.7f : 0.8f);
 }
 
@@ -601,6 +633,7 @@ bool AFTGameMode::PPActivate(int32 Idx, bool bHoldDone)
 {
 	UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this);
 	if (!CS || !Tiles.IsValidIndex(Idx)) return false;
+	if (CS->bSaving) { BuyHoldT = 0.f; return false; }
 	const FFTTileView T = Tiles[Idx];
 	const auto Failed = [&](const TCHAR* Fallback)
 	{
@@ -645,17 +678,7 @@ bool AFTGameMode::PPActivate(int32 Idx, bool bHoldDone)
 	else if (T.Id.StartsWith(TEXT("greenlight-"))) bOk = CS->BuyGreenlight(T.Id.RightChop(11));
 	else if (T.Id == TEXT("sequel")) bOk = CS->BuySequel();
 	else if (T.Id == TEXT("respec")) bOk = CS->Respec();
-	else
-	{
-		bOk = CS->BuyCosmetic(FName(*T.Id));
-		if (bOk && !CS->Equip(T.Slot, FName(*T.Id)))
-		{
-			// The purchase is durable even if the separate equip save failed and rolled back.
-			PPSay(FString::Printf(TEXT("%s BOUGHT · EQUIP FAILED: %s"), *T.Title,
-				CS->SaveError.IsEmpty() ? TEXT("TRY EQUIPPING AGAIN") : *CS->SaveError), true);
-			return true;
-		}
-	}
+	else bOk = CS->BuyCosmetic(FName(*T.Id), true); // Purchase and equip share one transaction.
 	if (bOk) PPSay(FString::Printf(TEXT("%s · DONE"), *T.Title), false);
 	else Failed(TEXT("NOT BOUGHT"));
 	return bOk;
@@ -669,6 +692,8 @@ void AFTGameMode::TickPreProduction(float RDt)
 	UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this);
 	BuildTiles();
 	if (!PC || !CS || PhaseT < 0.3f) return;
+	// Navigation may still open pause; a second shop mutation cannot overtake this save.
+	if (CS->bSaving) { BuyHoldT = 0.f; return; }
 	int32& Sel = TabSel[(int32)Tab];
 	// tabs: Tab / Q / E, pad LB / RB, or a click
 	const int32 NT = (int32)EFTTab::Count;

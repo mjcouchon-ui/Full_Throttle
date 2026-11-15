@@ -12,9 +12,14 @@
 // long. The chase camera, rolled with the road, looks straight at it: a third of the frame. No Scatter or Site piece
 // can stand there (they stand level, at the uncut land's height). A Bank rule gives the track a panel drawn FLAT and
 // the track lays it on its own cutting, panel after panel along the bend: turned to the slope (whatever the bank's
-// angle, and through the bend's lead-in and lead-out, where it changes), pitched to the grade, stretched along to its
-// share of the bend and up the slope to the cutting's length. The cutting is the track's own mesh (the bed), so a
-// panel on it hides nothing the bed does not hide; it is tested only against OTHER parts of the road.
+// angle), its long side along the land's edge, pitched to the grade, stretched along to its share of the bend and up
+// the slope to the cutting's length. Through the bend's lead-in and lead-out the cutting deepens under a panel (its
+// foot sinks as the bank comes on, its top stays at the land's edge): there the panel is kept inside the cutting at
+// both of its ends, so its top edge makes one level line under the land's edge and its foot steps down from panel to
+// panel, and where the cutting deepens fast the panel is laid as two halves, a half as two quarters, a quarter as two
+// eighths: the panel's own design, squeezed along the road (FTTrack.cpp, LayBank).
+// The cutting is the track's own mesh (the bed), so a panel on it hides nothing the bed does not hide; it is tested
+// only against OTHER parts of the road.
 // Looks only: instanced meshes without collision. AFTTrack::BuildProps places them after the level's own props (which
 // keep their places) and runs every piece through the same road-clearance test as a prop: a piece that would touch
 // its own barrier is pushed out, one that would touch any other part of the road is left out. Near pieces also keep
@@ -42,8 +47,8 @@ struct FFTDressRule
 	bool bLight = false;          // carries one of the road's pooled lamp lights
 	// Bank only. Every and Phase count PANELS there, not slots (so two rules can take alternate panels).
 	int32 Per = 4;                // panels to a 45 m slot: 4 = 11.3 m of road each (on the tightest bend a longer one would not lie flat)
-	float RunMin = 0.f, RunMax = 1.e9f; // laid only where the panel's own run up the cutting is this long (metres): a tall design and a low one
-	float Foot = 0.6f, Top = 0.5f; // metres of the cutting left bare under the panel (behind the low barrier) and above it (under the land's edge)
+	float RunMin = 0.f, RunMax = 1.e9f; // laid only where the panel's own run up the cutting (at the panel's middle) is this long (metres): a tall design and a low one
+	float Foot = 0.6f, Top = 0.5f; // metres of the cutting left bare under the panel at the least (behind the low barrier; in a lead-in up to 0.8 m more at a piece's deeper end, more under an eighth) and above it (under the land's edge)
 };
 
 struct FFTDressZone { FString Name; float FromKm = 0.f, ToKm = 1.e9f; TArray<FFTDressRule> Rules; };

@@ -111,13 +111,18 @@ function Same-Sum([string]$a, [string]$b) {
 $out = New-Object System.Collections.Generic.List[string]
 $out.Add(("# jam_verify {0}  {1}  quality {2}  {3}x{4}  {5}  (other Unreal processes running at the start: {6})" -f $Tag, (Get-Date -Format "yyyy-MM-dd HH:mm"), $Quality, $ResX, $ResY, $(if ($packaged) { "packaged: $Root" } else { "uncooked: $Checkout" }), $others))
 $cur = -1; $racing = $false; $st = $null; $all = @{}
+# Every error line of the log, with the track build it came under (0 = before the first one). A level's own errors
+# are reported with the level; the rest (the title screen's build of Bayshore's track behind the menu, a build that a
+# later one of the same level replaced, anything before the first track) are reported after the levels and fail the run.
+$errAll = New-Object System.Collections.Generic.List[object]; $sid = 0
 foreach ($line in [IO.File]::ReadLines($log)) {
   if ($line -match "LogFT: (Display|Warning): FT WARM ") { $out.Add("  " + $line.Substring($line.IndexOf("FT WARM"))) }
   if ($line -match "LogFT: Display: FTTRACK level=(\d+) (.*)$") {
-    $cur = [int]$Matches[1]
-    $st = @{ track = $Matches[2].Trim(); dress = ""; flush = 0; hitch = 0; worst = 0.0; errors = @(); boss = $false; reel = $false; pay = $false; stall = @(); sum = "" }
+    $cur = [int]$Matches[1]; $sid++
+    $st = @{ id = $sid; track = $Matches[2].Trim(); dress = ""; flush = 0; hitch = 0; worst = 0.0; errors = @(); boss = $false; reel = $false; pay = $false; stall = @(); sum = "" }
     $all[$cur] = $st; $racing = $false; continue
   }
+  if ($line -match "Fatal error|LogFT: Error|Ensure condition failed|result=timeout") { $errAll.Add(@{ id = $(if ($null -eq $st) { 0 } else { $st.id }); level = $cur; text = $line.Substring(0, [Math]::Min(200, $line.Length)) }) }
   if ($null -eq $st) { continue }
   if ($line -match "LogFT: Display: FTDRESS level=\d+ (.*)$") { $st.dress = $Matches[1].Trim() }
   if ($line -match "LogFT: Display: FTTRACKSUM level=\d+ (.*)$") { $st.sum = $Matches[1].Trim() }
@@ -155,9 +160,17 @@ foreach ($k in $asked) {
   if ($s.stall.Count) { $out.Add("        the autopilot stalled " + $s.stall.Count + " time(s): " + (($s.stall | Select-Object -First 3) -join "; ")) }
   foreach ($e in $s.errors) { $out.Add("        ! " + $e) }
 }
+# errors that belong to none of the reports above
+$shown = @($asked | Where-Object { $all.ContainsKey($_) } | ForEach-Object { $all[$_].id })
+$stray = @($errAll | Where-Object { $shown -notcontains $_.id })
+if ($stray.Count) {
+  $bad++
+  $out.Add(("FAIL  {0} error line(s) outside the levels asked for (the title screen's own track build, between levels, or before the first track):" -f $stray.Count))
+  foreach ($e in ($stray | Select-Object -First 6)) { $out.Add(("        ! [{0}] {1}" -f $(if ($e.id -eq 0) { "before any track" } else { "under a build of level " + ($e.level + 1) }), $e.text)) }
+}
 $first = Get-ChildItem $dst -Filter *.png | Select-Object -First 1
 if ($first) { Add-Type -AssemblyName System.Drawing; $im = [System.Drawing.Image]::FromFile($first.FullName); $out.Add(("frame size {0}x{1} (asked for {2}x{3}); {4} frames -> {5}" -f $im.Width, $im.Height, $ResX, $ResY, (Get-ChildItem $dst -Filter *.png).Count, $dst)); $im.Dispose() }
-$out.Add(("levels checked {0} of {1}; not passing {2}" -f @($asked | Where-Object { $all.ContainsKey($_) }).Count, $lv.Count, $bad))
+$out.Add(("levels checked {0} of {1}; not passing {2}{3}" -f @($asked | Where-Object { $all.ContainsKey($_) }).Count, $lv.Count, $bad, $(if ($stray.Count) { " (one of them: errors outside the levels)" } else { "" })))
 $rep = "K:\Full Throttle\SkyScratch\DevLog\jam\verify_$Tag.txt"
 Set-Content -LiteralPath $rep -Value $out -Encoding utf8
 $out

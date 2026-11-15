@@ -171,6 +171,7 @@ public:
 	int32 SystemScreen = 0, SystemSelection = 0;
 	void ToggleSystemMenu();
 	void RequestSystemQuit(bool bDesktop = true);
+	void PollSystemSave();
 	void SystemNavigate(int32 Delta);
 	void SystemActivate();
 	void SystemBack();
@@ -184,6 +185,7 @@ public:
 private:
 	bool bSessionReady = false;
 	int32 MenuHome = 2, RequestedExit = 0;
+	bool bSystemSaveWait = false, bSystemExitNeedsConfirm = false, bSystemDiscardAfterWait = false;
 	double InputResumeAt = 0;
 	TArray<TWeakObjectPtr<class UAudioComponent>> SystemPausedAudio;
 	void InitializeSession();
@@ -191,6 +193,9 @@ private:
 	bool SaveCheckpoint(const TCHAR* Reason);
 	void SetSystemScreen(int32 Screen);
 	void FinishSystemAction(bool bDiscard);
+	void CompleteSystemAction(bool bDiscard);
+	bool IsSystemSaving() const;
+	bool HasSystemSaveError() const;
 	struct FIn { float Steer = 0, Throttle = 0; bool Fire = false, Kick = false, Jump = false, Enter = false, Grab = false; };
 	FIn ReadInput();
 	FIn AutoInput();

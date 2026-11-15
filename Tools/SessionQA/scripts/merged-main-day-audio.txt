@@ -1,0 +1,17 @@
+wait 2
+ft.Press Enter
+waitfor FTBRAWL music day start S_DayMusic|20
+wait 1
+ft.AudioState
+ft.Press Escape
+wait 1
+ft.AudioState
+shot merged-main-day-pause
+ft.Press Escape
+wait 1
+ft.AudioState
+ft.WindowClose
+wait 1
+ft.Press Down
+wait 0.3
+ft.Press Enter

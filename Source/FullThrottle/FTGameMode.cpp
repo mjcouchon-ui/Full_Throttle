@@ -489,6 +489,14 @@ void AFTGameMode::Tick(float Dt)
 	const float RDt = FMath::Min(FApp::GetDeltaTime(), 0.1f);
 	AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController());
 	UFTGameInstance* G = GI();
+	if (!PPPendingMessage.IsEmpty())
+	{
+		if (const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this); CS && !CS->bSaving)
+		{
+			const FString Result = MoveTemp(PPPendingMessage); PPPendingMessage.Reset();
+			PPSay(CS->bSaveError ? CS->SaveError : Result, CS->bSaveError);
+		}
+	}
 	// System input wins before any phase timer, reward navigation, driving or attract simulation.
 	if (Overlay != EFTOverlay::None)
 	{
@@ -605,9 +613,9 @@ void AFTGameMode::Tick(float Dt)
 		// title, both through PRE-PRODUCTION
 		if (PC && PhaseT > 1.0f)
 		{
-			if (PC->Hit(EKeys::R) && RequireProgressSaved()) { PayNext = 1; EnterPreProduction(Level, false); }
+			if (PC->Hit(EKeys::R)) { if (RequireProgressSaved([this]() { PayNext = 1; EnterPreProduction(Level, false); })) { PayNext = 1; EnterPreProduction(Level, false); } }
 			else if (PC->MenuBack()) { RequestSystemQuit(false); }
-			else if (PhaseT > 2.9f && (PC->MenuOk() || PC->Clicked(ResultsContinueRect)) && RequireProgressSaved()) EnterPaycheck();
+			else if (PhaseT > 2.9f && (PC->MenuOk() || PC->Clicked(ResultsContinueRect)) && RequireProgressSaved([this]() { EnterPaycheck(); })) EnterPaycheck();
 		}
 		break;
 	}
@@ -750,16 +758,7 @@ void AFTGameMode::TickTitle(float RDt)
 	if (TitleSel != PreviousLevel) UE_LOG(LogFT, Display, TEXT("FT TITLE sel=%d"), TitleSel + 1);
 	switch (Activate)
 	{
-	case 0:
-		if (UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this); CS && CS->HasContinue())
-		{
-			StopAttract();
-			PC->BlockMenuInputUntilRelease();
-			if (UFTNightFlow::ResumeSaved(this)) return;
-			SystemMessage = TEXT("This checkpoint could not be opened. Your saved progress is unchanged.");
-			EnterTitle(false);
-		}
-		return;
+	case 0: ContinueCampaign(); return;
 	case 1:
 		if (const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this); CS && (CS->HasContinue() || CS->bLoadError || IFileManager::Get().FileExists(*CS->FilePath()) || IFileManager::Get().FileExists(*(CS->FilePath() + TEXT(".bak")))))
 			OpenSystemDialog(EFTSystemDialog::NewGame, 3);
@@ -782,17 +781,38 @@ void AFTGameMode::TickTitle(float RDt)
 	}
 }
 
+void AFTGameMode::ContinueCampaign()
+{
+	if (!RequireProgressSaved([this]() { ContinueCampaign(); })) return;
+	if (UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this); CS && CS->HasContinue())
+	{
+		StopAttract();
+		if (AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController())) PC->BlockMenuInputUntilRelease();
+		if (UFTNightFlow::ResumeSaved(this)) return;
+		SystemMessage = TEXT("This checkpoint could not be opened. Your saved progress is unchanged.");
+		EnterTitle(false);
+	}
+}
+
 void AFTGameMode::TitleStart()
 {
+	if (!RequireProgressSaved([this]() { TitleStart(); })) return;
 	if (UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this); CS && TitleSel == 0)
 	{
 		CS->C.Stats.Runs++;
-		if (!CS->Save(TEXT("Run")))
+		const bool bAccepted = CS->Save(TEXT("Run"));
+		if (!bAccepted || CS->bSaving || CS->bSaveError)
 		{
-			CS->C.Stats.Runs--;
-			SystemMessage = CS->SaveError; OpenSystemDialog(EFTSystemDialog::SaveFailed, 4); return;
+			// This run counter is staged once; Retry only writes that same snapshot.
+			WaitForProgressSave([this]() { StartSelectedRace(); });
+			return;
 		}
 	}
+	StartSelectedRace();
+}
+
+void AFTGameMode::StartSelectedRace()
+{
 	UE_LOG(LogFT, Display, TEXT("FT TITLE start level=%d attract=%d"), TitleSel + 1, bAttract ? 1 : 0);
 	// level 1 from the title: day 1's cutscene BEFORE THE DRIVE (L_Day1Set) first, its ENTER starts the race (FTNightFlow);
 	// autopilot / script / bench runs go straight to the race as before unless -ftday1
@@ -981,7 +1001,8 @@ void AFTGameMode::ResumeSystemPause()
 	Overlay = EFTOverlay::None;
 	DrawnOverlay = EFTOverlay::None;
 	SystemDialog = EFTSystemDialog::None;
-	SystemAction = 0; bPendingSystemSave = false;
+	SystemAction = 0; bPendingSystemSave = false; bSystemSaveSubmitted = false;
+	bExitWarningAfterSave = false; SavedContinuation = {}; SaveRetryOperation = {};
 	bOverlayFromPause = false;
 	if (bSystemPaused)
 	{
@@ -1014,7 +1035,8 @@ void AFTGameMode::OpenSystemDialog(EFTSystemDialog Dialog, int32 Action)
 
 void AFTGameMode::CloseSystemDialog()
 {
-	SystemDialog = EFTSystemDialog::None; SystemAction = 0; bPendingSystemSave = false;
+	SystemDialog = EFTSystemDialog::None; SystemAction = 0; bPendingSystemSave = false; bSystemSaveSubmitted = false;
+	bExitWarningAfterSave = false; SavedContinuation = {}; SaveRetryOperation = {};
 	SystemMessage.Reset();
 	if (bDialogFromPause) { Overlay = EFTOverlay::Pause; PauseRow = 0; DrawnOverlay = EFTOverlay::None; }
 	else ResumeSystemPause();
@@ -1023,17 +1045,21 @@ void AFTGameMode::CloseSystemDialog()
 void AFTGameMode::RequestSystemQuit(bool bDesktop)
 {
 	const int32 Action = bDesktop ? 1 : 2;
+	if (bPendingSystemSave && SystemAction == Action) return;
 	if (SystemDialog == EFTSystemDialog::SaveFailed && SystemAction == Action) return;
-	SystemAction = Action;
+	SystemAction = Action; bSystemSaveSubmitted = false;
+	SavedContinuation = {}; SaveRetryOperation = {};
+	const bool bRestartRace = !bAttract && !bRunCommitted &&
+		(Phase == EFTPhase::Play || Phase == EFTPhase::Card || Phase == EFTPhase::Wreck || Phase == EFTPhase::Wrap);
 	UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this);
 	if (CS && CS->bSaving)
 	{
-		OpenSystemPause(); bPendingSystemSave = true;
-		SystemMessage = TEXT("Finishing the save before leaving...");
+		bDialogFromPause = bSystemPaused;
+		OpenSystemPause(); bPendingSystemSave = true; bExitWarningAfterSave = bRestartRace;
+		SystemMessage = TEXT("Finishing the save before leaving... ESC / B cancels leaving.");
+		UE_LOG(LogFT, Display, TEXT("FT SYSTEM save_wait action=%d submitted=0"), Action);
 		return;
 	}
-	const bool bRestartRace = !bAttract && !bRunCommitted &&
-		(Phase == EFTPhase::Play || Phase == EFTPhase::Card || Phase == EFTPhase::Wreck || Phase == EFTPhase::Wrap);
 	if (bRestartRace)
 	{
 		SystemMessage = TEXT("Continue will restart this race from its beginning. This take's score and position will not be kept.");
@@ -1048,21 +1074,46 @@ void AFTGameMode::AttemptSystemAction(bool bWithoutSaving)
 	UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this);
 	const int32 Action = SystemAction;
 	if (!Action) return;
-	if (CS && CS->bSaving) { bPendingSystemSave = true; return; }
-	bPendingSystemSave = false;
-	const bool bSaved = bWithoutSaving || (CS && (Action == 3 ? CS->Reset() : CS->Save(
-		Action == 1 ? TEXT("QuitDesktop") : Action == 2 ? TEXT("QuitTitle") : TEXT("RetryCheckpoint"))));
-	if (!bSaved)
+	if (bWithoutSaving) { FinishSystemAction(true); return; }
+	if (CS && CS->bSaving)
 	{
-		SystemMessage = CS ? CS->SaveError : TEXT("The campaign save system is unavailable.");
+		if (!bSystemPaused) { bDialogFromPause = false; OpenSystemPause(); }
+		bPendingSystemSave = true;
+		SystemMessage = TEXT("Finishing the save... ESC / B cancels leaving this screen.");
+		return;
+	}
+	const bool bAccepted = CS && (SaveRetryOperation ? SaveRetryOperation() : Action == 3 ? CS->Reset() : CS->Save(
+		Action == 1 ? TEXT("QuitDesktop") : Action == 2 ? TEXT("QuitTitle") : TEXT("RetryCheckpoint")));
+	bSystemSaveSubmitted = bAccepted;
+	if (!bAccepted || (!CS->bSaving && CS->bSaveError))
+	{
+		bPendingSystemSave = false;
+		SystemMessage = CS && !CS->SaveError.IsEmpty() ? CS->SaveError : TEXT("The campaign save system is unavailable.");
 		OpenSystemDialog(EFTSystemDialog::SaveFailed, Action);
 		return;
 	}
+	if (CS->bSaving)
+	{
+		if (!bSystemPaused) { bDialogFromPause = false; OpenSystemPause(); }
+		bPendingSystemSave = true;
+		SystemMessage = TEXT("Saving progress... ESC / B cancels leaving this screen.");
+		UE_LOG(LogFT, Display, TEXT("FT SYSTEM save_wait action=%d submitted=1"), Action);
+		return;
+	}
+	FinishSystemAction();
+}
+
+void AFTGameMode::FinishSystemAction(bool bWithoutSaving)
+{
+	const int32 Action = SystemAction;
+	bPendingSystemSave = false; bSystemSaveSubmitted = false;
 	UE_LOG(LogFT, Display, TEXT("FT SYSTEM action=%d saved=%d explicitDiscard=%d"), Action, bWithoutSaving ? 0 : 1, bWithoutSaving ? 1 : 0);
 	if (Action == 4)
 	{
 		if (bPayValid) Pay.bSaved = true;
+		TFunction<void()> Next = MoveTemp(SavedContinuation);
 		CloseSystemDialog();
+		if (Next) Next();
 		return;
 	}
 	if (bSystemPaused) ResumeSystemPause();
@@ -1075,19 +1126,38 @@ void AFTGameMode::AttemptSystemAction(bool bWithoutSaving)
 	else if (Action == 3)
 	{
 		UFTNightFlow::ClearSession(this);
+		bPayValid = false;
 		SystemMessage.Reset();
 		TitleSel = 0;
 		TitleStart();
 	}
 }
 
-bool AFTGameMode::RequireProgressSaved()
+void AFTGameMode::WaitForProgressSave(TFunction<void()> OnSaved, TFunction<bool()> Retry)
 {
-	UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this);
+	SavedContinuation = MoveTemp(OnSaved); SaveRetryOperation = MoveTemp(Retry);
+	SystemAction = 4; bSystemSaveSubmitted = true;
+	if (Overlay != EFTOverlay::System) bDialogFromPause = bSystemPaused;
+	const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this);
+	if (!CS || (!CS->bSaving && CS->bSaveError))
+	{
+		bSystemSaveSubmitted = false;
+		SystemMessage = CS && !CS->SaveError.IsEmpty() ? CS->SaveError : TEXT("The campaign save system is unavailable.");
+		OpenSystemDialog(EFTSystemDialog::SaveFailed, 4);
+		return;
+	}
+	if (!CS->bSaving) { FinishSystemAction(); return; }
+	OpenSystemPause(); bPendingSystemSave = true;
+	SystemMessage = TEXT("Saving progress... ESC / B cancels leaving this screen.");
+	UE_LOG(LogFT, Display, TEXT("FT SYSTEM save_wait action=4 submitted=1"));
+}
+
+bool AFTGameMode::RequireProgressSaved(TFunction<void()> OnSaved)
+{
+	const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this);
 	if (!CS || CS->bSaveError || CS->bSaving || (bPayValid && !Pay.bSaved))
 	{
-		SystemMessage = CS ? CS->SaveError : TEXT("The campaign save system is unavailable.");
-		OpenSystemDialog(EFTSystemDialog::SaveFailed, 4);
+		WaitForProgressSave(MoveTemp(OnSaved));
 		return false;
 	}
 	return true;
@@ -1105,8 +1175,32 @@ void AFTGameMode::TickOverlay(float RDt)
 	const bool bConfirm = PC->Hit(EKeys::Enter) || PC->Hit(EKeys::Gamepad_FaceButton_Bottom);
 	if (bPendingSystemSave)
 	{
+		// Cancelling navigation leaves the queued write running and never discards it.
+		if (PC->MenuBack() || PC->Hit(EKeys::Gamepad_Special_Right) || bConfirm || Clicked(0))
+		{
+			UE_LOG(LogFT, Display, TEXT("FT SYSTEM save_wait cancelled action=%d"), SystemAction);
+			CloseSystemDialog(); return;
+		}
 		const UFTCareerSubsystem* CS = UFTCareerSubsystem::Get(this);
-		if (!CS || !CS->bSaving) AttemptSystemAction();
+		if (CS && CS->bSaving) return;
+		bPendingSystemSave = false;
+		const bool bOriginalFromPause = bDialogFromPause;
+		if (!CS || CS->bSaveError)
+		{
+			bSystemSaveSubmitted = false;
+			SystemMessage = CS && !CS->SaveError.IsEmpty() ? CS->SaveError : TEXT("The campaign save system is unavailable.");
+			OpenSystemDialog(EFTSystemDialog::SaveFailed, SystemAction);
+			bDialogFromPause = bOriginalFromPause;
+		}
+		else if (bExitWarningAfterSave)
+		{
+			bExitWarningAfterSave = false;
+			SystemMessage = TEXT("Continue will restart this race from its beginning. This take's score and position will not be kept.");
+			OpenSystemDialog(EFTSystemDialog::ExitCheckpoint, SystemAction);
+			bDialogFromPause = bOriginalFromPause;
+		}
+		else if (bSystemSaveSubmitted) FinishSystemAction();
+		else AttemptSystemAction();
 		return;
 	}
 	if (Overlay == EFTOverlay::System)

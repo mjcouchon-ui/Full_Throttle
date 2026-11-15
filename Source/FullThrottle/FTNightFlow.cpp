@@ -98,12 +98,20 @@ bool UFTNightFlow::Go(const UObject* Ctx, const FString& SpecIn)
 	const bool bBoss = S.EndsWith(TEXT("BOSS"));
 	if (bBoss) S = S.LeftChop(4).TrimEnd();
 	const int32 N = S.Len() >= 2 ? FCString::Atoi(*S.RightChop(1)) : 0;
-	if (!NF || !G || N < 1 || N > FTData::NumLevels() || (S[0] != TEXT('L') && S[0] != TEXT('N')))
+	if (!NF || !G || N < 1 || N > FTData::NumLevels() || (S[0] != TEXT('L') && S[0] != TEXT('N') && S[0] != TEXT('D') && S[0] != TEXT('W')))
 	{
-		UE_LOG(LogFT, Warning, TEXT("FT GO bad spec=%s (L<n>[boss] or N<n>[boss])"), *SpecIn);
+		UE_LOG(LogFT, Warning, TEXT("FT GO bad spec=%s (L<n>[boss], N<n>[boss], D<n> or W<n>)"), *SpecIn);
 		return false;
 	}
 	ClearSession(Ctx);
+	if (S[0] == TEXT('D') || S[0] == TEXT('W'))
+	{
+		// run 2 cycle 5: day N's BEFORE THE DRIVE (D) or THE WRAP (W) on the day set (script runs also need -ftdays)
+		UE_LOG(LogFT, Display, TEXT("FT GO day=%d cut=%s"), N, S[0] == TEXT('W') ? TEXT("wrap") : TEXT("before"));
+		if (GoToDayCut(Ctx, N - 1, S[0] == TEXT('W'))) return true;
+		UE_LOG(LogFT, Warning, TEXT("FT GO day=%d refused (no day set, or a script run without -ftdays)"), N);
+		return false;
+	}
 	if (S[0] == TEXT('N'))
 	{
 		// the night after race N, as the paycheck opens it: afterwards PRE-PRODUCTION on race N's map for race N+1

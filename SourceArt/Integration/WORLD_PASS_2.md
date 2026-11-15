@@ -68,23 +68,44 @@ Works' hairpins climb while banked, and no piece could follow a bend's lead-in. 
 it, turned, pitched and stretched to fit, 11.3 m of road each. The track is untouched: `FTTRACK` equals
 `track_baseline.txt` on every level with the panels on and off (`ft.DressBank 0`).
 
-| Level | Panels laid | Along | What |
+| Level | Pieces laid | Along | What |
 |---|---|---|---|
-| Chemical Works | 589 | 5.9 km | The works' concrete facing: slabs, the teal main on its saddles, a hazard placard or leaking outlets (`SM_CutRevet`, `SM_CutRevet2`); one course of slabs on the shallow cuttings (`SM_CutKerb`, `SM_CutKerb2`). 50 lengths are left bare where the finale laps beside itself, 3 where the bank is too bent |
-| Nevada | 87 | 0.8 km | The highway cut through the red rock: seven beds that run from panel to panel, sage and fallen blocks (`SM_CutStrata`, `SM_CutStrata2`); a low ledge (`SM_CutLedge`) |
-| Volcano | 144 | 1.4 km | Basalt columns in three greys, ash on their heads (`SM_CutBasalt`, `SM_CutBasalt2`); slumped ash (`SM_CutAsh`). The finale's bends are banked 14 degrees: too little cutting shows over the barrier, so they are left alone |
-| Ice Mountain | 516 | 5.3 km | Layers of blue ice, splinters standing proud, a cornice of snow, the mountain's rock on every third panel (`SM_CutIce`, `SM_CutIce2`); a ploughed snow bank with a seam of ice (`SM_CutSnow`) |
-| Under the Sea | 412 | 4.3 km | Beds of reef rock and packed sand, crusts of coral and weed (`SM_CutReef`, `SM_CutReef2`); a low shoal (`SM_CutShoal`). Not one of the four levels asked for: its pale wall was on the list above and the rule made it three table lines |
+| Chemical Works | 971 (589 before the lead-ins were refitted) | 5.9 km | The works' concrete facing: slabs, the teal main on its saddles, a hazard placard or leaking outlets (`SM_CutRevet`, `SM_CutRevet2`); one course of slabs on the shallow cuttings (`SM_CutKerb`, `SM_CutKerb2`). 50 lengths are left bare where the finale laps beside itself, 3 where the bank is too bent |
+| Nevada | 127 (87) | 0.8 km | The highway cut through the red rock: seven beds that run from panel to panel, sage and fallen blocks (`SM_CutStrata`, `SM_CutStrata2`); a low ledge (`SM_CutLedge`) |
+| Volcano | 210 (144) | 1.4 km | Basalt columns in three greys, ash on their heads (`SM_CutBasalt`, `SM_CutBasalt2`); slumped ash (`SM_CutAsh`). The finale's bends are banked 14 degrees: too little cutting shows over the barrier, so they are left alone |
+| Ice Mountain | 874 (516) | 5.3 km | Layers of blue ice, splinters standing proud, a cornice of snow, the mountain's rock on every third panel (`SM_CutIce`, `SM_CutIce2`); a ploughed snow bank with a seam of ice (`SM_CutSnow`) |
+| Under the Sea | 578 (412) | 4.3 km | Beds of reef rock and packed sand, crusts of coral and weed (`SM_CutReef`, `SM_CutReef2`); a low shoal (`SM_CutShoal`). Not one of the four levels asked for: its pale wall was on the list above and the rule made it three table lines |
 
 Before and after, from one build: `K:\Full Throttle\SkyScratch\HandBack\jam\dress2\banks_<level>_before_after.jpg`
 (the editor's chase camera) and `banks_play.jpg` (the real game).
 
+**The lead-ins, refitted the same afternoon.** A review found that through a bend's lead-in and lead-out, where the
+cutting deepens under a panel (its foot sinks as the bank comes on, its top stays at the land's edge), a panel sized
+from its middle stood a corner 30 to 60 cm out of the ground at the land's edge, one or two panels a wall bend, and
+left bare wedges at its deep end. A piece now runs with the land's edge and is kept inside the cutting at both of its
+ends: one level top line half a metre under the land's edge, a foot that steps down as the cutting deepens, and
+halves, quarters and eighths where it deepens fast (`WORLD.md`). That is why there are more pieces on the same
+lengths: 127 of the Chemical Works' 617 lengths are laid in shorter pieces, 14 of Nevada's 79, 22 of the Volcano's
+138, 113 of Ice Mountain's 506, 74 of Under the Sea's 409. No length is left bare for being too bent any more (3 on
+the Chemical Works and 1 on the Volcano were). Every other rule's placements are the same piece for piece, and the
+track's fingerprint is the baseline's on all eight levels. Before and after, the first wall bend of the Chemical
+Works from the road and from over the land's edge: `K:\Full Throttle\SkyScratch\HandBack\jam\dress2\banks_leadin_before_after.jpg`.
+
 Still weak here:
 - Panels are flat and 11 m long: at a lap a faint tick shows where two meet, most on Ice Mountain's snow.
+- In a lead-in every piece is the whole design at its own height, so a design's level bands (the Chemical Works'
+  teal main, Nevada's beds, the ice layers) step from piece to piece instead of running through, and a quarter or
+  an eighth squeezes the design's width: joints stand close and a placard becomes a sliver. A top strip of fixed
+  height along the land's edge with the body stretched under it would carry a band through; it needs the designs
+  drawn in two parts.
+- On the Chemical Works' two climbing hairpins (2.6 and 3.6 km) up to 12 cm of bank shows between two whole panels'
+  bottom corners, closing 1.5 m up: the 3% lap closes the tightest bend only on a level road. 4.5% would close it,
+  with 15 cm more lap on every panel of every level; not changed without frames of 2.69 km.
 - The Chemical Works' facing is the brightest thing near the road on a dark level. It is unlit; if it pulls the eye,
   the slab colour is one word in the kit (`cut_revet`). The Volcano's columns and ash were darkened once after the
   first real-game frames: under the game's own light they stood as the palest big thing on screen (the editor's
   captures are darker than the game and had hidden it).
-- Under the Sea is now over the pass's guide of 8,000 placed pieces (8,095). Frame time is still not measured.
-- The Chemical Works' finale: the 50 bare lengths are where a panel's box came within 15 m of the other lap. The
+- Under the Sea is now over the pass's guide of 8,000 placed pieces (8,261 with the refitted lead-ins). Frame time is
+  still not measured.
+- The Chemical Works' finale: the 51 bare lengths are where a panel's box came within 15 m of the other lap. The
   test is cautious (a box round a tilted panel); a finer one would fill most of them.

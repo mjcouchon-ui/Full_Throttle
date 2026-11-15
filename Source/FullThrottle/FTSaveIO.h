@@ -18,6 +18,9 @@
 // primary is never deleted to make room. Interrupted temporary files are ignored.
 namespace FTSaveIO
 {
+// Call on the game thread. Completion is delivered on the game thread; callers
+// keep one request active and coalesce their latest snapshot to preserve order.
+void WriteAsync(FString Path, FString Text, bool bPreserveBackup, TFunction<void(bool, const FString&)> Completion);
 inline bool Replace(const FString& From, const FString& To)
 {
 	FString A = FPaths::ConvertRelativePathToFull(From), B = FPaths::ConvertRelativePathToFull(To);
@@ -40,7 +43,7 @@ inline bool DurableText(const FString& Path, const FString& Text)
 	return FFileHelper::LoadFileToString(Check, *Path) && Check == Text;
 }
 
-inline bool Write(const FString& Path, const FString& Text, FString& Error, bool bPreserveBackup = false)
+inline bool Write(const FString& Path, const FString& Text, FString& Error, bool bPreserveBackup = false, int32 FaultOverride = -1)
 {
 	static FCriticalSection Mutex;
 	FScopeLock Lock(&Mutex);
@@ -50,8 +53,8 @@ inline bool Write(const FString& Path, const FString& Text, FString& Error, bool
 	const FString Tmp = Path + TEXT(".tmp-") + Token, Bak = Path + TEXT(".bak"), BakTmp = Bak + TEXT(".tmp-") + Token;
 	auto Fail = [&](const TCHAR* Why) { Error = Why; Files.DeleteFile(*Tmp); Files.DeleteFile(*BakTmp); return false; };
 #if !UE_BUILD_SHIPPING
-	const IConsoleVariable* Fault = IConsoleManager::Get().FindConsoleVariable(TEXT("ft.SaveFail"));
-	const int32 FaultMode = Fault ? Fault->GetInt() : 0;
+	const IConsoleVariable* Fault = FaultOverride < 0 ? IConsoleManager::Get().FindConsoleVariable(TEXT("ft.SaveFail")) : nullptr;
+	const int32 FaultMode = FaultOverride >= 0 ? FaultOverride : Fault ? Fault->GetInt() : 0;
 	if (FaultMode == 1) { UE_LOG(LogTemp, Warning, TEXT("FT SAVE fault=write_before_replace path=%s"), *Path); return Fail(TEXT("Test save failure (ft.SaveFail=1). Previous progress is unchanged.")); }
 #endif
 	if (!Files.CreateDirectoryTree(*FPaths::GetPath(Path))) return Fail(TEXT("Cannot create the save folder."));
