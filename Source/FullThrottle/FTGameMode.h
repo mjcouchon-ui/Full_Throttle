@@ -237,6 +237,7 @@ public:
 	// test harness (spec 12 §9; development builds)
 	struct FFTHold { bool bUp = false, bTurbo = false, bDown = false, bDrift = false, bFire = false; } Held;
 	bool bHarnessInvuln = false;
+	bool bHarnessFreeze = false;   // 2.9 FTFreeze: holds the world still (time dilation 0.0001) for same-frame A/B screenshots
 	int32 AutoWreck = -1, AutoLeave = 0; float AutoWrapAt = -1.f; int32 AutoTurbo = 0; bool bAutoRun = false;
 	void HarnessCmd(const FString& Cmd, const TArray<FString>& Args);
 	void StartLevelAt(int32 L, int32 SceneIdx, bool bSequel);

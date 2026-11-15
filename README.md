@@ -1,4 +1,4 @@
-# FULL THROTTLE 2.8.0: the Unreal Engine 5.9 game
+# FULL THROTTLE 2.9.0: the Unreal Engine 5.9 game
 
 The 80s spy car chase (web app `full-throttle`, 1.7.2) rebuilt as a native Unreal Engine 5.9 game for Windows,
 C++ plus Blueprints. WispOS opens the packaged build as the native app `full-throttle-unreal`
@@ -268,3 +268,24 @@ No file in the project is over 50 MB. `Binaries`, `Intermediate`, `Saved` and `D
   - *Tests* (Development package): `../full-throttle-tests/v280/run.sh yeti` (the real finale spawn on the Glacier,
     shots of the chase, the turn and a charge) and `run.sh crews` (every level's crew on its own road, 24 shots);
     0 errors, 0 missing material usage flags.
+
+- **2.9.0 (owner's queue): the Mac performance audit (Apple M1 Max, 14 Nov 2026) taken in.** (Settings section:
+  `FTGameInstance.*`, `FTHUD.cpp`, `FTGameMode.*`, `FTFlow.cpp`, `Config/DefaultEngine.ini`, `Config/Mac/MacEngine.ini`.)
+  - *AUTO on an Apple GPU* (`UFTGameInstance::CapAutoForApple`): Unreal's hardware benchmark rates Apple chips far above
+    what they deliver (AUTO picked EPIC, 19-27 fps). Now AUTO there caps view distance, anti-aliasing, shadows, post,
+    foliage, shading and landscape at HIGH, keeps effects, textures, GI and reflections as measured (so Lumen stays on:
+    Metro's lobby loses its bounce light without it), caps the render target at ~1.65 megapixels (67 % at 2560×1440, 84 %
+    at 2048×1152, this PC's test window, 89 % at 1920×1080) and lets dynamic resolution drop to 50 % to hold 60 fps.
+    LOW/MEDIUM/HIGH/EPIC are unchanged on every GPU, and so is AUTO on Windows. Log line: `FT QUALITY auto=apple ...`.
+    `-ftfakeapple` (or console `FTQuality apple` in a Development build) runs the Apple path on any PC.
+  - AUTO is AUTO again after picking another preset in the same session (the benchmark result is kept).
+  - Dynamic-resolution GPU budget 15.5 ms (was 16.6), so a frame that barely fits doesn't miss a 60 Hz VSync.
+  - Mac-only config for a later Mac package: no DBuffer decals on the Mac (`Config/Mac/MacEngine.ini`; the game has no
+    decals and on Metal SM5 they force a depth prepass), no Metal ray-tracing shaders (Lumen here is software).
+  - Clang fix: `SetupLevel`'s one-pass for-loop (rejected on Mac) is an if.
+  - Options screen text no longer says Nanite/VSM run at every preset (false on a Mac's SM5 path).
+  - Test hooks: `FTFreeze` (holds one frame) and `FTQuality <-1..4|apple>` for same-frame A/B shots
+    (`../full-throttle-tests/v290/ab.sh`, `pngdiff.py`). AUTO-on-Apple vs EPIC on the same frame, all 8 levels: mean
+    pixel difference 1.0-1.8 / 255, the same as EPIC against itself a moment later (0.7-1.5): the cel look holds.
+  - Bench (Shipping, this PC, 2048×1152 window; the run was stopped after levels 1-4 on the owner's order):
+    2.8.0 → 2.9.0 on Windows within ±3.4 % GPU ms at every preset, as intended (`../full-throttle-tests/v290/*.txt`).

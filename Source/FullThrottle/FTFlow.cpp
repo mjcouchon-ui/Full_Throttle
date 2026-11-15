@@ -1026,6 +1026,15 @@ void AFTGameMode::HarnessCmd(const FString& Cmd, const TArray<FString>& A)
 		else if (W == TEXT("Drift")) Held.bDrift = bOn; else if (W == TEXT("Fire")) Held.bFire = bOn;
 	}
 	else if (Cmd == TEXT("FTInvuln")) bHarnessInvuln = Arg(A, 0, TEXT("1")) != TEXT("0");
+	// 2.9: same-frame A/B of the graphics presets. FTFreeze [1|0] holds the world still; FTQuality <-1..4|apple> applies a preset
+	// ("apple" = AUTO on the Apple path, as on a Mac)
+	else if (Cmd == TEXT("FTFreeze")) { bHarnessFreeze = Arg(A, 0, TEXT("1")) != TEXT("0"); UE_LOG(LogFT, Display, TEXT("FT FREEZE on=%d"), bHarnessFreeze ? 1 : 0); }
+	else if (Cmd == TEXT("FTQuality") && G)
+	{
+		const FString Q = Arg(A, 0, TEXT("-1"));
+		UFTGameInstance::bHarnessApple = Q == TEXT("apple");
+		G->ApplyQuality(UFTGameInstance::bHarnessApple ? -1 : FCString::Atoi(*Q), false);
+	}
 	else if (Cmd == TEXT("FTBossEscape")) { BossClock = BossEscapeT; UE_LOG(LogFT, Display, TEXT("FT BOSS clock=%.1f harness=escape"), BossClock); }
 	else if (Cmd == TEXT("FTWrapNow") && Phase == EFTPhase::Play)
 	{
@@ -1123,7 +1132,7 @@ namespace
 				TEXT("FTStartLevel"), TEXT("FTNextScene"), TEXT("FTBossNow"), TEXT("FTSpawn"), TEXT("FTSpawnAdd"), TEXT("FTSpawnCivilian"), TEXT("FTSpawnBarrel"),
 				TEXT("FTWreck"), TEXT("FTFire"), TEXT("FTCombo"), TEXT("FTLandStunt"), TEXT("FTAddScore"), TEXT("FTSlowMo"), TEXT("FTCrash"), TEXT("FTDamagePlayer"),
 				TEXT("FTPickup"), TEXT("FTRam"), TEXT("FTHold"), TEXT("FTInvuln"), TEXT("FTBossEscape"), TEXT("FTWrapNow"), TEXT("FTPayExample"), TEXT("FTPayCase"),
-				TEXT("FTDumpLevel"), TEXT("FTDumpSkills"), TEXT("FTDumpGarage"), TEXT("FTDumpShop"), TEXT("FTKey"), TEXT("FTAutoRun") };
+				TEXT("FTDumpLevel"), TEXT("FTDumpSkills"), TEXT("FTDumpGarage"), TEXT("FTDumpShop"), TEXT("FTKey"), TEXT("FTAutoRun"), TEXT("FTFreeze"), TEXT("FTQuality") };
 			for (const TCHAR* N : Names)
 			{
 				const FString Name(N);

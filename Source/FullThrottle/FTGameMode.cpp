@@ -134,7 +134,8 @@ void AFTGameMode::EndPlay(const EEndPlayReason::Type Reason)
 
 void AFTGameMode::SetupLevel()
 {
-	for (TActorIterator<AFTTrack> It(GetWorld()); It; ++It) { Track = *It; break; }
+	// the first track in the level (not a one-pass for-loop: clang on Mac rejects that, -Wunreachable-code-loop-increment)
+	if (TActorIterator<AFTTrack> It(GetWorld()); It) Track = *It;
 	if (!Track)
 	{
 		FActorSpawnParameters P; P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -2919,7 +2920,7 @@ void AFTGameMode::TickSlowmo(float RDt)
 	float Target = 1.f;
 	if (SlowT > 0.f) Target = SlowScale;
 	TimeScale = Target < TimeScale ? FMath::FInterpTo(TimeScale, Target, RDt, 12.f) : FMath::FInterpTo(TimeScale, Target, RDt, 3.f);
-	const float Final = FreezeT > 0.f ? 0.02f : TimeScale;
+	const float Final = bHarnessFreeze ? 0.0001f : FreezeT > 0.f ? 0.02f : TimeScale;   // FTFreeze: a still frame for same-frame A/B shots
 	UGameplayStatics::SetGlobalTimeDilation(this, Final);
 }
 
@@ -3227,7 +3228,9 @@ void AFTGameMode::TickBench(float RDt)
 	const FString Live = FString::Printf(TEXT("view%s shadow%s gi%s refl%s pp%s fx%s tex%s foliage%s shading%s vsync%s maxfps%s sp%s"),
 		*CV(TEXT("sg.ViewDistanceQuality")), *CV(TEXT("sg.ShadowQuality")), *CV(TEXT("sg.GlobalIlluminationQuality")), *CV(TEXT("sg.ReflectionQuality")),
 		*CV(TEXT("sg.PostProcessQuality")), *CV(TEXT("sg.EffectsQuality")), *CV(TEXT("sg.TextureQuality")), *CV(TEXT("sg.FoliageQuality")), *CV(TEXT("sg.ShadingQuality")),
-		*CV(TEXT("r.VSync")), *CV(TEXT("t.MaxFPS")), *CV(TEXT("r.ScreenPercentage")));
+		*CV(TEXT("r.VSync")), *CV(TEXT("t.MaxFPS")), *CV(TEXT("r.ScreenPercentage")))
+		// 2.9: anti-aliasing (2 TAA, 4 TSR) and the dynamic-resolution range the frames were allowed
+		+ FString::Printf(TEXT(" aa%s dynres%s-%s apple%d"), *CV(TEXT("r.AntiAliasingMethod")), *CV(TEXT("r.DynamicRes.MinScreenPercentage")), *CV(TEXT("r.DynamicRes.MaxScreenPercentage")), UFTGameInstance::IsAppleGpu() ? 1 : 0);
 	const FString Json = FString::Printf(TEXT("{\"level\":%d,\"quality\":\"%s\",\"tag\":\"%s\",\"seconds\":%.1f,\"frames\":%d,\"avg_fps\":%.1f,\"p1_low_fps\":%.1f,\"median_ms\":%.2f,\"p99_ms\":%.2f,\"worst_ms\":%.2f,\"frames_over_17_5ms\":%d,\"game_thread_ms\":%.2f,\"render_thread_ms\":%.2f,\"gpu_ms\":%.2f,\"gpu_p99_ms\":%.2f,\"live\":\"%s\",\"resolution\":\"%dx%d\",\"rhi\":\"%s\",\"gpu\":\"%s\",\"distance_m\":%.0f}"),
 		Level, *UFTGameInstance::QualityName(G->BenchQuality), *G->BenchTag, BenchT - 4.f, S.Num(), 1000.f / Avg, Low1, Pct(0.5f), Pct(0.99f), S.Last(), Over,
 		BenchGameMs / N, BenchRenderMs / N, BenchGpuMs / N, GpuP99, *Live,

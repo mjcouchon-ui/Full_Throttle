@@ -5,6 +5,9 @@
 #include "UnrealClient.h"
 #include "Misc/OutputDeviceRedirector.h"
 #include "GameFramework/GameUserSettings.h"
+#include "Engine/GameViewportClient.h"
+#include "UnrealEngine.h"
+#include "RHI.h"
 #include "Engine/Engine.h"
 #include "AudioDevice.h"
 #include "Misc/FileHelper.h"
@@ -222,15 +225,66 @@ void UFTGameInstance::SaveSettings()
 	FFileHelper::SaveStringToFile(Out, *FPaths::Combine(SaveDir(), TEXT("settings.json")));
 }
 
+bool UFTGameInstance::bHarnessApple = false;
+
+bool UFTGameInstance::IsAppleGpu()
+{
+	return IsRHIDeviceApple() || bHarnessApple || FParse::Param(FCommandLine::Get(), TEXT("ftfakeapple"));
+}
+
+// 2.9, from the Mac performance audit (Apple M1 Max, 14 Nov 2026). Unreal's hardware benchmark rates Apple GPUs far above
+// what they deliver, so AUTO picked EPIC and every level ran 19-27 fps there; the game thread was ~3 ms, so it was all GPU.
+// On an Apple GPU, AUTO now:
+//  - caps view distance, anti-aliasing, shadows, post, foliage, shading and landscape at HIGH;
+//  - keeps effects and textures as measured (cheap, and the fire and smoke carry the look);
+//  - keeps GI and reflections as measured (EPIC, so Lumen stays on): below EPIC this project turns Lumen off (2.7), and the
+//    audit showed Metro's tower lobby losing its warm bounce light without it. 2.8 already runs EPIC Lumen at HIGH-gather cost;
+//  - caps the render target at 1.65 megapixels (67% at 2560x1440, 89% at 1920x1080) and lets TSR upscale it to the screen;
+//    dynamic resolution then goes from 50% up to that cap to hold 60 fps.
+// Every manual preset (LOW..EPIC) is unchanged on every GPU.
+float UFTGameInstance::CapAutoForApple(UGameUserSettings* S) const
+{
+	auto High = [](int32 V) { return FMath::Min(V, 2); };
+	auto Epic = [](int32 V) { return FMath::Min(V, 3); };
+	S->SetViewDistanceQuality(High(S->GetViewDistanceQuality()));
+	S->SetAntiAliasingQuality(High(S->GetAntiAliasingQuality()));
+	S->SetShadowQuality(High(S->GetShadowQuality()));
+	S->SetPostProcessingQuality(High(S->GetPostProcessingQuality()));
+	S->SetFoliageQuality(High(S->GetFoliageQuality()));
+	S->SetShadingQuality(High(S->GetShadingQuality()));
+	S->SetLandscapeQuality(High(S->GetLandscapeQuality()));
+	S->SetGlobalIlluminationQuality(Epic(S->GetGlobalIlluminationQuality()));
+	S->SetReflectionQuality(Epic(S->GetReflectionQuality()));
+	S->SetVisualEffectQuality(Epic(S->GetVisualEffectQuality()));
+	S->SetTextureQuality(Epic(S->GetTextureQuality()));
+	// the screen the game draws to: the game viewport once it exists (each map start re-applies), else the chosen resolution
+	FIntPoint Px(0, 0);
+	if (GEngine && GEngine->GameViewport && GEngine->GameViewport->Viewport) Px = GEngine->GameViewport->Viewport->GetSizeXY();
+	if (Px.X <= 0 || Px.Y <= 0) Px = S->GetScreenResolution();
+	if (Px.X <= 0 || Px.Y <= 0) Px = FIntPoint(GSystemResolution.ResX, GSystemResolution.ResY);
+	if (Px.X <= 0 || Px.Y <= 0) Px = FIntPoint(2560, 1440);
+	constexpr double MaxPixels = 1.65e6;
+	const float Cap = FMath::Clamp((float)(100.0 * FMath::Sqrt(MaxPixels / ((double)Px.X * Px.Y))), 50.f, 100.f);
+	float Cur = 0.f, CurN = 0.f, Mn = 0.f, Mx = 0.f;
+	S->GetResolutionScaleInformationEx(CurN, Cur, Mn, Mx);
+	S->SetResolutionScaleValueEx(Cur > 0.f ? FMath::Min(Cur, Cap) : Cap);
+	return Cur > 0.f ? FMath::Min(Cur, Cap) : Cap;
+}
+
 void UFTGameInstance::ApplyQuality(int32 Q, bool bSave)
 {
 	Quality = Q;
 	UGameUserSettings* S = GEngine ? GEngine->GetGameUserSettings() : nullptr;
 	if (S)
 	{
+		float AppleCap = 0.f;
 		if (Q < 0)
 		{
-			if (!bAutoMeasured) { S->RunHardwareBenchmark(); bAutoMeasured = true; } // once a session
+			// once a session; the result is kept, so AUTO after picking another preset is AUTO again
+			// (until 2.8, ApplyHardwareBenchmarkResults re-applied whatever preset was picked last)
+			if (!bAutoMeasured) { S->RunHardwareBenchmark(); AutoLevels = S->ScalabilityQuality; bAutoMeasured = true; }
+			S->ScalabilityQuality = AutoLevels;
+			if (IsAppleGpu()) AppleCap = CapAutoForApple(S);
 			S->ApplyHardwareBenchmarkResults();
 		}
 		else
@@ -258,6 +312,13 @@ void UFTGameInstance::ApplyQuality(int32 Q, bool bSave)
 			if (AQ->GetInt() <= 1 && !FParse::Param(FCommandLine::Get(), TEXT("fttsr"))) Aa = 2;
 		if (IConsoleVariable* V = IConsoleManager::Get().FindConsoleVariable(TEXT("r.AntiAliasingMethod"))) V->Set(Aa, ECVF_SetByCode);
 		UE_LOG(LogFT, Display, TEXT("FTQUALITY applied=%d overall=%d dynres=%d aa=%s"), Q, S->GetOverallScalabilityLevel(), bDyn ? 1 : 0, Aa == 4 ? TEXT("TSR") : TEXT("TAA"));
+		if (AppleCap > 0.f)
+		{
+			UE_LOG(LogFT, Display, TEXT("FT QUALITY auto=apple cap=HIGH view=%d aa=%d shadow=%d gi=%d refl=%d pp=%d fx=%d tex=%d screenPercentage=%.0f dynres=%s"),
+				S->GetViewDistanceQuality(), S->GetAntiAliasingQuality(), S->GetShadowQuality(), S->GetGlobalIlluminationQuality(), S->GetReflectionQuality(),
+				S->GetPostProcessingQuality(), S->GetVisualEffectQuality(), S->GetTextureQuality(), AppleCap,
+				bDyn ? *FString::Printf(TEXT("%.0f-%.0f"), FMath::Min(AppleCap, 50.f), AppleCap) : TEXT("off"));
+		}
 	}
 	if (bSave) SaveSettings();
 }

@@ -6,6 +6,7 @@
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
 #include "InputCoreTypes.h"
+#include "Scalability.h"
 #include "FTGameInstance.generated.h"
 
 UENUM()
@@ -76,6 +77,13 @@ public:
 	void ApplyQuality(int32 Q, bool bSave = true);
 	void ReapplyQuality();
 	bool bAutoMeasured = false;
+	/** 2.9: what Unreal's hardware benchmark picked, kept so AUTO after a manual preset in the same session is AUTO again. */
+	Scalability::FQualityLevels AutoLevels;
+	/** 2.9 (the Mac audit): an Apple GPU, or -ftfakeapple (tests the Apple AUTO path on any GPU). */
+	static bool IsAppleGpu();
+	static bool bHarnessApple;   // FTQuality apple (Development harness)
+	/** 2.9: on an Apple GPU, AUTO is capped (Unreal's benchmark rates Apple chips far above what they deliver). Returns the screen-percentage cap. */
+	float CapAutoForApple(class UGameUserSettings* S) const;
 	void ApplyMute();
 	static FString QualityName(int32 Q);
 };

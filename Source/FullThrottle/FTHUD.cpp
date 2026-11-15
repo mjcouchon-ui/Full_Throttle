@@ -792,6 +792,8 @@ void AFTHUD::DrawOptions(AFTGameMode* G)
 		FString::Printf(TEXT("REDUCED MOTION   ◀ %s ▶"), GI->bReducedMotion ? TEXT("ON") : TEXT("OFF")) };
 	for (int32 i = 0; i < 4; ++i) Txt(Rows[i], W * 0.5f, H * 0.32f + i * 56 * S, G->OptionsRow == i ? Yellow : White, 1.3f, 1, G->OptionsRow == i);
 	Txt(TEXT("LOW and MEDIUM turn Lumen off and render below native resolution with TSR; HIGH uses Lumen GI and reflections; EPIC adds the full Lumen,"), W * 0.5f, H * 0.62f, Grey, 0.75f, 1);
-	Txt(TEXT("shadow and post quality. AUTO measures this PC and picks. Nanite and Virtual Shadow Maps are on at every preset."), W * 0.5f, H * 0.655f, Grey, 0.75f, 1);
+	// 2.9 (the Mac audit): the old line said Nanite and VSM are on at every preset, which is false on a Mac's Metal SM5 path
+	Txt(TEXT("shadow and post quality. AUTO measures this computer and picks; on a Mac it picks HIGH with Lumen on, drawn at a lower"), W * 0.5f, H * 0.655f, Grey, 0.75f, 1);
+	Txt(TEXT("resolution that TSR upscales to the screen. Nanite and Virtual Shadow Maps run where the graphics card supports them."), W * 0.5f, H * 0.69f, Grey, 0.75f, 1);
 	Txt(TEXT("↑↓ PICK  ·  ←→ CHANGE  ·  ESC  BACK"), W * 0.5f, H * 0.8f, Grey, 0.85f, 1);
 }
