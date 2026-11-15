@@ -2708,8 +2708,10 @@ void AFTBrawlGameMode::Sfx(const TCHAR* Name, float Vol, float Pitch)
 	if (!Found)
 	{
 		const FString Path = FString::Printf(TEXT("/Game/Brawl/Audio/SFX/S_brawl_%s.S_brawl_%s"), Name, Name);
+		const double LT0 = FPlatformTime::Seconds();
 		S = LoadObject<USoundBase>(nullptr, *Path, nullptr, LOAD_Quiet | LOAD_NoWarn);
 		Sounds.Add(Key, S);
+		UE_LOG(LogFTBrawl, Log, TEXT("FT BRAWL sfx first=%s ms=%.2f"), Name, (FPlatformTime::Seconds() - LT0) * 1000.0);   // loop: a load here is mid-fight
 		if (!S) UE_LOG(LogFTBrawl, Warning, TEXT("FTBRAWL sfx missing %s (import beat-em-up-unreal/Docs/audio/sfx: Content/Python/brawl_audio.py)"), *Path);
 	}
 	if (!S) return;

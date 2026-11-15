@@ -46,6 +46,7 @@ bool UFTNightFlow::GoToNight(const UObject* Ctx, int32 L, int32 Next)
 	CS->C.PendingLevel = Next; CS->C.bPendingFromTitle = false; CS->Save(TEXT("Night"));
 	NF->NextLevel = Next; NF->FromLevel = L;
 	UE_LOG(LogFT, Display, TEXT("FT NIGHT start after=L%d map=%s next=L%d"), L + 1, *Map, Next + 1);
+	G->StopTitleMusic(0.3f);   // 3.9.1: a night opened from the title (the FTGo / -ftgo jump) kept the title song playing under the fight
 	UGameplayStatics::SetGlobalTimeDilation(Ctx, 1.f);
 	UGameplayStatics::SetGamePaused(Ctx, false);
 	UGameplayStatics::OpenLevel(Ctx, FName(*Map));

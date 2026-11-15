@@ -448,6 +448,8 @@ void UFTGameInstance::StopTitleMusic(float FadeSeconds)
 	UE_LOG(LogFT, Display, TEXT("FTMUSIC title stop fade=%.1f"), FadeSeconds);
 }
 
+static TAutoConsoleVariable<int32> CVarWarmBrawlAudio(TEXT("ft.WarmBrawlAudio"), 1, TEXT("1 = preload the nights' SFX with their sprites (run 2 cycle 2)"));
+
 void UFTGameInstance::OnPostLoadMap(UWorld* World)
 {
 	ApplyMute();
@@ -456,6 +458,12 @@ void UFTGameInstance::OnPostLoadMap(UWorld* World)
 		bBrawlWarmStarted = true;
 		TArray<FAssetData> Found;
 		UAssetManager::Get().GetAssetRegistry().GetAssetsByPath(FName(TEXT("/Game/Brawl/Sprites")), Found, true, true);
+		// run 2 cycle 2: the fight's sound effects too (18 + 6 small waves); they loaded one by one on first use, mid-fight
+		if (CVarWarmBrawlAudio.GetValueOnGameThread())
+		{
+			UAssetManager::Get().GetAssetRegistry().GetAssetsByPath(FName(TEXT("/Game/Brawl/Audio/SFX")), Found, true, true);
+			UAssetManager::Get().GetAssetRegistry().GetAssetsByPath(FName(TEXT("/Game/Brawl/Audio/Polish")), Found, true, true);
+		}
 		TArray<FSoftObjectPath> Paths;
 		for (const FAssetData& A : Found) Paths.Add(A.GetSoftObjectPath());
 		const double T0 = FPlatformTime::Seconds(); const int32 Count = Paths.Num();
