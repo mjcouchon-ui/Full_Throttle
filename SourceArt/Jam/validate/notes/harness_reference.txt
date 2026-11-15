@@ -1,0 +1,227 @@
+==================== COMMANDS
+Everything below is from reading today's source; nothing was run. SRC = K:\Full Throttle\UE\full-throttle-unreal\Source\FullThrottle. The FT* commands are NOT in FTPlayerController/FTGameMode: they are all in SRC\FTFlow.cpp, AFTGameMode::HarnessCmd (line 889), registered as console commands at FTFlow.cpp:1188-1219 (#if !UE_BUILD_SHIPPING). ft.Press / ft.Click are in SRC\FTPlayerController.cpp:24-35.
+
+== A. SCRIPT LINE TYPES (the runner: UFTGameInstance::TickExec, SRC\FTGameInstance.cpp:507-560; file loaded at FTGameInstance.cpp:109-120) ==
+- Lines are trimmed; blank lines and lines starting with # are skipped (529). The first line runs no earlier than 4.0 s after game-instance Init (115). All waits are WALL-CLOCK seconds (FPlatformTime), not game time.
+- `wait <seconds>` (531): pause that many real seconds. Must be "wait" + space.
+- `waitfor <text>|<timeout s>` (536-544): continue when a captured log line CONTAINS <text> (case-insensitive substring), or after the timeout. The LAST '|' splits text from timeout; with no '|' the timeout is 30 s. The header comment's "waitfor <text> [s]" form (FTGameInstance.h:43) is wrong: a space-separated number becomes part of the text. A timeout does NOT stop the script; it logs `FT EXEC waitfor="<text>" result=timeout` (521) and goes on.
+- `shot <name>` (545-550): FScreenshotRequest::RequestScreenshot(<SaveDir>/shots/<name>.png, bShowUI=true, no suffix), then 0.5 s pause. The HUD is in the frame. SaveDir = env WISPOS_APP_DATA if set, else <project>/Saved/FullThrottle (FTGameInstance.cpp:59-64). Same name twice overwrites.
+- `quit` (551): FPlatformMisc::RequestExit(false). Exact word.
+- Anything else is passed to GEngine->Exec(World, line) as a console command (553), then a 0.15 s pause (554). So the smallest step between two commands is 0.15 s, between two shots 0.5 s.
+- Runner's own log lines: `FT EXEC file=<f> lines=<n>` (117), `FT EXEC cannot read <f>` (119, Error), `FT EXEC line=<n> cmd=<line>` (530; n counts every line of the file, 1-based), `FT EXEC waitfor="<t>" result=found|timeout` (521), `FT EXEC done` (557; if the script has no quit the game then runs on until the runner's budget).
+
+== B. HARNESS COMMANDS (all in FTFlow.cpp HarnessCmd; every call logs `FT HARNESS <Cmd> <args>` at 895; in a world with no race game mode it logs Warning `FT HARNESS <Cmd>: no race GameMode in this world` at 1195 and does nothing) ==
+Level numbers are 1-8 (game numbering) in every command. Kind names (KindArg, 864-876, case-insensitive): Biker, SnakeEyes or Hog, Rammer, SUV, Truck, Chopper, Boss, Civilian, Barrel.
+
+Starting and driving
+- `FTStartLevel <level=1> [scene=1] [sequel]` (1001 -> StartLevelAt 686-697): stops the attract mode, unpauses; if it is another level's map (or this map's track is a light attract build) it loads the map and starts the race, else it restarts the race on the spot (StartRace(false)). The game mode is new after a map load, so FTAutoRun/FTInvuln/FTHold/FTFreeze must be sent again after every FTStartLevel that loads a map.
+- `FTAutoRun [wreck=<N|all|rest>] [leaveBehind=<N>] [wrapAt=<seconds|M:SS>] [turbo=<off|fullTanks|hold>] [level=<N>]` (1169-1184; effect at SRC\FTGameMode.cpp:1085-1095 and 1186): sets bAutoRun and bHarnessInvuln on THIS game mode, sets the game instance's bAutoDrive (the autopilot steers, for the rest of the session), holds SpeedUp. While bAutoRun the car never fires guns or missiles (1186), so wrecks come only from wreck= (each script vehicle that comes within 9000 cm ahead is wrecked until N are used; default 0) and the boss is not hurt. wrapAt kills a LIVE boss once the level clock passes that time (it does not summon one). Do not use level=: the flags are set on the old game mode and lost in the map load (only the autopilot survives, and it then shoots).
+- `FTHold <SpeedUp|Turbo|Brake|Drift|Fire> [1|0]` (1088-1093): holds an input until released. Fire is ignored while FTAutoRun is active.
+- `FTInvuln [1|0]` (1094): damage to the car becomes 0 and armor never drops below 1 (FTGameMode.cpp:1083, 1497).
+- `FTKey <UE key name> [seconds=0.1]` (1161-1168): press, release after max(0.08, seconds) of GAME time through the world timer. e.g. `FTKey RightMouseButton 0.1` fires a missile.
+- `FTNextScene` (1002-1007; Play phase only, not on the last scene): clears entities, jumps the car to the next scene.
+- Console variables: `ft.Autopilot 1` (FTGameMode.cpp:43; autopilot drives, SHOOTS, and starts a race from the title after 1.5 s), `ft.AutoX <cm>` (45; the autopilot holds this road x, -1371..1371, -99999 = off: pins the lane), `ft.Hp <armor>` (46; start each race with this armor), `ft.Attract 0|1` (47; read when the title is entered), `ft.Shots <s>` (48; 1280x720 scene capture without HUD to <project>/Saved/Shots/ft_L<levelIndex>_<NNN>.png, FTGameMode.cpp:602-612, 4262).
+
+Staging things on the road
+- `FTBossNow` (1008-1018; Play phase only): see boss_notes.
+- `FTWrapNow` (1105-1111; Play phase only): see boss_notes.
+- `FTBossEscape` (1104): boss clock = escape time; logs `FT BOSS clock=<t> harness=escape`.
+- `FTSpawn <Kind> [N] [beside=<Kind>]`, `FTSpawnAdd <Kind> [N] [beside=]`, `FTSpawnCivilian [N]`, `FTSpawnBarrel [N]` (1019-1026, SpawnAt 896-936): spawns ahead of the car in a RANDOM lane (LaneX(RandRange(0,3)), 898) at the kind's own fighting distance; beside= puts it next to the last live one of that kind. Logs `FT SPAWN kind=.. ahead=.. x=.. carnage=.. add=.. hp=..`. No phase check. Do not use `FTSpawn Boss` (it skips the boss set-up that SpawnGroup does at FTGameMode.cpp:1667-1696).
+- `FTWreck <Kind|all> [N] [missile|ram]` (1027-1035): wrecks N (default 1; all = every one) live vehicles of that kind, lowest track distance first. `all` includes the Boss (IsSyn, FTFlow.cpp:38).
+- `FTFire [N=1] [Kind=Biker]` (1036-1066): N rounds of the current ammo load through the real hit path into the nearest live one of that kind, all in one frame. A standard round does 1 damage to anything (BulletHit, FTFlow.cpp:150-189; AP does 2 to heavy/boss). `FTFire <n> Boss` is the way to take a boss down by an exact amount.
+- `FTRam [Kind=Boss]` (1082-1087): puts that vehicle on the car's nose (contact damage path).
+- `FTPickup <Crate|Wrench> [ahead=<cm>] [offset=<cm>]` (1073-1081): anything but "Wrench" is a Crate; ahead=0 lands it on the car (collected next frame, Play phase only).
+- `FTDamagePlayer [N=10]` (1072): armor minus N, no invulnerability check. `FTCrash` (1071; Play only): armor 0 = a wreck (does nothing while FTInvuln/FTAutoRun is on).
+- `FTSlowMo [seconds=2]` (1070): time scale 0.3 for that many REAL seconds. `FTFreeze [1|0]` (1097): time dilation 0.0001, logs `FT FREEZE on=<0|1>`; applied in TickSlowmo (FTGameMode.cpp:3744), so only in the Play, Wreck and Wrap phases.
+- `FTCombo <N>` (1067), `FTLandStunt <NAME_WITH_UNDERSCORES>` (1068; names at 879-883, e.g. BIG_AIR, DOUBLE_KILL), `FTAddScore <N>` (1069).
+
+Screens and menus
+- `FTGoto <Title|PreProduction|Paycheck>` (970-976). Title restarts the attract mode if allowed.
+- `FTPress <Ammo|Ready|Undo|Buy [holdSeconds]|Continue>` (987-1000): Ammo cycles the load; Ready leaves PRE-PRODUCTION; Buy activates the selected tile (hold >= 0.5 = a cash buy); Continue: on the Reel only once it has finished (else logs `FT INPUT screen=Reel key=Continue result=ignored`), on the Dailies -> Paycheck, on the Paycheck -> PRE-PRODUCTION directly (this path SKIPS the night).
+- `FTSelect <tileId>` (977-986): finds the tile on any PRE-PRODUCTION tab and selects it; ids come from `FTDumpSkills`, `FTDumpGarage`, `FTDumpShop` (1148-1160).
+- `ft.Press <UE key name>` (FTPlayerController.cpp:24): press + release 0.12 s later through the real input path; works on every map (race, night, cutscene). `ft.Click <x> <y> [Right]` (26): viewport pixels, so it depends on the frame size; avoid.
+- Keys the screens read (use with ft.Press): Title (FTGameMode.cpp:648-719): Up/Down/Left/Right or One..Eight pick the level, Enter/SpaceBar start, G = PRE-PRODUCTION, C = Controls, O = Options, Tab = button row, Escape = QUIT THE GAME. Race: P or Escape = pause (1025). Pause menu (878-906): P/Escape resume, C, O, R restart level, T title. Options (986-1016): Escape/O/Enter close, Left/Right change a row AND SAVE. Controls (915-984): Escape/C close, Enter starts a key capture that rebinds and saves. Dailies (560-571): R reshoot, Escape title, Enter/SpaceBar after 2.9 s -> Paycheck. Paycheck (FTFlow.cpp:365-384, after 0.6 s): Enter/SpaceBar = next (this is the path that goes to the night), R, Escape. PRE-PRODUCTION (FTFlow.cpp:602-683, after 0.3 s): Tab/E next tab, Q previous, arrows move, SpaceBar READY, BackSpace undo, Enter buy.
+
+Career, quality, dumps
+- `FTUseTestSlot` (940; FTProgress.cpp:392): switch to slot career_pie and load it. `FTCareerReset` (941): fresh career, saved. `FTDropCareer`, `FTLoadCareer`, `FTSaveCareer`, `FTDumpCareer` (942-945).
+- `FTSetXP n`, `FTGiveXP n`, `FTSetCash n`, `FTSetSP n`, `FTSetStat <wrecks|trucks|leftBehind|snakeEyes|wraps> n`, `FTAddFeat <NAME>`, `FTSetBest <level> <score>` (writes settings.json), `FTSetRaw <key> <value>`, `FTGarage <key> <rank 0-3>` (e.g. ap, he; takes effect at the next race start), `FTOwnSkill <nodeId>`, `FTGreenlight <id>`, `FTSequel`, `FTEquip <slot> <id|none>` (946-969).
+- `FTQuality <-1..4|apple>` (1098-1103): -1 AUTO, 0 LOW, 1 MEDIUM, 2 HIGH, 3 EPIC, 4 CINEMATIC; not saved, and re-applied at every map start.
+- `FTDumpLevel` (1131-1147), `FTPayExample <A..>` (1112), `FTPayCase key=value..` (1119).
+
+== C. COMMAND-LINE SWITCHES (pass through jam_exec -Extra) ==
+-ftexec=<file>, -ftslot=pie, -ftauto, -ftshots=<s> (HUD screenshots ft_L<levelIndex>_<NNN>.png in SaveDir/shots), -ftquit=<s>, -ftwrap=<s> (FTGameInstance.cpp:104-128); -fthp= (FTGameMode.cpp:64); -ftnoattract (739); -ftday1 (728); -ftdays, -ftnoday1, -ftnodays, -ftnonights (FTNightFlow.cpp:44, 100-102); -ftnodynres, -fttsr (FTGameInstance.cpp:368, 382); -ftnodress (FTTrack.cpp:2005).
+
+== D. THE RUNNER ==
+K:\Full Throttle\SkyScratch\SourceArt\Jam\unreal\jam_exec.ps1 -Tag <tag> -Script <file> -Checkout <project folder> [-BudgetSec 600] [-ResX 3440 -ResY 1440] [-Small] [-Extra "..."]. It copies the script to %TEMP%\jam_exec_<Tag>.txt, clears <Checkout>\Saved\FullThrottle\shots, runs UnrealEditor.exe "<proj>" -game -windowed -RenderOffScreen -nosound -unattended -nosplash -ftexec=.. -abslog=<Checkout>\Saved\Logs\jam_exec_<Tag>.log, then copies the PNGs to K:\Full Throttle\SkyScratch\HandBack\jam\play\<Tag>\ (that folder is not cleared first) and prints the last 40 log lines matching Fatal error|LogFT: Error|Ensure condition failed|result=timeout|FTTRACK level|FTDRESS level|FTBANK level|FT BOSS |FT SCREEN. It does not set WISPOS_APP_DATA, so the save folder is the checkout's own Saved\FullThrottle.
+Working line lists to copy from: jam_verify.ps1:18-26, jam_play.ps1:47-53, jam_audit.ps1:52-59 and 87-90 (all in K:\Full Throttle\UE\full-throttle-unreal\SourceArt\Jam\unreal), and K:\Full Throttle\SkyScratch\SourceArt\Jam\unreal\fx_b1_bosses.txt, fx_a_guns.txt, fx_c_blasts.txt, fx_port2.txt.
+
+==================== LOG_LINES
+waitfor sees ONLY log messages whose text starts with the three characters "FT " (FFTLogTap::Serialize, SRC\FTGameInstance.cpp:493), minus lines starting "FT EXEC" or "FT HARNESS" (518). Matching is a case-insensitive substring. The search window starts at the last CONSOLE COMMAND the script ran (ExecWaitFrom, 552), not at the waitfor itself.
+NOT visible to waitfor (wrong prefix), though they are in the log file for checks afterwards: FTBRAWL..., FTTRACK, FTTRACKSUM, FTDRESS, FTBANK, FTMUSIC, FTQUALITY applied=, FTHITCH, FTTEL, FTSTALL, FTRAIL, FTFLOW reel.., FTINPUT tap, FTBENCH, FTNAN.
+SRC = K:\Full Throttle\UE\full-throttle-unreal\Source\FullThrottle. GM = FTGameMode.cpp, FLOW = FTFlow.cpp.
+
+Level start and clock
+- `FT LEVEL id=L<n> scene=<s> sequel=<0|1> scriptVehicles=.. expected=.. par=..` GM:271. Printed by StartRace(false) when a real race starts (never for the attract demo). The race is then in the Card phase (slate) for 3.2 s before play. Use `waitfor FT LEVEL id=|240` (map loads are slow).
+- `FT PLAYER armor=.. max=..` GM:272, `FT MISSILES count=.. cap=..` GM:273, `FT AMMO load=STD ap=.. he=..` GM:274: same moment.
+- `FT SPEED su=.. mph=.. target=.. targetMph=.. state=..` GM:1341: twice a second and on every input-state change, only while the car is being driven (Play phase, and the attract demo behind the title). First one after a level start = play has begun.
+- `FT CLOCK level=<t>` GM:1043: once per second of level clock (game time from ACTION! until the boss is down; not reset by retakes), printed with %.1f at the first frame past each whole second.
+- `FT TITLE start level=<n> attract=<0|1>` GM:724; `FT TITLE sel=<n>` GM:697; `FT TITLE overlay=Controls` GM:704; `FT TITLE overlay=Options` GM:709.
+- `FT ATTRACT shot level=.. scene=.. spawn=.. D=.. light=.. hp=.. cuts=..` GM:805; `FT ATTRACT cut from=.. to=.. ..` GM:844 (a map load every 11 s on the title).
+- `FT MUTE reapplied muted=<0|1> map=<MapName>` FTGameInstance.cpp:471: after EVERY map load, race or night. The only map-loaded signal that also works on night maps (e.g. text `map=L_RustyAnchor`).
+
+Screens
+- `FT SCREEN name=Title` FLOW:427, 973; `FT SCREEN name=Title banner="THAT'S A WRAP"` (or "") FLOW:437.
+- `FT SCREEN name=PreProduction from=Title` FLOW:411; `.. next=Title` 412; `.. next=L<n>` 413; `.. tab=<0-4>` 616-617 (0 Skills, 1 Garage, 2 Custom, 3 Sfx, 4 Extras); `.. tab=<t> select=<id> state=<n>` 984; `.. reopened=1` GM:128.
+- `FT SCREEN name=Slate next=L<n>` FLOW:442 (READY pressed).
+- `FT SCREEN name=Pause state=opened` GM:1033; `.. state=resumed` GM:903.
+- `FT SCREEN name=Reel` GM:4015 (reel starts); `FT SCREEN name=Reel state=hold` GM:4060, 4072 (reel finished, CONTINUE now works). Note the first text is a substring of the second.
+- `FT SCREEN name=Dailies` GM:440. `FT SCREEN name=Paycheck lines=<n>` FLOW:361.
+- `FT INPUT screen=Reel key=<k> result=ignored|continue|hold` GM:4033-4051, FLOW:996.
+- `FT OPTIONS row=.. quality=.. fps=.. vsync=.. reduced=..` GM:1015; `FT CONTROLS result=accepted|rejected message=..` GM:923.
+
+Outcome, rating, saves
+- `FT OUTCOME wrap clock=<t>` GM:389; `FT OUTCOME got_away` GM:398; `FT OUTCOME out_of_film` GM:369.
+- `FT RATING value=<BMOVIE|ACTIONHERO|BLOCKBUSTER|LEGENDARYDIRECTOR> idx=<0-3> score=<n>` GM:428 (4.2 s after the wrap).
+- `FT CARNAGE wrecked=.. total=.. shown=.. exact=..` GM:1880; `.. final=1` FLOW:350.
+- `FT PAY line=.. amount=..`, `FT PAY total=<n>` FTProgress.cpp:991-994.
+- `FT SAVE slot=<slot> reason=<Reset|Harness|Paycheck|PreProduction|Night|RunEnd|Run..> result=ok|failed` FTProgress.cpp:505; `FT SAVE slot=career_pie reason=UseTestSlot` 395; `FT SAVE .. result=refused (..)` 450 (Error).
+- `FT LOAD slot=<slot> result=ok|new backCatalogue=..|bad_json|too_new` FTProgress.cpp:530-608; `FT CAREER reset slot=..` 421; `FT CAREER dump ..` FLOW:945; `FT CAREER cash=<n>` FLOW:948.
+- `FT LEVEL dump level=L<n> scene=.. take=.. retakes=.. xp=.. wrecked=.. total=.. leftBehind=.. score=.. clock=.. types=.. [..] ap=.. he=.. load=.. hp=<a>/<max> missiles=..` FLOW:1134 (from FTDumpLevel: a state snapshot to compare between the two runs).
+
+Boss (all listed again in boss_notes)
+- `FT BOSS state=Arrive armor=<hp> escape=<s> clock=0.0` GM:1692; `FT BOSS firstAttack t1=1.6 t2=1.0 t3=6.0` GM:1693.
+- `FT BOSS clock=<c> rate=<r> state=Fight fight=<f>` FLOW:293 (about every 0.5 s of game time while the boss is alive).
+- `FT BOSS state=LastChance clock=.. fight=..` FLOW:307; `FT BOSS state=Gone lastChance=.. offset=..` FLOW:316; `FT BOSS clock=.. harness=escape` FLOW:1104.
+- `FT BOSS state=Down clock=.. fight=.. lastChance=<0|1>` GM:1977.
+- `FT BOSS yeti=alongside t=..` GM:2978; `FT BOSS yeti=turned ahead=..` GM:2982; `FT BOSS yeti=charge phase=<0-2>` GM:3005.
+- `FT TESLA arcs=<n> charge=<c>` GM:2767 (THE ALCHEMIST's coil firing; only the first 20 per game process).
+
+Wrecks, damage, player
+- `FT SPAWN kind=<Kind> ahead=.. x=.. carnage=.. add=.. hp=..` FLOW:934 (harness spawns only).
+- `FT DAMAGE target=<Kind> amount=<d> left=<hp> load=<STD|AP|HE|-> source=<gun|missile|ram|world|splash|chain|wrap>` GM:1824. `left=` is the boss's remaining armor after FTFire.
+- `FT WRECK <Kind> cause=<0-6> load=.. carnage=.. add=..` GM:1882; `FT WRECK Barrel cause=<n>` GM:1860. Kind words: Biker, SnakeEyes, Rammer, SUV, Truck, Chopper, Boss (FLOW:43-53).
+- `FT WRECKFX fx=.. size=..` GM:2036; `FT SHOP finisher=<id>` GM:2000; `FT SHOP fx=film-burn` FLOW:841; `FT SHOP look paint=.. rims=..` FLOW:766.
+- `FT HURT dmg=<d> hp=<a> line=<key> push=.. near=<Kind> gap=.. scene=..` GM:1506 (every hit the car takes; with FTInvuln it still prints, with dmg=0.0).
+- `FT PLAYER armor=.. max=.. delta=.. stage=<clean|dented|trashed>` GM:1409; `FT PLAYER wrecked retakes=.. reels=..` GM:358; `FT PLAYER armor=.. max=.. pickup=Wrench` GM:2485; `FT PLAYER delta=.. source=BossWall` GM:2549.
+- `FT MISSILES count=<n> pickup=Crate gained=<g>` GM:2469; `FT MISSILES count=<n> fired=1` GM:1392.
+- `FT AMMO load=<STD|AP|HE> rounds=<n> from=<..>` FLOW:146; `.. fired=1` FLOW:1064; `FT AMMO load=STD rounds=0 reason=dry` GM:1371.
+- `FT COMBO value=<n>` GM:1954; `FT STUNT name="<NAME>" points=.. xp=..` GM:3645; `FT STUNT startime=on|off` GM:1485-1486; `FT SCORE delta=.. bucket=..` GM:1806.
+- `FT TURBO state=on tank=..` GM:1235, `state=off` 1242, `tank=0 state=empty` 1237.
+- `FT DIRECTOR line="<text>"` (several, e.g. FLOW:297, 306).
+- `FT FREEZE on=<0|1>` FLOW:1097.
+- `FT HENCH latch side=..` GM:2278; `FT FLYER in D=..` GM:3589; `FT HALF air ..` GM:3465.
+
+Nights and days (from the race side; the brawl's own lines are FTBRAWL and invisible to waitfor)
+- `FT NIGHT start after=L<n> map=/Game/Brawl/Maps/<map> next=L<m>` FTNightFlow.cpp:48; `FT NIGHT over next=L<m> preproduction on=<race map>` 78.
+- `FT DAY start day=<n> cut=<before|wrap> map=..` 106; `FT DAY over day=.. cut=..` 149, 156; `FT DAY1 start ..` 105.
+- `FT WARM start assets=..` / `FT WARM done assets=.. seconds=..` FTGameInstance.cpp:584-587; `FT WARM brawl start|done ..` 465-469.
+
+For checks after the run (log file): `FT EXEC waitfor="..." result=timeout` means the script lost its place; `LogFT: Error`, `Fatal error`, `Ensure condition failed`.
+
+==================== BOSS_NOTES
+SRC = K:\Full Throttle\UE\full-throttle-unreal\Source\FullThrottle. GM = FTGameMode.cpp, FLOW = FTFlow.cpp. From reading the code only.
+
+SUMMONING: `FTBossNow` (FLOW:1008-1018)
+- Works only in the Play phase; in any other phase it does nothing and only the invisible `FT HARNESS FTBossNow` line is logged. Confirm with `waitfor FT BOSS state=Arrive|10`.
+- What it does: ClearEnts (everything on the road goes, including an earlier boss); marks the last scene's script spawns as done; moves the car to the finale distance (Def().FinaleD) keeping its lane and speed; SpawnGroup({Boss}) (GM:1667-1696): armor = the level's BossHp, first-attack timers T1=1.6 T2=1.0 T3=6.0, boss clock 0, escape time from the boss table; logs `FT BOSS state=Arrive armor=<hp> escape=<s> clock=0.0` and `FT BOSS firstAttack t1=1.6 t2=1.0 t3=6.0`. Then, for every level except game level 6, the boss is put straight on its fighting spot (State 0).
+- Game level 6 THE ABOMINABLE keeps his real entrance (FLOW:1015-1016, GM:1676-1687, 2962-2999): he starts 2600 cm BEHIND the car, takes 4.5 s to come past (`FT BOSS yeti=alongside t=..`, then `FT BOSS yeti=turned ahead=..`), turns round in 0.7 s, and only then fights. His first charge logs `FT BOSS yeti=charge phase=<n>` (about 8 s after the turn).
+- Calling FTBossNow again restarts the encounter from a fresh boss (full armor, timers and clock reset).
+- Boss armor / escape seconds in SRC\FTData.cpp (lines 135, 173, 210, 245, 285, 318, 352, 385): L1 JUGGERNAUT 120/70, L2 ALCHEMIST 120/70, L3 BIG DEALER 200/90, L4 ENGINE 13 150/80, L5 MR. CHUCKLES 140/80, L6 THE ABOMINABLE 150/80, L7 THE GREAT WHITE 150/80, L8 THE CHAIRMAN 220/95. The escape time actually used comes from the progress data's boss table (GM:1691), which a spec file can override, so read `escape=` in the Arrive line rather than trusting these.
+
+STATE NAMES IN THE LOG: Arrive (GM:1692), Fight (inside the clock line `FT BOSS clock=.. rate=.. state=Fight fight=..`, FLOW:293), LastChance (FLOW:307), Gone (FLOW:316, he escaped: `FT OUTCOME got_away`, no reel, straight to the Dailies), Down (GM:1977).
+PHASES are by armor (TickBoss, GM:2648-2654): phase 0 above 66%, phase 1 from 66% down, phase 2 from 33% down. Each boss's pattern changes with the phase (L1: bikers called below 66%, a chopper below 33%, GM:2679-2681; L2: attack sequences per phase, GM:2699; L3: jumping hogs and brake checks from phase 1, GM:2793-2819; L4-L8 in TickBossFire GM:2875, TickBossClown 2919, TickBossYeti 2962, TickBossShark 3056, TickBossLimo 3101, which I did not read line by line).
+
+HURTING
+- `FTFire <n> Boss` (FLOW:1036-1066): n standard rounds, 1 armor each on a fresh career (BulletHit FLOW:150-189), all in one frame, each logging `FT DAMAGE target=Boss amount=1 left=<hp> load=STD source=gun`. Rounds to reach phase 1 / phase 2 from full armor, worked out from the thresholds above: L1 and L2 41 / 81; L3 68 / 134; L4, L6, L7 51 / 101; L5 48 / 94; L8 75 / 148. Check `left=` in the log; a career with skills or SEQUEL changes the numbers, so use FTUseTestSlot + FTCareerReset first.
+- `FTWreck Boss` kills him outright (same result as FTWrapNow when a boss is alive). `FTWreck all` ALSO kills the boss (FLOW:38) and so ends the level: during a fight clear his helpers by kind (`FTWreck Biker 9`, `FTWreck Chopper 9`, `FTWreck SnakeEyes 9`).
+- `FTRam Boss` (FLOW:1082) puts him on the car's nose for the contact path.
+- With FTAutoRun active the car never fires (GM:1186), so the boss keeps full armor and stays in phase 0 until FTFire is used. Without FTAutoRun, `FTHold Fire 1` or the plain autopilot (-ftauto / ft.Autopilot 1) shoots him, and how fast he drops then depends on aim and frame rate.
+
+DEFEATING: `FTWrapNow` (FLOW:1105-1111; Play phase only)
+- If no boss is alive it summons one first (far ahead, no repositioning), then hurts him to zero through the gun path. Result in order: `FT DAMAGE target=Boss ..`, `FT WRECK Boss cause=0 ..`, `FT BOSS state=Down clock=.. fight=.. lastChance=..` (GM:1977), finisher effect (`FT SHOP finisher=<id>` if one is equipped), `FT OUTCOME wrap clock=..` (GM:389), every other vehicle on the road is wrecked (GM:385-386), slow motion; 4.2 s later `FT RATING value=..`, the pay is saved (`FT SAVE slot=career_pie reason=Paycheck result=ok`), then `FT SCREEN name=Reel` if the run recorded any clips, otherwise `FT SCREEN name=Dailies` (GM:540-555). The reel ends with `FT SCREEN name=Reel state=hold`; `FTPress Continue` then gives `FT SCREEN name=Dailies`; again gives `FT SCREEN name=Paycheck lines=..`; again gives `FT SCREEN name=PreProduction next=L<n+1>` (after level 8: `next=Title`).
+- `FTAutoRun wrapAt=<t>` does the same kill when the level clock passes t, but only if a boss is already alive (GM:1093-1094).
+
+THE ESCAPE CLOCK (TickBossClock, FLOW:280-322): the boss clock runs at rate 1.0, slower (down to 0.5) when the car is faster than the boss's pace. At the escape time: `FT BOSS state=LastChance ..`, caption LAST CHANCE!, then within 8 s `FT BOSS state=Gone ..` and the level ends as got_away. So an unattended boss capture ends by itself roughly 70 to 95 s of game time after the Arrive line; plan the shots inside that or send FTBossNow again. `FTBossEscape` jumps straight to LAST CHANCE. A boss wrecked during LAST CHANCE gives the RUN DOWN stunt.
+
+FTAutoRun exactly: see commands. In short it is "autopilot steers, car is invulnerable, car does not shoot, script decides the wrecks", and it must be sent again after each map load. The existing boss scripts (K:\Full Throttle\SkyScratch\SourceArt\Jam\unreal\fx_b1_bosses.txt) instead use FTInvuln 1 + FTBossNow + FTHold Fire 1 and were run with a different runner (fx_play.ps1) whose command line I did not read; under jam_exec nothing drives the car unless the script sends FTAutoRun or `ft.Autopilot 1` or -Extra "-ftauto".
+
+==================== BRAWL_NOTES
+SRC = K:\Full Throttle\UE\full-throttle-unreal\Source\FullThrottle. BGM = Brawl\FTBrawlGameMode.cpp. From reading the code only; nothing was run.
+
+FIRST: K:\Full Throttle\UE\beat-em-up-unreal\ArtSource\tools\boss_polish.ps1 is NOT a runner. It is an art tool: it warps the painted boss pose PNGs in ArtSource\frames into new in-between frames (<who>_intro, _intro2, _signatureprep, _signaturefollow, _defeat for earl, vinnie, pitboss, frankie, kingpin, sven, commodore) and paints seven venue mask PNGs into ArtSource\boss-polish. It starts no game. The only game runner in that folder is run_day1.sh (zsh, Mac paths, through WispOS); its command line is the pattern: UnrealEditor <uproject> <map> -game -brawlauto -windowed -ResX=1280 -ResY=720 -unattended -log -abslog=<log> -brawlshots=<abs dir> -brawlshotdt=2, stopped by grepping the log for "FTBRAWL cut end card". There is no Windows/jam runner for Brawl in the folders I was pointed at.
+
+MAPS (FTNightFlow.cpp:14-22, BGM:137-142): night 1 /Game/Brawl/Maps/L_RustyAnchor (boss BIG EARL), 2 L_VelvetRoom (VINNIE VELOUR), 3 L_Lucky7 (THE PIT BOSS), 4 L_TikiTorch (FLAMBE FRANKIE), 5 L_StrikeCity (THE KINGPIN), 6 L_FrostbiteLodge (BIG SVEN), 7 L_SeaBiscuit (THE COMMODORE). Day cutscenes: /Game/Brawl/Maps/L_Day1Set. The night is taken from the map's name (BGM:148). Every night has 3 waves, then the boss (BGM:115-119, 174-178, 211-215, 227-231).
+
+COMMAND-LINE FLAGS (process-wide, read at the night's BeginPlay or while it runs)
+- -brawlnight=<1-7> BGM:149: overrides which night's rules run, whatever the map. Prefer opening the night's own map.
+- -brawlwave=<N> BGM:273-279: start at wave N; 4 (= waves + 1) = straight to the boss. The boss still only appears once Nova has walked the camera to the end of the room, so it needs the autopilot (or input).
+- -brawlauto BGM:242: Nova fights by himself. Same as console variable `ftb.Auto 1` (BGM:58), which a script can switch on and off.
+- -brawlpassive BGM:551: the autopilot walks up to the boss but never hits him, so the boss's own moves play out.
+- -brawlnododge BGM:489, 499: the autopilot does not step off the boss's warned lane.
+- -brawlnocut BGM:267: no cutscenes; straight into the fight, and after the win Enter goes on (BGM:1317). -brawlcut=<2|3> BGM:269-270: start at LAST CALL (night 1: 3 = the pier), fight skipped.
+- -brawlnext BGM:535, 1304, FTBrawlCutscene.cpp:616: with the autopilot, presses Enter after a win and on cutscene end cards (after 3 s).
+- -brawlshots=<absolute dir> and -brawlshotdt=<seconds, default 4> BGM:1332-1342: saves <dir>/shot_NNN.png (3 digits from 001, one counter for the whole process) every N seconds of game time via RequestScreenshot(path, bShowUI=false), and logs `FTBRAWL shot <path>`. Time-driven, so two runs pair only as well as their timing matches.
+- -brawlpolishqa Brawl\FTBrawlFighter.cpp:499-508: logs once per sprite texture actually shown: `FTBRAWL pose state=<state> time=<t> frame=<texture>` (LogTemp). This is the proof that a new pose frame (intro, signatureprep, signaturefollow, defeat) is really displayed.
+- Others: -brawlgrab, -brawlkeytest, -brawlpadtest (BGM:243-245), -brawlcamcheck (246; `FTBRAWL camcheck ..` at the win), -brawlnokeepin (247), -brawlairtest (543), -brawlthrowtest (553), -brawlday / -brawlday=<N> / -brawlwrap (185-191), -brawlnodays (1265), -brawlbright (1637).
+- Console variable `ftb.Win 1` BGM:59, 1300: win the fight now (`FTBRAWL won (ftb.Win)`), which leads into the LAST CALL cutscene unless -brawlnocut.
+
+HOW A NIGHT STARTS
+1. Through the career (FLOW = FTFlow.cpp:372-383, FTNightFlow.cpp:38-53): on the Paycheck screen after a wrapped level, the real key path (`ft.Press Enter`, at least 0.6 s after `FT SCREEN name=Paycheck`) calls UFTNightFlow::GoToNight, logs `FT NIGHT start after=L<n> map=<map> next=L<n+1>` and opens the night map. `FTPress Continue` on the Paycheck does NOT (it goes straight to PRE-PRODUCTION). Not after level 8, not with -ftnonights. In a script run the day cutscenes are skipped unless -ftdays (FTNightFlow.cpp:102). When the night is won and its end card is passed, `FT NIGHT over next=L<m> preproduction on=<race map>` (FTNightFlow.cpp:78) and the race map opens on PRE-PRODUCTION.
+2. Directly: the map as the first argument after the project (run_day1.sh). jam_exec.ps1 cannot do this through -Extra, because -Extra is appended after "-game ..." and the engine takes the start map only from the first argument. Inside a -ftexec script the console command `open /Game/Brawl/Maps/L_VelvetRoom` should do it (any console command is passed to the engine), but no existing script does this, so treat it as untested.
+
+WHAT A SCRIPT CAN DO ON A NIGHT MAP
+- The -ftexec runner lives in the game instance (DefaultEngine.ini: GameInstanceClass=/Script/FullThrottle.FTGameInstance), so it keeps running on night maps: `wait`, `shot <name>` (with HUD, into the same shots folder), `quit`, console variables `ftb.Auto` and `ftb.Win`, and `ft.Press <Key>` all work.
+- Every FT* command only logs `FT HARNESS <cmd>: no race GameMode in this world` there.
+- waitfor is nearly blind: all the brawl's lines start "FTBRAWL" and are not captured. Usable texts are `map=L_RustyAnchor` etc. (the `FT MUTE reapplied muted=.. map=..` line after the map load), `FT WARM brawl done`, `FT NIGHT start`, `FT NIGHT over`. Everything inside a fight has to be timed with `wait`.
+- Keys (BGM:417-442): A/D or Left/Right walk, W/S or Up/Down change lane, J or Z punch, K or X kick, SpaceBar jump, L or C grab, Enter = next / retry. ft.Press is a 0.12 s tap, enough for a punch or Enter, not for walking. In cutscenes any of punch/kick/jump/Enter hurries a line, Tab skips the cutscene, end cards wait for Enter (FTBrawlCutscene.cpp:551-631).
+
+FTBRAWL LOG LINES FOR CHECKS AFTERWARDS (log file only): `FTBRAWL start <VENUE> night=<n> waves=<w> wave=<k>` BGM:280; `FTBRAWL wave <i>/<n> locked at x=..: <k> foes` 396; `FTBRAWL wave cleared -> <n> (kos=..)` 1083; `FTBRAWL boss <NAME>` 407 (the boss walks in; 2.2 s intro); boss moves: `boss slam` 935, `boss whirlwind` 874, `boss dizzy` 881, `boss revolver lane=..` 902, `boss fire breath lane=..` 1106, `boss strike lanes=..` 1127, `boss bear hug lunge|caught|broken|throw` 1157-1188, `boss anchor sweep` 1201, `boss calls 3 more` 969; `FTBRAWL won kos=.. best=.. hits=.. time=..` 783; `FTBRAWL retry wave <n>` 1253; cutscenes `FTBRAWL cut <id> line ..`, `FTBRAWL cut end <id>`, `FTBRAWL fight begins x=.. y=..` (FTBrawlCutscene.cpp:522, 538, 547); `FTBRAWL on to the next race|day <n>|night <n>` 1261-1270.
+
+DETERMINISM: the fight runs in fixed 1/60 s steps (BGM:51, 1323-1325) on its own seeded random stream (Rnd.Initialize(1986 + a per-night seed), BGM:181, 218, 234, 240), and the autopilot's choices are a function of the fight state, so the same build should replay the same fight in fight time. Wall-clock waits and -brawlshotdt still drift with hitches, and the overhaul may change timings, so pair frames on events you can see in the log afterwards rather than on exact seconds.
+
+==================== CAUTIONS
+SRC = K:\Full Throttle\UE\full-throttle-unreal\Source\FullThrottle. All from reading the code; none of it was run, and items marked "untested" are my reading of engine behaviour.
+
+waitfor
+1. It sees only lines starting "FT " and never "FT EXEC"/"FT HARNESS" lines (FTGameInstance.cpp:493, 518). FTBRAWL, FTTRACK, FTDRESS, FTMUSIC, FTQUALITY, FTHITCH lines cannot be waited on.
+2. The search window starts at the last console command, not at the waitfor (552). Two waitfors in a row for the same text both match the same old line. To wait for a NEW occurrence put any harmless console command between them (e.g. FTDumpLevel).
+3. Because of 2, after `FTStartLevel` from the title a `waitfor FT SPEED` can be satisfied by a stale line: the attract demo behind the title is still in the Play phase for a frame or two before the map load. The existing fx scripts have this (FTStartLevel, waitfor FT LEVEL id=, waitfor FT SPEED). Safe order: FTStartLevel N; waitfor FT LEVEL id=|240; then a console command (FTAutoRun.. or FTInvuln 1); then waitfor FT SPEED|60.
+4. `FT CLOCK level=8.0` can be missed: the value is printed with one decimal at the first frame past the second, so a frame longer than 50 ms prints 8.1 and the waitfor runs to its timeout (jam_verify/jam_play use the .0 form). Wait for `FT CLOCK level=8.` instead (still unique: 18. does not contain it).
+5. `FT BOSS clock=<x>` values are not on round numbers (a static 0.5 s accumulator, FTFlow.cpp:286-293); do not wait for an exact boss-clock value.
+6. A timeout does not stop the script. The following shots are then taken at the wrong moment. After each run grep the log for `result=timeout`.
+7. Default timeout is 30 s if the `|seconds` is left off; a map load on this disk needs 200-240 s.
+
+Phases
+8. FTBossNow, FTWrapNow, FTNextScene and FTCrash do nothing outside the Play phase, silently. After `FT LEVEL id=` the slate (Card phase) lasts 3.2 s (FTGameMode.cpp:513), longer in wall-clock if frames hitch. Wait for FT SPEED or FT CLOCK first, and confirm FTBossNow with `waitfor FT BOSS state=Arrive|10`.
+9. FTFreeze only acts in the Play/Wreck/Wrap phases, and it is not cleared by a restart on the same map; always send `FTFreeze 0`.
+10. A new map = a new game mode: FTAutoRun, FTInvuln, FTHold, FTFreeze are gone after any FTStartLevel that loads a map. The autopilot flag (set by FTAutoRun or -ftauto) is NOT gone: it stays for the session, and without FTAutoRun it shoots.
+11. Once the autopilot flag is on, the title starts a race by itself after 3.5 s (FTGameMode.cpp:693). Photograph menus before the first FTAutoRun, or in their own launch.
+12. `ft.Press Escape` on the title quits the game (FTGameMode.cpp:690, 713).
+
+Determinism
+13. All waits are wall-clock; the game runs on game time. Hitches (first-use shaders, loads, other Unreal jobs on the PC) and the game's own slow motion after spectacular wrecks shift what a fixed `wait` lands on. For a single still use FTSlowMo then FTFreeze 1 / shot / FTFreeze 0 (as fx_c_blasts.txt does); for sequences accept that frames pair by moment, not pixel.
+14. Random, different every run: the lane of FTSpawn (FTFlow.cpp:898), pickup drops, several boss choices (e.g. FTGameMode.cpp:2709, 2735, 2797), the attract shot behind the title. Boss attacks aim at the car's x, so pin it: `ft.AutoX <cm>` with the autopilot driving. The engine switch -fixedseed may steady the first random draws; untested here.
+15. The title is not comparable with the attract demo running (random level position, random damage, a map load every 11 s that can collide with the script's first commands). Use jam_exec -Extra "-ftnoattract". Then nothing prints FT SPEED on the title, so do not copy the fx scripts' opening `waitfor FT SPEED|200`.
+16. Quality: send `FTQuality 3` (or the level wanted) first; without it the preset comes from each checkout's own settings.json or the AUTO benchmark. Dynamic resolution is on by default and changes sharpness with GPU load: add -ftnodynres to -Extra on both runs.
+17. jam_exec does not set WISPOS_APP_DATA, so each checkout uses its own Saved\FullThrottle. Start every script with FTUseTestSlot then FTCareerReset so the real career is untouched and both runs start equal. settings.json is still shared with the checkout and differs between the two checkouts: best takes shown on the title, FPS counter, reduced motion, key layout. These write it: a wrapped level with a new best score (FTGameMode.cpp:421-425), FTSetBest, Left/Right in Options, a rebinding in Controls, the M and F1 keys. Title and options frames can therefore differ for reasons that are not the overhaul.
+18. jam_exec does not clear K:\Full Throttle\SkyScratch\HandBack\jam\play\<Tag>; use a new tag per run or old frames stay beside the new ones. Shot names are the pairing key: fixed names, no counters that depend on timing.
+19. Frame size must be the same on both runs (default 3440x1440, -Small 1720x720).
+
+Commands that bite
+20. `FTWreck all` kills the boss too and ends the level.
+21. `FTHold Fire 1` does nothing while FTAutoRun is active; FTCrash does nothing while FTInvuln or FTAutoRun is on.
+22. `FTPress Continue` is ignored on the reel until `FT SCREEN name=Reel state=hold`; and from the Paycheck it bypasses the night.
+23. FTAutoRun level=N loses its own flags in the map load; use FTStartLevel, the waitfor, then FTAutoRun.
+24. `FTSpawn Boss` makes a boss without the encounter set-up; use FTBossNow.
+25. A boss escapes by himself after his escape time (70-95 s of game time), which ends the level as got_away with no reel.
+26. FTKey releases on game time, so under FTSlowMo/FTFreeze the key stays down much longer. ft.Press releases through a world timer too; while the pause menu is open that timer probably does not run (untested), so repeated presses of one key in the pause menu may not register.
+27. ft.Click uses viewport pixels and a real cursor; with -RenderOffScreen and two frame sizes it is not dependable.
+28. On night maps every FT* command is a no-op with a warning; only wait, shot, quit, ft.Press, ftb.Auto, ftb.Win work, and the brawl flags (-brawlwave etc.) are per process, not per map.
+29. End every script with `wait 1` then `quit`. Without quit the game runs until jam_exec's budget, which then prints "TIMEOUT ... left running"; no other game may be started until that process has ended.
+30. Track-build variables (ft.Dress, ft.Land, ft.Ads, ft.DressBank ..., FTTrack.cpp:19, 150-160) are read when a level's track is built: set them before FTStartLevel or with -dpcvars, not after.
+
+Things I was asked to read that are not what the brief says
+31. The FT* commands are in FTFlow.cpp, not FTPlayerController/FTGameMode (those hold ft.Press/ft.Click and the ft.* variables).
+32. boss_polish.ps1 is an art tool, not a runner (see brawl_notes). No Brawl runner for Windows exists in the places named.
+33. The fx_*.txt scripts name fx_play.ps1 as their runner in their headers; I did not read it, and they assume something is already driving the car.
+

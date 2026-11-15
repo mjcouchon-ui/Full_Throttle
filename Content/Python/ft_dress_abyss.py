@@ -626,7 +626,7 @@ def life():
     A(D + 'SM_Tethered', 'Sway', SwayAmp=75.0, SwayHeight=2200.0, SwayPow=1.3, SwayRate=0.35, SwayLean=0.25, Wind=(1.0, 0.3, 0.0))
     A(D + 'SM_KelpRaft', ('Bob', 'Sway'), BobAmp=45.0, BobRate=0.06, BobRand=1.0, BobDrift=90.0, SwayBase=RAFT_Z, SwayHeight=-700.0, SwayAmp=70.0,
       SwayPow=1.2, SwayRate=0.5, SwayLean=0.3, Wind=(1.0, 0.3, 0.0))
-    A(D + 'SM_WhalePod', ('Bob', 'Spin'), BobAmp=260.0, BobRate=0.03, BobRand=1.0, BobPhase=(0.0001, 0.0, 0.0), SpinPivot=(0.0, 0.0, 4300.0),
+    A(D + 'SM_WhalePod', ('Bob', 'Spin'), far=True, BobAmp=260.0, BobRate=0.03, BobRand=1.0, BobPhase=(0.0001, 0.0, 0.0), SpinPivot=(0.0, 0.0, 4300.0),
       SpinAxis=(0.0, 1.0, 0.0), SpinSwing=2.5, SpinRate=0.22, SpinRand=1.0)
     A(D + 'SM_CausticNet', ('Sway', 'Light'), SwayBase=-73.0, SwayHeight=100.0, SwayPow=1.0, SwayAmp=30.0, SwayRate=1.1, SwayGust=5.0, SwayLean=0.0,
       Wind=(1.0, 0.3, 0.0), **dict(ft_life._chase((0.7, 0.7, 0.0), 1100.0, rate=0.22, duty=0.5, low=0.3), LightSoft=0.45, LightRand=1.0))
@@ -682,7 +682,7 @@ def cut_shoal(m, seed=0):
     for x in (-330.0, 90.0):
         for k in range(3):
             q = r.uniform(46.0, 70.0)
-            B.shape(m, CORAL if x < 0 else LAV, [(x + k * 84.0 + math.cos(a) * q * r.uniform(0.8, 1.15), 92.0 + math.sin(a) * q * 0.42)
+            B.shape(m, ROCK_L if x < 0 else LAV, [(x + k * 84.0 + math.cos(a) * q * r.uniform(0.8, 1.15), 92.0 + math.sin(a) * q * 0.42)
                                                for a in [6.2832 * i / 7.0 for i in range(7)]], 8.0 + 5.0 * (k % 2), B.FACE + 18.0)
 
 
@@ -815,8 +815,9 @@ def whale_pod(m):
 def hull_above(m):
     """Suspended scenery for the horizon: a ship on the surface seen from below, 70 m of her: the hull's shape, a keel,
     a rudder and a screw, her anchor cable slanting down to the bottom. A Far piece (z = 0 stands 25 m under the
-    road): the surface is 107 to 113 m over that, so the hull is drawn from 99 m up and its top is above the water."""
-    Z = 9900.0
+    road): the surface is 70 m over the route's highest point, about 150 m over that, so the hull is drawn from 148 m
+    up (round one drew it from 99 m: it hung 43 m under the surface)."""
+    Z = 14800.0
     m.side(DEEP1, _ccw([(-3500, Z + 900), (-3300, Z + 150), (-2600, Z), (2300, Z), (3100, Z + 500), (3500, Z + 1500), (3500, Z + 2000), (-3500, Z + 2000)]), -600, 600)
     m.side(RUST_D, _ccw([(-3350, Z + 420), (-3250, Z + 160), (-2600, Z + 10), (2300, Z + 10), (3080, Z + 500), (3200, Z + 760)]), -612, 612)
     m.box(DEEP1, (-200, 0, Z - 60), (4200, 80, 160))                                     # the keel
@@ -825,60 +826,63 @@ def hull_above(m):
     tilt_box(m, DEEP1, (2500, 0, Z + 100), (5200, 400, 700), 120, 120)                   # the anchor cable, thick as a mast
 
 
-CAUSTIC_Z = 27.0     # over the piece's own zero: the track sinks a piece 15 cm, so the net lies 12 cm over the sand
+CAUSTIC_Z = 23.0     # over the piece's own zero: the track sinks a piece 15 cm, so the net lies 8 cm over the sand
 CAUSTIC_GLOW = 0.07  # M_Life multiplies a glow by 10.5: this is light on sand, not a lamp
 
 
 def caustic_net(m, seed=53):
-    """Moving caustics for the sand: a net of pale light 30 x 20 m, lying 12 cm over the sand: five ribbons along the
-    road and four across it, each a wandering line. life() lets every part of it wander by where it is in the world
-    (so the net swims) and runs soft bands of light across it. Flat: it casts nothing and stands nowhere near the road."""
+    """Moving caustics for the sand: a net of pale light 30 x 20 m, lying 8 cm over the sand: four broad ribbons along
+    the road and three across it, each a wandering band 1.1 to 1.7 m wide (round one's were 40 cm: the outline pass
+    broke them into dashes). life() lets every part of it wander by where it is in the world (so the net swims) and
+    runs soft bands of light across it. Flat: it casts nothing, and its rule keeps its middle 57 m from the road, so
+    that no corner of it, at any size and turned any way, comes nearer than 30 m."""
     r = random.Random(seed)
-    for k in range(5):
-        y0 = -820 + k * 410 + r.uniform(-60, 60)
-        ph, amp, wid = r.uniform(0, 6.28), r.uniform(90, 160), r.uniform(34, 52)
+    for k in range(4):
+        y0 = -780 + k * 520 + r.uniform(-70, 70)
+        ph, amp, wid = r.uniform(0, 6.28), r.uniform(110, 180), r.uniform(110, 170)
         mid = [(-1500 + 3000 * i / 10.0, y0 + amp * math.sin(i * 0.9 + ph) + 0.4 * amp * math.sin(i * 2.1 + ph * 2)) for i in range(11)]
         m.plan(CAUSTIC, _ccw([(x, y + wid / 2.0) for x, y in mid] + [(x, y - wid / 2.0) for x, y in reversed(mid)]), CAUSTIC_Z, CAUSTIC_Z + 3, glow=CAUSTIC_GLOW)
-    for k in range(4):
-        x0 = -1150 + k * 760 + r.uniform(-80, 80)
-        ph, amp, wid = r.uniform(0, 6.28), r.uniform(100, 170), r.uniform(30, 46)
+    for k in range(3):
+        x0 = -1000 + k * 1000 + r.uniform(-90, 90)
+        ph, amp, wid = r.uniform(0, 6.28), r.uniform(120, 190), r.uniform(100, 150)
         mid = [(x0 + amp * math.sin(i * 1.0 + ph) + 0.4 * amp * math.sin(i * 2.3 + ph), -1000 + 2000 * i / 8.0) for i in range(9)]
         m.plan(CAUSTIC, _ccw([(x + wid / 2.0, y) for x, y in mid] + [(x - wid / 2.0, y) for x, y in reversed(mid)]), CAUSTIC_Z + 1, CAUSTIC_Z + 4, glow=CAUSTIC_GLOW)
 
 
 # ---- what moves by itself: props built with ft_life.Kit (parts made about the origin and sent round by the material)
 def _fish(m, x, y, z, yaw, s, body, tail):
-    """One chunky fish, nose along its yaw: for schools seen from 30 m and more."""
+    """One chunky fish, nose along its yaw, 2.4 m long at s = 1: for schools seen from 30 m and more. (Round one's were
+    1.1 m long: from the road each was a dark speck, the outline pass inks a thing that small all over.)"""
     a = math.radians(yaw)
-    m.sphere(body, (x, y, z), 56 * s, scale=(1.0, 0.36, 0.5), steps=(3, 6), rot=(0, yaw, 0), glow=0.05)      # as bright as the level's own schools, no more
-    m.box(tail, (x - math.cos(a) * 62 * s, y - math.sin(a) * 62 * s, z), (40 * s, 8 * s, 62 * s), rot=(0, yaw, 0))
+    m.sphere(body, (x, y, z), 120 * s, scale=(1.0, 0.34, 0.58), steps=(3, 6), rot=(0, yaw, 0), glow=0.05)     # as bright as the level's own schools, no more
+    m.box(tail, (x - math.cos(a) * 128 * s, y - math.sin(a) * 128 * s, z), (72 * s, 12 * s, 124 * s), rot=(0, yaw, 0))
 
 
 def fish_ring(k):
-    """A school turning on itself, 14 m across, 4 to 9 m over the sand: thirty fish nose to tail round a ring. Two or
-    three stood one over another, larger as they go up, make the fish tornado."""
+    """A school turning on itself, 15 m across, 4 to 9 m over the sand: fourteen chunky fish nose to tail round a ring.
+    Two or three stood one over another, larger as they go up, make the fish tornado."""
     r = random.Random(61)
-    g = k.group('Spin', SpinPivot=(0.0, 0.0, 0.0), SpinAxis=(0.0, 0.0, 1.0), SpinRate=0.55, SpinRand=1.0)
-    for i in range(30):
-        a = 2 * math.pi * i / 30.0 + r.uniform(-0.06, 0.06)
-        rad = r.uniform(520, 720)
-        _fish(g, math.cos(a) * rad, math.sin(a) * rad, r.uniform(430, 900), math.degrees(a) + 90.0, r.uniform(0.8, 1.25),
+    g = k.group('Spin', far=True, SpinPivot=(0.0, 0.0, 0.0), SpinAxis=(0.0, 0.0, 1.0), SpinRate=0.55, SpinRand=1.0)   # far: the tornado turns from 300 m off
+    for i in range(14):
+        a = 2 * math.pi * i / 14.0 + r.uniform(-0.05, 0.05)
+        rad = r.uniform(640, 760)
+        _fish(g, math.cos(a) * rad, math.sin(a) * rad, r.uniform(430, 900), math.degrees(a) + 90.0, r.uniform(0.9, 1.25),
               [FISH_A, FISH_B, FISH_A, FISH_C][i % 4], STATION_D)
-    return dict(grow=(60, 60, 0), grow_down=(60, 60, 0))
+    return dict(grow=(140, 140, 0), grow_down=(140, 140, 0))
 
 
 def fish_stream(k):
-    """A school on the move, 60 m of its road: seven knots of four fish that travel a line along the road, 5 m up,
-    and come round again."""
+    """A school on the move, 60 m of its road: six knots of three chunky fish that travel a line along the road, 5 m
+    up, and come round again."""
     r = random.Random(62)
     g = k.group('Conveyor', ConvStart=(-3000.0, 0.0, 460.0), ConvDir=(1.0, 0.0, 0.0), ConvLen=6000.0, ConvRate=0.07, ConvRand=1.0, ConvArc=170.0)
-    for i in range(7):
+    for i in range(6):
         def knot(m, i=i):
-            for j in range(4):
-                _fish(m, r.uniform(-160, 160), r.uniform(-130, 130), r.uniform(-90, 90), r.uniform(-8, 8), r.uniform(0.8, 1.2),
+            for j in range(3):
+                _fish(m, -300.0 + j * 300.0 + r.uniform(-60, 60), r.uniform(-190, 190), r.uniform(-130, 130), r.uniform(-8, 8), r.uniform(0.8, 1.15),
                       [FISH_A, FISH_C, FISH_A, FISH_B][(i + j) % 4], STATION_D)
-        g.piece(knot, a=i / 7.0)
-    return dict(grow=(3200, 200, 800), grow_down=(3200, 200, 0))
+        g.piece(knot, a=i / 6.0)
+    return dict(grow=(3400, 300, 800), grow_down=(3400, 300, 0))
 
 
 def _shark(g, rad, z, s=1.0):
@@ -896,7 +900,7 @@ def _shark(g, rad, z, s=1.0):
 def shark_ring(k):
     """Marine silhouettes: three sharks on their rounds, 15 to 20 m out from the middle and 12 to 21 m up, dark from
     below. For 80 m and more from the road."""
-    g = k.group('Spin', SpinPivot=(0.0, 0.0, 0.0), SpinAxis=(0.0, 0.0, 1.0), SpinRate=0.16, SpinRand=1.0)
+    g = k.group('Spin', far=True, SpinPivot=(0.0, 0.0, 0.0), SpinAxis=(0.0, 0.0, 1.0), SpinRate=0.16, SpinRand=1.0)   # far: they swim 90 to 190 m out (M_Life stops at 180 m)
     for a, rad, z, s in ((0.0, 1500.0, 1250.0, 1.0), (125.0, 1900.0, 1700.0, 1.2), (250.0, 1650.0, 2050.0, 0.9)):
         g.base = ft_art._xf((0, 0, 0), (0, a, 0))
         _shark(g, rad, z, s)
@@ -935,8 +939,9 @@ def bubble_vent(k):
 
 
 def whale_pass(k):
-    """The whales that cross over the road at Nereida's gate: a cow 34 m long and her calf, 38 m up, swimming a line
-    400 m long across the road and coming round again. Built with their noses along +y (the way they go)."""
+    """The whales that cross over the road at Nereida's gate, 38 m up: a cow 34 m long with her calf, and a second cow
+    half the line behind them, swimming a line 400 m long across the road and coming round again (a round takes 91 s,
+    so one or the other passes over the road every 45 s). Built with their noses along +y (the way they go)."""
     g = k.group('Conveyor', ConvStart=(0.0, -20000.0, 0.0), ConvDir=(0.0, 1.0, 0.0), ConvLen=40000.0, ConvRate=0.011, ConvRand=1.0)
     for n, (a, s, dx, dz) in enumerate(((0.0, 1.13, 0.0, 0.0), (0.035, 0.5, 900.0, -500.0), (0.5, 1.0, 300.0, 300.0))):
         def one(m, s=s, dx=dx, dz=dz):
@@ -979,6 +984,19 @@ def life_props(only=None):
             print('JAM ERR life prop abyss', name, repr(e)[:300], flush=True)
     print('JAM life props abyss built', len(done), ' '.join(done), flush=True)
     return done
+
+
+def after_export(only=None):
+    """Everything this kit needs after its JOBS have been exported; ft_dress.run calls it after export(). The props
+    that move by themselves are not in JOBS (LIFE_JOBS: ft_life.Kit builds them, life_props()), and an export puts
+    the plain materials and the section flags back on a piece, so life() has to follow every export.
+    only: the names of the pieces that were exported or are wanted (None = the whole kit). Of the moving props just
+    those are built; life() always runs over the whole kit (it re-saves only a mesh it has to change).
+    Returns the names of the moving props built."""
+    props = [n for n, _ in LIFE_JOBS if only is None or n in only]
+    built = life_props(props) if props else []
+    life()
+    return built
 
 
 JOBS = [

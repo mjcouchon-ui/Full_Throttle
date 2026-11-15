@@ -1,0 +1,123 @@
+FILE: K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\brawl_bosses.ps1
+CHANGED BY CHECKER: True
+RUN: Smoke test first, one night (a few minutes; shows whether the map comes up and frames are saved):
+powershell -NoProfile -ExecutionPolicy Bypass -File "K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\brawl_bosses.ps1" -Tag ovh_brawl_smoke -Checkout "K:\Full Throttle\OverhaulBaseline\full-throttle-unreal" -Nights "1" -BudgetSec 1200 -FightSec 480
+
+Before (untouched copy):
+powershell -NoProfile -ExecutionPolicy Bypass -File "K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\brawl_bosses.ps1" -Tag ovh_brawl_before -Checkout "K:\Full Throttle\OverhaulBaseline\full-throttle-unreal" -Nights "1,2,3,4,5,6,7" -BudgetSec 1200 -FightSec 480
+
+After (integrated build):
+powershell -NoProfile -ExecutionPolicy Bypass -File "K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\brawl_bosses.ps1" -Tag ovh_brawl_after -Checkout "K:\Full Throttle\UE\full-throttle-unreal" -Nights "1,2,3,4,5,6,7" -BudgetSec 1200 -FightSec 480
+
+It is its own runner (not jam_exec): it takes the queue and the checkout lock itself. BudgetSec and FightSec are per night; a normal night should end well inside them because the script ends the game once the fight is over. Add -DryRun to print the command lines without starting anything. Optional second pass for the bosses' moves landing on Nova: the same lines with -Passive and tags ovh_brawl_passive_before / ovh_brawl_passive_after. Exit code 2 = a TIMEOUT left a game running and the remaining nights were not started.
+
+PROBLEMS FOUND BY THE CHECKER:
+Nothing was run in the game. I checked every flag, log line and timer against today's main source AND against the baseline checkout's source, and the three engine switches against the 5.9 engine source. The rewritten script parses with 0 errors, is pure ASCII, prints its command lines with -DryRun, and its frame picker gave the right frames on a made-up log for a win, for three knock-outs and for a build without the newer log lines.
+
+WHAT HELD UP (no change needed)
+- All Brawl flags exist with those arguments in BOTH checkouts: -brawlnight= (FTBrawlGameMode.cpp:149), -brawlwave= (287), -brawlauto (242), -brawlnocut (267), -brawlpassive (566), -brawlnododge (504, 514), -brawlshots= / -brawlshotdt= (1360).
+- -brawlwave=4 does lead to the boss: Wave=3, camera 2540, Nova 2740; the autopilot walks right with no target (551) and the boss spawns when the camera reaches 2660 (1092), about 1 s of game time in.
+- The seven signature log lines, "boss calls 3 more", "won", "retry wave", "start", "boss <NAME>", "shot" and the Verbose "hurt by" line exist in both checkouts.
+- Engine switches are real in 5.9: -UseFixedTimeStep (LaunchEngineLoop.cpp:2472), -FPS= (4869), -ExecCmds= (UnrealEngine.cpp:2551, comma separated), -LogCmds= (LogSuppressionInterface.cpp:519). With the fixed step the engine does not wait at all (UnrealEngine.cpp:3014-3022).
+- Both checkouts' night maps name FTBrawlGameMode inside the .umap (checked L_RustyAnchor and L_SeaBiscuit), so starting on the map directly gets the Brawl game mode.
+- Queue and lock calls are in jam_exec's order and released in finally; a timeout prints "TIMEOUT ... left running", stops the remaining nights and exits 2.
+- The -ftexec "wait <FightSec>" / "quit" file is valid on both checkouts, so the game ends by itself on every path where its script is read.
+
+PROBLEMS FOUND AND WHAT I DID
+1. The baseline is OLDER code than main, not a copy of it (the colleague's assumption 13). Baseline has no hit-stop (ContactPause), no input buffer, no "FTBRAWL swing hit" line, no -brawlpolishqa in FTBrawlFighter.cpp, no "FT BRAWL won" line, and its log tap sees only "FT " lines (main's now also sees FTBRAWL, FTGameInstance.cpp:495). Consequence: before and after are different fights blow for blow, whatever the overhaul does. Fix: the header now says so, frames pair by moment, and each manifest has a new [summary] block (room up, boss enters, signature first time and count, Nova hurt counts, half-armor call, knock-outs, result with the "won kos= best= hits= time=" text) which is what to compare between the two builds.
+2. 11_boss_hit could never exist on the baseline (it was anchored only on the "swing hit" Verbose line, which is main-only). Fix: same name, but on a build that logs neither "swing hit ... on boss" nor "weapon hit ... on boss" it is the last frame before "boss calls 3 more" (just after the blow that takes him to half armor). The manifest line says which anchor was used. The two sides are therefore not the same moment of the fight, only both "the boss just hit".
+3. "FTBRAWL pose" and "swing hit" lines (main only) were mixed into [events], so any diff of the two manifests would have been flooded. Fix: pose lines go to their own [poses] section; swing hits are only counted, in a # line.
+4. Career safety: nothing protected the player's career. FTUseTestSlot needs a race game mode, and UFTCareerSubsystem::Load saves ("New" or "Recovered", FTProgress.cpp:545, 609) on the default slot at every launch. Fix: -ftslot=pie on the command line (FTGameInstance.cpp:105; baseline :104), so anything loaded or saved is career_pie.
+5. Raw-frame cadence was on a float knife edge: the game's timer does (ShotT += Dt) >= 0.2 with Dt = 1/60, which can come out as 12 or 13 frames. At 13 frames "2.0 s after the boss line" lands after his 2.2 s entrance has ended. Fix: in fixed-step mode the game is given a threshold half a frame below the wanted count (-brawlshotdt=0.19167 gives exactly 12 frames) and all offsets use frames/60.
+6. Where the game was killed showed in the output: the [events] tail and the "newest frame" rule depended on the 3 s poll, so two runs of the same build could differ at the end. Fix: Get-BrawlEnd defines the film's last raw frame (3 s after "won" or boss + 20 s, plus two spare; or one frame after the knock-out that exceeds -MaxRetries) and the log is read only up to that frame for picks, summary and events.
+7. The kill could land while the last PNGs were still being written. Fix: 2 s wait before Process.Kill.
+8. If the script threw or was stopped with Ctrl+C mid-night, finally released both locks with the game still running. Fix: finally now ends the game it started (with -NoKill it prints a LEFT RUNNING warning instead). After a TIMEOUT the game is still left alone, as the rule says.
+9. GameUserSettings.ini was written once for all nights; a game that exits by itself can rewrite it. Fix: written again before every night, restored at the end as before.
+10. FightSec 300 was thin: with the fixed step the game is not tied to the wall clock and saves 5 PNGs per game second, so it can run slower than real time on a busy PC. Fix: defaults FightSec 480, BudgetSec 1200. This only costs time when a fight neither ends in a win nor in three knock-outs.
+11. The log parser took any line containing "FTBRAWL ". Fix: only messages that start with it (": FTBRAWL ").
+12. Smaller: sg.LandscapeQuality added to the quality list (the game's own preset has 11 groups); -FixedSeed added with the fixed step (steadies looks-only randomness such as blood spray); -OnScreen switch in case -brawlshots saves nothing under -RenderOffScreen; progress lines ("room is up after N s", "boss is in after N s"); a warning when the log has no Verbose lines; this night's old frames in the tag folder are still cleared before copying.
+
+NOTES FOR THE LEAD ON THE COLLEAGUE'S FACTS
+- Their file:line references are about 12 to 30 lines stale against today's main (for example SpawnBoss is 411-421, the won line 798, Tick 1306, the shot hook 1357-1367). The content of the facts I checked is right.
+- "The -ftexec runner only sees FT lines" is true for the baseline only. I kept the read-the-log design because it is the one that works on both.
+- Shot names 01 to 23 are unchanged.
+
+STILL UNSURE:
+Only a real run can settle these (each with the sign to look for in the script's output):
+1. Starting the main project directly on a night map. Both checkouts' maps name FTBrawlGameMode, but no existing jam runner does this. Sign: "the room is up after N s"; if not, "the log has no 'FTBRAWL start' line".
+2. Whether -brawlshots (RequestScreenshot with bShowUI=false) saves frames under -RenderOffScreen on this PC. Sign: "raw frames 0" plus the "try -OnScreen" line. Also whether the Brawl's canvas HUD (boss name card, health bars) is in those frames; look at 02 to 04.
+3. Game speed under the fixed step. The game is not tied to the wall clock and writes 5 PNGs per game second, so a fight may run slower than real time when other Unreal jobs are busy. Sign: "the game ended by itself" with NOT WON and no knock-outs; then raise -FightSec and -BudgetSec (BudgetSec at least FightSec + 120).
+4. Whether the autopilot beats each of the seven bosses, and whether each signature move fires at all before the fight ends. Night 3 is the likeliest gap: the revolver line is only logged if his 1.1 s draw is not interrupted by a hit. Sign: NOT WON, or 06 to 10 MISSING. The -Passive pass is the way to get the moves landing.
+5. Whether two runs of the SAME build really give the same [summary] / [shots] / [events]. The fixed step and the seeded stream say they should; only running one night twice on one checkout proves it. If they differ, use -RealTime and pair by moment only.
+6. How far apart the before and after fights are. The baseline's fight code already differs from main's (no hit-stop, no input buffer), so [events] will differ whatever the overhaul changed. Whether the [summary] blocks agree (boss enters, move comes, call at half armor, won, knock-outs) is the real "plays the same" answer.
+7. First-launch look. Uncooked, new materials and textures compile or stream in over wall-clock time, and with the fixed step game time can run ahead of that, so the entrance frames (01 to 05) of the first run after the integration may show default materials or soft textures. Run that night again before judging.
+8. Whether -LogCmds="LogFTBrawl Verbose" takes effect for this statically defined category at boot. Sign: the "no Verbose FTBRAWL lines" warning; 12/13 then fall back to the "... hit nova" lines and the "Nova hurt" counts read 0.
+9. Whether ending the game with Process.Kill 2 s after the last needed frame ever loses a PNG. Sign: a frame listed as MISSING with "the frame's file is not there". -NoKill waits for the game's own quit instead (up to FightSec per night).
+10. Side effects I could not rule out from the code: a checkout whose settings.json is on AUTO quality with no cached benchmark runs the hardware benchmark at start-up and saves settings.json (the game does this on any launch); and a checkout with no career_pie.json gets one created (test slot only).
+11. 11_boss_hit is anchored differently on the two sides (first hit on main, half-armor blow on the baseline), so it is a loose pair by design; 18_ko_fly is the strict "boss takes a blow" pair when both fights are won.
+
+SHOTS:
+Files: K:\Full Throttle\SkyScratch\HandBack\jam\play\<Tag>\night<N>_<name>.png for N = 1..7, plus night<N>_manifest.txt (which raw frame each name is, and every FTBRAWL log line of the fight with its fight time; diff the two runs' manifests). The names are fixed; a moment the log does not have gives NO file and is listed as MISSING (never filled with another frame). Frames are chosen after the run from the game's own -brawlshots sequence (one raw frame every 0.2 s of game time) by their place next to the fight's log lines. Default size 1720x720 (-Full = 3440x1440).
+
+In order, per night:
+01_arena - last frame before "FTBRAWL boss <NAME>": the boss's end of the room, Nova walking in, no boss yet (the venue art).
+02_entrance_a - 0.4 s after the boss line: the boss coming in, his name/title card up (if the HUD is in the frames).
+03_entrance_b - 1.2 s after: mid entrance.
+04_entrance_c - 2.0 s after: end of the 2.2 s entrance.
+05_fight_open - 2.8 s after: the fight has just begun (entrance effects end at 2.82 s).
+06_sig_tell - last frame before his first signature log line = the tell (slamwind / whirltell / draw / swig / hold / gloves / windup), with the move's banner the first time.
+07_sig_a - first frame after the signature line: the move starts (slam lands / spin starts / first shot / flame starts / first ball / lunge starts / anchor sweeps).
+08_sig_b - 0.4 s later: mid move.
+09_sig_c - 0.9 s later: end of the move (or still in it: whirlwind, bear hug).
+10_sig_after - 1.8 s later: aftermath (Vinnie dizzy, Frankie's floor burning, bowling balls still rolling, back to walking).
+11_boss_hit - first frame after Nova's first hit on the boss (Verbose line "swing hit ... on boss"): the boss's hurt reaction and hit effect.
+12_nova_hit_a - first frame after the boss's first hit on Nova (Verbose "hurt by boss"; fallback "fire|anchor|ball|bullet hit nova", "boss bear hug caught", "burned"): Nova's hurt/knock-down.
+13_nova_hit_b - 0.4 s later.
+14_calls - 0.6 s after "FTBRAWL boss calls 3 more": half armor, his call banner and the three helpers coming in from the sides.
+15_t05, 16_t10, 17_t20 - 5, 10 and 20 s after the boss line: fixed moments whatever is happening (the like-for-like check that the fight is in the same place).
+18_ko_fly - about 1.0-1.2 s before "FTBRAWL won": the last blow, boss in the air.
+19_ko_down - about 0.4-0.6 s before: boss down on the floor (his defeat pose).
+20_won_a - first frame after "FTBRAWL won".
+21_won_b - 1.5 s after: the win screen.
+22_won_c - 3.0 s after.
+23_nova_ko - only if Nova was knocked out: last frame before the first "FTBRAWL retry" (the K.O. screen). In a fight that is not won 18-22 are MISSING and this is the end frame.
+
+With -Passive (second, optional run under another tag: -brawlpassive -brawlnododge) the same names are used; Nova never hits the boss, so 11 and 18-22 are MISSING by design, the signature lands on him (12/13) and the series ends with 23_nova_ko.
+
+FACTS:
+GM = K:\Full Throttle\UE\full-throttle-unreal\Source\FullThrottle\Brawl\FTBrawlGameMode.cpp (H = FTBrawlGameMode.h, GI = Source\FullThrottle\FTGameInstance.cpp). All from reading today's code; the game was not run.
+
+HOW THE RUNNER DRIVES IT
+- Launch per night: UnrealEditor.exe "<proj>" /Game/Brawl/Maps/<map> -game -windowed -ResX -ResY -RenderOffScreen -nosound -unattended -nosplash -brawlnight=N -brawlwave=4 -brawlauto -brawlnocut -brawlpolishqa -brawlshots="<dir>" -brawlshotdt=0.2 -ftnodynres -ftexec="<2-line file>" -LogCmds="LogFTBrawl Verbose" -abslog=... -UseFixedTimeStep -FPS=60 -ExecCmds="sg.* 3,...". (-DryRun prints it; I ran that, the parser check and the frame picker on a made-up log. Nothing else.)
+- Maps (GM:137-142, all eight .umap files exist in Content\Brawl\Maps): 1 L_RustyAnchor, 2 L_VelvetRoom, 3 L_Lucky7, 4 L_TikiTorch, 5 L_StrikeCity, 6 L_FrostbiteLodge, 7 L_SeaBiscuit. The night comes from the map name, -brawlnight overrides (GM:146-150).
+- Every night has 3 waves (GM:115-119, 174-178, 211-215, 227-231), so -brawlwave=4 = the boss: Wave=3, camera at 2540, Nova at x=2740 (GM:273-279; NextWaveAt(i)=260+800i, ArenaEnd=2660, H:284-285). The boss only spawns when the camera reaches the end (GM:1072-1077), i.e. after the autopilot has walked Nova about 300 px right (it may first fetch a pickup, GM:511-533).
+- -brawlnocut: no cutscenes (GM:267-272); after the win nothing happens until Enter (GM:1317), and the autopilot only presses Enter with -brawlnext (GM:535), which the runner does not pass: the win screen stays.
+- Screenshots: GM:1332-1342. Static timer ShotT += frame Dt (unclamped), every -brawlshotdt seconds: <dir>/shot_%03d.png from 001, RequestScreenshot(path, bShowUI=false), log "FTBRAWL shot <path>". The game writes them exactly where -brawlshots says; the runner gives %TEMP%\brawl_bosses_<Tag>\night<N> (forward slashes), copies the chosen ones to HandBack\jam\play\<Tag>\ and deletes the raw folder (-KeepRaw keeps it).
+- Fight step: fixed 1/60 s (STEP GM:51; Tick GM:1323-1325: Acc += min(0.05, Dt), at most 4 steps a frame). The autopilot is read ONCE PER FRAME (GM:1307), not per step, and its choices use StT phases (GM:541, 555), so the fight depends on frame pacing: hence -UseFixedTimeStep -FPS=60 by default. Random stream: Rnd.Initialize(1986+11) night 1 (GM:240), +23 night 2 (GM:234), +37 night 3 (GM:218), +41/53/67/79 nights 4-7 (GM:162-169, 181); Rand() = Rnd.FRand() (H:293).
+- -brawlpolishqa (FTBrawlFighter.cpp:498-509): logs "FTBRAWL pose state=<state> time=<t> frame=<texture>" (LogTemp) once per sprite texture actually shown; these lines land in the manifest's [events] = proof which pose frames were displayed.
+- Verbose lines used (need -LogCmds): "FTBRAWL swing hit <move> dx= reach= on <role>" GM:728; "FTBRAWL hurt by <role|shot> dmg= down= hp=" GM:749 (logged only when the hit counts: after the invulnerability check GM:742).
+- The -ftexec runner lives in the game instance (GI:109-120, 508-594) and works on night maps; waits are wall-clock from its first tick; "quit" = RequestExit (GI:585). It only sees "FT " lines (GI:494), so it cannot react to the Brawl: the runner reads the log file instead.
+- Quality: ApplyQuality runs at Init from the checkout's settings (GI:150, 319-399); no Brawl source calls it, and the FT* harness needs a race game mode, so the runner sets sg.* by -ExecCmds. -ftnodynres is read in ApplyQuality (GI:369).
+- Stale-lock note: jam_global.ps1 treats a checkout lock whose owner process is gone as free (Test-JamCheckoutFree), which is why a left-running game must not be followed by another job.
+
+COMMON TO ALL SEVEN BOSSES
+- Spawn (SpawnBoss GM:399-408): x = LockX+960+80 (off the right edge), y = mid floor, Cd 1.6, Charge 3.5, SlamCd 3.0 for Earl / 2.0 for the other six; BossIntro = 2.2 s; log "FTBRAWL boss <NAME>". During BossIntro the fight is frozen (Step returns, GM:1052; input dropped GM:594); HUD shows the name/title card (FTBrawlHUD.cpp:350); entrance presentation runs to 2.82 s (FTBrawlVenueMotion.cpp:177).
+- Basic attack: state wind (K.Wind seconds) -> swing 0.22 s, then Cd 0.5 + Rand*0.6 (GM:978-991, 1000); every second one is the alternate (+2 damage, GM:986); knock-down chance 0.35 / 0.6 (GM:987).
+- Rush: Charge timer -> aim 0.55 s ("!") -> charge at 620 px/s up to 1.4 s, damage BossRush (18 Earl, 16 others) with knock-down; then Charge = 4.2 s, or 2.6 s below half armor (GM:941-951, 972-976). No log line.
+- Half armor (Hp < Max/2), once: banner BossCall, three helpers from the sides, log "FTBRAWL boss calls 3 more" (GM:953-971). Helpers: Earl rusher/grappler/thrower; Vinnie guard/guard/rusher; Pit Boss guard/dealer/guard; Frankie thrower/rusher/thrower; Kingpin rusher/grappler/rusher; Sven rusher/grappler/heavy; Commodore guard/guard/heavy.
+- Signature cooldown after a move: 5.0 s (+Rand*1.6 for nights 2-7), 3.2 s below half armor (GM:884, 913, 936, 1095). Banner with the move's name the first time only (bSigSeen, GM:889, 920, 1096).
+- Taking hits (HitFoe GM:566-590): hurt 0.26 s (GM:788); a jab does NOT interrupt dizzy, slamwind, slam, charge, swig, breathe, hold, bowl, gloves, lunge, hug, windup, sweep (GM:586-588); knock-down = fly then down 0.7 s then getup 0.45 s (GM:775-787). Nova: punch 7/7/12 (third knocks down), kick 13, jump kick 15 (GM:710-712); Nova 150 hp (GM:55).
+- Defeat: Hp <= 0 -> fly (Vx 180, Vz 260) -> down; after 0.9 s down -> dead, bWon, log "FTBRAWL won kos= best= hits= time=" (GM:585, 783). So the last blow is about 1.25 s before the won line.
+- Nova knocked out: autopilot presses Enter after 1.2 s (GM:536, 561), Retry restarts the boss fight, log "FTBRAWL retry wave 3" (GM:1245-1254, 1315).
+- Autopilot (AutoInput GM:445-563): walks to the nearest foe, punches, kicks now and then; it DODGES the signatures: runs out of Vinnie's spotlight (GM:472-481), steps off the Pit Boss's line (GM:485-493), off Frankie's and Sven's line, jumps the Commodore's sweep at windup T > 0.74 and the Kingpin's balls (GM:496-507). -brawlnododge disables the stepping-off for nights 3-7 (GM:489, 499), -brawlpassive stops him hitting the boss (GM:551).
+
+THE SEVEN BOSSES (signature state names and timers)
+1 BIG EARL, THE RUSTY ANCHOR (H:138; BossK GM:120: 210 hp, speed 105, dmg 15, wind 0.42, reach 90). GROUND SLAM (GM:930-939): trigger SlamCd <= 0, free, |dx| < 250, |dy| < 80 -> "slamwind" 0.55 s -> "slam" 0.75 s. At the slam: shake 1.0, 16 damage + knock-down to Nova within 240 x 90 px unless in the air (Z >= 12); log "FTBRAWL boss slam" (GM:935) at slamwind -> slam.
+2 VINNIE VELOUR, THE VELVET ROOM (GM:222-234: 230 hp, speed 125, dmg 14, wind 0.42, reach 84). DISCO WHIRLWIND (GM:872-892): trigger free and |dx| < 420 -> "whirltell" 0.85 s (spotlight) -> "whirl" 1.4 s (chases at 150 px/s, 7 damage every 0.38 s within about 120 px, knocks down after 1.0 s; cannot be interrupted) -> "dizzy" 1.6 s (hits on him x1.5, GM:568). Logs "FTBRAWL boss whirlwind" (GM:874, at whirltell -> whirl), "FTBRAWL boss dizzy" (GM:881).
+3 THE PIT BOSS, THE LUCKY 7 (GM:208-218: 240 hp, speed 100, dmg 15, wind 0.45, reach 88). THE REVOLVER (GM:896-923): trigger free, 60 < |dx| < 760, on screen -> "draw" 1.1 s (the red line follows Nova's lane for 0.75 s, then locks 0.35 s) -> "fire" 0.9 s (3 bullets 0.22 s apart, 980 px/s, 11 damage each). Log "FTBRAWL boss revolver lane= nova=" (GM:902, at draw -> fire); a hit during draw/fire: "FTBRAWL boss revolver interrupted", SlamCd 2.5 (GM:569); "FTBRAWL bullet hit nova hp=" (GM:1229).
+4 FLAMBE FRANKIE, THE TIKI TORCH (GM:162-163: 240 hp, speed 100, dmg 14, wind 0.5, reach 92). FIRE BREATH (GM:1098-1122): trigger free, 60 < |dx| < 360, |dy| < 80 -> "swig" 0.85 s (steps onto Nova's lane for 0.45 s, then locks) -> "breathe" 0.9 s (flame reach min(330, 60 + 900 t), 13 damage + knock-down once; the floor burns 3 s, 4 damage, GM:1235-1241). Logs "FTBRAWL boss fire breath lane= nova=" (GM:1106), "FTBRAWL fire hit nova hp=" (GM:1113), "FTBRAWL burned hp=" (GM:1241).
+5 THE KINGPIN, STRIKE CITY (GM:164-165: 240 hp, speed 110, dmg 14, wind 0.45, reach 88). STRIKE! (GM:1123-1147): trigger free, 160 < |dx| < 760 -> "hold" 1.0 s (three lanes 68 px apart light up, one of them Nova's or next to it) -> "bowl" 0.7 s (3 balls 0.12 s apart, 700 px/s, 12 damage + knock-down, live 2.4 s). Logs "FTBRAWL boss strike lanes=a,b,c nova=" (GM:1127), "FTBRAWL ball hit nova hp=" (GM:1229).
+6 BIG SVEN, THE FROSTBITE LODGE (GM:166-167: 260 hp, speed 95, dmg 15, wind 0.5, reach 86). BEAR HUG (GM:1148-1196): trigger free, 120 < |dx| < 440 -> "gloves" 0.75 s (his line finds Nova's lane for 0.45 s, then locks) -> "lunge" up to 0.75 s at 620 px/s -> if caught "hug": a squeeze every 0.6 s (7 hp), 6 punch presses break it -> Sven "dizzy" 1.6 s; 3 squeezes -> throw (8 damage, knock-down). Logs "FTBRAWL boss bear hug lunge lane= nova=" (GM:1157), "... caught" (GM:1167), "... broken mash=" (GM:1181), "... throw hp=" (GM:1188).
+7 THE COMMODORE, THE SEA BISCUIT (GM:168-169: 280 hp, speed 95, dmg 15, wind 0.5, reach 112). ANCHOR SWEEP (GM:1197-1212): trigger free, |dx| < 230, |dy| < 90 -> "windup" 0.9 s (ring on the deck) -> "sweep" 0.45 s; at 0.08 s it hits everyone inside the 200 x 100 px ellipse who is not in the air (Z >= 30): 15 damage + knock-down. Logs "FTBRAWL boss anchor sweep nova z=" (GM:1201), "FTBRAWL anchor hit nova hp=" (GM:1205).
+
+OTHER LOG LINES THE MANIFEST CARRIES: "FTBRAWL start <VENUE> night=N waves=3 wave=4" (GM:280; its absence = the map did not come up, the runner says so), "FTBRAWL no ... art ...: the Rusty Anchor's room stands in" warnings (GM:1638-1674; printed by the runner), pickups/weapons/drops, "FTBRAWL OFFCAM ..." (GM:1035).

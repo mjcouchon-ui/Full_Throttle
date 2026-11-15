@@ -1,0 +1,196 @@
+FILE: K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\boss_L7.txt
+CHANGED BY CHECKER: True
+RUN: BEFORE (untouched copy):
+powershell -NoProfile -ExecutionPolicy Bypass -File "K:\Full Throttle\SkyScratch\SourceArt\Jam\unreal\jam_exec.ps1" -Tag bossL7_before -Script "K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\boss_L7.txt" -Checkout "K:\Full Throttle\OverhaulBaseline\full-throttle-unreal" -BudgetSec 1200 -Extra "-ftnoattract -ftnodynres -ftslot=pie"
+
+AFTER (integrated build): the same line with -Tag bossL7_after -Checkout "K:\Full Throttle\UE\full-throttle-unreal".
+
+Keep the frame size the same on both (default 3440x1440, or add -Small to both). A normal run is about 2 minutes of script after the editor start and the level load; 1200 s only matters if something hangs. Frames land in K:\Full Throttle\SkyScratch\HandBack\jam\play\<Tag>\ (45 PNGs, all named L7_boss_*); the log is <Checkout>\Saved\Logs\jam_exec_<Tag>.log.
+
+PROBLEMS FOUND BY THE CHECKER:
+Nothing was run; every finding is from reading the untouched copy (K:\Full Throttle\OverhaulBaseline\full-throttle-unreal\Source\FullThrottle; GM = FTGameMode.cpp, FLOW = FTFlow.cpp) and spot-checking the working checkout. All 45 shot names are unchanged.
+
+FIXED
+
+1. Line 26, `ft.AutoX 0` (car on the centre line): the reel shots would not pair, and waits would land early.
+- Why: at x=0 every civilian passed in either middle lane is a NEAR MISS (GM:2565-2587). The civilian is 292 cm to the side, which leaves an edge gap of 2.7 to 7 units against a limit of 14, and under 7 also triggers slow motion.
+- Effect on timing: each one is 0.45 s of the game's slow motion at 0.35x plus a slow recovery, so a real-time wait lands up to about 0.5 s early in the fight.
+- Effect on the reel: each one adds a clip (GM:2586), which StartReel plays before the boss clips with a random camera (GM:3900-3918). `wrap_reel_crane`, `_kill` and `_killcam` would then show a near-miss clip.
+- Worse case: a near miss within 1.9 s before the kill swallows the boss event into its own clip (GM:3878-3886), so there is no crane or kill-camera clip at all.
+- Expected rate: about four mid-lane civilians in the 27 s fight.
+- Fix: `ft.AutoX 292`, the lane every race starts in (32*XU, GM:291) and the value most of the sibling boss scripts use. The next lane is then 585 cm away, too far for a near miss.
+- Cost: a civilian in the car's own lane (about two per fight) is bumped: 0 damage, a shake, a 650 cm/s sideways nudge, and the car passes through it. No slow motion, no clip.
+
+2. Line 57, `wait 0.05` before `L7_boss_lob_land`: the shot fell on the frame the first fish lands.
+- The fish lands at 5.05 plus up to two frames of attack lateness; the shot was at 5.07 to 5.10. One run would show the fish, the other the splash.
+- Fix: `wait 0.15`. The first splash is then 0.05 to 0.15 s old and the second fish (5.17) is coming down.
+
+3. Lines 126-138, phase-2 lob down to the kill: only 0.2 s of slack before clock 27.
+- The chain was flight 24.8, land 25.65, FTFire 20, bellyup, then `waitfor level=27.`, with six frame roundings eating the slack. At 30 fps the kill could slip past 27.0 by a different amount each run.
+- Fix: flight `wait 0.7` (24.7) and land `wait 0.4` (25.6). Both are still inside the flight (24.2 to 25.35+) and the landings (25.35 to 25.71), and the chain now ends about 26.75.
+- Also `p1_lob_land` 0.25 to 0.3 (16.4), for the same lateness.
+
+4. Line 78, `FTSlowMo 3.5`: too little margin for the contact frame.
+- The lines down to the contact freeze take 3.3 real seconds plus a frame each. At 20 to 30 fps the slow motion could end before `L7_boss_contact`, and at full speed he is 15 m further away by the time of the freeze.
+- Fix: `FTSlowMo 4`. It ends around clock 10.85, well before the clock-12 line.
+
+5. Timeouts too short for a slow PC.
+- `FT CLOCK level=2.` after the first map load: 60 to 120 s. First-use shaders in the uncooked game make the 3.2 s slate and the first seconds slow.
+- `FT BOSS state=Arrive`: 30 to 60 s. The slate before it counts drawn frames capped at 0.1 s each (GM:444, 509), right after an 8 km jump down the track.
+- `level=12.`: 15 to 20 s, because it follows the slow motion.
+
+6. Reel shots had little margin against a hitch.
+- With the two boss clips only, from StartReel/TickReel (GM:3898-3978): the crane's kill is at 5.56 s and the kill camera's at 9.97 s after "name=Reel".
+- `_reel_kill` was 0.34 s after its kill; a hitch when the ghost actors spawn would put it before. Now `wait 2.2` (6.0 s) and `wait 3.85` (10.35 s).
+
+7. Paycheck and dailies waits.
+- The paycheck shows one line every 0.32 s from 0.3 s (FLOW:370); `wait 3.0` caught it half written at 9 or more lines. Now `wait 5.0`.
+- Dailies 3.5 to 4.0 (the stamp is at 2.9 s).
+
+8. Header.
+- Run line now has `-NoProfile -ExecutionPolicy Bypass`, `-ftslot=pie` (FTGameInstance.cpp:104, so the test slot is in force from process start) and `-BudgetSec 1200`.
+- Added the list of log lines to check after a run, including "FTFLOW reel start, 2 shots".
+
+CHECKED AND FOUND RIGHT (no change)
+
+- Every command exists with these arguments in both checkouts: FTUseTestSlot, FTCareerReset, FTQuality, FTStartLevel, FTAutoRun, FTFreeze, FTSlowMo, FTFire, FTRam, FTWrapNow, FTPress Continue, FTDumpLevel, FTDumpCareer (FLOW:935-1179) and ft.AutoX (GM:43).
+- `FTStartLevel 7 7` on the loaded map goes through StartLevelAt to StartRace(false) with PendingScene 6 (FLOW:681-692, GM:253). It logs "FT LEVEL id=L7 scene=7 sequel=0" and zeroes LevelClock and ClockLogT (GM:260).
+- Scene 7 starts 400 cm before 57900 on the plain last section of the track (FTData.cpp:338-349), so the boss is spawned and first ticked on the first play frame (GM:1697, 2044). The level clock is boss time.
+- The first fan at 1.6 s passes its range test: he is about 7.9 m... correction, about 7940 cm ahead against a limit of 8861 cm.
+- Every waitfor text can appear where it is waited for, and no console command sits between a clock line and its waitfor.
+- Armor steps 145, 98, 48, 28 give phase 1 at 66% or less, phase 2 at 33% or less and the belly-up line under 20% (GM:2645, 3086).
+- The lunge starts at 18.0 (T3 only counts from phase 1) and its second one (27.3) falls after the kill.
+- Quality is set before the level and re-applied at each map start (FTGameInstance.cpp:320, 405).
+- The career goes to career_pie only.
+- The script reaches `quit` on every path, because a timeout never stops it.
+
+NOT FIXABLE FROM THE SCRIPT
+
+- A wrap with a new best score writes the level-7 best take into that checkout's Saved\FullThrottle\settings.json (GM:417-421). The score is only about 5000, so it writes only where the stored best is lower, as on a fresh checkout; the title frames of a later menu script on that checkout would then differ.
+- The fan and the lob have no warning in code, so their "windup" shots are simply the moment before.
+- The lunge cannot bite by itself (closest about 32 m; contact needs under 8.6 m), so the contact is the staged FTRam frame in phase 0.
+- The two road shots are scene 1 (level start), not the road at the finale: at scene 7 the boss is there on the first frame.
+
+STILL UNSURE:
+Only a real run can settle these.
+
+1. The same-map restart. No existing script uses `FTStartLevel 7 7` on a loaded map. By the code it is a plain StartRace(false) at scene 7 with the boss on the first play frame. If it fails, the log shows `waitfor="scene=7 sequel=" result=timeout` or the Arrive waitfor times out, and every frame after `road_2` is wrong.
+
+2. Frame rate. Each attack fires up to one frame late and the lateness adds up: about 0.1 s by phase 2 at 60 fps, 0.2 to 0.35 s at 30 fps. At 3440x1440 EPIC, uncooked, with other Unreal jobs on the PC, I do not know the frame rate.
+- Below about 25 fps, `p1_fan_release`, `p2_fan_release` and the two phase lob landings can land just before the event.
+- Tell from FTHITCH lines and from whether the fish are in the frame. `-Small` on both runs is the remedy.
+
+3. First-use hitches. A frame over 0.4 s makes game time fall behind the real-time waits until the next clock line; likely on the integrated build while it compiles new materials. A throwaway warm-up run of the integrated build first is worth it.
+
+4. Civilians in the car's lane. About two per fight are bumped at random moments (shake, sideways nudge, the car passes through them). A shot within about 0.3 s of one looks disturbed. Look for "FT HURT .. near=Civilian". I chose this over the centre line's near-miss slow motion and reel clips from the code; a run shows how it looks.
+
+5. FTRam Boss. For about 1.5 s afterwards he is closer than normal and the car is shoved right. The 10.8 fan (not filmed) is fired from about 20 m, and at the `phase1` frame he is still about 7 m short of his spot. If it throws the car about, delete the five lines from `FTRam Boss` to the second `FTFreeze 0` and lose only `L7_boss_contact`.
+
+6. The freeze-frame shots (`fan_windup`, `hurt_1`, `contact`). Time dilation 0.0001 with TSR is used by fx_c_blasts, but I could not check that these frames come out clean here. They have no motion blur and will look sharper than the rest.
+
+7. The reel. It pairs only if "FTFLOW reel start, 2 shots" appears in both logs.
+- What it shows after the kill instant is the last recorded pose plus the replayed explosion, because snapshots stop at the kill.
+- That explosion is spawned inside a one-frame window (GM:4017), which could be skipped on a long frame.
+
+8. Random by design, so different in each run: the gap in each fan, where the second and later lobbed fish land, civilian traffic, the director's ambient lines. The swordfish of the 25.8 fan are at the car in the defeat frames in both runs.
+
+9. Entrance and early frames. The 8 km jump at the restart may leave textures still streaming in `enter_1` and `enter_2`; the key-hint strip and the scene slate are on the HUD for the first seconds.
+
+10. Baseline timing only. If the overhaul changes any boss timer, the shot names still mean "this clock time". Read the FT BOSS and FT DAMAGE lines before judging the art.
+
+SHOTS:
+45 shots, in order. "c" = level clock in seconds = the boss's own time (he appears at c=0). Times are what the code's timers give; nothing was run.
+
+ROAD (no boss; level 7 from scene 1, autopilot)
+1. L7_boss_road_1 - the road at level clock 2.0 (standing start, THE DESCENT).
+2. L7_boss_road_2 - the road at level clock 4.0.
+
+ENTRANCE (level restarted at scene 7; the game spawns him itself 160 m ahead)
+3. L7_boss_enter_1 - first frame of the fight: shark just spawned about 158 m ahead; scene slate / director line on the HUD.
+4. L7_boss_enter_2 - c about 0.55: about 127 m, closing at 60 m/s.
+5. L7_boss_enter_3 - c about 1.05: about 100 m.
+6. L7_boss_enter_4 - c 2.0: about 70 m, his first swordfish fan (fired at 1.6) in the air.
+7. L7_boss_enter_5 - c 3.0: on his fighting spot (about 61 m), first fan about to reach the car.
+
+LOB, phase 0 (two flying fish, thrown at 3.9)
+8. L7_boss_lob_windup - c about 3.5: 0.4 s before the throw (the code has no telegraph for fan or lob; this is the last moment before).
+9. L7_boss_lob_release - c about 4.05: fish 0.1-0.2 s out of the boss, the pink marks on the road at the car.
+10. L7_boss_lob_flight - c about 4.6: fish at / just past the top of the arc.
+11. L7_boss_lob_land - c about 5.15: first fish just landed (water splash), second landing (5.17).
+
+FAN, phase 0 (seven swordfish, fired at 6.2)
+12. L7_boss_fan_windup - held frame (FTFreeze) at c 6.0: 0.2 s before the shot.
+13. L7_boss_fan_release - c about 6.35: fan 0.1-0.2 s out of the tail (muzzle flash).
+14. L7_boss_fan_flight - c about 6.85: fan about half way.
+15. L7_boss_fan_land - c about 7.4: fan reaching the car (impact 7.42).
+
+16. L7_boss_idle - c 8.0: on his spot, swaying, nothing in the air.
+
+HURT / CONTACT (slow motion 0.3x)
+17. L7_boss_hurt_1 - held frame 0.05 s after five standard rounds hit him (armour sparks at his tail), armor 145/150.
+18. L7_boss_hurt_2 - 0.18 s after the hits.
+19. L7_boss_contact - held frame about 0.07 s after FTRam Boss: the shark on the car's nose (the only close-up of the model; ram sparks). Staged: the lunge itself cannot reach the car.
+
+PHASE 1
+20. L7_boss_phase1 - c 12.15: just after 47 more rounds, armor 98/150, caption FEEDING TIME!, director line.
+21. L7_boss_p1_fan_release - c about 13.4: nine-swordfish fan about 0.2 s out.
+22. L7_boss_p1_fan_flight - c about 13.9: that fan in flight.
+23. L7_boss_p1_lob_flight - c about 15.6: three fish in the air.
+24. L7_boss_p1_lob_land - c about 16.4: first fish landed, the others landing.
+25. L7_boss_lunge_windup_1 - c about 18.25: lunge warning just started (Alert glow, flare at the tail, JAWS! on the HUD).
+26. L7_boss_lunge_windup_2 - c about 18.75: still warning, just before he drops back (18.9).
+27. L7_boss_lunge_release - c about 19.3: dropping back at the car (0.3-0.4 s in, about 45 m).
+28. L7_boss_lunge_bite - c about 20.1: closest point of the lunge (about 33 m), glow still on, lobbed fish landing around.
+29. L7_boss_lunge_recover - c about 20.7: glow off, pulling away.
+
+PHASE 2
+30. L7_boss_phase2 - c 22.15: just after 50 more rounds, armor 48/150, caption FEEDING FRENZY!.
+31. L7_boss_p2_fan_release - c about 23.0: phase-2 fan (nine swordfish) 0.2-0.3 s out.
+32. L7_boss_p2_fan_flight - c about 23.5: that fan in flight.
+33. L7_boss_p2_lob_flight - c about 24.85: four fish in the air.
+34. L7_boss_p2_lob_land - c about 25.7: first fish landed, the rest landing.
+35. L7_boss_bellyup - c about 26.3: armor 28/150 (under 20%), "It's belly up! Finish it!", a fan in the air.
+
+DEFEAT (real seconds after FTWrapNow at c 27.0)
+36. L7_boss_defeat - +0.15 s: the kill, inside the game's own 0.22 s freeze frame (blast one or two frames old).
+37. L7_boss_defeat_after_1 - +0.7 s: slow motion 0.22x, blast about 0.12 s old.
+38. L7_boss_defeat_after_2 - +2.2 s: blast about 0.45 s old, wreck in the air, CUT! card up.
+39. L7_boss_wrap_cut - +3.3 s: slow motion over, "CUT! PRINT IT. THAT'S A WRAP!".
+
+WRAP
+40. L7_boss_wrap_reel_crane - highlight reel +3.3 s: the boss alive 1.5 s before his end, from the crane camera.
+41. L7_boss_wrap_reel_kill - reel +6.0 s: the kill instant in the reel's slow motion, crane camera.
+42. L7_boss_wrap_reel_killcam - reel +10.4 s: the kill instant from the kill camera (ANOTHER ANGLE).
+43. L7_boss_wrap_reel_hold - the reel's last frame, CONTINUE showing.
+44. L7_boss_wrap_dailies - THE DAILIES (rating stamp), 3.5 s in.
+45. L7_boss_wrap_paycheck - the paycheck, 3 s in.
+(40-42 pair only if both logs say "FTFLOW reel start, 2 shots".)
+
+FACTS:
+Nothing was run; all from reading code. LINE NUMBERS are from the untouched copy K:\Full Throttle\OverhaulBaseline\full-throttle-unreal\Source\FullThrottle (GM = FTGameMode.cpp, FLOW = FTFlow.cpp, ENT = FTEntity.cpp). The working checkout's FTGameMode.cpp was being edited while I read it (its line numbers moved by +9, then +49; it now has an FTGo test jump and 3.8 boss music) and its runner gained a "film <name> <frames> [fps]" line (FTGameInstance.cpp:569-584) that the baseline runner (FTGameInstance.cpp:531-554) does not have. The script uses only commands I confirmed in the baseline: FTUseTestSlot, FTCareerReset, FTQuality, ft.AutoX (GM:43), FTStartLevel (FLOW:996), FTAutoRun (1164), FTFreeze (1092), FTSlowMo (1065), FTFire (1031), FTRam, FTWrapNow (1100), FTPress, FTDumpLevel (1126), FTDumpCareer (940).
+
+DATA (FTData.cpp:327-357): level index 6, map /Game/Maps/Abyss/L_Abyss, FinaleD 57900 (341), seven scenes, scene 7 "THE FINALE" at 57900 with script spawn "57900:B" (349). Boss: EFTBoss::Shark, armor 150, escape 80 s, BossBullet 1 = swordfish (352). Units FTCore.h:13-19: XU 9.14 cm, DU 13.71 cm, lanes at -877/-292/+292/+877 cm.
+
+ARRIVAL (SpawnGroup GM:1631, boss case 1658-1687): spawned 16000 cm ahead at x 0; fighting distance Ta = 342*DU*1.25 = 5861 cm; first-attack timers T1 1.6, T2 1.0, T3 6.0 (1665); logs "FT BOSS state=Arrive armor=150 escape=<s> clock=0.0" (1683) and "FT BOSS firstAttack t1=1.6 t2=1.0 t3=6.0". Natural spawn: TickSpawns (1693) runs the scene's "B" on the first frame of play when the race starts at scene 7 (fallback GM:3544). Approach = TickBoss GM:2814: speed = car speed + clamp((Want - Ahead)*1.4, +-6000): 6000 cm/s until about 1 s, then eases onto his spot (about 7700 cm at 1.6 s, 6100 at 3 s). FTBossNow (FLOW:1003) instead sets him on his spot at once and does not reset the level clock; that is why the script uses FTStartLevel 7 7 (StartLevelAt FLOW:681-692: same level -> StartRace(false) on the spot with PendingScene 6; StartRace GM:236 zeroes LevelClock; 3.2 s slate, then play). Boss time = level clock exactly (he is spawned and first ticked in the first play frame). "FT CLOCK level=%.1f" once a game second, GM:1034.
+
+PHASES (TickBoss GM:2639, line 2645): phase 0 above 66% armor, 1 at 66% or less, 2 at 33% or less: armor 99 and 49 with 150. BossPhaseLine (2825) on a change: Step back to 0 (next attack is a fan), director line, caption FEEDING TIME! / FEEDING FRENZY!, BossPhase sound. No change to the model in any phase.
+
+ATTACKS (TickBossShark GM:3047-3087):
+- Idle motion: distance sways +-302 cm (22*DU*sin(0.8T), 3050), x sways +-658 cm (72*XU*sin(0.55T), 3051).
+- T1 counts down always; fires when <= 0 and he is within Ta+3000 (3055). Gap after each attack 2.3 / 1.9 / 1.6 s by phase (3058). T1 is SET to the gap, so each attack is up to one frame late and the lateness adds up.
+- Even step: swordfish fan, BulletFan (2852): 7 bullets in phase 0, 9 after, 0.075 rad apart, a RANDOM gap of two missing, 300*DU = 4113 cm/s relative, aimed at the car's x (3061). No warning. 1.22 s from his spot to the car; bullet life 2.6 s (FireBullet GM:1724).
+- Odd step: lob, 2+phase flying fish (SM_Fish), Lob(2,...) (3067-3069): first at the car's x, others +-120*XU random, landing -100..500 cm ahead (random), flight 1.15 + 0.12k s, mark radius 320 cm, arc 1000 cm, 13 damage. TickHazards type 5 (GM:3305): pink blinking mark rides with the car, fish flies the arc, lands when the warning ends, water burst (Explode look 2), live 0.25 s.
+- Lunge, phase >= 1 only (3075-3085): T3 (6.0) counts only from phase 1; at 0: State 1, "JAWS!" shout, glow on; after 0.9 s Want = Ta - 160*DU*1.4 = 2790 cm (he drops back); at 2.3 s over, glow off, T3 = 7 (5 in phase 2). Closest about 3250 cm. CONTACT needs under 857 cm ((480+1234)/2) and under 332 cm sideways (touch test GM:2453; "boss wall" 10 damage + shove, 2536-2541), and his distance is steered relative to the car every frame, so as written THE BITE CAN NEVER LAND by itself. The script stages the contact with FTRam Boss.
+- Under 20% armor: director line "It's belly up! Finish it!" once (3086).
+
+HURT: FTFire <n> Boss (FLOW:1031) = n rounds of the current load through BulletHit (FLOW:150-189): standard round 1 armor to a boss, NS_ImpactArmor + NS_ImpactRing at his tail, then HurtEnt (GM:1807) logs "FT DAMAGE target=Boss amount=1 left=<hp> load=STD source=gun". There is no hurt animation for a boss in code (KickBike, ENT:594, is bikes only). Script: 5 -> left=145 (phase 0), +47 -> 98 (phase 1), +50 -> 48 (phase 2), +20 -> 28 (under 20%), FTWrapNow -> amount=28 left=0.
+
+DEFEAT (Kill GM:1825): 3000 points, explosion size 3, his mesh thrown as a rigid-body wreck, "FT BOSS state=Down clock=.. fight=.. lastChance=0" (1968), then Wrap (GM:371): Freeze 0.22 s (time x0.02, 379), Slowmo 2.4 s at 0.22x (380), every other vehicle wrecked, "FT OUTCOME wrap clock=..", CUT! card 0.8 s later. Wrap phase lasts 4.2 REAL seconds (GM:543), then "FT RATING", pay saved, reel. Reel (StartReel GM:3898, TickReel 3931): 2.2 s title, boss clip from the crane (kill -2.6 s to +2 s; 0.6x within 0.6 s and 0.35x within 0.3 s of the kill), then the kill camera from -0.9 s; "FT SCREEN name=Reel state=hold" at the end (about 12.7 s if there are only the two boss clips).
+
+ESCAPE (TickBossClock FLOW:280-322): 80 s, then LAST CHANCE 8 s; the script kills him at 27 s.
+
+MODEL (ENT, same numbers in both checkouts): mesh /Game/Characters/Bosses/SM_SharkCar (180); separate rolling wheels (SetupWheels); own body animation only a tail wag: yaw +-3 degrees at 5 rad/s (760; bOwnAnim 682 switches the springs off for him); cyan point light (0.3,0.9,1) 1500 at (-600,0,300) (406-414); SetGlow (417): material scalar "Alert", NS_AlertFlare at (-620,0,220) x2.2 when the glow comes on, light up to 3300. Swordfish = /Game/Characters/Projectiles/SM_Swordfish (186), wiggle +-18 degrees (763).
+
+HARNESS POINTS USED: FTAutoRun = autopilot steers, car takes 0 damage, never fires (GM:1177). ft.AutoX 0 pins the car to the centre line (GM:1114). FTFreeze = time dilation 0.0001 (TickSlowmo GM:3729), about one frame after the command. FTSlowMo n = 0.3x for n real seconds (GM:3718). The runner's waitfor window starts at the last console command.
+
+AFTER EACH RUN, in the log: "FT LEVEL id=L7 scene=7"; "FT BOSS state=Arrive armor=150 escape=80"; left=145, 98, 48, 28, 0; "FT HURT .. near=Boss" right after FTRam; "FT BOSS state=Down .. fight=" about 27.0-27.2; "FT OUTCOME wrap clock=27.x"; no "result=timeout". The script is about 35 s of level clock plus about 30 s of screens.

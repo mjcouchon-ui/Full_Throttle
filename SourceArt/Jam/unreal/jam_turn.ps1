@@ -50,6 +50,8 @@ try {
     Remove-Item -LiteralPath $so, $se -Force -ErrorAction SilentlyContinue
     $bad = ($p.ExitCode -ne 0) -or (@($text | Where-Object { $_ -match "TIMEOUT|left running|STILL RUNNING|COMPILE FAILED" }).Count -gt 0)
     "--- step {0} ended {1} after {2:N0} s, exit {3}{4}" -f $n, (Get-Date -Format "HH:mm:ss"), ((Get-Date) - $t0).TotalSeconds, $p.ExitCode, $(if ($bad) { ": NOT CLEAN" } else { "" })
+    # whatever kind of step it was: no further job is started while an Unreal process of this checkout is still alive
+    if (@(Get-CheckoutUnreal $Checkout).Count -gt 0) { $failed = $true; "TURN STOPPED at step ${n}: an Unreal process of this checkout is still running; the steps after it were not run"; break }
     if ($bad -and -not $soft) { $failed = $true; "TURN STOPPED at step ${n}: the steps after it were not run"; break }
   }
 } finally {

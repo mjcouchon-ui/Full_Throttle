@@ -1,0 +1,167 @@
+FILE: K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\boss_L3.txt
+CHANGED BY CHECKER: True
+RUN: powershell -NoProfile -ExecutionPolicy Bypass -File "K:\Full Throttle\SkyScratch\SourceArt\Jam\unreal\jam_exec.ps1" -Tag bossL3_before -Script "K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\boss_L3.txt" -Checkout "K:\Full Throttle\OverhaulBaseline\full-throttle-unreal" -BudgetSec 900 -Extra "-ftnoattract -ftnodynres -ftslot=pie"
+(second run: -Tag bossL3_after -Checkout "K:\Full Throttle\UE\full-throttle-unreal", everything else identical, including the default 3440x1440 frame)
+
+PROBLEMS FOUND BY THE CHECKER:
+Checked every line against the untouched copy (K:\Full Throttle\OverhaulBaseline\full-throttle-unreal\Source\FullThrottle): the runner (FTGameInstance.cpp:507-560), HarnessCmd (FTFlow.cpp:884-1181), the Dealer branch (FTGameMode.cpp:2766-2811), the Snake Eyes code (:2284-2334), SpawnGroup, Kill, Wrap, the reel, and the HUD (FTHUD.cpp:628-718). Nothing was run except a three-line parameter test (see 10). Every command exists with those arguments, every waitfor text can appear where it is waited for, quality is set before the level loads (FTQuality 3 is re-applied at each map start), the test slot is switched before the reset, and every path reaches quit. The colleague's timer arithmetic (bikes at N+1.0 then 2.6/2.1/1.6 s, brake check 2.5 s after a phase change, three dodged jumps, armor 190/130/64) is right. No second file is involved.
+
+What I changed, shot names untouched:
+
+1. Old lines 47-51, L3_boss_enter_1..4: the keys strip at the bottom of the HUD goes off 10 real seconds after ACTION! (FTGameMode.cpp:1036, FTHUD.cpp:711). enter_4 was taken about 9.8 real seconds in, so the strip would be in some runs' frame and not in others. Fix: the world stays frozen 7 more real seconds after road_2 ("wait 7" before its FTFreeze 0), so the strip is gone before the entrance. No clock mark moves.
+
+2. Old lines 48-67, entrance stills: the yellow plate under the boss bar shows ACTION! from 0.45 to 1.45 real seconds after a scene change and the scene's name until 2.8 (FTHUD.cpp:667-674). enter_3 fell at 2.7 to 2.8 (a coin toss) and enter_1 at 0.3 (flips below about 25 frames a second). Fix: waits are now 0.25 / 0.4 / 0.5 / 0.5 / 0.8, so the stills fall at 0.55 (ACTION!), 1.75 (THE FINALE) and 3.05 or later (no plate), each on one side of an edge. The entrance moments become about 0.45 / 1.05 / 1.7 / 2.4 / 3.4 game seconds after Arrive instead of 0.2 / 0.75 / 1.35 / 2.05 / 3.15; enter_3 now has the first bike on the ramp. The Arrive timeout went from 3 to 10 s.
+
+3. Old line 101, L3_boss_ramp_beside (wait 0.5): the rider is then about 700 cm ahead, and inside 666 cm his own chain wind-up may start on a random timer (:2788, :2319). One frame late and the glow is on in two runs out of three. Fix: wait 0.4 (about 850 cm ahead, never in wind-up).
+
+4. Old line 113, L3_boss_chain_release (wait 0.4): the still came 0.03 s after the swing at 60 frames a second in the best case, so it could show the frame before it. Fix: wait 0.45.
+
+5. Old lines 183-193, brake stills: at 20 frames a second brake_close landed at 2.2 s of a 2.3 s brake check (lights about to go off), and brake_recover only 0.08 s after lights-off at 60. Fix: waits 0.3 / 0.2 / 0.7, giving 1.35 / 1.7 / 2.6 s in.
+
+6. Old line 209, L3_boss_p2_jump_release (wait 0.12): T2 is set afresh for every bike (:2782), so each bike adds up to a frame; the pair of 32.5 is the sixth bike of that boss and leaves 0.05 to 0.3 s late. The still was only 0.08 s after it at 60 frames a second and could come before it. Fix: wait 0.3. Also p2_pair_release 0.4 to 0.45 and p2_brake_windup 0.3 to 0.2 (it stays inside the 0.8 s before he moves).
+
+7. Old lines 80 and 91, ramp_windup and ramp_roll: I removed their waits (0.15 and 0.05). A waitfor only sees lines logged after the last console command, so the clock-13 and clock-14 marks must still be ahead when the FTFreeze 0 before them is sent; the margin was 0.5 s and is now 0.65. A missed mark costs every later mark too. ramp_windup is now 0.65 s before the release (nothing happens before it anyway), ramp_roll 0.3 s after it, still on the ramp.
+
+8. Old line 272, paycheck (wait 2.5): lines appear one every 0.32 s (FTFlow.cpp:370), so the frame caught the list half revealed. Fix: wait 6.
+
+9. Start: added "wait 2" before FTUseTestSlot, as the sibling scripts have. Added -ftslot=pie to the run line (FTGameInstance.cpp:104), so the career slot is the test slot from the first frame even if the FTUseTestSlot line failed; FTCareerReset can then never reach the real career.
+
+10. Header: the run line is on one line with -NoProfile -ExecutionPolicy Bypass and -BudgetSec 900 (if every waitfor timed out the script would need about 800 s). I tested with a throwaway script (deleted again) that -Extra "-ftnoattract -ftnodynres -ftslot=pie" binds correctly through powershell -File on this PC. The header now lists the log lines to check and corrects two comments (the jumpers land about 3000 and 1800 cm ahead, not 2500 and 1250: his distance lags its target by 570 cm; both are dodged either way).
+
+Left alone on purpose: the lane is not pinned (ft.AutoX), as the colleague argued; FTSpawnAdd spawns the staged rider in a random lane; FTWreck SnakeEyes 9 at clock 32 is needed or his six-bike limit stops the 34.1 and 35.7 pairs.
+
+STILL UNSURE:
+Nothing was run; all timings are from reading the code.
+
+1. FTStartLevel 3 8 and FTNextScene are in no script that has run before (the sibling boss scripts use them too, equally untested). Look for "FT LEVEL id=L3 scene=8" and a found "FT BOSS state=Arrive" right after cmd=FTNextScene.
+
+2. Frame rate at EPIC 3440x1440 uncooked with other jobs on the PC. The clock marks need about 20 frames a second; below about 12 a mark is missed, and then every later mark times out too (the run still ends with quit, but its frames are useless). First-use shader hitches in the first seconds of play can do the same. Any result=timeout means repeat the run.
+
+3. The 7-second freeze after road_2 is longer than any freeze used so far (stills hold 0.8 s). I found nothing that reacts to it (the stall check and all boss timers run on game time), but a run has to show the car and camera come out of it cleanly.
+
+4. Random things a script cannot pin, which shift the dead-reckoned stills by up to 0.3 game seconds or change a frame's content:
+   - a near miss with a civilian or rider puts the game in slow motion for 0.45 real seconds (FTGameMode.cpp:2585);
+   - whether the staged chain rider hits or is ducked (504 cm against a 512 cm limit);
+   - the staged rider's spawn lane: one time in four it appears inside the car and is bumped, and rarely slammed off and killed, which leaves the three chain stills empty;
+   - civilian traffic, riders' sides, pickup drops, the autopilot's lane.
+   Frames pair by moment, not by pixel.
+
+5. What is visible in certain stills: the armour sparks 0.05 and 0.2 s after the hits (hurt_1/2); whether defeat_1_moment shows any blast (it is inside the hit stop, about 3 ms of game time after the kill); idle_1's camera 0.3 real seconds after the teleport by FTBossNow (it eases to the new heading at 7 per second, so about 90 % settled); enter_1 with the carrier 133 m away.
+
+6. HUD items on the real clock that I could not place: the director's line at the scene change (its hold time was not read) may be in enter_4 or enter_5 in one run and not the other; CHAIN! shouts and reward popups likewise.
+
+7. If the integrated build changes the Dealer's timers, a jumper may land on the car (no source=DodgedJump line, so a 1.5 s timeout) or the armor numbers differ. That is the "encounter no longer plays the same" signal, and the stills after it are then at other moments. I checked in the working checkout only that the harness commands and the main timer constants are still there today (it was being edited).
+
+8. Reel length depends on how many clips the run made (the wait allows 120 s; I expect 20 to 30 s).
+
+9. Side effects per checkout: the test slot career_pie is reset and gets the level's pay. settings.json gets a new level-3 best take if this run's score beats the stored one (FTGameMode.cpp:417-421), which changes what that checkout's title shows afterwards; in the working checkout that file may be the one used for normal play.
+
+10. If WISPOS_APP_DATA is set in the shell that launches jam_exec, saves and shots go there instead of the checkout's Saved\FullThrottle, and jam_exec collects no frames.
+
+SHOTS:
+47 shots, in order. "Clock" = the level clock (game seconds since ACTION!), which the script uses as its grid. All stills up to defeat_0_before are taken with the world frozen (FTFreeze); from defeat_1 on they are live. HUD is in every frame.
+
+ROAD (scene 8, THE CITY LIGHTS, standing start)
+1. L3_boss_road_1 - clock 2.0: the road about 2 s into the drive (first bend after the scene start, Vegas backdrop). Four scripted Snake Eyes are far ahead (10-15 000 cm), still dots. Key hints of a first take are on the HUD.
+2. L3_boss_road_2 - clock 4.0: same road two seconds on; the four Snake Eyes now 4-9 000 cm ahead.
+
+ENTRANCE (real arrival through SpawnGroup after FTNextScene; times after "FT BOSS state=Arrive")
+3. L3_boss_enter_1 - about 0.2 s: carrier about 15 000 cm ahead (a few pixels), THE FINALE slate on the HUD, boss panel just on.
+4. L3_boss_enter_2 - about 0.75 s: about 11 500 cm, closing at 6000 cm/s.
+5. L3_boss_enter_3 - about 1.35 s: about 8000 cm, easing in; his first rider leaves about 0.1 s later.
+6. L3_boss_enter_4 - about 2.05 s: about 6300 cm, first rider just off the ramp.
+7. L3_boss_enter_5 - about 3.15 s: on his spot (about 5400 cm).
+
+PART A, fresh boss summoned at clock 12 (phase 0)
+8. L3_boss_idle_1 - clock 12.17: carrier on his spot 5141 cm ahead, empty road, nothing sent yet.
+9. L3_boss_ramp_windup - clock 12.5: 0.5 s before the first bike (today: looks like idle, the code has no wind-up).
+10. L3_boss_ramp_release - clock 13.15: the first rider 0.1-0.2 s off the tail ramp (State 9).
+11. L3_boss_ramp_roll - clock 13.4: the rider 0.4 s out, clear of the ramp, drifting sideways.
+12. L3_boss_ramp_ride - clock 14.0: the rider about 2100 cm ahead of the car, falling back toward it.
+13. L3_boss_ramp_beside - clock 14.7: the rider arriving at the car's door (about 600 cm ahead of the car's centre).
+14. L3_boss_chain_windup - 2.1 s after FTSpawnAdd (clock about 17.0): the staged Snake Eyes beside the car in its chain wind-up (glow, red light, CHAIN! shout); the boss's own first rider is also at the car, in whatever state its random timer gives.
+15. L3_boss_chain_release - 2.7 s after the spawn: about 0.1 s after the swing (NS_ChainSwing sparks; a hit shakes the camera, a miss shows DUCKED THE CHAIN +150).
+16. L3_boss_chain_after - 3.2 s after the spawn: 0.5 s after the swing.
+
+PART B, fresh boss summoned at clock 20
+17. L3_boss_idle_2 - clock 22.0: carrier swaying on his spot, his first rider on its way to the car.
+18. L3_boss_hurt_1 - 10 rounds (FTFire 10 Boss) in 0.3x slow motion, about 0.05 game s after the hits: armour sparks and impact ring on his tail, boss bar at 95 %.
+19. L3_boss_hurt_2 - about 0.2 game s after the hits.
+20. L3_boss_p1_start - clock 25.17: 60 more rounds 0.17 s ago (armor 130, 65 %): phase 1 begins, caption THEY'RE JUMPING OFF THE TOP DECK!, boss bar at 65 %.
+21. L3_boss_jump_windup - clock 26.0: 0.2 s before the jumper leaves (today: no tell).
+22. L3_boss_jump_release - clock 26.35: the jumper 0.15 s off the top deck (about 7-8 m up, over the carrier), INCOMING! shout, landing mark on the road.
+23. L3_boss_jump_flight - clock 26.7: the jumper near the top of his arc (about 11 m), mark closing.
+24. L3_boss_jump_land - clock 27.35: the frame after he lands, about 2500 cm ahead of the car: dust, DODGED THE JUMP +150.
+25. L3_boss_brake_windup - clock 27.7: brake check 0.2 s in: BRAKES! shout, tail flare, red light and Alert glow on; he has not moved.
+26. L3_boss_brake_release - clock 28.4: 0.9 s in: he has just started to drop back (a rider also leaves the ramp at 28.3).
+27. L3_boss_brake_drop - clock 29.0: 1.5 s in: about 3200 cm ahead, lights on.
+28. L3_boss_brake_close - clock 29.4: 1.9 s in: closest (about 2850 cm), lights still on.
+29. L3_boss_brake_recover - clock 30.1: 2.6 s in: lights off, pulling away to his spot.
+
+PART C, same boss, phase 2 from clock 32
+30. L3_boss_p2_start - clock 32.35: 66 more rounds (armor 64, 32 %): caption HE'S EMPTYING THE WHOLE TRUCK!; the five riders on the road were wrecked 0.2 s ago (explosions, multi-kill popups).
+31. L3_boss_p2_jump_release - clock 32.65: the pair of 32.5: a jumper just off the deck and a rider just off the ramp.
+32. L3_boss_p2_jump_flight - clock 32.95: that jumper about 0.45 s into the air.
+33. L3_boss_p2_jump_land - clock 33.65: he lands about 2500 cm ahead (dust, DODGED THE JUMP).
+34. L3_boss_p2_pair_release - clock 34.25: the pair of 34.1: two riders just off the ramp.
+35. L3_boss_p2_brake_windup - clock 34.75: second brake check 0.25 s in (tail lights, BRAKES!).
+36. L3_boss_p2_swarm - clock 36.0: he is dropping back with lights on (about 3300 cm), the jumper of 35.7 in the air, its partner rider just off the ramp, four more bikes on the road.
+37. L3_boss_p2_jump2_land - clock 36.85: that jumper lands about 1250 cm ahead of the car; the carrier at his closest, lights just off.
+
+DEFEAT AND WRAP (real time after FTWrapNow)
+38. L3_boss_defeat_0_before - clock 38.0: last frame of the fight (phase 2, six bikes out, carrier back near his spot).
+39. L3_boss_defeat_1_moment - 0.15 s: inside the 0.22 s hit stop: carrier swapped for his burning wreck, the flash, the blast only milliseconds old, all bikes blowing up, boss panel gone.
+40. L3_boss_defeat_2_after - 0.65 s (about 0.1 game s, slow motion 0.22x): the fireball.
+41. L3_boss_defeat_3_after - 1.15 s: blast growing, wreck tumbling; the CUT! card comes on at 0.8 s.
+42. L3_boss_defeat_4_after - 1.65 s: smoke and embers, CUT! PRINT IT. THAT'S A WRAP! card.
+43. L3_boss_wrap_cut - 2.65 s: slow motion over, the card still up.
+44. L3_boss_wrap_reel_title - 1 s after "FT SCREEN name=Reel": the highlight reel's title card.
+45. L3_boss_wrap_reel_hold - the reel holding on its last frame (the kill's second angle, G KILL CAM, 2 s after the kill), CONTINUE button.
+46. L3_boss_wrap_dailies - THE DAILIES 3.2 s in (rating stamp, score).
+47. L3_boss_wrap_paycheck - the paycheck 2.5 s in.
+
+FACTS:
+Line numbers are for the untouched copy K:\Full Throttle\OverhaulBaseline\full-throttle-unreal\Source\FullThrottle (GM = FTGameMode.cpp, FLOW = FTFlow.cpp). The working checkout K:\Full Throttle\UE\full-throttle-unreal was being changed while I read it (GM lines moved by +35 to +49 between two of my reads; FTData.cpp and FTEntity.cpp are not among the changed files), so I re-checked every line below on the baseline copy. Nothing was run.
+
+DATA (FTData.cpp)
+- :210 Boss = Dealer, "THE BIG DEALER", BossHp 200, BossEscape 90. :197 FinaleD 78000. :198-208 nine scenes; scene 8 THE CITY LIGHTS at 66000 ("66000:gggg 68000:tm 71800:s 73500:h 75000:gg 76500:cw"), scene 9 THE FINALE at 78000 ("78000:B"); :62 'B' = Boss.
+- FTCore.h:13-19 XU 9.14 cm, DU 13.71 cm, lanes at -877/-292/292/877 cm, base speed 5210 cm/s.
+
+ARRIVAL (shared)
+- GM:1658-1687 SpawnGroup Boss: spawned 16000 cm ahead at x 0; fighting distance Ta = 300*DU*1.25 = 5141 cm; first-attack timers T1 1.6, T2 1.0, T3 6.0 (:1665); boss clock 0; escape time from the progress table (:1682); logs "FT BOSS state=Arrive armor=.. escape=.. clock=0.0" (:1683) and the firstAttack line (:1684); Sfx BossIntro.
+- GM:2814 his speed = car speed + clamp((Want - Ahead)*1.4, +-6000): from 16000 cm he closes at 6000 cm/s to 9400 cm (1.1 s), then eases in (time constant 0.7 s): on his spot about 3 s after Arrive. His first bike can leave once he is within Ta+2500 = 7641 cm, about 1.5 s after Arrive.
+- GM:1542 size 409 cm wide, 1234 cm long, armor = BossHp, bBig.
+- FLOW:1003-1012 FTBossNow: ClearEnts, car to FinaleD, SpawnGroup, then boss put straight on his spot (no approach). FLOW:997-1002 FTNextScene: ClearEnts, SpawnScene = next, car to the next scene's start; GM:1693-1706 TickSpawns then runs "78000:B" (fallback GM:3543). FLOW:996 + :681-692 + GM:253: FTStartLevel's second argument is the scene (1-based).
+
+PHASES (GM:2645): by armor share: phase 0 above 66 %, phase 1 from 66 % down, phase 2 from 33 % down. With 200 armor: phase 1 at 132 or less, phase 2 at 66 or less. The script goes to 130 and 64.
+
+THE BIG DEALER'S OWN CODE (GM:2766-2811)
+- Idle motion :2769-2770: distance sways +-247 cm (sin 0.6 t), x sways +-640 cm (sin 0.4 t).
+- Phase change :2771-2777: T3 = min(T3, 2.5); director line and caption (phase 1 "THEY'RE JUMPING OFF THE TOP DECK!", phase 2 "HE'S EMPTYING THE WHOLE TRUCK!"); Sfx BossPhase. No log line.
+- Bikes :2778-2798: when T2 <= 0 and live Snake Eyes < 4 + phase and he is within Ta+2500: T2 = 2.6 / 2.1 / 1.6 s (phase 0/1/2), Count++. Jumper when (phase 1 and Count % 3 == 0) or (phase 2 and Count % 2 == 0), else a ramp rider; in phase 2 one more ramp rider every time. T2 keeps running while he is at his limit, so the next bike leaves the frame one dies.
+- Ramp rider :2787-2788: appears 200 cm behind his tail, State 9 for 0.55 s (falls back at 1919 cm/s, sideways up to +-366 cm/s), first chain timer random 1-2 s. No wind-up of any kind.
+- Jumper :2792-2794: appears at the carrier's centre, State 8, "INCOMING!", Sfx HogJump. Flight GM:2291-2309: 1.15 s, arc up to about 11 m, landing mark on the road; lands (boss distance at launch - 2649) cm ahead; hits the car (12 damage) only inside +-666 cm along and +-333 cm across, else "DODGED THE JUMP +150", logged as "FT XP delta=15 .. source=DodgedJump" (FLOW:120).
+- Brake check :2800-2810, phase 1 and 2 only: T3 counts down; "BRAKES!", Sfx BrakeWarn, State 1, Glow 1; after 0.8 s Want = Ta - 2879 = 2262 cm, so he drops back (about 2850 cm at 1.9 s, 2650 at 2.3 s); at 2.3 s over, Glow 0, T3 = 7.5 (phase 1) or 5.0 (phase 2). His tail stays about 2000 cm from the car, so the wall hit (GM:2537, 10 damage) is not reached by it.
+- Rider at the car GM:2310-2334: rides 504 cm to one side; chain when its timer is out and it is within 666 cm along: wind-up 0.6 s (Glow, "CHAIN!"), swing (NS_ChainSwing), 7 damage or "DUCKED THE CHAIN +150"; next timer 1.8-2.6 s. Hp 3 (GM:1529).
+- FLOW:914 a harness-spawned Snake Eyes starts beside the car with its chain timer at exactly 2.0 s; FTSpawnAdd makes it a boss add, which does not slide back (GM:2316).
+
+HURT
+- GM:1807-1823 HurtEnt: logs "FT DAMAGE target=Boss amount=1 left=<hp> load=STD source=gun"; if he lives, KickBike + Sfx Hit. FTEntity.cpp:594-597 KickBike only acts on Biker and Snake Eyes: the boss has NO hurt reaction of his own today. What shows is BulletHit's effect (FLOW:150-189): NS_ImpactArmor + NS_ImpactRing at his tail for a standard round, and the boss bar.
+- FLOW:1031-1061 FTFire <n> Boss: n rounds of the current load through BulletHit in one frame, 1 armor each on a fresh career. FLOW:1022 FTWreck Boss / FLOW:1100 FTWrapNow kill him outright. FLOW:1065 FTSlowMo: time scale 0.3 for that many real seconds.
+
+MODEL (FTEntity.cpp)
+- :180 mesh /Game/Characters/Bosses/SM_Carrier. Setup :259-415 has no branch for level index 2: he gets separate wheels (:292-293) and a red point light 1500 at (-600, 0, 300), radius 2500 (:406-414). Animate :633-766 has no branch for him either: wheels turn, body rides its springs with the heavy-truck factor 0.6 (:660-711). No deck, ramp or door moves today.
+- SetGlow :417-443 (called GM:2627): "Alert" material parameter, NS_AlertFlare at (-620, 0, 220) scale 2.2 when it comes on, light 1500 -> 3300. That is the whole brake-check tell.
+
+ESCAPE (FLOW:280-322): boss clock at rate 1.0 down to 0.5; warning line at escape - 18 s (:299), LAST CHANCE at escape, gone within 8 s. Each boss in the script lives at most 18 s.
+
+DEFEAT AND WRAP
+- GM:1825 Kill: boss 3000 points, blast size 3, burning wreck, "FT BOSS state=Down .." (:1968), then Wrap(false).
+- GM:371-399 Wrap: hit stop 0.22 s, slow motion 0.22x for 2.4 real s, every other vehicle wrecked, "FT OUTCOME wrap", CUT! card 0.8 s later. GM:536-551: after 4.2 real s "FT RATING" (:424) and the reel (boss kill always gives a clip), else the Dailies (:436). Reel: title 2.2 s, up to 5 clips, then the kill twice (D CRANE, then "ANOTHER ANGLE" kill cam), then "FT SCREEN name=Reel state=hold".
+
+HARNESS
+- GM:1034 "FT CLOCK level=%.1f" once per game second in the Play phase only. GM:1177 with FTAutoRun the car never fires. FLOW:1092 FTFreeze, applied by TickSlowmo (GM:3729) in Play/Wreck/Wrap.
+- Runner in the baseline (FTGameInstance.cpp:531-554): wait, waitfor, shot, quit, console commands. The working checkout has gained a "film <name> <frames> [fps]" line (FTGameInstance.cpp:569 there); the baseline does not have it, so the script does not use it.
+- -ftnoattract (GM:730) and -ftnodynres (FTGameInstance.cpp:368) both exist in the baseline.
+
+BUDGET: 38 s of level clock, then about 4 s wrap, 20-55 s reel, 10 s of screens: under 2 minutes of game time. Real time after the map load about 2.5 minutes (38 frozen stills at 0.65 s each).

@@ -323,11 +323,11 @@ Zone(TEXT("Hotel Row, second pass"), 9.8f, 13.2f);
 	Far(TEXT("SM_Downtown"), 520, 640, 12, 7, 1.f, 0.8f, 0.1f, 1, 2.4f, 20.f);       // downtown's first towers, over the town
 Zone(TEXT("The Point, second pass"), 13.2f, 16.8f);
 	Site(TEXT("GroyneSet"), -1, 205, 5, 1, 1.f);
-	Far(TEXT("SM_Downtown"), 560, 700, 8, 3, 1.f, 1.f, 0.1f, 1, 2.5f, 20.f);
+	Far(TEXT("SM_Downtown"), 560, 700, 16, 3, 1.f, 1.f, 0.1f, 1, 2.5f, 20.f);        // (third pass: every second of these is SM_Downtown2 now, end of the table)
 Zone(TEXT("Downtown waterfront, second pass"), 16.8f, 99.f);
 	Site(TEXT("GroyneSet"), -1, 205, 6, 2, 1.f);
-	Far(TEXT("SM_Downtown"), 430, 560, 5, 1, 1.f, 1.25f, 0.15f, 1, 2.2f, 180.f);     // downtown itself: a near row of towers
-	Far(TEXT("SM_Downtown"), 760, 1000, 6, 3, 1.f, 1.7f, 0.15f, 1, 6.f, 180.f);      // and a taller one behind
+	Far(TEXT("SM_Downtown"), 430, 560, 10, 1, 1.f, 1.25f, 0.15f, 1, 2.2f, 180.f);    // downtown itself: a near row of towers (third pass: every second is SM_Downtown2)
+	Far(TEXT("SM_Downtown"), 760, 1000, 12, 3, 1.f, 1.7f, 0.15f, 1, 6.f, 180.f);     // and a taller one behind (the same)
 
 // ---- The ground plane. The track stands a piece level at its middle, and Bayshore's land rises and falls with the
 // road: on a hill a long flat piece has one end under the ground and the other in the air (a 36 m pool deck on a 1 in
@@ -583,7 +583,11 @@ JumpSite(38, 39); JumpSite(77, 78); JumpSite(119, 120); JumpSite(189, 190); Jump
 // boardwalk shops on more of it, and right behind the barrier windbreaks, deckchairs and parasols.
 // A long piece stands level at its slot's middle while the land follows the road: where the land rises or falls up
 // to 0.9 m within 20 m the rows stand 0.45 m up, up to 1.9 m they stand 0.95 m up (their footings go 3.5 m down: a
-// row on a hill is a terrace); on anything steeper only kiosks stand.
+// row on a hill is a terrace); on anything steeper only kiosks stand (31.6 m out: their neon pulses).
+// After the first film and the independent review: every row and beach-edge rule is certain (a chance under 1 is
+// not a sprinkle in this game: the first random number of a slot and a rule steps by 0.039 from slot to slot, so 0.9
+// is "23 slots on, 3 off" and neighbouring rules are off together: four-slot holes in the street); The Point has
+// the two front rows; only the arcades keep a chance (they come in runs, with open boardwalk between).
 Set(TEXT("Front1"), { { TEXT("SM_Front1"), 0, 0, 0, 0, 1 } });
 Set(TEXT("Front1B"), { { TEXT("SM_Front1"), 0, 0, 0.45f, 0, 1 } });
 Set(TEXT("Front1C"), { { TEXT("SM_Front1"), 0, 0, 0.95f, 0, 1 } });
@@ -632,48 +636,51 @@ auto Street = [&](float A, float B, const TCHAR* RowSet, const TCHAR* FrontA, co
 auto Steep = [&](float A, float B)
 {
 	Zone(TEXT("The street, steep"), SlotKm(A - 0.5f), SlotKm(B + 0.5f));
-	Scatter(TEXT("SM_KioskDrinks"), 27.6f, 29, 2, 0, 0.9f, 1.f, 0.f, 1);
-	Scatter(TEXT("SM_Kiosk"), 27.6f, 29, 2, 1, 0.9f, 1.f, 0.f, 1);
+	Scatter(TEXT("SM_KioskDrinks"), 31.6f, 33.f, 2, 0, 1.f, 1.f, 0.f, 1);   // (31.6 m: the kiosk's strip of neon pulses, and light that pulses keeps 30 m)
+	Scatter(TEXT("SM_Kiosk"), 31.6f, 33.f, 2, 1, 1.f, 1.f, 0.f, 1);
 };
 auto ChairLift = [&](float A, float B)
 {
 	Zone(TEXT("The chair lift"), SlotKm(A - 0.5f), SlotKm(B + 0.5f));
 	Site(TEXT("Sky"), -1, 44, 1, 0, 1.f);
 };
-// ---- Under the first jump (1.73 km) and the fourth (8.56 km) the car flies 33 m over the floor of the dip: a chair
-// swing and two carousels turn under the first, a big carousel and two swings under the fourth. A Far rule shifts its
-// piece up to 11 m along the road by a random number that comes from the rule's place in the table, and a dip's floor
-// is level for 12 m only: these six rules stand where that number puts them on it (make_l0.py). A rule added above
-// this pass moves them: run make_l0.py again.
-Street(1, 3, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 0.9f);   // The Strip, level
+// ---- Beside the first jump (1.73 km) and the fourth (8.56 km): a chair swing at 2.2 times its size, 37 m tall, on the
+// floor of the dip (18 m under the land), 52 m from the centre line: the bay side at the first jump, the town side at
+// the fourth. Its crown turns 4 m over the car's flight: it shows over the land from 350 m before the kicker, and the
+// car flies past it. Round one stood a swing and two carousels UNDER each jump: the chase camera never looks down
+// there and the kicker hides the dip on the way up, so they were in no frame. Their six rules keep their places (a
+// rule's random numbers come from its place in the table): two are the tall swings now, four have a chance of 0.f.
+// A Far rule shifts its piece up to 11 m along the road by such a number, and a dip's floor is level for 12 m only:
+// these rules stand where that number puts them within 3 m of its middle (make_l0.py found the places).
+Street(1, 3, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 1.f);   // The Strip, level
 Zone(TEXT("Under a jump"), 8.5283f, 8.5735f);   // slot 189, rule 1317: it lands at 8562 m (the dip is lowest at 8559 m)
-	Far(TEXT("SM_Carousel"), 0, 0, 1, 0, 1.f, 1.5f, 0.f, 1, 1.15f, 0.f);
-Street(9, 10, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 0.9f);   // The Strip, level
+	Far(TEXT("SM_Carousel"), 0, 0, 1, 0, 0.f, 1.5f, 0.f, 1, 1.15f, 0.f);                // (off: nothing under a jump is in any frame)
+Street(9, 10, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 1.f);   // The Strip, level
 Zone(TEXT("Under a jump"), 8.5283f, 8.5735f);   // slot 189, rule 1325: it lands at 8562 m (the dip is lowest at 8559 m)
-	Far(TEXT("SM_SwingRide"), 33, 33, 1, 0, 1.f, 1.f, 0.f, 1, 1.15f, 0.f);
-Street(23, 27, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 0.9f);   // The Strip, level
+	Far(TEXT("SM_SwingRide"), 52, 52, 1, 0, 1.f, 2.2f, 0.f, 1, 1.15f, 0.f);             // the fourth jump: the town side
+Street(23, 27, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 1.f);   // The Strip, level
 Zone(TEXT("Under a jump"), 8.5283f, 8.5735f);   // slot 189, rule 1333: it lands at 8562 m (the dip is lowest at 8559 m)
-	Far(TEXT("SM_SwingRide"), 33, 33, 1, 0, 1.f, 1.f, 0.f, -1, 1.15f, 0.f);
-Street(42, 42, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 0.9f);   // The Strip, level
-Street(49, 53, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 0.9f);   // The Strip, level
-Street(62, 63, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 0.9f);   // The Strip, level
-Street(67, 67, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 0.9f);   // The Strip, level
-Street(5, 6, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.9f, 0.9f);   // The Strip, gentle
-Street(8, 8, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.9f, 0.9f);   // The Strip, gentle
+	Far(TEXT("SM_SwingRide"), 33, 33, 1, 0, 0.f, 1.f, 0.f, -1, 1.15f, 0.f);             // (off)
+Street(42, 42, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 1.f);   // The Strip, level
+Street(49, 53, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 1.f);   // The Strip, level
+Street(62, 63, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 1.f);   // The Strip, level
+Street(67, 67, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 1.f);   // The Strip, level
+Street(5, 6, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 1.f, 1.f);   // The Strip, gentle
+Street(8, 8, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 1.f, 1.f);   // The Strip, gentle
 Zone(TEXT("Under a jump"), 1.6966f, 1.7419f);   // slot 38, rule 1376: it lands at 1731 m (the dip is lowest at 1732 m)
-	Far(TEXT("SM_SwingRide"), 0, 0, 1, 0, 1.f, 1.f, 0.f, 1, 1.15f, 0.f);
-Street(11, 11, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.9f, 0.9f);   // The Strip, gentle
+	Far(TEXT("SM_SwingRide"), 52, 52, 1, 0, 1.f, 2.2f, 0.f, -1, 1.15f, 0.f);            // the first jump: the bay side
+Street(11, 11, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 1.f, 1.f);   // The Strip, gentle
 Zone(TEXT("Under a jump"), 1.6966f, 1.7419f);   // slot 38, rule 1384: it lands at 1730 m (the dip is lowest at 1732 m)
-	Far(TEXT("SM_Carousel"), 31, 31, 1, 0, 1.f, 1.3f, 0.f, 1, 1.15f, 0.f);
-Street(14, 14, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.9f, 0.9f);   // The Strip, gentle
+	Far(TEXT("SM_Carousel"), 31, 31, 1, 0, 0.f, 1.3f, 0.f, 1, 1.15f, 0.f);              // (off)
+Street(14, 14, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 1.f, 1.f);   // The Strip, gentle
 Zone(TEXT("Under a jump"), 1.6966f, 1.7419f);   // slot 38, rule 1392: it lands at 1730 m (the dip is lowest at 1732 m)
-	Far(TEXT("SM_Carousel"), 31, 31, 1, 0, 1.f, 1.3f, 0.f, -1, 1.15f, 0.f);
-Street(30, 30, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.9f, 0.9f);   // The Strip, gentle
-Street(33, 33, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.9f, 0.9f);   // The Strip, gentle
-Street(36, 36, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.9f, 0.9f);   // The Strip, gentle
-Street(40, 41, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.9f, 0.9f);   // The Strip, gentle
-Street(54, 54, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.9f, 0.9f);   // The Strip, gentle
-Street(57, 57, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.9f, 0.9f);   // The Strip, gentle
+	Far(TEXT("SM_Carousel"), 31, 31, 1, 0, 0.f, 1.3f, 0.f, -1, 1.15f, 0.f);             // (off)
+Street(30, 30, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 1.f, 1.f);   // The Strip, gentle
+Street(33, 33, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 1.f, 1.f);   // The Strip, gentle
+Street(36, 36, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 1.f, 1.f);   // The Strip, gentle
+Street(40, 41, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 1.f, 1.f);   // The Strip, gentle
+Street(54, 54, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 1.f, 1.f);   // The Strip, gentle
+Street(57, 57, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 1.f, 1.f);   // The Strip, gentle
 Street(4, 4, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // The Strip, a slope
 Street(7, 7, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // The Strip, a slope
 Street(12, 13, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // The Strip, a slope
@@ -691,45 +698,45 @@ Steep(34, 35);   // The Strip
 Steep(37, 37);   // The Strip
 Steep(55, 56);   // The Strip
 Steep(68, 69);   // The Strip
-Street(74, 74, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.9f, 0.9f, 0.9f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 0.f, 0.85f);   // The Marina, level
-Street(82, 87, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.9f, 0.9f, 0.9f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 0.f, 0.85f);   // The Marina, level
-Street(93, 93, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.9f, 0.9f, 0.9f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 0.f, 0.85f);   // The Marina, level
-Street(101, 108, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.9f, 0.9f, 0.9f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 0.f, 0.85f);   // The Marina, level
-Street(124, 137, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.9f, 0.9f, 0.9f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 0.f, 0.85f);   // The Marina, level
-Street(81, 81, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.9f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 0.9f, 0.85f);   // The Marina, gentle
-Street(88, 88, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.9f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 0.9f, 0.85f);   // The Marina, gentle
-Street(90, 90, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.9f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 0.9f, 0.85f);   // The Marina, gentle
-Street(92, 92, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.9f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 0.9f, 0.85f);   // The Marina, gentle
-Street(109, 109, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.9f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 0.9f, 0.85f);   // The Marina, gentle
-Street(122, 123, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.9f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 0.9f, 0.85f);   // The Marina, gentle
-Street(140, 141, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.9f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 0.9f, 0.85f);   // The Marina, gentle
-Street(71, 71, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.9f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 6, 3, 0.f, 0.f);   // The Marina, a slope
-Street(75, 75, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.9f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 6, 3, 0.f, 0.f);   // The Marina, a slope
-Street(80, 80, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.9f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 6, 3, 0.f, 0.f);   // The Marina, a slope
-Street(89, 89, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.9f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 6, 3, 0.f, 0.f);   // The Marina, a slope
-Street(91, 91, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.9f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 6, 3, 0.f, 0.f);   // The Marina, a slope
-Street(110, 115, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.9f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 6, 3, 0.f, 0.f);   // The Marina, a slope
-Street(117, 117, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.9f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 6, 3, 0.f, 0.f);   // The Marina, a slope
-Street(138, 139, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.9f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 6, 3, 0.f, 0.f);   // The Marina, a slope
+Street(74, 74, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 0.f, 1.f);   // The Marina, level
+Street(82, 87, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 0.f, 1.f);   // The Marina, level
+Street(93, 93, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 0.f, 1.f);   // The Marina, level
+Street(101, 108, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 0.f, 1.f);   // The Marina, level
+Street(124, 137, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 0.f, 1.f);   // The Marina, level
+Street(81, 81, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 1.f, 1.f);   // The Marina, gentle
+Street(88, 88, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 1.f, 1.f);   // The Marina, gentle
+Street(90, 90, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 1.f, 1.f);   // The Marina, gentle
+Street(92, 92, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 1.f, 1.f);   // The Marina, gentle
+Street(109, 109, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 1.f, 1.f);   // The Marina, gentle
+Street(122, 123, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 1.f, 1.f);   // The Marina, gentle
+Street(140, 141, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.6f, 6, 3, 1.f, 1.f);   // The Marina, gentle
+Street(71, 71, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 6, 3, 0.f, 0.f);   // The Marina, a slope
+Street(75, 75, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 6, 3, 0.f, 0.f);   // The Marina, a slope
+Street(80, 80, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 6, 3, 0.f, 0.f);   // The Marina, a slope
+Street(89, 89, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 6, 3, 0.f, 0.f);   // The Marina, a slope
+Street(91, 91, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 6, 3, 0.f, 0.f);   // The Marina, a slope
+Street(110, 115, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 6, 3, 0.f, 0.f);   // The Marina, a slope
+Street(117, 117, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 6, 3, 0.f, 0.f);   // The Marina, a slope
+Street(138, 139, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 6, 3, 0.f, 0.f);   // The Marina, a slope
 Steep(72, 73);   // The Marina
 Steep(76, 76);   // The Marina
 Steep(79, 79);   // The Marina
 Steep(116, 116);   // The Marina
 Steep(118, 118);   // The Marina
 Steep(121, 121);   // The Marina
-Street(145, 152, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 0.f, 0.9f);   // Pleasure Beach, level
-Street(160, 160, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 0.f, 0.9f);   // Pleasure Beach, level
-Street(177, 184, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 0.f, 0.9f);   // Pleasure Beach, level
-Street(193, 193, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 0.f, 0.9f);   // Pleasure Beach, level
-Street(199, 204, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 0.f, 0.9f);   // Pleasure Beach, level
-Street(214, 216, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 0.f, 0.9f);   // Pleasure Beach, level
-Street(142, 144, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 0.9f, 0.9f);   // Pleasure Beach, gentle
-Street(169, 169, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 0.9f, 0.9f);   // Pleasure Beach, gentle
-Street(174, 174, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 0.9f, 0.9f);   // Pleasure Beach, gentle
-Street(176, 176, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 0.9f, 0.9f);   // Pleasure Beach, gentle
-Street(187, 187, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 0.9f, 0.9f);   // Pleasure Beach, gentle
-Street(191, 192, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 0.9f, 0.9f);   // Pleasure Beach, gentle
-Street(205, 205, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 0.9f, 0.9f);   // Pleasure Beach, gentle
+Street(145, 152, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 0.f, 1.f);   // Pleasure Beach, level
+Street(160, 160, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 0.f, 1.f);   // Pleasure Beach, level
+Street(177, 184, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 0.f, 1.f);   // Pleasure Beach, level
+Street(193, 193, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 0.f, 1.f);   // Pleasure Beach, level
+Street(199, 204, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 0.f, 1.f);   // Pleasure Beach, level
+Street(214, 216, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 0.f, 1.f);   // Pleasure Beach, level
+Street(142, 144, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 1.f, 1.f);   // Pleasure Beach, gentle
+Street(169, 169, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 1.f, 1.f);   // Pleasure Beach, gentle
+Street(174, 174, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 1.f, 1.f);   // Pleasure Beach, gentle
+Street(176, 176, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 1.f, 1.f);   // Pleasure Beach, gentle
+Street(187, 187, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 1.f, 1.f);   // Pleasure Beach, gentle
+Street(191, 192, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 1.f, 1.f);   // Pleasure Beach, gentle
+Street(205, 205, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 1, 1.f, 4, 3, 1.f, 1.f);   // Pleasure Beach, gentle
 Street(161, 161, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 1, 0.f, 4, 3, 0.f, 0.f);   // Pleasure Beach, a slope
 Street(164, 164, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 1, 0.f, 4, 3, 0.f, 0.f);   // Pleasure Beach, a slope
 Street(171, 173, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 2, 3, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 1, 0.f, 4, 3, 0.f, 0.f);   // Pleasure Beach, a slope
@@ -741,73 +748,73 @@ Steep(170, 170);   // Pleasure Beach
 Steep(185, 186);   // Pleasure Beach
 Steep(188, 188);   // Pleasure Beach
 Steep(206, 208);   // Pleasure Beach
-Street(217, 217, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.8f, 0.9f, 0.9f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 0.f, 0.85f);   // Hotel Row, level
-Street(222, 223, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.8f, 0.9f, 0.9f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 0.f, 0.85f);   // Hotel Row, level
-Street(228, 228, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.8f, 0.9f, 0.9f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 0.f, 0.85f);   // Hotel Row, level
-Street(236, 237, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.8f, 0.9f, 0.9f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 0.f, 0.85f);   // Hotel Row, level
-Street(243, 249, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.8f, 0.9f, 0.9f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 0.f, 0.85f);   // Hotel Row, level
-Street(261, 262, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.8f, 0.9f, 0.9f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 0.f, 0.85f);   // Hotel Row, level
-Street(267, 275, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.8f, 0.9f, 0.9f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 0.f, 0.85f);   // Hotel Row, level
-Street(281, 281, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.8f, 0.9f, 0.9f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 0.f, 0.85f);   // Hotel Row, level
-Street(289, 289, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.8f, 0.9f, 0.9f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 0.f, 0.85f);   // Hotel Row, level
-Street(250, 250, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.8f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 0.8f, 0.85f);   // Hotel Row, gentle
-Street(253, 254, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.8f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 0.8f, 0.85f);   // Hotel Row, gentle
-Street(277, 278, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.8f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 0.8f, 0.85f);   // Hotel Row, gentle
-Street(218, 218, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.8f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 3, 0.f, 4, 1, 0.f, 0.f);   // Hotel Row, a slope
-Street(221, 221, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.8f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 3, 0.f, 4, 1, 0.f, 0.f);   // Hotel Row, a slope
-Street(238, 242, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.8f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 3, 0.f, 4, 1, 0.f, 0.f);   // Hotel Row, a slope
-Street(259, 260, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.8f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 3, 0.f, 4, 1, 0.f, 0.f);   // Hotel Row, a slope
-Street(263, 266, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.8f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 3, 0.f, 4, 1, 0.f, 0.f);   // Hotel Row, a slope
-Street(276, 276, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.8f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 3, 0.f, 4, 1, 0.f, 0.f);   // Hotel Row, a slope
-Street(279, 280, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.8f, 0.9f, 0.9f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 3, 0.f, 4, 1, 0.f, 0.f);   // Hotel Row, a slope
+Street(217, 217, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 0.f, 1.f);   // Hotel Row, level
+Street(222, 223, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 0.f, 1.f);   // Hotel Row, level
+Street(228, 228, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 0.f, 1.f);   // Hotel Row, level
+Street(236, 237, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 0.f, 1.f);   // Hotel Row, level
+Street(243, 249, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 0.f, 1.f);   // Hotel Row, level
+Street(261, 262, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 0.f, 1.f);   // Hotel Row, level
+Street(267, 275, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 0.f, 1.f);   // Hotel Row, level
+Street(281, 281, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 0.f, 1.f);   // Hotel Row, level
+Street(289, 289, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 0.f, 1.f);   // Hotel Row, level
+Street(250, 250, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 1.f, 1.f);   // Hotel Row, gentle
+Street(253, 254, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 1.f, 1.f);   // Hotel Row, gentle
+Street(277, 278, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 3, 0.6f, 4, 1, 1.f, 1.f);   // Hotel Row, gentle
+Street(218, 218, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 3, 0.f, 4, 1, 0.f, 0.f);   // Hotel Row, a slope
+Street(221, 221, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 3, 0.f, 4, 1, 0.f, 0.f);   // Hotel Row, a slope
+Street(238, 242, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 3, 0.f, 4, 1, 0.f, 0.f);   // Hotel Row, a slope
+Street(259, 260, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 3, 0.f, 4, 1, 0.f, 0.f);   // Hotel Row, a slope
+Street(263, 266, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 3, 0.f, 4, 1, 0.f, 0.f);   // Hotel Row, a slope
+Street(276, 276, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 3, 0.f, 4, 1, 0.f, 0.f);   // Hotel Row, a slope
+Street(279, 280, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 3, 0.f, 4, 1, 0.f, 0.f);   // Hotel Row, a slope
 Steep(219, 220);   // Hotel Row
 Steep(251, 252);   // Hotel Row
 Steep(255, 255);   // Hotel Row
 Steep(258, 258);   // Hotel Row
-Street(296, 304, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.f, 0.f, 0.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.5f);   // The Point, level
-Street(310, 318, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.f, 0.f, 0.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.5f);   // The Point, level
-Street(327, 327, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.f, 0.f, 0.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.5f);   // The Point, level
-Street(334, 345, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.f, 0.f, 0.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.5f);   // The Point, level
-Street(354, 359, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.f, 0.f, 0.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.5f);   // The Point, level
-Street(366, 370, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.f, 0.f, 0.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.5f);   // The Point, level
-Street(305, 309, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.f, 0.f, 0.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.5f);   // The Point, gentle
-Street(321, 321, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.f, 0.f, 0.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.5f);   // The Point, gentle
-Street(325, 326, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.f, 0.f, 0.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.5f);   // The Point, gentle
-Street(371, 371, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.f, 0.f, 0.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.5f);   // The Point, gentle
-Street(295, 295, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.f, 0.f, 0.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // The Point, a slope
-Street(350, 353, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.f, 0.f, 0.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // The Point, a slope
+Street(296, 304, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 1.f);   // The Point, level
+Street(310, 318, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 1.f);   // The Point, level
+Street(327, 327, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 1.f);   // The Point, level
+Street(334, 345, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 1.f);   // The Point, level
+Street(354, 359, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 1.f);   // The Point, level
+Street(366, 370, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 1.f);   // The Point, level
+Street(305, 309, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 1.f);   // The Point, gentle
+Street(321, 321, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 1.f);   // The Point, gentle
+Street(325, 326, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 1.f);   // The Point, gentle
+Street(371, 371, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 1.f);   // The Point, gentle
+Street(295, 295, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // The Point, a slope
+Street(350, 353, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // The Point, a slope
 Steep(294, 294);   // The Point
 Steep(319, 320);   // The Point
 Steep(322, 322);   // The Point
-Street(377, 381, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 0.9f);   // Downtown waterfront, level
-Street(391, 396, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 0.9f);   // Downtown waterfront, level
-Street(408, 413, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 0.9f);   // Downtown waterfront, level
-Street(422, 427, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 0.9f);   // Downtown waterfront, level
-Street(440, 444, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 0.9f);   // Downtown waterfront, level
-Street(454, 459, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 0.9f);   // Downtown waterfront, level
-Street(472, 476, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 0.9f);   // Downtown waterfront, level
-Street(486, 491, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 0.9f);   // Downtown waterfront, level
-Street(504, 508, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 0.9f);   // Downtown waterfront, level
-Street(518, 523, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 0.9f);   // Downtown waterfront, level
-Street(536, 540, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 0.9f);   // Downtown waterfront, level
-Street(550, 555, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 0.9f);   // Downtown waterfront, level
-Street(376, 376, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.9f, 0.9f);   // Downtown waterfront, gentle
-Street(390, 390, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.9f, 0.9f);   // Downtown waterfront, gentle
-Street(403, 403, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.9f, 0.9f);   // Downtown waterfront, gentle
-Street(432, 432, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.9f, 0.9f);   // Downtown waterfront, gentle
-Street(515, 515, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.9f, 0.9f);   // Downtown waterfront, gentle
-Street(535, 535, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.9f, 0.9f);   // Downtown waterfront, gentle
-Street(549, 549, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.9f, 0.9f);   // Downtown waterfront, gentle
-Street(372, 375, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // Downtown waterfront, a slope
-Street(404, 407, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // Downtown waterfront, a slope
-Street(435, 439, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // Downtown waterfront, a slope
-Street(464, 464, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // Downtown waterfront, a slope
-Street(467, 471, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // Downtown waterfront, a slope
-Street(496, 496, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // Downtown waterfront, a slope
-Street(498, 503, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // Downtown waterfront, a slope
-Street(517, 517, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // Downtown waterfront, a slope
-Street(530, 534, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // Downtown waterfront, a slope
-Street(547, 547, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 0.95f, 0.95f, 0.95f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // Downtown waterfront, a slope
+Street(377, 381, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 1.f);   // Downtown waterfront, level
+Street(391, 396, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 1.f);   // Downtown waterfront, level
+Street(408, 413, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 1.f);   // Downtown waterfront, level
+Street(422, 427, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 1.f);   // Downtown waterfront, level
+Street(440, 444, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 1.f);   // Downtown waterfront, level
+Street(454, 459, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 1.f);   // Downtown waterfront, level
+Street(472, 476, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 1.f);   // Downtown waterfront, level
+Street(486, 491, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 1.f);   // Downtown waterfront, level
+Street(504, 508, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 1.f);   // Downtown waterfront, level
+Street(518, 523, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 1.f);   // Downtown waterfront, level
+Street(536, 540, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 1.f);   // Downtown waterfront, level
+Street(550, 555, TEXT("ShopRow"), TEXT("Front1"), TEXT("Front2"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSet"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 0.f, 1.f);   // Downtown waterfront, level
+Street(376, 376, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 1.f, 1.f);   // Downtown waterfront, gentle
+Street(390, 390, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 1.f, 1.f);   // Downtown waterfront, gentle
+Street(403, 403, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 1.f, 1.f);   // Downtown waterfront, gentle
+Street(432, 432, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 1.f, 1.f);   // Downtown waterfront, gentle
+Street(515, 515, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 1.f, 1.f);   // Downtown waterfront, gentle
+Street(535, 535, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 1.f, 1.f);   // Downtown waterfront, gentle
+Street(549, 549, TEXT("ShopRowB"), TEXT("Front1B"), TEXT("Front2B"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 1.f, 4, 0, 1.f, 1.f);   // Downtown waterfront, gentle
+Street(372, 375, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // Downtown waterfront, a slope
+Street(404, 407, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // Downtown waterfront, a slope
+Street(435, 439, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // Downtown waterfront, a slope
+Street(464, 464, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // Downtown waterfront, a slope
+Street(467, 471, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // Downtown waterfront, a slope
+Street(496, 496, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // Downtown waterfront, a slope
+Street(498, 503, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // Downtown waterfront, a slope
+Street(517, 517, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // Downtown waterfront, a slope
+Street(530, 534, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // Downtown waterfront, a slope
+Street(547, 547, TEXT("ShopRowC"), TEXT("Front1C"), TEXT("Front2C"), 3, 2, 1, 1.f, 1.f, 1.f, TEXT("ArcadeSetB"), TEXT("WalkShopsB"), 2, 0.f, 4, 0, 0.f, 0.f);   // Downtown waterfront, a slope
 Steep(388, 389);   // Downtown waterfront
 Steep(401, 402);   // Downtown waterfront
 Steep(420, 421);   // Downtown waterfront
@@ -871,4 +878,13 @@ SkyRow(293, 1.062f); SkyRow(305, 1.f); SkyRow(309, 1.188f); SkyRow(313, 1.062f);
 // ft.DressBank 0 leaves them out.
 Zone(TEXT("Cut banks"), 0.f, 99.f);
 	Bank(TEXT("SM_CutSea"), 4, 1, 0, 1.f, 5.5f);
-	Bank(TEXT("SM_CutProm"), 4, 1, 0, 1.f, 2.4f, 5.5f);
+	Bank(TEXT("SM_CutProm"), 4, 1, 0, 1.f, 1.f, 5.5f);                  // from 1 m of cutting over the barrier, the least the track will face (bends banked 12 degrees and up; round one stopped at 2.4 m and left 2.4 km of pale wall)
+// ---- Downtown's second block of towers (SM_Downtown2: twin towers and their bridge, a spire, a sail, a needle with a
+// ball). One block repeated read as a comb of equal towers: the three rows that place SM_Downtown keep every second
+// place (their rules, far above, count twice as far now) and these take the others, each at its own size and with
+// its long side to the road. Written after the table's last rule, so that no rule before them changes its place.
+Zone(TEXT("The Point, a second skyline"), 13.2f, 16.8f);
+	Far(TEXT("SM_Downtown2"), 560, 700, 16, 11, 1.f, 0.9f, 0.12f, 1, 2.5f, 25.f);
+Zone(TEXT("Downtown, a second skyline"), 16.8f, 99.f);
+	Far(TEXT("SM_Downtown2"), 430, 560, 10, 6, 1.f, 1.05f, 0.2f, 1, 2.2f, 30.f);
+	Far(TEXT("SM_Downtown2"), 760, 1000, 12, 9, 1.f, 1.95f, 0.2f, 1, 6.f, 30.f);

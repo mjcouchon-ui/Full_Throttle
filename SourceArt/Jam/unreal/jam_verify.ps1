@@ -131,7 +131,8 @@ foreach ($line in [IO.File]::ReadLines($log)) {
   if ($line -match "LogFT: Display: FT BOSS state=Arrive") { $st.boss = $true }
   if ($line -match "LogFT: Display: FTSTALL (D=\S+ X=\S+ H=\S+)") { $st.stall += $Matches[1] }   # the autopilot stood still and was moved on
   if ($line -match "LogFT: Display: FT SCREEN name=Reel\s*$") { $st.reel = $true }
-  if ($line -match "LogFT: Display: FT SAVE slot=career_pie reason=Paycheck result=ok") { $st.pay = $true }
+  # (since the checkpoint saves of 15 Nov the line carries a generation number before the result)
+  if ($line -match "LogFT: Display: FT SAVE slot=career_pie reason=Paycheck (generation=\d+ )?result=ok") { $st.pay = $true }
   if ($line -match "Fatal error|LogFT: Error|Ensure condition failed|result=timeout") { if ($st.errors.Count -lt 6) { $st.errors += $line.Substring(0, [Math]::Min(200, $line.Length)) } }
   if ($racing) {
     if ($line -match "LogStreaming: Display: FlushAsyncLoading") { $st.flush++ }

@@ -242,6 +242,13 @@ def shops(m, seed=1):
         if k == 1:
             m.cyl(GREY_D, (x + 200, 380, h + 24), 60, 150, steps=8)                    # a water tank
     m.box(HOTPINK, (0, -300, 615), (3560, 8, 8), glow=GLOW)
+    for sx, tr in ((-1, trim[0]), (1, trim[3])):                                        # zone pass: the gable ends (a row is first seen end on)
+        xe = sx * 1794
+        m.box(tr, (xe, 150, 505), (10, 904, 70))                                        # two painted bands round the corner
+        m.box(WHITE, (xe, 150, 430), (10, 904, 36))
+        m.box(NAVY, (xe, 40, 250), (12, 380, 170))                                      # a side window, lit, and a side door
+        m.box(SKY if sx < 0 else YEL, (xe + sx * 4, 40, 250), (8, 340, 130), glow=0.45)
+        m.box(NAVY, (xe, 430, 112), (12, 120, 224))
 
 
 def motel(m):
@@ -1226,7 +1233,7 @@ def _awning(m, x0, x1, y_wall, z_top, cols, depth=AWN_DEPTH, drop=AWN_DROP, n=No
         m.box(cols[k % len(cols)], (x0 + (k + 0.5) * w, y_wall - depth / 2.0, z_top - drop / 2.0), (w, math.hypot(depth, drop), 12), rot=(0, 0, roll))
 
 
-def _shopfront(m, x0, x1, h, col, trim, top, awn, word=None, neon=HOTPINK, upper=False):
+def _shopfront(m, x0, x1, h, col, trim, top, awn, word=None, neon=HOTPINK, upper=False, pane=YEL):
     """One shop of a row, x0 to x1 along the road and h high: the body, a false front cut to a shape, a lit window,
     a door, an awning, and its name on a board."""
     w, xc = float(x1 - x0), (x0 + x1) / 2.0
@@ -1244,7 +1251,7 @@ def _shopfront(m, x0, x1, h, col, trim, top, awn, word=None, neon=HOTPINK, upper
         pts = [(x0, z0), (x1, z0), (x1, h + 110), (x0, h + 110)]
     _side(m, trim, pts, FRONT_Y - 16, FRONT_Y + 28)
     m.box(NAVY, (xc - w * 0.13, FRONT_Y - 3, 165), (w * 0.52, 8, 210))                 # the window, lit from inside; the door
-    m.box(YEL, (xc - w * 0.13, FRONT_Y - 7, 165), (w * 0.52 - 50, 4, 160), glow=0.45)
+    m.box(pane, (xc - w * 0.13, FRONT_Y - 7, 165), (w * 0.52 - 50, 4, 160), glow=0.45)
     m.box(NAVY, (x1 - w * 0.17, FRONT_Y - 3, 118), (w * 0.17, 8, 236))
     _awning(m, x0 + 25, x1 - 25, FRONT_Y, AWN_TOP, awn)
     if upper:
@@ -1275,32 +1282,30 @@ def front1(m):
     """40 m of the strip's shopfronts, the first row: an ice-cream parlour under a cone, a surf shop with its boards
     on the roof, a diner behind a sun, a video arcade. False fronts 3 m deep; the footing goes 3.5 m down."""
     m.box(SAND, (0, 0, -FOOT / 2.0), (4000, 300, FOOT))
-    m.box(WHITE, (0, FRONT_Y + 6, 8), (4000, 30, 16))
     _shopfront(m, -2000, -1120, 600, PINK, WHITE, 'step', [CORAL, WHITE], word='ICES', neon=HOTPINK)
     m.box(WHITE, (-1560, 30, 690), (70, 70, 200))                                       # the cone's stand, behind the parapet
     _cone(m, -1560, 30, 790)
-    _shopfront(m, -1120, -40, 860, MINT, WHITE, 'arch', [TEAL, WHITE], word='SURF', neon=YEL, upper=True)
+    _shopfront(m, -1120, -40, 860, MINT, WHITE, 'arch', [TEAL, WHITE], word='SURF', neon=YEL, upper=True, pane=SKY)
     for k, c in enumerate((CORAL, TEAL, SKY)):                                          # three boards stood on the roof
         m.box(c, (-800 + k * 150, 20, 1040), (64, 16, 360))
     _shopfront(m, -40, 920, 580, CREAM, CORAL, 'flat', [CORAL, WHITE])
     _disc(m, YEL, 440, FRONT_Y - 30, 700, 170, glow=0.25)                               # the diner's sun, and its rays
     for k in range(4):
         m.box(CORAL, (440, FRONT_Y - 20, 700), (470, 14, 44), rot=(k * 45.0, 0, 0))
-    _shopfront(m, 920, 2000, 820, LAV, WHITE, 'gable', [TEAL, WHITE], word='VIDEO', neon=HOTPINK, upper=True)
+    _shopfront(m, 920, 2000, 820, LAV, WHITE, 'gable', [TEAL, WHITE], word='VIDEO', neon=HOTPINK, upper=True, pane=SKY)
 
 
 def front2(m):
     """40 m of shopfronts, the second row: doughnuts, tacos, a sweet shop, kites."""
     m.box(SAND, (0, 0, -FOOT / 2.0), (4000, 300, FOOT))
-    m.box(WHITE, (0, FRONT_Y + 6, 8), (4000, 30, 16))
-    _shopfront(m, -2000, -1000, 800, PEACH, WHITE, 'flat', [CORAL, WHITE], upper=True)
-    _disc(m, PINK, -1500, FRONT_Y - 40, 1080, 190, t=70.0)                              # a doughnut over the door
-    _disc(m, PEACH, -1500, FRONT_Y - 46, 1080, 70, t=80.0)
+    _shopfront(m, -2000, -1000, 800, PEACH, WHITE, 'flat', [CORAL, WHITE], upper=True, pane=SKY)
+    _disc(m, PINK, -1500, FRONT_Y - 40, 1080, 190, t=70.0, steps=8)                     # a doughnut over the door
+    _disc(m, PEACH, -1500, FRONT_Y - 46, 1080, 70, t=80.0, steps=8)
     _shopfront(m, -1000, -80, 580, SKY, WHITE, 'step', [CORAL, WHITE], word='TACOS', neon=HOTPINK)
-    _shopfront(m, -80, 1000, 880, CORAL, CREAM, 'arch', [TEAL, WHITE], word='CANDY', neon=YEL, upper=True)
+    _shopfront(m, -80, 1000, 880, CORAL, CREAM, 'arch', [TEAL, WHITE], word='CANDY', neon=YEL, upper=True, pane=SKY)
     for k, c in enumerate((HOTPINK, MINT)):                                             # two lollipops on the roof
         m.box(WHITE, (260 + k * 400, 30, 1010), (16, 16, 260))
-        _disc(m, c, 260 + k * 400, 30, 1230, 110, t=30.0)
+        _disc(m, c, 260 + k * 400, 30, 1230, 110, t=30.0, steps=7)
     _shopfront(m, 1000, 2000, 620, MINT, WHITE, 'gable', [TEAL, WHITE], word='KITES', neon=HOTPINK)
     _side(m, HOTPINK, [(1500, 900), (1640, 1100), (1500, 1300), (1360, 1100)], 10, 26)   # a kite flown from the roof
     m.box(WHITE, (1500, 20, 760), (12, 12, 280))
@@ -1411,11 +1416,61 @@ def sky_card(m, seed=7):
     _side(m, HAZE_TOWN, pts, -200, 200)
 
 
+def downtown2(m):
+    """Downtown's second block of towers, 280 m of them and up to 262 m: twin towers joined by a sky bridge, a tower
+    under an eight-sided spire, a sail-shaped tower, a slim needle carrying a ball, a terraced hotel, and the blocks
+    between. One block repeated read as a comb of equal towers: this one takes every other place in downtown's rows,
+    at its own size, its long side to the road. Solid masses with lit floors in bands, as SM_Downtown; a Far piece
+    (it stands from z = 0 up) that is never nearer than 400 m."""
+    def bands(x, y, w, d, z0, z1, n, lit):
+        for k in range(n):
+            z = z0 + (z1 - z0) * (k + 0.5) / n
+            m.box(lit if k % 2 else NAVY, (x, y, z), (w + 30, d + 30, (z1 - z0) / n * 0.34), glow=0.5 if k % 2 else 0.0)
+
+    for k, (w, h, z) in enumerate(((3800, 5200, 0), (2800, 3000, 5200), (1800, 2400, 8200))):   # the terraced hotel
+        m.box(PEACH, (-11900, 0, z + h / 2.0), (w, 3000 - k * 400, h))
+        bands(-11900, 0, w, 3000 - k * 400, z + 500, z + h - 300, 3 - k, YEL)
+    m.box(HOTPINK, (-11900, 0, 10690), (1860, 2260, 170), glow=GLOW)
+    for s, h in ((-1, 21000.0), (1, 18600.0)):                                           # the twins and their bridge
+        x = -6000 + s * 1750
+        m.box(SKY, (x, 200, h / 2.0), (1900, 2300, h))
+        bands(x, 200, 1900, 2300, 1400, h - 900, 9, YEL)
+        m.box(WHITE, (x, 200, h + 600), (1300, 1700, 1200))
+        m.cyl(WHITE, (x, 200, h + 1200), 110, 2600, steps=6, top_r=20)
+        m.sphere(RED, (x, 200, h + 3860), 100, steps=(4, 6), glow=1.2)
+    m.box(WHITE, (-6000, 200, 14600), (1700, 1200, 900))
+    m.box(HOTPINK, (-6000, 200, 15130), (1700, 1260, 160), glow=GLOW)
+    m.box(CREAM, (-900, -200, 7600), (3000, 3000, 15200))                                # the tower under a spire
+    bands(-900, -200, 3000, 3000, 1300, 14600, 8, SKY)
+    m.box(TEAL, (-900, -200, 15500), (3300, 3300, 600))
+    m.cyl(TEAL, (-900, -200, 15800), 1900, 6200, steps=8, top_r=60)
+    m.cyl(WHITE, (-900, -200, 22000), 60, 2600, steps=6)
+    m.sphere(RED, (-900, -200, 24650), 90, steps=(4, 6), glow=1.2)
+    sail = [(2700.0, 0.0), (6300.0, 0.0), (6300.0, 7000.0), (6000.0, 11500.0), (5200.0, 15800.0), (4000.0, 19300.0), (2700.0, 21800.0)]
+    _side(m, PINK, sail, -1200, 1200)                                                    # the sail
+    for k in range(6):
+        z = 1500.0 + k * 2900.0
+        xr = 6300.0 if z < 7000.0 else 6300.0 - (z - 7000.0) * 0.21
+        m.box(YEL if k % 2 else NAVY, ((2700.0 + xr) / 2.0, 0, z), (xr - 2700.0 + 30, 2430, 900), glow=0.5 if k % 2 else 0.0)
+    m.box(HOTPINK, (2640, 0, 11000), (140, 2460, 21600), glow=GLOW)                      # its mast side, a line of neon
+    m.cyl(CREAM, (9300, 0, 0), 430, 19400, steps=10)                                     # the needle and its ball
+    m.cyl(TEAL, (9300, 0, 15900), 430, 700, steps=10, top_r=2100)
+    m.cyl(TEAL, (9300, 0, 16600), 2100, 420, steps=10)
+    m.sphere(MINT, (9300, 0, 18300), 1500, steps=(6, 10), glow=0.45)                     # (a steady glow: not one of the windows' colours)
+    m.cyl(WHITE, (9300, 0, 19700), 70, 4300, steps=6, top_r=20)
+    m.sphere(RED, (9300, 0, 24100), 100, steps=(4, 6), glow=1.2)
+    for x, y, w, d, h, col, lit in ((-9100, -300, 1800, 2000, 6400, LAV, YEL), (-3000, -700, 1500, 1800, 4600, MINT, SKY),
+                                    (1300, 500, 1500, 2000, 8800, LAV, YEL), (7500, 300, 1400, 2000, 5600, CORAL, SKY),
+                                    (12300, 0, 2600, 2400, 9600, CREAM, YEL), (13400, -900, 900, 1200, 4200, PEACH, SKY)):
+        m.box(col, (x, y, h / 2.0), (w, d, h))
+        bands(x, y, w, d, 800, h - 500, max(2, int(h / 1800)), lit)
+
+
 # ---- the cut banks (ft_dress_bank.py has the rules: drawn flat, x along the road, y up the slope, z out of the bank)
 import ft_dress_bank as B   # noqa: E402
 
 
-def _wave(m, col, y_mid, amp, thick, z, phase=0.0, periods=2, n=16):
+def _wave(m, col, y_mid, amp, thick, z, phase=0.0, periods=2, n=32):
     """A wave running the length of a panel: whole periods, so it meets itself on the next panel."""
     mid = [(-B.L / 2.0 + B.L * i / n, y_mid + amp * math.sin(2 * math.pi * periods * i / float(n) + phase)) for i in range(n + 1)]
     B.shape(m, col, [(x, y + thick / 2.0) for x, y in mid] + [(x, y - thick / 2.0) for x, y in reversed(mid)], z)
@@ -1466,7 +1521,7 @@ def big_wheel(k):
     s.box(CORAL, (0, -980, 170), (520, 420, 260))
     s.box(WHITE, (0, -980, 312), (580, 480, 24))
     spin = dict(SpinPivot=(0.0, 0.0, HUB), SpinAxis=(1.0, 0.0, 0.0), SpinRate=0.24, SpinRand=1.0)
-    w = k.group('Spin', **dict(BAY_LOOK, **spin))
+    w = k.group('Spin', far=True, **dict(BAY_LOOK, **spin))          # far: a landmark turns at any distance (M_Life stops at 180 m)
     N = 16
     pts = [(math.cos(2 * math.pi * i / N) * R, math.sin(2 * math.pi * i / N) * R) for i in range(N)]
     for i in range(N):
@@ -1477,7 +1532,7 @@ def big_wheel(k):
         y, z = pts[i]
         w.box(cols[i % 5], (0, y, HUB + z), (240, 210, 220))
         w.box(WHITE, (0, y, HUB + z + 122), (270, 240, 24))
-    g = k.group(('Spin', 'Light'), **dict(BAY_LOOK, LightAxis=(0.0, 0.0, 1.0), LightLen=1400.0, LightRate=0.5, LightDuty=0.5, LightSoft=0.1,
+    g = k.group(('Spin', 'Light'), far=True, **dict(BAY_LOOK, LightAxis=(0.0, 0.0, 1.0), LightLen=1400.0, LightRate=0.5, LightDuty=0.5, LightSoft=0.1,
                                           LightMin=0.35, LightRand=1.0, **spin))
     for i in range(N // 2):
         (y0, z0), (y1, z1) = pts[i], pts[i + N // 2]
@@ -1492,7 +1547,7 @@ def swing_ride(k):
     s.cyl(HOTPINK, (0, 0, 70), 560, 26, steps=12)
     s.cyl(TEAL, (0, 0, 70), 96, 1260, steps=8)
     spin = dict(SpinPivot=(0.0, 0.0, 0.0), SpinAxis=(0.0, 0.0, 1.0), SpinRate=1.0, SpinRand=1.0)
-    c = k.group('Spin', **dict(BAY_LOOK, **spin))
+    c = k.group('Spin', far=True, **dict(BAY_LOOK, **spin))          # far: it stands 37 m tall beside two jumps and is seen from 350 m
     c.cyl(CORAL, (0, 0, 1340), 540, 210, steps=12, top_r=130)
     c.cyl(WHITE, (0, 0, 1296), 580, 46, steps=12)
     c.cyl(WHITE, (0, 0, 1550), 130, 60, steps=8)
@@ -1502,7 +1557,7 @@ def swing_ride(k):
         ca, sa = math.cos(a), math.sin(a)
         tilt_box(c, WHITE, (ca * 520, sa * 520, 1300), (ca * 960, sa * 960, 800), 24, 24)
         c.box([HOTPINK, YEL, TEAL][i % 3], (ca * 980, sa * 980, 760), (120, 120, 96), rot=(0, math.degrees(a), 0))
-    g = k.group(('Spin', 'Light'), **dict(BAY_LOOK, LightHash=0.3, LightCell=150.0, LightRate=2.0, LightMin=0.35, LightRand=1.0, **spin))
+    g = k.group(('Spin', 'Light'), far=True, **dict(BAY_LOOK, LightHash=0.3, LightCell=150.0, LightRate=2.0, LightMin=0.8, LightRand=1.0, **spin))   # (a fifth deep, no more: the lead's ruling on flicker)
     for i in range(12):
         a = 2 * math.pi * (i + 0.5) / 12.0
         g.box(YEL, (math.cos(a) * 585, math.sin(a) * 585, 1320), (60, 60, 60), rot=(0, math.degrees(a), 0), glow=0.8)
@@ -1536,9 +1591,9 @@ def sky_ride(k):
 
 def surf(k):
     """135 m of the water's edge, afloat: z = 0 is the sea and the beach is towards -Y. A sheet of foam slides up the
-    sand and back, each length of it a little out of step; five breakers come in from 230 m out and die on the shore."""
+    sand and back, each length of it a little out of step; four breakers come in from 230 m out and die on the shore."""
     L = 13500.0
-    wsh = k.group('Bob', rough=0.9, **dict(BAY_LOOK, BobDir=(0.0, 1.0, 0.0), BobAmp=420.0, BobRate=0.11, BobRand=1.0, BobPhase=(0.00006, 0.0, 0.0)))
+    wsh = k.group('Bob', far=True, rough=0.9, **dict(BAY_LOOK, BobDir=(0.0, 1.0, 0.0), BobAmp=420.0, BobRate=0.11, BobRand=1.0, BobPhase=(0.00006, 0.0, 0.0)))
     n = 9
     for i in range(n):
         x = -L / 2.0 + L * (i + 0.5) / n
@@ -1546,13 +1601,15 @@ def surf(k):
         wsh.box(FOAM2, (x, 520.0, 3.0), (L / n, 640.0, 6.0))
     r = k.group('Conveyor', rough=0.9, **dict(BAY_LOOK, ConvStart=(0.0, 23000.0, 0.0), ConvDir=(0.0, -1.0, 0.0), ConvLen=22500.0, ConvRate=0.026,
                                               ConvRand=1.0))
-    for i in range(5):
+    for i in range(4):
         def breaker(m, off=(i % 3 - 1) * 700.0):
-            # a crest of foam in three lengths, the lighter water of its face behind it
-            for xa, xb, dy, hgt in ((-5600.0, -1700.0, 0.0, 130.0), (-1500.0, 2100.0, 150.0, 170.0), (2400.0, 5900.0, -90.0, 120.0)):
-                m.box(FOAM, ((xa + xb) / 2.0 + off, dy, hgt / 2.0), (xb - xa, 250.0, hgt))
-            m.box(WAVE_FACE, (off, 360.0, 30.0), (11000.0, 440.0, 60.0))
-        r.piece(breaker, a=i / 5.0)
+            # a crest of foam in three lengths, the lighter water of its face behind it. Round one's crests were 1.5 m
+            # high and unlit: from the road, 400 m off at dusk, grey logs. They stand 2.4 m now and carry a little
+            # light of their own, so the line of surf stays white.
+            for xa, xb, dy, hgt in ((-5600.0, -1700.0, 0.0, 240.0), (-1500.0, 2100.0, 220.0, 280.0), (2400.0, 5900.0, -140.0, 220.0)):
+                m.box(FOAM, ((xa + xb) / 2.0 + off, dy, hgt / 2.0), (xb - xa, 380.0, hgt), glow=0.04)
+            m.box(WAVE_FACE, (off, 560.0, 45.0), (11000.0, 700.0, 90.0))
+        r.piece(breaker, a=i / 4.0)
     return dict(grow=(0, 23500, 200), grow_down=(0, 600, 0))
 
 
@@ -1615,11 +1672,12 @@ def life():
         A(D + name, 'Light', [HOTPINK + '*'], **ft_life.PULSE)
     A(D + 'SM_BoardShops', 'Light', lambda slot, colour, glow: abs(glow - GLOW) < 0.011, **ft_life._chase((1.0, 0.0, 0.0), 3000.0, rate=0.4, duty=0.7, low=0.35))
     A(D + 'SM_TikiBar', 'Light', lambda slot, colour, glow: glow > 0.85, LightRate=3.0, LightDuty=0.7, LightSoft=0.4, LightMin=0.55, LightRand=1.0)
-    for name in ('SM_WaterTower', 'SM_RadioMast', 'SM_Downtown'):                        # beacons
+    for name in ('SM_WaterTower', 'SM_RadioMast', 'SM_Downtown', 'SM_Downtown2'):        # beacons
         A(D + name, 'Light', [RED + '*'], **ft_life.BLINK)
     A(D + 'SM_Groyne', 'Light', [YEL + '*'], **dict(ft_life.BLINK, LightRate=0.5))
-    A(D + 'SM_Downtown', 'Light', [HOTPINK + '*'], **ft_life.PULSE)
-    A(D + 'SM_Downtown', 'Light', [YEL + '*', SKY + '*'], **ft_life._windows(900.0, rate=0.1, off=0.2, low=0.3))
+    for name in ('SM_Downtown', 'SM_Downtown2'):
+        A(D + name, 'Light', [HOTPINK + '*'], **ft_life.PULSE)
+        A(D + name, 'Light', [YEL + '*', SKY + '*'], **ft_life._windows(900.0, rate=0.1, off=0.2, low=0.3))
 
     # ---- the zone pass. Cloth by the road: an awning is pinned along its wall and its front edge flaps, each width
     # of canvas a little out of step with the next (the phase runs along the row). The mask is the band the awnings
@@ -1648,7 +1706,32 @@ def life():
     # the horizon: the boats ride the swell (a slow heave and a roll about the keel, each on its own beat)
     swell = dict(BobAmp=16.0, BobRate=0.17, BobRand=1.0, SpinPivot=(0.0, 0.0, 0.0), SpinAxis=(1.0, 0.0, 0.0), SpinSwing=3.5, SpinRate=1.05, SpinRand=1.0)
     for name in ('SM_Sailboat', 'SM_Sailboat2', 'SM_MotorYacht', 'SM_Speedboat'):
-        A(D + name, ('Bob', 'Spin'), None, **swell)
+        A(D + name, ('Bob', 'Spin'), None, far=True, **swell)            # far: they are never nearer than 380 m (M_Life stops moving at 180 m)
+    # Low pieces right behind the barrier: their tops stand 1.6 to 1.7 m over the road, no higher than the barrier, so
+    # their shadows never reach the road; the track would have them cast (their bounds are over 2.5 m with what is
+    # buried). An export puts a mesh's section flags back, so this runs here, after the calls that save them.
+    import unreal
+    sub = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
+    for name in ('SM_BeachEdge', 'SM_KerbStalls'):
+        sm = unreal.EditorAssetLibrary.load_asset(D + name)
+        if sm is None:
+            continue
+        for i in range(len(sm.get_editor_property('static_materials'))):
+            sub.enable_section_cast_shadow(sm, False, 0, i)
+        unreal.EditorAssetLibrary.save_loaded_asset(sm)
+
+
+def after_export(only=None):
+    """Everything this kit needs after its JOBS have been exported; ft_dress.run calls it after export(). The props
+    that move by themselves are not in JOBS (LIFE_JOBS: ft_life.Kit builds them, life_props()), and an export puts
+    the plain materials and the section flags back on a piece, so life() has to follow every export.
+    only: the names of the pieces that were exported or are wanted (None = the whole kit). Of the moving props just
+    those are built; life() always runs over the whole kit (it re-saves only a mesh it has to change).
+    Returns the names of the moving props built."""
+    props = [n for n, _ in LIFE_JOBS if only is None or n in only]
+    built = life_props(props) if props else []
+    life()
+    return built
 
 
 JOBS = [
@@ -1680,5 +1763,5 @@ JOBS = [
     # SM_CutSea / SM_CutProm cover every banked bend now), SM_ParkedCars2 (its kerb slots are the market's) and SM_Towels2
     # (SM_Towels with another seed: its rules take SM_Towels).
     ('SM_Front1', front1), ('SM_Front2', front2), ('SM_KerbStalls', kerb_stalls), ('SM_BeachEdge', beach_edge), ('SM_Arcade', arcade),
-    ('SM_CutSea', cut_sea), ('SM_CutProm', cut_prom), ('SM_SkyCard', sky_card),
+    ('SM_CutSea', cut_sea), ('SM_CutProm', cut_prom), ('SM_SkyCard', sky_card), ('SM_Downtown2', downtown2),
 ]

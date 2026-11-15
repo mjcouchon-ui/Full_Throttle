@@ -1,0 +1,298 @@
+# boss_L3.txt : THE BIG DEALER (game level 3, Nevada, level index 2), the whole fight, for before/after frames.
+# Run (same line on both checkouts, same frame size, a new -Tag each time):
+#   powershell -NoProfile -ExecutionPolicy Bypass -File "K:\Full Throttle\SkyScratch\SourceArt\Jam\unreal\jam_exec.ps1" -Tag bossL3_before -Script "K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\boss_L3.txt" -Checkout "K:\Full Throttle\OverhaulBaseline\full-throttle-unreal" -BudgetSec 900 -Extra "-ftnoattract -ftnodynres -ftslot=pie"
+#   (-ftnoattract: a still title, nothing races behind it. -ftnodynres: fixed resolution. -ftslot=pie: the career
+#   slot is the test slot from the first frame, whatever happens to the FTUseTestSlot line below.)
+# After each run look in <checkout>\Saved\Logs\jam_exec_<tag>.log:
+#   "result=timeout" must not appear (one timeout = the script lost its place, repeat the run),
+#   "FT FIRE miss" and "LogFT: Error" must not appear,
+#   "FT LEVEL id=L3 scene=8", three "FT BOSS state=Arrive armor=200 escape=90", "FT DAMAGE target=Boss .. left=" ending
+#   at 190, 130, 64 and 0, three "source=DodgedJump", one "FT SPAWN kind=SnakeEyes .. add=1".
+#
+# HOW IT KEEPS ITS PLACE (line numbers = OverhaulBaseline, Source\FullThrottle)
+# - Every boss timer runs on game time. So does the level clock, and "FT CLOCK level=<n>" is logged on the first
+#   frame past each whole second (FTGameMode.cpp:1034). Each part starts on such a line, and FTBossNow / FTFire are
+#   sent on one, so the boss's timers sit on the same grid as the clock:
+#     boss summoned at clock N: T2=1.0 (FTGameMode.cpp:1665) -> bikes leave at N+1.0, then every 2.6 / 2.1 / 1.6 s
+#     (phase 0 / 1 / 2, :2782); phase 1 or 2 entered at clock M: T3=min(T3,2.5) (:2773) -> brake check at M+2.5,
+#     tail lights 0.8 s, then he drops back until 2.3 s (:2803-2808).
+#   (T2 is set afresh each time, not carried over, so every bike adds up to one frame: the sixth bike of a boss is
+#   0.05 s late at 60 frames a second and 0.15 s late at 20. The waits below allow for that.)
+# - A "waitfor" only sees log lines written after the last console command (FTGameInstance.cpp:518, :552). So every
+#   clock mark below must still be in the future when the FTFreeze 0 before it is sent. The script assumes 20 frames a
+#   second or better; slower than about 12 and a mark is missed (result=timeout).
+# - Stills: FTFreeze 1 / shot / FTFreeze 0 holds the world (time dilation 0.0001, FTGameMode.cpp:3735) while the frame
+#   is written, so a still costs about 0.15 s of game time, and the waits between stills are game seconds.
+# - The HUD's small plates run on the REAL clock, which the stills do not stop: the keys strip (first 10 s of play,
+#   FTGameMode.cpp:1036), ACTION! (0.45 to 1.45 s after a scene change), the scene's name (2.8 s), a shout (1 s), a
+#   caption (3 s) (FTHUD.cpp:650-717). The entrance stills are placed clear of those edges.
+# - Hurting: "FTFire <n> Boss" = n standard rounds through the gun's real hit path in one frame, 1 armor each
+#   (FTFlow.cpp:1031, BulletHit :150). Armor 200: 70 rounds -> 130 = 65 % = phase 1; 66 more -> 64 = 32 % = phase 2.
+#   With FTAutoRun the car itself never fires (FTGameMode.cpp:1177), so nothing else moves his armor.
+# - Defeat: FTWrapNow (FTFlow.cpp:1100) takes his remaining armor through the same path.
+#
+# ---------------------------------------------------------------- setup
+wait 2
+FTUseTestSlot
+FTCareerReset
+FTQuality 3
+wait 6
+# scene 8 of 9 (THE CITY LIGHTS): the last road before the finale
+FTStartLevel 3 8
+waitfor FT LEVEL id=|240
+FTAutoRun wreck=0
+waitfor FT SPEED|60
+#
+# ---------------------------------------------------------------- the road before the boss (level clock 2 and 4)
+waitfor FT CLOCK level=2.|30
+FTFreeze 1
+shot L3_boss_road_1
+FTFreeze 0
+waitfor FT CLOCK level=4.|30
+FTFreeze 1
+shot L3_boss_road_2
+# the world stays held 7 real seconds more: the keys strip at the bottom of the HUD goes 10 real seconds after
+# ACTION! (FTGameMode.cpp:1036), which would otherwise fall in the middle of the entrance stills
+wait 7
+FTFreeze 0
+#
+# ---------------------------------------------------------------- ENTRANCE: his real arrival
+# FTNextScene puts the car at the top of THE FINALE; the scene's own spawn (78000:B) then brings him in through
+# SpawnGroup: 16000 cm ahead, closing at 6000 cm/s until 9400 cm (1.1 s), then easing onto his spot at 5141 cm
+# (FTGameMode.cpp:1660-1662, :2814). His first bike leaves once he is within 7641 cm, 1.5 s in (:2780).
+# Stills at about 0.45 / 1.05 / 1.7 / 2.4 / 3.4 game seconds after "FT BOSS state=Arrive":
+#   13300 cm away / 9800 / 6950 with the first bike on the ramp / 5850 / on his spot.
+# In real seconds after the scene change: 0.55 (the plate says ACTION!) / 1.75 (THE FINALE) / 3.05 and later (no plate).
+FTNextScene
+waitfor FT BOSS state=Arrive|10
+wait 0.25
+FTFreeze 1
+shot L3_boss_enter_1
+FTFreeze 0
+wait 0.4
+FTFreeze 1
+shot L3_boss_enter_2
+FTFreeze 0
+wait 0.5
+FTFreeze 1
+shot L3_boss_enter_3
+FTFreeze 0
+wait 0.5
+FTFreeze 1
+shot L3_boss_enter_4
+FTFreeze 0
+wait 0.8
+FTFreeze 1
+shot L3_boss_enter_5
+FTFreeze 0
+#
+# ---------------------------------------------------------------- PART A (clock 12): a fresh boss, phase 0
+# FTBossNow: road cleared, a new boss at full armor straight on his spot, T2=1.0 T3=6.0 (FTFlow.cpp:1003-1012).
+waitfor FT CLOCK level=12.|20
+FTBossNow
+waitfor FT BOSS state=Arrive|10
+# IDLE: on his spot, nothing sent yet (about 0.17 s after the summons)
+FTFreeze 1
+shot L3_boss_idle_1
+FTFreeze 0
+# ATTACK 1, a rider down the ramp. No wind-up exists in today's code: T2 runs out and the bike is there (:2780-2796).
+# windup = about 0.65 s before T2 runs out (clock 12.35)
+FTFreeze 1
+shot L3_boss_ramp_windup
+FTFreeze 0
+# release = clock 13.0 (T2 1.0 after the summons) + 0.15 s: the bike just off the tail (State 9 lasts 0.55 s, :2788)
+waitfor FT CLOCK level=13.|10
+wait 0.15
+FTFreeze 1
+shot L3_boss_ramp_release
+FTFreeze 0
+# still rolling off, about 0.3 s after the release
+FTFreeze 1
+shot L3_boss_ramp_roll
+FTFreeze 0
+# in flight to the car: 1.0 s after the release he is about 2200 cm ahead, falling back at 2500 cm/s (:2317)
+waitfor FT CLOCK level=14.|10
+FTFreeze 1
+shot L3_boss_ramp_ride
+FTFreeze 0
+# landing: 1.55 s after the release, about 850 cm ahead and slowing to the car's door. Not later: inside 666 cm his
+# own chain wind-up may start (its timer is random, :2788, :2319), and the frame would differ from run to run.
+wait 0.4
+FTFreeze 1
+shot L3_boss_ramp_beside
+FTFreeze 0
+# ATTACK 2, the chain. A boss rider's first swing is random (T2 = 1 to 2 s, :2788), so one more rider is staged:
+# FTSpawnAdd SnakeEyes = a boss add beside the car whose swing timer is exactly 2.0 s (FTFlow.cpp:914), wind-up
+# 0.6 s (:2321), then the swing (:2326-2332) 2.6 s after the spawn. Stills 2.1 / 2.75 / 3.2 s after the spawn.
+FTSpawnAdd SnakeEyes
+wait 1.95
+FTFreeze 1
+shot L3_boss_chain_windup
+FTFreeze 0
+wait 0.45
+FTFreeze 1
+shot L3_boss_chain_release
+FTFreeze 0
+wait 0.25
+FTFreeze 1
+shot L3_boss_chain_after
+FTFreeze 0
+#
+# ---------------------------------------------------------------- PART B (clock 20): a fresh boss, hurt, phase 1
+# bikes leave at 21.0 and 23.6 (phase 0), the third at 26.2 is the jumper (phase 1, every 3rd, :2784)
+waitfor FT CLOCK level=20.|20
+FTBossNow
+waitfor FT BOSS state=Arrive|10
+# IDLE 2: two seconds in, his first rider out
+waitfor FT CLOCK level=22.|20
+FTFreeze 1
+shot L3_boss_idle_2
+FTFreeze 0
+# HURT: 10 rounds in slow motion (0.3x for 3 real seconds, FTFlow.cpp:1065), stills about 0.05 and 0.2 game seconds
+# after the hits. Armor 200 -> 190. He has no hurt reaction of his own today: sparks at his tail and the boss bar.
+FTSlowMo 3
+wait 0.35
+FTFire 10 Boss
+FTFreeze 1
+shot L3_boss_hurt_1
+FTFreeze 0
+wait 0.25
+FTFreeze 1
+shot L3_boss_hurt_2
+FTFreeze 0
+# PHASE 1 at clock 25: 60 rounds, armor 190 -> 130 (65 %). Caption THEY'RE JUMPING OFF THE TOP DECK!
+waitfor FT CLOCK level=25.|20
+FTFire 60 Boss
+FTFreeze 1
+shot L3_boss_p1_start
+FTFreeze 0
+# ATTACK 3, the jumper off the top deck: leaves at 26.2 (T2 2.6 after the bike of 23.6), 1.15 s in the air (:2294),
+# lands about 3000 cm ahead of the car ("DODGED THE JUMP", logged as source=DodgedJump).
+# windup = clock 26.0 (0.2 s before; no wind-up in today's code)
+waitfor FT CLOCK level=26.|20
+FTFreeze 1
+shot L3_boss_jump_windup
+FTFreeze 0
+# release = about 0.15 s after he leaves the deck
+wait 0.15
+FTFreeze 1
+shot L3_boss_jump_release
+FTFreeze 0
+# flight = about 0.5 s in, the top of the arc (11 m up)
+wait 0.2
+FTFreeze 1
+shot L3_boss_jump_flight
+FTFreeze 0
+# landing = the frame after the log line
+waitfor source=DodgedJump|1.5
+FTFreeze 1
+shot L3_boss_jump_land
+FTFreeze 0
+# ATTACK 4, the brake check: starts at 27.5 (T3 2.5 after phase 1), i.e. 0.15 s after that landing.
+# windup = 0.2 s in (BRAKES!, tail lights, flare); he does not move until 0.8 s
+wait 0.12
+FTFreeze 1
+shot L3_boss_brake_windup
+FTFreeze 0
+# release = 0.9 s in: he has just started to drop back
+wait 0.55
+FTFreeze 1
+shot L3_boss_brake_release
+FTFreeze 0
+# dropping back, 1.35 s in (about 3600 cm ahead)
+wait 0.3
+FTFreeze 1
+shot L3_boss_brake_drop
+FTFreeze 0
+# close, 1.7 s in (about 3100 cm ahead, lights still on; they go off at 2.3 s, so this still must not be late)
+wait 0.2
+FTFreeze 1
+shot L3_boss_brake_close
+FTFreeze 0
+# 2.6 s in: lights off, pulling away again
+wait 0.7
+FTFreeze 1
+shot L3_boss_brake_recover
+FTFreeze 0
+#
+# ---------------------------------------------------------------- PART C (clock 32): phase 2
+# 66 rounds, armor 130 -> 64 (32 %). Caption HE'S EMPTYING THE WHOLE TRUCK! The riders on the road are wrecked so
+# his limit of 6 bikes (:2780) does not stop him: he then sends two bikes every 1.6 s, 32.5 (jumper + rider),
+# 34.1 (two riders), 35.7 (jumper + rider), and brake-checks again at 34.5.
+waitfor FT CLOCK level=32.|20
+FTFire 66 Boss
+FTWreck SnakeEyes 9
+FTFreeze 1
+shot L3_boss_p2_start
+FTFreeze 0
+# the pair of 32.5, about 0.25 s out: a jumper off the deck and a rider on the ramp (he is the sixth bike of this
+# boss, so up to 0.15 s late: see the top)
+wait 0.3
+FTFreeze 1
+shot L3_boss_p2_jump_release
+FTFreeze 0
+# about 0.6 s into the flight
+wait 0.15
+FTFreeze 1
+shot L3_boss_p2_jump_flight
+FTFreeze 0
+waitfor source=DodgedJump|1.5
+FTFreeze 1
+shot L3_boss_p2_jump_land
+FTFreeze 0
+# the pair of 34.1 (0.45 s after that landing), about 0.2 s out: two riders on the ramp
+wait 0.45
+FTFreeze 1
+shot L3_boss_p2_pair_release
+FTFreeze 0
+# the second brake check (34.5), 0.2 to 0.3 s in (tail lights; he does not move until 0.8 s)
+wait 0.2
+FTFreeze 1
+shot L3_boss_p2_brake_windup
+FTFreeze 0
+# clock 36: he is dropping back with his lights on, the jumper of 35.7 is in the air, four bikes are on the road
+waitfor FT CLOCK level=36.|20
+FTFreeze 1
+shot L3_boss_p2_swarm
+FTFreeze 0
+# that jumper lands (about 1800 cm ahead of the car, he was thrown from closer)
+waitfor source=DodgedJump|1.5
+FTFreeze 1
+shot L3_boss_p2_jump2_land
+FTFreeze 0
+#
+# ---------------------------------------------------------------- DEFEAT (clock 38) and the wrap
+waitfor FT CLOCK level=38.|20
+FTFreeze 1
+shot L3_boss_defeat_0_before
+FTFreeze 0
+FTDumpLevel
+FTWrapNow
+waitfor FT BOSS state=Down|5
+# from here the game runs on real time: hit stop 0.22 s, slow motion 0.22x for 2.4 s, the CUT! card at 0.8 s,
+# the next screen at 4.2 s (FTGameMode.cpp:379-398, :543). No FTFreeze here. Shots at 0.15 / 0.65 / 1.15 / 1.65 / 2.65 s.
+shot L3_boss_defeat_1_moment
+shot L3_boss_defeat_2_after
+shot L3_boss_defeat_3_after
+shot L3_boss_defeat_4_after
+wait 0.5
+shot L3_boss_wrap_cut
+waitfor FT RATING value=|20
+waitfor FT SCREEN name=Reel|10
+wait 1.0
+shot L3_boss_wrap_reel_title
+# the reel ends on the kill's second angle and holds there
+waitfor FT SCREEN name=Reel state=hold|120
+wait 0.3
+shot L3_boss_wrap_reel_hold
+FTPress Continue
+waitfor FT SCREEN name=Dailies|20
+wait 3.2
+shot L3_boss_wrap_dailies
+FTPress Continue
+waitfor FT SCREEN name=Paycheck|20
+# a paycheck line every 0.32 s (FTFlow.cpp:370): 6 s shows them all
+wait 6
+shot L3_boss_wrap_paycheck
+wait 1
+quit

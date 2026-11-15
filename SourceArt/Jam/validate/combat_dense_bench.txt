@@ -1,0 +1,39 @@
+# combat_dense_bench.txt : the same dense scene as PART 2 of combat_dense.txt, timed by the game's own benchmark
+# mode (-ftbench): a frame cap of 0, no vsync, one JSON line of frame times. NOT for stills: it takes none.
+# Run it the same way on both checkouts (a new -Tag each run, the same frame size), AFTER combat_dense.txt on that
+# checkout (that run leaves the test career fresh, and the car's stats are read from it before any line here runs):
+#   powershell -NoProfile -ExecutionPolicy Bypass -File "K:\Full Throttle\SkyScratch\SourceArt\Jam\unreal\jam_exec.ps1"
+#       -Tag <tag> -Script <this file> -Checkout <project folder> -BudgetSec 900
+#       -Extra "-ftnoattract -ftnodynres -ftslot=pie -ftbench -ftlevel=7 -ftquality=3 -ftseconds=10 -fttag=_dense"
+# The benchmark opens level 8 by itself (-ftlevel is the level INDEX), starts the race after a 0.5 s slate, drives
+# and shoots (the same autopilot, a missile every 1.7 s, the car cannot be hurt), samples every frame from 4 s to
+# 14 s of play, writes <Checkout>\Saved\FullThrottle\bench\bench_L7_EPIC_dense.json, logs "FTBENCH {..}"
+# (avg_fps, p1_low_fps, median_ms, p99_ms, worst_ms, game / render / gpu ms) and quits the game itself.
+# This script only stages the scene: boss (phase 1: armor 140 of 220) and convoy are up about 3 s into play, before
+# the sampling starts. Do NOT send FTStartLevel or wait for "FT LEVEL id=" here: the benchmark has started the
+# level before the runner can see the log.
+# In the log: "FTBENCH " (the result; none = it did not finish), "FT BOSS state=Down" (must not be there: the level
+# would have ended the sampling early), "result=timeout".
+
+waitfor FT SPEED|300
+ft.AutoX 0
+FTBossNow
+waitfor FT BOSS state=Arrive|10
+FTFreeze 1
+FTFire 80 Boss
+FTSpawn Truck 1
+FTSpawn Truck 2 beside=Truck
+FTSpawn SUV 5
+FTSpawn Rammer 5
+FTSpawn Biker 10
+FTSpawn SnakeEyes 4
+FTSpawn Chopper 1
+FTSpawn Chopper 2 beside=Chopper
+FTSpawnCivilian 4
+FTPickup Crate
+FTFreeze 0
+# FTTEL lines (ents= fps=) every 2 s
+ft.Autopilot 1
+# the benchmark quits the game about 12 s from here. Only if it did not: quit, so no game is left running
+wait 45
+quit

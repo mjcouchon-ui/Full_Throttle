@@ -1,0 +1,313 @@
+# boss_L5.txt - MR. CHUCKLES (game level 5, Theme Park, level index 4): the whole fight, staged for before/after pairs.
+# Run it the same way on both checkouts, with a new tag each time, at the full frame size (NOT -Small, see DEFEAT):
+#   jam_exec.ps1 -Tag <tag> -Script boss_L5.txt -Checkout <project> -BudgetSec 900 -Extra "-ftnoattract -ftnodynres"
+# After each run look in the log for: result=timeout (the script lost its place), LogFT: Error, and FTHITCH lines over
+# 400 ms that are NOT next to a "Tracing Screenshot" line (a frame that long inside a take costs game time).
+# Expected: "FT LEVEL id=L5 scene=1", "scene=6", "scene=7"; 9 x "FT BOSS state=Arrive armor=140 escape=80" (two of them
+# are the level's own boss: the entrance, and the run-up before the defeat); "FT DAMAGE target=Boss amount=1 left=135",
+# "left=92", "left=46", "left=27", then "amount=140 left=0"; one FT STUNT name="LOOP THE LOOP"; "FT BOSS state=Down";
+# "FT OUTCOME wrap"; "FT RATING value=B-MOVIE"; "FTFLOW reel start, 2 shots"; "FT SCREEN name=Reel state=hold",
+# "name=Dailies", "name=Paycheck"; "FT EXEC done" is NOT expected (quit ends the game first).
+#
+# HOW IT KEEPS THE TWO RUNS ON THE SAME MOMENTS
+# - Every part is its own TAKE of a fresh boss. FTBossNow (FTFlow.cpp HarnessCmd) clears the road and the bombs,
+#   puts the car on the finale line and brings a new boss on his fighting spot with his timers reset (first attack
+#   T1 = 1.6 s, FTGameMode.cpp SpawnGroup case Boss), so each take is timed from its own "FT BOSS state=Arrive" line.
+# - T below = seconds of game time after that Arrive line. The script's waits are real seconds; the takes run at full
+#   speed, so real = game. A still is FTFreeze 1 / shot / FTFreeze 0: the world holds (time dilation 0.0001) while the
+#   frame is saved. Measured today (jam_exec_bosses_before.log): a 3440x1440 shot is ONE frame of 0.5 to 0.6 s, the game
+#   runs at 100 to 120 frames a second, each script line starts up to one frame late. Per still the world moves on for
+#   the 0.15 s of the FTFreeze 0 line plus the wait that follows. The T values are for about 100 frames a second; at
+#   30 they come 0.1 to 0.3 s later (the "windup" stills still fall before the release, the others after it).
+# - No take is in slow motion except the short HURT one, and that one is followed by a level restart (StartRace
+#   sets the time scale back to 1). Reason: the game counts a frame as 0.1 s at most (FTGameMode.cpp Tick, RDt), so a
+#   slow motion (FTSlowMo, real seconds) lasts 0.4 s longer for every shot taken inside it and would run into the
+#   next take.
+# - The car is pinned on road x = 292 cm (ft.AutoX, lane 3 of 4, where every race starts): the attacks aim at the
+#   car's x, and the autopilot would otherwise weave. FTAutoRun: autopilot steers, car takes no damage, never fires.
+# - The boss is hurt only by "FTFire <n> Boss": n standard rounds through the real hit path (BulletHit) in one frame,
+#   1 armor each on a fresh career. 140 armor: phase 1 at 66% or less (48 rounds, left=92), phase 2 at 33% or less
+#   (94 rounds, left=46), the "Pop him!" line under 20% (113 rounds, left=27). FTWrapNow deals the rest in one hit.
+# - The key-hint line stays on the HUD for the first 10 s of play after every level (re)start (bShowKeys). Every shot
+#   is taken later than that, so it is in none of them.
+#
+# MR. CHUCKLES' TIMERS (FTGameMode.cpp TickBossClown): one timer, T1. It starts at 1.6 s; when it runs out one attack
+# fires on that frame (today there is no wind-up state or pose) and T1 is set to the gap: 2.4 s in phase 0, 2.0 s in
+# phase 1, 1.8 s in phase 2 (+0.4 s after a bomb carpet). Phase 0 and 1 order: bombs, bombs, pies, repeat. Phase 2:
+# carpet, bombs, carpet, bombs, carpet, pies. A phase change sets the order back to its first attack, T1 runs on.
+#   balloon bombs: 2 (+1 a phase), fall for 1.4 s (+0.12 s each further bomb) onto marks round the car (Lob "Warn")
+#   bomb carpet  : three lanes of four, fall for 1.5 s (+0.1 s a lane, left to right)
+#   pies         : 5 shots (a fan of 7 with a gap of 2) at 3839 cm/s, about 1.4 s to reach the car
+# "windup" shots are about 0.2 to 0.3 s before T1 runs out: today they show the idle boss.
+# NOT the same in two runs (random in the game): where the 2nd and later bombs land, the carpet's free lane, the pie
+# fan's gap, civilian traffic, the HUD's timecode and box office.
+
+DisableAllScreenMessages
+FTUseTestSlot
+FTCareerReset
+FTQuality 3
+wait 3
+
+# ---- the level, from the top (scene 1, OPENING NIGHT), on the autopilot: two shots of the road. Level clock 11 and
+# 14 s: the car is at full speed (it needs 6 s from the standing start) and the key hints are gone (10 s).
+FTStartLevel 5
+waitfor FT LEVEL id=|240
+ft.AutoX 292
+FTAutoRun wreck=0
+waitfor FT CLOCK level=11.|60
+FTFreeze 1
+shot L5_boss_road_1
+FTFreeze 0
+waitfor FT CLOCK level=14.|60
+FTFreeze 1
+shot L5_boss_road_2
+FTFreeze 0
+
+# ---- warm-up take, no shots: the first boss of a session loads things, and the first FTBossNow of a race also
+# puts the scene slate and ACTION! on the HUD (bombs at T=1.6, 4.0 and 8.8, pies at 6.4, three rounds into him).
+FTBossNow
+waitfor FT BOSS state=Arrive|10
+wait 2
+FTFire 3 Boss
+wait 7.2
+
+# ---- IDLE and HURT (phase 0). Idle at T=0.7: on his spot, nothing in the air (first attack when T1 = 1.6 runs out).
+# Hurt: slow motion (FTSlowMo = time scale 0.3 for 2.6 real seconds, eased in at rate 12), FTFire 5 Boss at T=1.04;
+# stills 0.05 s and 0.19 s of game time after the five hits, both before the first attack. The restart that follows
+# ends the slow motion.
+FTBossNow
+waitfor FT BOSS state=Arrive|10
+wait 0.5
+FTFreeze 1
+shot L5_boss_idle
+FTFreeze 0
+FTSlowMo 2.6
+wait 0.3
+FTFire 5 Boss
+waitfor FT DAMAGE target=Boss amount=1 left=135 load=STD|3
+FTFreeze 1
+shot L5_boss_hurt_1
+FTFreeze 0
+wait 0.3
+FTFreeze 1
+shot L5_boss_hurt_2
+FTFreeze 0
+
+# ---- ENTRANCE, the real one. FTBossNow puts this boss straight on his fighting spot (FTFlow.cpp, "B.D = Car->D +
+# B.Ta"), so it has no arrival. Instead: restart at scene 6 (same map, no load; the car starts just before the loop
+# that ends at the scene line), drive the loop (the game logs FT STUNT name="LOOP THE LOOP" as the car leaves it,
+# about 7 s after ACTION!), 4.2 s more so that the key hints are gone and the car is at full speed, then FTNextScene
+# jumps the car over the finale line, where the level's own script spawns him 160 m ahead; he drops back to his spot
+# 58 m ahead at up to 60 m/s (TickBoss: B.Sp = car speed + (Want - Ahead) * 1.4, clamped to 6000 cm/s).
+# T = 0.2 (150 m ahead), 0.8 (112 m), 1.4 (84 m, just before the first drop at 1.6), 2.5 (on his spot, bombs falling).
+# These four carry the scene slate (THE FINALE) and ACTION!, as in the real game.
+FTStartLevel 5 6
+waitfor FT LEVEL id=|60
+FTAutoRun wreck=0
+waitfor FT SPEED|30
+wait 6
+waitfor LOOP" points=|8
+wait 4.2
+FTNextScene
+waitfor FT BOSS state=Arrive|10
+FTFreeze 1
+shot L5_boss_enter_1
+FTFreeze 0
+wait 0.45
+FTFreeze 1
+shot L5_boss_enter_2
+FTFreeze 0
+wait 0.45
+FTFreeze 1
+shot L5_boss_enter_3
+FTFreeze 0
+wait 0.9
+FTFreeze 1
+shot L5_boss_enter_4
+FTFreeze 0
+
+# ---- ATTACK 1, BALLOON BOMBS (phase 0, the first attack: T1 = 1.6). Two bombs; flight 1.4 s and 1.52 s (Lob "Warn"),
+# so they are down at T=3.0 and 3.12, their marks live 0.25 s more.
+# windup T=1.39 (0.2 s before T1 runs out); release T=1.76 (0.15 s after: the bombs have just left him, the marks are
+# on the road); flight T=2.33 (half of the 1.4 s); land T=3.16 (first blast 0.15 s old, second just down);
+# after T=3.48 (marks gone; next drop at 1.6 + gap 2.4 = 4.0).
+FTBossNow
+waitfor FT BOSS state=Arrive|10
+wait 1.2
+FTFreeze 1
+shot L5_boss_bombs_windup
+FTFreeze 0
+wait 0.2
+FTFreeze 1
+shot L5_boss_bombs_release
+FTFreeze 0
+wait 0.4
+FTFreeze 1
+shot L5_boss_bombs_flight
+FTFreeze 0
+wait 0.66
+FTFreeze 1
+shot L5_boss_bombs_land
+FTFreeze 0
+wait 0.15
+FTFreeze 1
+shot L5_boss_bombs_after
+FTFreeze 0
+
+# ---- ATTACK 2, PIES (phase 0, the third attack: T1 = 1.6 + gap 2.4 + gap 2.4 = 6.4; each attack fires on the first
+# frame after its time, so really 6.40 to 6.45). The fan leaves his tail about 53 m ahead at 3839 cm/s and reaches
+# the car's nose at about T=7.7.
+# windup T=6.19; release T=6.56 (pies 6 m off his tail); flight T=7.10 (half way); incoming T=7.45 (about 12 m ahead
+# of the car).
+FTBossNow
+waitfor FT BOSS state=Arrive|10
+wait 6.0
+FTFreeze 1
+shot L5_boss_pies_windup
+FTFreeze 0
+wait 0.2
+FTFreeze 1
+shot L5_boss_pies_release
+FTFreeze 0
+wait 0.37
+FTFreeze 1
+shot L5_boss_pies_flight
+FTFreeze 0
+wait 0.18
+FTFreeze 1
+shot L5_boss_pies_incoming
+FTFreeze 0
+
+# ---- PHASE 1 (armor at 66% or less): FTFire 48 Boss right at the arrival, 140 -> 92. Caption HE'S LETTING THE
+# BALLOONS GO! (still at T=0.75). The first attack still comes when T1 = 1.6 runs out, now THREE bombs
+# (flight 1.4 / 1.52 / 1.64 s -> down at T=3.0 / 3.12 / 3.24); the gap after it is 2.0 s (next drop at 3.6).
+# windup T=1.32, release T=1.79, flight T=2.31, land T=3.14, after T=3.41.
+FTBossNow
+waitfor FT BOSS state=Arrive|10
+FTFire 48 Boss
+waitfor FT DAMAGE target=Boss amount=1 left=92 load=STD|3
+wait 0.4
+FTFreeze 1
+shot L5_boss_phase1_start
+FTFreeze 0
+wait 0.4
+FTFreeze 1
+shot L5_boss_phase1_bombs_windup
+FTFreeze 0
+wait 0.3
+FTFreeze 1
+shot L5_boss_phase1_bombs_release
+FTFreeze 0
+wait 0.35
+FTFreeze 1
+shot L5_boss_phase1_bombs_flight
+FTFreeze 0
+wait 0.66
+FTFreeze 1
+shot L5_boss_phase1_bombs_land
+FTFreeze 0
+wait 0.1
+FTFreeze 1
+shot L5_boss_phase1_bombs_after
+FTFreeze 0
+
+# ---- PHASE 2 (armor at 33% or less): FTFire 94 Boss right at the arrival, 140 -> 46. Caption BOMB PARADE! (T=0.75).
+# ATTACK 3, BOMB CARPET, when T1 = 1.6 runs out: three lanes of four, flight 1.5 s + 0.1 s a lane -> down at
+# T=3.1 / 3.2 / 3.3 / 3.4 (less the free lane). windup T=1.32, release T=1.79, flight T=2.36, land T=3.33.
+# Then T1 = gap 1.8 + 0.4 = 2.2 -> FOUR balloon bombs at T=3.8 (down at 5.2 / 5.32 / 5.44 / 5.56): release T=4.05,
+# land T=5.50. Then FTFire 19 Boss, 46 -> 27 (under 20%: the director's "He's out of balloons! Pop him!"), still
+# 0.7 s later (the next carpet, T=5.6, is in the air by then).
+FTBossNow
+waitfor FT BOSS state=Arrive|10
+FTFire 94 Boss
+waitfor FT DAMAGE target=Boss amount=1 left=46 load=STD|3
+wait 0.4
+FTFreeze 1
+shot L5_boss_phase2_start
+FTFreeze 0
+wait 0.4
+FTFreeze 1
+shot L5_boss_phase2_carpet_windup
+FTFreeze 0
+wait 0.3
+FTFreeze 1
+shot L5_boss_phase2_carpet_release
+FTFreeze 0
+wait 0.4
+FTFreeze 1
+shot L5_boss_phase2_carpet_flight
+FTFreeze 0
+wait 0.8
+FTFreeze 1
+shot L5_boss_phase2_carpet_land
+FTFreeze 0
+wait 0.55
+FTFreeze 1
+shot L5_boss_phase2_bombs_release
+FTFreeze 0
+wait 1.28
+FTFreeze 1
+shot L5_boss_phase2_bombs_land
+FTFreeze 0
+FTFire 19 Boss
+waitfor FT DAMAGE target=Boss amount=1 left=27 load=STD|3
+wait 0.5
+FTFreeze 1
+shot L5_boss_phase2_lowhealth
+FTFreeze 0
+
+# ---- DEFEAT. First a restart at scene 7, so that the highlight reel holds this take only (the loop above is a
+# reel clip otherwise) and the score starts from 0. The level's own boss comes with it; 7.2 s of run-up (car at full
+# speed; his pies of T=6.4 are still in the air and go with him), then a fresh boss, killed at T=3.6: after his
+# first bombs are down (3.0, 3.12) and their marks gone (3.37), before the next drop (4.0), so nothing hangs in the
+# air (the wrap stops bombs where they are). The kill comes 10.8 s into the play, after the key hints have gone.
+# FTWrapNow = his remaining armor in one hit through the gun path. The game then holds 0.22 s (hit-stop, Freeze),
+# runs at 0.22x for 2.4 s (Slowmo) and ends the take when PhaseT passes 4.2 s. The CUT! card comes up 0.8 s after the
+# kill on the game's clock, which counts each 0.5 s shot frame as 0.1 s, and it sits where the boss is on the screen.
+# So the three defeat shots are plain shots with NO freeze and no command between them: all three are taken before
+# the card, and nothing can make the script miss the FT RATING line. (At -Small a shot is much quicker, and the card
+# would be up in the third.)
+# moment = 0.01 s of game time after the kill (hit-stop); after_1 = 0.08 s; after_2 = 0.17 s; wrap_cut = 0.5 s after,
+# with the CUT! card.
+FTStartLevel 5 7
+waitfor FT LEVEL id=|60
+FTAutoRun wreck=0
+waitfor FT SPEED|30
+wait 7.2
+FTBossNow
+waitfor FT BOSS state=Arrive|10
+FTDumpLevel
+wait 3.25
+FTWrapNow
+shot L5_boss_defeat_moment
+wait 0.25
+shot L5_boss_defeat_after_1
+shot L5_boss_defeat_after_2
+wait 1.0
+shot L5_boss_wrap_cut
+
+# ---- THE WRAP: rating, the highlight reel, THE DAILIES, the paycheck. The reel (StartReel / TickReel): title card
+# 2.2 s, the kill from the crane camera (clip from 2.6 s before the kill), the kill again from the kill camera, then
+# it holds on its last frame. The reel's clock also counts a shot frame as 0.1 s, so only two moments are safe:
+# reel_1 = the title card; reel_2 = the crane shot about 1 s in, the boss still alive, about 1.6 s before the kill
+# (it can be 0.3 s either way); reel_3 = the held last frame (kill camera), taken off the "state=hold" line.
+waitfor FT RATING value=|60
+waitfor FT SCREEN name=Reel|30
+wait 1.0
+shot L5_boss_wrap_reel_1
+wait 2.0
+shot L5_boss_wrap_reel_2
+waitfor FT SCREEN name=Reel state=hold|60
+wait 0.3
+shot L5_boss_wrap_reel_3
+FTPress Continue
+waitfor FT SCREEN name=Dailies|20
+wait 4.5
+shot L5_boss_wrap_dailies
+FTPress Continue
+waitfor FT SCREEN name=Paycheck|20
+wait 7
+shot L5_boss_wrap_paycheck
+FTDumpCareer
+wait 1
+quit

@@ -1,0 +1,162 @@
+FILE: K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\menus_walk.txt
+CHANGED BY CHECKER: True
+RUN: powershell -NoProfile -ExecutionPolicy Bypass -File "K:\Full Throttle\SkyScratch\SourceArt\Jam\unreal\jam_exec.ps1" -Tag menus_before -Script "K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\menus_walk.txt" -Checkout "K:\Full Throttle\OverhaulBaseline\full-throttle-unreal" -BudgetSec 1800 -Small -Extra "-ftnodynres -ftslot=pie"
+
+For the second run change only -Tag (menus_after) and -Checkout (the integrated project folder). Keep -Small on both or on neither: the burst timing no longer depends on the frame size, but the two runs must match. Do not add -ftnoattract, -ftauto, -ftday1 or -ftdays. I checked with a dummy script that has jam_exec's parameter block that -Extra "-ftnodynres -ftslot=pie" binds as one value through powershell -File (and through a direct & call).
+
+PROBLEMS FOUND BY THE CHECKER:
+Checked against today's code in main and in K:\Full Throttle\OverhaulBaseline (FTFlow.cpp, FTGameMode.cpp, FTGameInstance.cpp, FTPlayerController.cpp, FTHUD.cpp, FTProgress.cpp, Content\Data\skills.json, the engine's UnrealEngine.cpp) and against three real run logs of today in the baseline's Saved\Logs (ui_before_menus.log, ui_before_flow.log, jam_exec_bosses_before.log). Nothing was run by me.
+
+1. OLD LINE 36 `waitfor FT WARM done|45` can never be met. In an uncooked -game run the warm-up finds nothing: every run log of today, in both checkouts, has "FT WARM no assets found (asset registry empty?)" and no "FT WARM done". So each run lost 45 s and logged a result=timeout, which the header tells the lead to read as "the script lost its place". Replaced by `wait 10`.
+
+2. THE BURSTS DID NOT FILM THE ENTRANCES (the colleague's own doubt 1). The strobe landed 0.2-0.7 s after each opening, but today's entrances last 0.32 s; the one-take screens were 0.5 s apart. Worse, any real-time spacing depends on frame size and build speed: in jam_exec_bosses_before.log one shot frame costs about 0.55 s at 3440x1440, so there consecutive shots are one frame apart. Rewrote every burst as a frame-stepped block: `t.MaxFPS 1` (one frame a real second, so each script line is exactly one frame) plus `t.OverrideFPS n` (each frame is 1/n s of game and menu time). Result: _seq1..6 at 0.04, 0.14 ... 0.54 s after the opening, 0.1 s apart, identical on both builds and at either frame size. Evidence: `t.MaxFPS 20` + `t.OverrideFPS 300` were used on the baseline today (ui_before_* logs), and there the wrap's 4.2 s adds up exactly as frames/300 plus the normal-speed seconds; UnrealEngine.cpp 3057-3064, 3200-3210 and 11608-11611 show no lower limit on t.MaxFPS. Blocks are entered MaxFPS first and left OverrideFPS first (the other order fast-forwards the game). No `wait` inside a block.
+
+3. WAITFOR WINDOW. waitfor only sees lines after the last console command (FTGameInstance.cpp 537/587). With t.* commands now inside the bursts, the old "FTStartLevel, six shots, waitfor FT LEVEL id=|240" would have waited 240 s for a line already past. All 44 waitfors were re-ordered and checked one by one: each follows the command that causes its line, or waits for something still to come.
+
+4. TEST SAVE SLOT came after FTGoto Title and the 45 s wait. FTUseTestSlot and FTCareerReset are now the first two lines. The run line also gets -ftslot=pie: without it the game loads career.json at Init, before any script line, and creates it if missing (baseline log: "FT SAVE slot=career reason=New").
+
+5. A MISSED KEY COULD COST 7 MINUTES. Old section 8 pressed P then R and waited up to 420 s for the reload; with the pause state inverted by one missed key that is a dead wait and a ruined second half. Added a resync first (FTStartLevel 1, waitfor FT LEVEL id=, waitfor FT SPEED) and cut the reload wait to 300 s. Title-Enter level wait 20 -> 30 s. Removed `waitfor FT ATTRACT shot|3` (a false timeout whenever -ftnoattract is passed; the line is in the log anyway).
+
+6. HUD, CUT, WRAP, REEL bursts are now placed on their real moment: hud from the first FT SPEED of the take (0.10-0.60 s of play), reel from FT SCREEN name=Reel (0.05-0.55), cut and wrap straddling the card's entrance (0.6 s after the wreck, 0.8 s after the boss goes down).
+
+7. ADDED 12 frames, no name removed or changed: menu_card_clap_seq1-6 (0.64-1.14 s, the clapper at 0.88-1.0) and menu_rating_stamp_seq1-6 (2.64-3.14 s, the stamp at 2.7). On those two screens today's only motion is outside the first half second. All 36 stills and all 14 x 6 _seq names of the first version are still there (132 shots, all unique).
+
+8. Small: final `wait 1` -> `wait 0.5` (the title would start a race by itself at 3.5 s once FTAutoRun has set the autopilot flag); budget in the header 1500 -> 1800 (the frame-stepped blocks take about 5 minutes of real time).
+
+9. SECOND FILE, K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\film_test.txt: its two waitfors used the exact form `FT CLOCK level=8.0` / `13.0`, which is missed whenever the frame past the second prints 8.1 (then a 150 s and a 60 s dead wait). Changed to `level=8.` and `level=13.`. Nothing else touched. It still only films on main: the baseline has no "film" line.
+
+CHECKED AND FOUND RIGHT (no change): every FT* command and argument exists in HarnessCmd in both checkouts (FTGoto Title|PreProduction, FTSelect, FTPress Buy|Undo|Ready|Continue, FTStartLevel, FTAutoRun wreck=0, FTInvuln, FTCrash, FTBossNow, FTWrapNow, FTKey, FTDumpLevel, FTDumpCareer, FTSetCash, FTSetSP, FTQuality); ft.Press and ft.Attract exist; tile ids CAR1 (tier 1, 1 SP, level 1 in skills.json, same file in both checkouts) and garage:armor:1 (BuildTiles) exist; "retake=1" does not match "retakes=1"; FTCrash needs FTInvuln 0 first (FTGameMode.cpp 1131); paycheck R and Dailies Escape take the paths claimed and never open a night or a day cutscene in a script run; quality is set before the first level start and is re-applied as 3 after the reload; the script is linear and ends in quit on every path. The colleague's doubt 2 is settled: ft.Press P / Down / Up / Escape with the game paused worked on the baseline today (ui_before_flow.log: Pause state=opened, then state=resumed).
+
+NOT FIXABLE IN THE SCRIPT: the two checkouts' settings.json differ. The baseline has best takes (level 1: 16,900) and quality 3, main has none and quality -1. FTQuality 3 covers the quality; the BEST lines on the title rows will differ unless both files are moved aside for the runs. I did not touch them.
+
+STILL UNSURE:
+Only a run can settle these, most important first.
+
+1. That `t.MaxFPS 1` really gives one frame a second. Only 20 was used today (ui_before_* runs on the baseline); the engine code has no lower limit, but 1 has not been run. Check in the log that inside each burst block the frame column [nnn] goes up by exactly one per "FT EXEC line=". If it goes up by more, the game time in that block ran far too fast and every burst is wrong: then replace each block's `t.MaxFPS 1` by `t.MaxFPS 20`, its step lines by one `t.OverrideFPS 100`, and run with -Small (about 0.1 s between shots, less exact).
+
+2. My frame counts are from reading the code. An offset of one frame (0.02-0.1 s) is possible where a key opens the screen (options, controls, pause), and in when the wreck and the first FT SPEED land. Both runs would be off by the same amount, so the pairs still match.
+
+3. Two approach margins. The HUD burst must arm its `waitfor FT SPEED` before the 3.2 s slate ends (my upper bound is 2.85 s). The reel burst must arm before the 4.2 s wrap ends (bound 3.8 s). If either is missed the log still shows "found", but menu_hud_seq* start about 0.5 s into play, or menu_reel_seq* show the wrap. A stalled frame only makes these safer.
+
+4. A stall of most of a second inside a block (first-use shaders on the integrated build, most likely at the boss explosion before menu_wrap_seq*) makes one line take two frames and shifts the rest of that burst by one step. The frame column shows it.
+
+5. Entering and leaving a block gives the race one long physics step (0.4 s), and THE DAILIES run twenty 0.1 s steps before the stamp. I expect no harm (at 3440x1440 every shot frame is already that long), but the car under the menus may sit somewhere else than in a real-time run.
+
+6. The real keys: One and Enter on the title, P / Down / Up / Escape in the pause, R in the pause menu, R on the paycheck, Escape on THE DAILIES, and the 2.4 s Enter hold on the reel. P, Down, Up, Escape, E, O and C worked on the baseline today; the R paths and the hold have not been run by a script that I could find. The counts in the header (overlay=Options twice, Pause opened three times, FT LEVEL id= nine times) tell at once which one failed.
+
+7. Whether the integrated build still has every command and log line used here. The script was checked against main as of 13:58 and the baseline of 12:11 only.
+
+8. The cursor. With -RenderOffScreen the title and PRE-PRODUCTION should see no mouse. The baseline log agrees (Down moved the title from row 1 to row 2), but a stray hover frame would look like a white outline on another row.
+
+9. What is random and can only pair by moment: the attract shot (place and damage), the boss's attacks behind menu_hud_boss and menu_wrap*, the reel's camera choices for any non-boss clip, and the car's lane in every HUD still.
+
+10. The title rows: the baseline's settings.json has best takes, main's has none, and this run writes a level 1 best where none is higher. Unless both settings.json files are moved aside first, menu_title* and menu_title_back* differ for that reason. Reduced motion, the FPS counter and MUTED come from the same file.
+
+11. Time. I estimate 8-9 minutes of script plus the two map loads; -BudgetSec 1800 should cover a slow disk, but it is an estimate.
+
+SHOTS:
+120 shots, in order. "Age" = seconds after the command/key that opened the screen (about; wall-clock).
+
+TITLE (attract off, car on the level-1 start line behind it)
+- menu_title_0s2: title 0.2 s after it appears (the pink sweep on the board still running, logo still rising).
+- menu_title_1s5: title settled at 1.5 s, row 01 focused.
+- menu_title_sel2: after Down: row 02 focused (log FT TITLE sel=2).
+- menu_title_actions: after Tab: focus on the button row (ROLL CAMERA), hint line changed.
+- menu_title_seq1..6: STROBE, six fresh FTGoto Title, ages 0.2/0.3/0.4/0.5/0.6/0.7.
+
+OPTIONS (over the title)
+- menu_options: panel, row GRAPHICS PRESET selected (value should read EPIC from FTQuality 3).
+- menu_options_row2: after Down: SHOW FRAME RATE row selected, detail text changed.
+- menu_options_seq1..6: STROBE, six openings with O, ages 0.2..0.7 (today the panel has no entrance animation: six equal frames expected on the baseline).
+
+CONTROLS (over the title)
+- menu_controls: bindings panel, first action / active layout cell focused.
+- menu_controls_row2: after Down: second action row focused.
+- menu_controls_seq1..6: STROBE, six openings with C, ages 0.2..0.7 (cyan sweep + heading slide of 0.32 s).
+
+PRE-PRODUCTION from the title (career: $25,000, 3 skill points)
+- menu_preprod_skills: SKILLS tab = the skill tree, first node selected, yellow tip line at the bottom.
+- menu_preprod_skills_sel2: after Down: the tier-2 node of the same branch selected.
+- menu_preprod_skills_pending: CAR1 bought: tile PENDING (yellow), green message "... PENDING / READY TO KEEP IT", UNDO enabled. (Undone straight after.)
+- menu_preprod_garage: GARAGE tab (log tab=1), ARMOR PLATING rank 1 selected.
+- menu_preprod_garage_sel2: after Down: next garage row selected.
+- menu_preprod_custom: CUSTOM tab (tab=2).
+- menu_preprod_sfx: SFX DEPT tab (tab=3).
+- menu_preprod_extras: EXTRAS tab (tab=4).
+- menu_preprod_skills_seq1..6: STROBE, six entries title -> PRE-PRODUCTION (opens on SKILLS), ages 0.2..0.7.
+- menu_preprod_garage_seq1..6: STROBE, six switches SKILLS -> GARAGE (department entrance sweep), ages 0.2..0.7.
+
+ATTRACT
+- menu_attract_seq1..6: ONE TAKE, title over the running demo with the ATTRACT FEED monitor top right, ages 0.2/0.7/1.2/1.7/2.2/2.7 (demo position and car damage are random).
+- menu_attract: the same at about 3.3 s.
+
+LEVEL CARD and PLAY HUD
+- menu_card: the slate of level 1 at 1.6 s (clapper shut, TAKE 01, "ENTER / A SKIP SLATE" visible; ROLL A-45 if every start before it happened).
+- menu_hud_seq1..6: ONE TAKE from the first play frame: 0.0/0.5/1.0/1.5/2.0/2.5 s into play (scene slate, ACTION!, key hints).
+- menu_hud_5s: the play HUD at level clock 5 s.
+- menu_card_seq1..6: ONE TAKE of a second slate: 0.2/0.7/1.2/1.7/2.2/2.7 s (clapper open in 1-2, shut from 3; ROLL A-46).
+
+PAUSE
+- menu_pause: CAMERAS HOLDING panel, RESUME selected.
+- menu_pause_row2: after Down: CONTROLS row selected.
+- menu_pause_seq1..6: STROBE, six openings with P (Escape resumes between), ages 0.2..0.7; the game behind advances about 0.55 s between them.
+
+RESTART FROM PAUSE
+- menu_hud_restart: play HUD 2 s into the level after P, R (map reloaded): TAKE 1, score 0.
+
+CUT!
+- menu_cut: first wreck, 1.4 s after FTCrash: red CUT! card "AGAIN! FROM THE TOP OF SCENE 1 / TAKE 2 COMING UP" over the slow-motion wreck.
+- menu_card_retake: the retake slate at 1.3 s: RESET THE CARS, TAKE 02 in red.
+- menu_cut_seq1..6: ONE TAKE of the second wreck: 0.2 (explosion, no card yet)/0.7 (card 0.1 s old)/1.2/1.7/2.2/2.7 (0.1 s before the retake slate).
+
+BOSS PANEL, WRAP, REEL, RATING, PAYCHECK
+- menu_hud_boss: play HUD with THE JUGGERNAUT's panel, 2.6 s after he arrives.
+- menu_wrap_seq1..6: after FTWrapNow: 0.2 (boss blowing up, no card)/0.9 (CUT! PRINT IT. THAT'S A WRAP! entering)/1.4/1.9/2.4/2.9.
+- menu_reel_seq1..6: ONE TAKE from the reel's first frames: 0.05/0.55/1.05/1.55/2.05 (title card ROADBURN PICTURES / THE HIGHLIGHTS, matte bars sliding in on seq1) and 2.55 (first shot).
+- menu_reel: 4.6 s: a boss shot playing, SHOT 01 / 02 D CRANE, HOLD TO SKIP button.
+- menu_reel_hold: reel finished, CONTINUE button.
+- menu_rating_seq1..6: THE DAILIES filling in: 0.2/0.7/1.2/1.7 (breakdown rows at 0.3+0.3i)/2.2 (BOX OFFICE total from 1.9)/2.7 (rating stamp starting).
+- menu_rating: THE DAILIES complete at 4.2 s, CONTINUE TO PAYCHECK enabled.
+- menu_paycheck_seq1..6: PAYCHECK lines appearing one per 0.32 s: 0.2/0.7/1.2/1.7/2.2/2.7.
+- menu_paycheck: PAYCHECK complete at about 7.7 s (total, CASH NOW, XP bar filled, level-up/unlock lines).
+
+RESHOOT FROM THE PAYCHECK, HOLD TO SKIP, BACK TO THE TITLE
+- menu_preprod_reshoot: PRE-PRODUCTION after R on the paycheck: header "NEXT: LEVEL 1 ... (RESHOOT)", button READY / LEVEL 1.
+- menu_card_reshoot: the slate of the reshoot at 1.4 s (TAKE 01 again).
+- menu_wrap: the still of the WRAP card, 2.0 s after the second FTWrapNow.
+- menu_reel_skip: reel title card with HOLD TO SKIP pressed and its meter about 60% full.
+- menu_preprod_totitle: PRE-PRODUCTION after Escape on THE DAILIES: "NEXT: BACK TO THE TITLE", button READY / TITLE.
+- menu_title_back_0s2, menu_title_back_1s5: the title again 0.2 s and 1.5 s after READY (row 01 now carries BEST <score> from this run; no banner).
+
+FACTS:
+Line numbers are the MAIN checkout (K:\Full Throttle\UE\full-throttle-unreal\Source\FullThrottle). I diffed main against K:\Full Throttle\OverhaulBaseline: FTHUD.cpp, FTHUDStyle.h, FTPlayerController.cpp, FTProgress.cpp are identical; FTFlow.cpp differs by 5 added lines (day-cutscene hooks at 375-377 and 443-444), FTGameMode.cpp by the day-1 hook in TitleStart (725-729), a BeginPlay line and the 3.7 corkscrew camera, FTNightFlow.cpp by the day cutscenes, FTGameInstance.cpp/.h by the new "film" line. Every command, key and log line the script uses is in both.
+
+RUNNER (FTGameInstance.cpp TickExec 508-594)
+- console command: window for waitfor reset at 586, then 0.15 s pause (588). shot: 0.5 s pause (563-567). So no two shots closer than 0.5 s and no frame earlier than about 0.2 s after a command.
+- waitfor: 554-562 and 531-541; only lines starting "FT " (494), not "FT EXEC"/"FT HARNESS" (536); a waitfor that is already satisfied costs one tick, so several can follow a burst of shots as long as no console command is in between.
+- "film <name> <frames> [fps]" exists in main only (513-529, 569-584; file changed 13:38 today). The baseline has no such line (it would be passed to the console as an unknown command). Not used.
+- ReapplyQuality at every map start (BeginPlay FTGameMode.cpp:107; FTGameInstance.cpp:401-406), FTQuality does not save (FTFlow.cpp:1098-1103).
+
+HUD (FTHUD.cpp; style constants FTHUDStyle.h:34-40: Enter 0.28, MenuEntrance 0.32, FocusSweep 0.22, RowStagger 0.017, ClapperClose 0.88, ClapperTravel 0.12)
+- DrawHUD 272-329: phase switch 303-313 (Title, Card, Play, Wreck/Wrap = DrawPlay + DrawCut, Reel, Rating, Paycheck, PreProduction), overlays 317-322 (Pause, Controls, Options). Menu clock T = real time (282). UpdateMenuMotion 194-239 gives entrance ages only to Pause, Controls, Title, PRE-PRODUCTION departments other than Skills, and the Reel; Options and the Skills tab have none.
+- DrawTitle 352-457: entrance on TitleT (365-367, sweep + logo rise over 0.32 s, row sweeps staggered 398-403); banner while TitleT < 8 (450-456); BEST lines from settings (408-418). DrawAttractOsd 459-477.
+- DrawCard 742-772: on PhaseT; clapper shuts 0.88-1.0 s; skip hint after 1.2 s; darkens 2.9-3.2. Take > 1 shows RESET THE CARS.
+- DrawCut 774-786: card from CutT (wreck +0.6 s, wrap +0.8 s), entrance 0.28-0.32 s.
+- DrawReel 788-821 (title card while ReelTitleT > 0, 2.2 s), DrawReelContinue 823-835 (HOLD TO SKIP meter / CONTINUE).
+- DrawRating 837-891: rows at 0.3+0.3i s, total at 1.9, stamp at 2.7, CONTINUE enabled at 2.9.
+- DrawPreProduction 912-1132 (tabs SKILLS, GARAGE, CUSTOM, SFX DEPT, EXTRAS at 946). DrawPaycheck 1134-1240: one line per 0.32 s from 0.3 s, then XP bar over 1.4 s. DrawPause 1274-1297, DrawControls 1299-1356, DrawOptions 1358-1405.
+
+FLOW
+- Boot map is L_Bayshore (Config\DefaultEngine.ini:7), so level 1 starts need no map load from the title.
+- Title keys TickTitle FTGameMode.cpp:648-719: O options (688, log 709), C controls (687, log 704), Escape QUITS when TitleT > 1 (690, 713), Enter needs TitleT > 0.4 (691), number keys 669-671, Tab 655-657; autostart when the autopilot flag is on and TitleT > 3.5 (693). TitleStart 721-733: script runs skip day 1; same level and not attract = StartRace on the spot.
+- ft.Attract is read in AttractAllowed (736-740); FTGoto Title = StopAttract + EnterTitle (FTFlow.cpp:973), so "ft.Attract 1, FTGoto Title" starts the demo (log 805) and "ft.Attract 0, FTGoto Title" ends it. The demo cuts to another level (a map load) after AttractLen 11 s (FTGameMode.h:236, cpp 819).
+- StartRace 240-319: FT LEVEL id= at 271, RunCounter++ (270: the slate's ROLL A-nn), Card phase 3.2 s (513). FTStartLevel on the same map restarts on the spot and clears any overlay and pause (FTFlow.cpp:686-697).
+- Pause: opened in TickPlay 1025-1034 (game paused); menu 878-906: R = GoToLevel(Level, true) (904) = a full MAP LOAD then StartRace; T = map load to the title. Options 986-1016 (O/Esc/Enter close; Left/Right change and save), Controls 915-984 (C/Esc close; Enter starts a rebinding).
+- ft.Press releases its key through a 0.12 s WORLD timer (FTPlayerController.cpp:14-23); world timers stand still while paused, so the script opens the pause with P and leaves with Escape (two different keys).
+- Wreck 346-373: FT PLAYER wrecked 358, CUT! card at +0.6 s; 2.8 s later StartRace(true) (533-537; logs "retake=1" 288-289). Reels = 3 (FTFlow.cpp:88), so two wrecks are safe. FTCrash only sets armor 0 (FTFlow.cpp:1071) and is undone by harness invulnerability (FTGameMode.cpp:1083), hence FTInvuln 0 first.
+- Boss kill: ReelEvent(.., boss) 1984 then Wrap(false) 2002; Wrap 375-403 (FT OUTCOME wrap 389, card at +0.8 s); after 4.2 s RateAndCommit + StartReel (540-556); FT RATING 428; a new best score writes settings.json (421-426). StartReel 3992-4023: a boss clip always gives two shots (cameras 3 and 6), title card 2.2 s; TickReel 4025-4072: Enter held 1 s after 0.8 s skips (4044-4047), "state=hold" at the end. Reel after a boss-only take lasts about 13 s.
+- THE DAILIES 560-572: R / Escape after 1.0 s go through PRE-PRODUCTION, Enter after 2.9 s. Paycheck FTFlow.cpp:365-384 (after 0.6 s): R = reshoot (no night), Escape = title, Enter = the night. FTPress Continue 994-999.
+- PRE-PRODUCTION: EnterPreProduction FTFlow.cpp:395-415 (opens on Skills when skill points are left, saves the career each time), LeavePreProduction 417-447 (from title -> title; next < 0 -> "FT SCREEN name=Title banner"; same level -> Slate + StartRace on the spot), keys 602-683 (E/Tab next tab, Q previous, after 0.3 s). Tile ids: skills are branch+tier (FTProgress.cpp:746; CAR1 used at FTGameMode.cpp:2583), garage "garage:<key>:<rank>" with keys armor, bullbar, guns, missiles, engine, gearbox, super, tyres, ap, he (FTFlow.cpp:499-507). FTSelect sets the tab that holds the id (977-986).
+- FTAutoRun (FTFlow.cpp:1169-1184) sets the session's autopilot flag; after it the title starts a race by itself after 3.5 s, so every title screen is filmed before the first FTAutoRun and the last title is shot and quit within 3.1 s.
+
+SIDE EFFECTS OF A RUN: career_pie.json in the checkout's Saved\FullThrottle (test slot, reset at the start); settings.json gets a best score for level 1 if none is higher. Nothing else is saved (no Left/Right in Options, no Enter in Controls, no M/F1, no Left/Right keys at all so the key layout never switches).

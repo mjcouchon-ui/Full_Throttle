@@ -1,0 +1,200 @@
+# combat_dense.txt : the busiest fight the test harness can stage, on game level 8 (City Center, level index 7) at
+# EPIC, the autopilot driving and shooting. For before/after frames (PART 1 and the end of PART 2) and for a
+# frame-time comparison (the 10 s of PART 2 between "StartFPSChart" and "StopFPSChart").
+# Run it the same way on both checkouts (a new -Tag each run, the same frame size):
+#   powershell -NoProfile -ExecutionPolicy Bypass -File "K:\Full Throttle\SkyScratch\SourceArt\Jam\unreal\jam_exec.ps1"
+#       -Tag <tag> -Script <this file> -Checkout <project folder> -BudgetSec 900 -Extra "-ftnoattract -ftnodynres"
+# After each run, in <Checkout>\Saved\Logs\jam_exec_<tag>.log:
+#   "result=timeout"   the script lost its place there (the stills after it are at the wrong moment)
+#   "FTTEL "           every 2 s: ents=<things on the road> fps=<smoothed> (only printed because ft.Autopilot is 1)
+#   "FTHITCH "         every frame over 40 ms
+#   "FT EXEC line="    the runner's own line numbers: the timed 10 s are from "cmd=wait 10" to "cmd=StopFPSChart"
+#   "FT LEVEL dump"    FTDumpLevel: a state line before and after the timed 10 s, and at the end
+#   "FT BOSS state=Down" must come only after "cmd=FTWreck all" (earlier = the autopilot shot him down by itself)
+#   "FT WRECK SUV|Truck|Chopper" right after "cmd=FTWreck SUV 1" / "Truck 1" / "Chopper 9": the three explosion stills
+#   "FT RATING" must NOT be there (the script quits before the level is rated, so nothing is saved by this run)
+#
+# WHO FIRES. ft.Autopilot 1 (not FTAutoRun, which switches the car's guns and missiles off for good): the autopilot
+# steers, holds the trigger all the time, and launches one missile each time the race clock passes a multiple of
+# 1.7 s while missiles are in stock. A key press cannot fire while it drives. So a missile is caught from the log:
+# FTPickup Crate (3 more missiles), then "fired=1" = the launch, "source=missile" = the hit.
+# ORDER. FTBossNow clears the road before it brings the boss, so the boss comes first and the convoy is spawned
+# round him in the same instant (the world is held with FTFreeze while the spawn commands run).
+# FTSpawn takes any number; the lane of each vehicle is random (different every run), its distance is the kind's own.
+# Vehicles of one kind then all steer for the same spot (every chopper to the car's right, every Snake Eyes to its
+# right door, every truck to the lane left of the centre line 3 s on): more than one of those ends up inside the
+# other. So PART 1 (the stills) has ONE chopper and ONE Snake Eyes; PART 2 (the load) keeps three and four.
+# The car is pinned on the centre line (ft.AutoX 0) and cannot be hurt (FTInvuln 1).
+# PART 1 = stills, each with the world held (FTFreeze 1 / shot / FTFreeze 0). PART 2 = the level restarted on the
+# spot (so the car's turbo, missiles and clock are the same at the start of the timed part in every run), a fresh
+# boss and convoy at clock 4, 10 s untouched in real time, then everything wrecked in one instant, the aftermath,
+# and the boss.
+# The script quits 2.3 s after the boss goes down: before the rating at 4.2 s, so nothing is saved by this run.
+
+wait 2
+FTUseTestSlot
+FTCareerReset
+FTQuality 3
+t.FPSChart.OpenFolderOnDump 0
+FTStartLevel 8 1
+waitfor FT LEVEL id=|300
+FTInvuln 1
+ft.AutoX 0
+ft.Autopilot 1
+waitfor FT SPEED|60
+# 4 s of scene 1 so the car is at its cruising speed and on the centre line
+waitfor FT CLOCK level=4.|40
+
+# ================================================================ PART 1: the stills
+# THE CHAIRMAN on his spot (armor 220, phase 0), then the convoy, all in one held instant
+FTBossNow
+waitfor FT BOSS state=Arrive|10
+FTFreeze 1
+FTSpawn Truck 1
+FTSpawn Truck 2 beside=Truck
+FTSpawn SUV 5
+FTSpawn Rammer 5
+FTSpawn Biker 10
+FTSpawn SnakeEyes 1
+FTSpawn Chopper 1
+FTSpawnCivilian 4
+FTSpawnBarrel 6
+# the whole convoy and the boss, nothing fired at it yet
+shot dense_00_convoy
+FTFreeze 0
+# 0.65 s of the fight in real time: the car's guns (a round every 0.085 s). Their first shots come later (bikers
+# 1.5 s, the boss 1.6 s, gunships 2.3 s after the spawn): they are in the stills from dense_02 on
+wait 0.5
+FTFreeze 1
+shot dense_01_guns
+FTFreeze 0
+# 0.15 s later (a muzzle flash lasts less than the gap between two rounds: a second chance to have one in frame)
+FTFreeze 1
+shot dense_01b_guns
+FTFreeze 0
+
+# ---------------------------------------------------------------- a missile: launch, flight, impact
+FTPickup Crate
+# the autopilot's next launch (at most 1.7 s away); the world is held one or two frames after it
+waitfor fired=1|8
+FTFreeze 1
+# slow motion (0.3x) for the flight: 9 real seconds from here, the held time included
+FTSlowMo 9
+shot dense_02_missile_launch
+FTFreeze 0
+# about 0.11 s of game time later: the missile some 8 m out, its trail behind it
+wait 0.2
+FTFreeze 1
+shot dense_03_missile_flight
+FTFreeze 0
+# the hit (it homes on the nearest foe ahead), 0.07 s of game time old
+waitfor source=missile|12
+wait 0.2
+FTFreeze 1
+shot dense_04_missile_impact
+FTFreeze 0
+
+# ---------------------------------------------------------------- explosions: a car, a truck, a helicopter
+# each one about 0.1 s of game time after the wreck (slow motion: 0.35 real seconds)
+FTSlowMo 7
+FTWreck SUV 1
+wait 0.2
+FTFreeze 1
+shot dense_05_car_explosion
+FTFreeze 0
+wait 0.4
+FTWreck Truck 1
+wait 0.2
+FTFreeze 1
+shot dense_06_truck_explosion
+FTFreeze 0
+wait 0.4
+# every chopper there is (one, unless the boss has called another): none is left hanging in the fireball
+FTWreck Chopper 9
+wait 0.2
+FTFreeze 1
+shot dense_07_heli_explosion
+FTFreeze 0
+wait 0.4
+
+# ---------------------------------------------------------------- the boss under fire
+# 30 standard rounds through the gun's real hit path in one frame (30 of his 220 armor)
+FTFire 30 Boss
+wait 0.1
+FTFreeze 1
+shot dense_08_boss_under_fire
+FTFreeze 0
+wait 1.0
+
+# ================================================================ PART 2: 10 s in real time, then the mass wreck
+# the level again from the top, in the same world (no map load): turbo tank full, 6 missiles, clock 0, no slow
+# motion left over. FTInvuln, ft.AutoX and ft.Autopilot are still on (FTInvuln is sent again in case a build
+# reloads the map here)
+FTStartLevel 8 1
+waitfor FT LEVEL id=|300
+FTInvuln 1
+waitfor FT SPEED|60
+waitfor FT CLOCK level=4.|40
+# the frame-rate cap and vsync off for the timed part (the benchmark mode does the same)
+t.MaxFPS 0
+r.VSync 0
+# a fresh boss, put into phase 1 at once: armor 140 of 220 = a gunship SUV called in, and his stream of shots from
+# 6 s on; then the convoy again (three choppers, four Snake Eyes: the load) and three more missiles
+FTBossNow
+waitfor FT BOSS state=Arrive|10
+FTFreeze 1
+FTFire 80 Boss
+FTSpawn Truck 1
+FTSpawn Truck 2 beside=Truck
+FTSpawn SUV 5
+FTSpawn Rammer 5
+FTSpawn Biker 10
+FTSpawn SnakeEyes 4
+FTSpawn Chopper 1
+FTSpawn Chopper 2 beside=Chopper
+FTSpawnCivilian 4
+FTSpawnBarrel 6
+FTPickup Crate
+FTDumpLevel
+FTFreeze 0
+# ---- the timed 10 s: no still, no hold, no slow motion from the script
+StartFPSChart dense
+wait 10
+StopFPSChart
+FTDumpLevel
+
+# ---------------------------------------------------------------- everything wrecked in one instant
+# held while the commands run, so every vehicle and barrel goes up on the same frame (the boss is left alive:
+# FTWreck all would wreck him too and end the level under the aftermath). Trucks and choppers first: the game's own
+# 0.7 s of slow motion for a big wreck has run out by the time the world is let go.
+FTFreeze 1
+FTSpawnBarrel 6
+FTWreck Truck 99
+FTWreck Chopper 99
+FTWreck SUV 99
+FTWreck Rammer 99
+FTWreck SnakeEyes 99
+FTWreck Biker 99
+FTWreck Barrel 99
+FTFreeze 0
+# about 0.2 s after the wrecks: every fireball open
+wait 0.05
+FTFreeze 1
+shot dense_09_mass_wreck
+FTFreeze 0
+# the aftermath, 1 s and 3 s after the wrecks (not held: the game runs on)
+wait 0.6
+shot dense_10_after_1s
+wait 1.5
+shot dense_11_after_3s
+
+# ---------------------------------------------------------------- THE CHAIRMAN goes down
+# FTWreck all = the boss and whatever he called in. The wrap: hit-stop 0.22 s, then slow motion 0.22x; the still is
+# 0.65 real seconds in, before the CUT! card (0.8 s). Not held: the quit must come before the rating at 4.2 s
+wait 0.5
+FTWreck all
+wait 0.5
+shot dense_12_boss_down
+FTDumpLevel
+wait 1
+quit

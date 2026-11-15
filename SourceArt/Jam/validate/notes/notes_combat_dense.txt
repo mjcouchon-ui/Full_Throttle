@@ -1,0 +1,361 @@
+FILE: K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\combat_dense.txt
+CHANGED BY CHECKER: True
+RUN: Three runs per checkout, in this order (shown for the untouched copy; for the integrated build change -Checkout to "K:\Full Throttle\UE\full-throttle-unreal" and the tags to *_after). Same frame size on both (default 3440x1440). Stop at any "TIMEOUT ... left running" line.
+
+1) powershell -NoProfile -ExecutionPolicy Bypass -File "K:\Full Throttle\SkyScratch\SourceArt\Jam\unreal\jam_exec.ps1" -Tag dense_before -Script "K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\combat_dense.txt" -Checkout "K:\Full Throttle\OverhaulBaseline\full-throttle-unreal" -BudgetSec 900 -Extra "-ftnoattract -ftnodynres"
+
+2) powershell -NoProfile -ExecutionPolicy Bypass -File "K:\Full Throttle\SkyScratch\SourceArt\Jam\unreal\jam_exec.ps1" -Tag densebench_before -Script "K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\combat_dense_bench.txt" -Checkout "K:\Full Throttle\OverhaulBaseline\full-throttle-unreal" -BudgetSec 900 -Extra "-ftnoattract -ftnodynres -ftslot=pie -ftbench -ftlevel=7 -ftquality=3 -ftseconds=10 -fttag=_dense"
+   (result: "FTBENCH {..}" in the log and <Checkout>\Saved\FullThrottle\bench\bench_L7_EPIC_dense.json; no frames)
+
+3) Empty <Checkout>\Saved\Shots first (the no-HUD frames ft_L7_000..003 land there and jam_exec neither clears nor collects it), then:
+   powershell -NoProfile -ExecutionPolicy Bypass -File "K:\Full Throttle\SkyScratch\SourceArt\Jam\unreal\jam_exec.ps1" -Tag cleanup_before -Script "K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\combat_cleanup.txt" -Checkout "K:\Full Throttle\OverhaulBaseline\full-throttle-unreal" -BudgetSec 1200 -Extra "-ftnoattract -ftnodynres"
+   (run it after any script that photographs the title: its real wrap can write a best take for level 8 into that checkout's settings.json)
+
+Frames: K:\Full Throttle\SkyScratch\HandBack\jam\play\<Tag>\dense_*.png and cleanup_*.png. Logs: <Checkout>\Saved\Logs\jam_exec_<Tag>.log; grep first for "result=timeout".
+
+PROBLEMS FOUND BY THE CHECKER:
+Nothing was run. Every command, argument and waitfor text was checked against the BASELINE source (K:\Full Throttle\OverhaulBaseline\full-throttle-unreal\Source\FullThrottle: FTFlow.cpp HarnessCmd 884-1181, FTGameInstance.cpp TickExec 507-560, FTGameMode.cpp, FTPlayerController.cpp) and the timers that matter were re-checked in the live tree (same logic, lines shifted ~40-60). Engine commands checked in K:\UE_5.9 (FX.DumpNCPoolInfo NiagaraComponentPool.cpp:74, fx.Niagara.DumpComponents NiagaraComponent.cpp:150, StartFPSChart/StopFPSChart UnrealEngine.cpp:5741-5745, t.FPSChart.OpenFolderOnDump ChartCreation.cpp:48, obj list / obj gc UnrealEngine.cpp:8953 / 8686). Three files are in K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate: combat_dense.txt (rewritten in place, text below), combat_cleanup.txt (rewritten in place, round 1 redesigned), combat_dense_bench.txt (NEW: the colleague's benchmark recipe as a file). All shot names are unchanged.
+
+== combat_dense.txt ==
+1. PART 1 "FTSpawn Chopper 1 + Chopper 2 beside=Chopper" and "FTSpawn SnakeEyes 4": harness-spawned choppers all get Side=1 and fly to car x+274 cm at one distance and one height (FTGameMode.cpp:2189-2191); Snake Eyes all ride the same right door (2313-2317). Within about 1.5 s they sit inside each other, so "FTWreck Chopper 1" left two intact choppers hanging in the fireball of dense_07. Also, when the first chopper lands in an inner lane the third "beside" one is placed exactly on the first (W 366 cm > lane x 292, FTFlow.cpp:924-925). FIX: PART 1 spawns ONE chopper and ONE Snake Eyes, and dense_07 uses "FTWreck Chopper 9" (every chopper, so none is left in the blast). PART 2 (the load) keeps the colleague's three and four. Trucks do the same after 3 s (all steer to lane -292, 2160-2161): left as it is, said in the header.
+2. The timed 10 s were not the same scene from run to run: PART 2 started at a race clock that depends on PART 1's event waits, and the autopilot burns a full turbo tank for 2.6 s roughly every 10 s (FTGameMode.cpp:1129; vehicles slide back and are LEFT BEHIND while it does, FTFlow.cpp:234-246), so the burst fell inside or outside the window by chance. FIX: PART 2 first restarts the level on the spot (FTStartLevel 8 1 = StartRace(false) in the same world, the path jam_audit's reshoot already proves), waits for FT LEVEL / FT SPEED / clock 4, then boss + convoy. Turbo, missiles (6), clock and slow motion are now the same at the start of every timed window. FTInvuln 1 is re-sent after it; each waitfor has a console command before it so no stale line can match.
+3. Only "t.MaxFPS 0" was sent for the timed part; vsync comes from each checkout's own settings.json (ApplyQuality, FTGameInstance.cpp:364). Added "r.VSync 0".
+4. dense_12_boss_down: the FTFreeze pair put the still at 0.8 s or later, exactly when the CUT! card comes up (CutT = +0.8 s, FTGameMode.cpp:398), and used 0.3 s of the 4.2 s before the level is rated and the best take written. Removed the pair: still at 0.65 s, quit 2.3 s after the boss's wreck (was 2.6 s).
+5. Comment said dense_01 shows "the first enemy shots"; it cannot (bikers first fire 1.5 s, the boss 1.6 s, SUVs 2.3 s after the spawn; the stills are at 0.85 and 1.0 s). Timing kept (a later still would push the missile launch into the rammers' charge at 3.0 s and spoil dense_03); comment corrected.
+6. Header: added the log checks "FT WRECK SUV|Truck|Chopper after the three FTWreck lines" and "FT RATING must not be there"; run line now has -NoProfile -ExecutionPolicy Bypass.
+Checked and left alone: quality (FTQuality 3) is set before FTStartLevel and re-applied at map start; FTUseTestSlot + FTCareerReset first; ft.Autopilot only after FT LEVEL id= (it would start a race from the title); "waitfor FT CLOCK level=4." cannot match 14./40.; "fired=1" and "source=missile" windows start at the FTPickup / FTFreeze 0 before them; the fallback when the first missile hits too early (next launch 5.3 real s later, inside the 12 s); FTFire 30/80 Boss leaves 190/140 of 220 (phase 0 / phase 1, threshold 145.2); "FTSpawn Truck 2 beside=Truck" does not overlap (W 273 cm); the mass wreck's order; aftermath stills land at 1.0 and 3.0 s; quit on every path (a timeout never stops the runner).
+
+== combat_cleanup.txt (rewritten; read its header) ==
+1. The "missile that misses" was a hit. With the autopilot the turbo is on from the first frame, the car reaches the scene's first spawn trigger (1254 su) 0.4-0.6 s after the 1.7 s launch, the two bikers spawn 1094 su ahead of the car and the missile (which needs 1.3 s to get that far) homes on them (FTGameMode.cpp:2394-2403). The colleague's doubt only named civilians.
+2. The wreck site was out of sight: with the turbo the wrecks were made 350-450 m down the road, past the 192 m opening straight and round the first bends, so no frame after the retake could show them. On today's code they were also 9-10 s old at the +5.9 s count (wrecks live exactly 9 s): one left or none, by chance.
+3. The counts after a restart were not "nothing but leftovers": the scene's own vehicles are called 172 m in and were shooting at the car by +10 s (their muzzle flashes and rounds are pooled effects too).
+FIX for 1-3: round 1 now runs WITHOUT the autopilot on the opening straight: FTHold Brake 1 (the car rolls on at 260 su/s; an unsteered car holds the road's heading, FTPlayerCar.cpp:1111), FTHold Fire 1 for the guns, and the script launches both missiles itself with "FTKey RightMouseButton 0.1" (FTFlow.cpp:1156; FTPlayerController.cpp:182 reads RightMouseButton as the missile; this only works with no autopilot, which replaces the player's input). Miss = launched at ACTION! on the empty road; "FTPickup Crate ahead=17000" keeps the one civilian that could spawn in its lane out (TickCivilians skips a lane with anything more than 130 m ahead in it, 1714-1715; missiles pass through crates). Convoy spawned 0.9 s later in a held instant (then behind the missile, which never turns back), second missile = the hit, then in one held instant barrels + every wreck + count block 1 + the car trashed; FTCrash 1.1 s later. Wrecks about 90-180 m from the start line and about 2.5 s old at the retake. After each restart the brake stays held under FTAutoRun, so the scene's bikers do not fire before about +11.5 s (after the last count).
+4. "ft.Press Enter" came 1.4 s after the retake; the slate takes Enter from PhaseT 1.2, and PhaseT counts at most 0.1 s per frame, so after the 3440x1440 screenshot's stall Enter could come too early, be ignored, and leave the slate up to 3.2 s over the "2 s" still. Now at 1.7 s; the 2 s still follows at 2.0 s.
+5. Count block 2 moved from +5.9 s (borderline) to +3 s, where today's game deterministically still lists the burning wrecks and debris; block 3 (+10.5 s) is the one that must be clean. Same for blocks 5/6. Block 1 is now taken inside the held instant.
+6. ft.Shots (scene capture + synchronous read-back every 0.5 s) ran for 5.7 s; now only while the slate is up (3-4 frames ft_L7_000..003 in <Checkout>\Saved\Shots).
+7. Snake Eyes spawn at the car's own distance in a random lane: 1 in 4 inside the car once the car sits in a lane; now "FTSpawn SnakeEyes 1 beside=Truck".
+8. THE DAILIES: 0.6 s more wait before "ft.Press R" (1.7 s after the screen opens, as jam_audit's working 1.6 s; the screen takes keys after 1.0 s).
+Checked and left alone: wrap -> "FT RATING" -> "Reel state=hold" -> FTPress Continue -> Dailies -> ft.Press R -> "PreProduction next=L8" -> FTPress Ready -> "FT LEVEL id=" is the path jam_audit.ps1 B already runs; the boss clip is always recorded so the reel always plays; FTCrash needs FTInvuln 0 and no FTAutoRun (true at that point); "retake=1" is logged by StartRace(true) 2.8 s after the wreck.
+No game line or stat counts live effects (FTFx.cpp only logs "FTFX warm"): the counts are the engine's commands, as the colleague said. "obj list class=X" lists nothing (not everything) if a build renames the class.
+
+== combat_dense_bench.txt (new) ==
+The colleague's -ftbench recipe as a file, with two changes: a "wait 45 / quit" after the staging lines so a benchmark that fails to quit cannot leave a game running (the colleague's had no quit on that path), and without FTSpawnBarrel (standing barrels are behind the car 0.35 s later; one step fewer before sampling starts at 4 s). Its run line is in its header and below.
+
+Note: the HARNESS REFERENCE is out of date on one point: jam_exec.ps1 now clears the HandBack\jam\play\<Tag> folder's PNGs itself and passes -ResX/-ResY.
+
+STILL UNSURE:
+Nothing was run; these only a real run can settle.
+
+BOTH
+- The engine console commands through -ftexec (StartFPSChart/StopFPSChart, t.MaxFPS, r.VSync, FX.DumpNCPoolInfo, fx.Niagara.DumpComponents, obj list, obj gc): they exist in the 5.9 source, no jam script has used them this way. A refused one is logged right after its "FT EXEC line=N cmd=" line and the script goes on.
+- The integrated build was being edited while I read; a renamed log text there shows as a "result=timeout".
+- Lanes of spawned vehicles, pickup drops and the boss's wall gap are random: stills pair by moment, not by pixel.
+
+combat_dense.txt
+- Whether "t.MaxFPS 0" from the script beats the game's own frame cap: a flat round FTTEL fps= (60, 120) on both runs means it did not and the FPS chart says nothing; use the benchmark run then.
+- The restart on the spot before PART 2 (FTStartLevel 8 1 mid-fight, boss alive) follows the same StartRace(false) path as the proven reshoot, but has not been done from a boss fight. If a build reloads the map there the waits allow 300 s.
+- dense_03_missile_flight assumes the missile's target is more than about 9 m ahead; if a rammer is already charging, that still shows the hit and dense_04 is the next missile's (two "fired=1" before it in the log).
+- dense_05/06/07 need a live SUV, truck and chopper at that moment ("FT WRECK SUV|Truck|Chopper" after each command). By the code the car's rounds (x = +/-73 cm) do reach the chopper at car x+274 (2D overlap, about 6 armor a second of its 40), not SUVs; I expect all three alive about 4 game seconds in, but did not see it.
+- Whether a chopper 18-38 m ahead at 10 m height is inside the frame.
+- The boss in PART 2 starts at 140 armor; by my count the autopilot takes 35-90 off in the 14 s before "FTWreck all". "FT BOSS state=Down" before "cmd=FTWreck all" = the timed part was cut short: lower "FTFire 80 Boss" to 76.
+- In PART 2 the three trucks, three choppers and four Snake Eyes each end up in one spot (the game's own steering): it is load, not a tidy picture; dense_09 shows their blasts on top of each other.
+- The quit comes 2.3 s after the boss's wreck, 1.9 s before the rating; "FT RATING" in the log would mean a stall let the level be saved.
+
+combat_dense_bench.txt
+- That boss and convoy are up before sampling starts at 4 s of play (about 2.6-3.1 s by my count; first-use stalls only help, since the benchmark clock counts at most 0.1 s per frame). Check: the last "FT SPAWN" line comes before the first frame the JSON counts (seconds = 10.0, frames > 10).
+- -ftbench together with -ftexec has not been run before; if "FTBENCH" is missing the script quits by itself 45 s later.
+
+combat_cleanup.txt
+- "FTKey RightMouseButton 0.1" launching a missile with no autopilot: read from the code (same input path as the proven ft.Press), never seen working, because every earlier script ran under an autopilot that fires on its own clock. If it does not, there are no "fired=1" lines before "cmd=FTCrash", "waitfor source=missile" times out after 2.5 s, and the rest still runs (wrecks, counts, retake, wrap); only the missile part is lost.
+- That the unsteered car holds its lane for the 3.5 s of round 1 and is still on the straight at its wreck (about 125 m by my count; the straight is 192 m, the first vehicles are called at 172 m).
+- Whether the wrecks 90-180 m down the straight are big enough in a frame taken from the start line, and what the camera shows while the slate is up. The counts are the proof; the frames the illustration.
+- The first missile is a miss only if nothing gets in its line: "source=missile" between the two "fired=1" lines means it hit something that run.
+- ft.Shots (scene captures to <Checkout>\Saved\Shots) is the game's own hook but I have not seen it used under -RenderOffScreen; three or four frames, the count can differ by one between runs.
+- Count block 2 (retake + 3 s) is expected to list wrecks and debris on today's game; whether the integrated build lists more or fewer there is the comparison. Block 3 and blocks 4-6 must be clean on both.
+- Round 2 is a real wrap: it pays the test career and may write a best take for level 8 into the checkout's settings.json.
+- If the integrated build reloads the map on READY, the restart frames are trivially clean (the script still continues and re-sends its holds).
+
+SHOTS:
+combat_dense.txt, in order (all with the HUD; "held" = taken between FTFreeze 1 and FTFreeze 0):
+1. dense_00_convoy (held): THE CHAIRMAN on his spot (58 m ahead, hovering) and the whole convoy just spawned round the car: 3 trucks side by side, 5 SUVs, 5 rammers, 10 bikers, 4 Snake Eyes beside the car, 3 choppers side by side, 4 civilians, 6 barrels. Nothing fired yet.
+2. dense_01_guns (held): 0.65 s of real-time fight later: the car's tracers up the road (about 7 rounds in the air), muzzle flash if one is live, first enemy shots.
+3. dense_01b_guns (held): 0.17 s after that (second chance for a muzzle flash in frame).
+4. dense_02_missile_launch (held): one or two frames after the log's "FT MISSILES count=N fired=1": the missile at the car's nose, launch flash and backblast on the car.
+5. dense_03_missile_flight (held): about 0.11 s of game time later (slow motion): missile about 8 m out with its trail.
+6. dense_04_missile_impact (held): about 0.07 s of game time after the log's "source=missile" damage line: the missile's blast, shrapnel and ring on the vehicle it hit.
+7. dense_05_car_explosion (held): an SUV about 0.1 s after FTWreck SUV 1.
+8. dense_06_truck_explosion (held): a truck about 0.08 s after FTWreck Truck 1 (size 2 blast, its three cargo crates breaking up).
+9. dense_07_heli_explosion (held): a chopper about 0.08 s after FTWreck Chopper 1 (size 2.4 blast in the air; its second blast comes 0.7 s later and is not in this frame).
+10. dense_08_boss_under_fire (held): 0.08 s of game time after FTFire 30 Boss: armour sparks and ring on the limo's tail (plus the autopilot's own tracers if he is in line).
+11. dense_09_mass_wreck (held): about 0.2 s after every truck, chopper, SUV, rammer, Snake Eyes, biker and barrel was wrecked on one frame (boss in phase 1 still alive).
+12. dense_10_after_1s (not held): 1 s after the mass wreck: fireballs fading, burning wrecks tumbling, smoke, debris, pickups dropped.
+13. dense_11_after_3s (not held): 3 s after: what still burns and smokes.
+14. dense_12_boss_down (held): 0.65 real seconds after FTWreck all: THE CHAIRMAN's blast (size 3), inside the wrap's slow motion, about 0.1 s of game time old.
+
+combat_cleanup.txt, in order:
+1. cleanup_a_fight: the fight just after a missile hit (reference of what is burning).
+2. cleanup_b_burning: wrecks and barrel debris burning, the car trashed (armor 30) and smoking, just before FTCrash.
+3. cleanup_retake_0s5 / cleanup_retake_2s / cleanup_retake_5s / cleanup_retake_10s: 0.5, 2, 5 and 10 s after the retake's "retake=1" log line (0.5 s is behind the slate; Enter at 1.4 s drops it).
+4. (not collected by jam_exec) <Checkout>\Saved\Shots\ft_L7_000.png to ft_L7_009.png: the retake without HUD or slate, about 0.8 s after the retake then every 0.5 s.
+5. cleanup_c_wrap: 1.2 real seconds into the wrap (boss wreck 160 m ahead, every vehicle going up, CUT!).
+6. cleanup_restart_0s5 / cleanup_restart_2s / cleanup_restart_5s / cleanup_restart_10s: 0.5, 2, 5 and 10 s after the "FT LEVEL id=" line of the reshoot (after reel, THE DAILIES, R, PRE-PRODUCTION, READY).
+
+FACTS:
+Nothing was run. Line numbers are for the BASELINE copy (K:\Full Throttle\OverhaulBaseline\full-throttle-unreal\Source\FullThrottle), where I checked every command and log text the two scripts depend on. The live tree (K:\Full Throttle\UE\full-throttle-unreal) was being edited while I read it: FTGameMode.cpp moved by about 50 lines between two of my reads, and BeginPlayPhase gained a "FTGo" test jump that the baseline does not have. GM = FTGameMode.cpp, FLOW = FTFlow.cpp, GI = FTGameInstance.cpp.
+
+HOW A SCRIPT FIRES THE PLAYER'S WEAPONS
+- Any autopilot (attract, -ftbench, -ftauto / FTAutoRun's bAutoDrive, or ft.Autopilot 1) throws the player's input away (In = FFTInput(), GM:~1115), holds the trigger (In.bFire = true, GM:1122) and launches a missile on the frame the race clock crosses a multiple of 1.7 s (In.bMissile = Fmod(Clock, 1.7) < Dt, GM:1130), if Missiles > 0 and the 0.3 s cooldown is over (GM:~1381-1384, log "FT MISSILES count=%d fired=1" GM:1383). So FTKey RightMouseButton / ft.Press / FTHold Fire do nothing while an autopilot drives.
+- FTAutoRun sets bAutoRun, and then In.bFire and In.bMissile are forced false (GM:1177). Nothing ever clears bAutoRun on that game mode (only a map load), so it is "guns off for good".
+- With no autopilot: FTHold Fire 1 (FLOW:1083-1087) and FTKey RightMouseButton 0.1 (FLOW:1156; the controller reads RightMouseButton as the missile) work, but nothing steers.
+- FTFire <n> <Kind> (FLOW:1031) calls BulletHit directly: impact effects and damage, no muzzle flash, no tracer.
+- Guns: one round every Stats.FireInterval = 0.085 s (FTGameMode.h:99), 1 damage for a standard round. Missiles: 6 at the start, cap 9 (FTGameMode.h:100); a crate gives +3 (GM:2459); FTPickup Crate with no arguments drops one on the car (FLOW:1068).
+- Missile (GM:1777, tick GM:~2389-2436): lives 2.6 s; speed over the car 260 su/s rising 1500 su/s2 to 980 su/s (1 su = 13.71 cm, FTCore.h:14); homes on the foe ahead with the lowest 2|dx|+dy (never on civilians or barrels, but it does collide with them); on contact Explode 0.9, 9 damage (log "FT DAMAGE target=.. source=missile", GM:1815), splash 3 within 46 px; when its 2.6 s run out it bursts (Explode 0.6) with NO log line. A miss = a "fired=1" with no "source=missile" after it.
+
+FTSPAWN (FLOW:891-931, 1014-1021)
+- FTSpawn <Kind> [N] [beside=<Kind>], FTSpawnAdd, FTSpawnCivilian [N], FTSpawnBarrel [N]. Kinds: Biker, SnakeEyes|Hog, Rammer, SUV, Truck, Chopper, Boss, Civilian, Barrel. N has no upper limit; proxy actors are pooled and made on demand (GM:~1555-1562). No phase check.
+- Lane = LaneX(RandRange(0,3)) = -877, -292, 292 or 877 cm (FTCore.h:18), random each time. Distance ahead of the car: Biker 170-300 su (23-41 m), Rammer 120-190 su, SUV 90-160 su, Truck 154 su (21 m, fixed), Chopper 18 m at 10 m height, Snake Eyes 0 (beside the car), Civilian and Barrel 18 m. beside= puts it next to the last live one of that kind, towards the road centre, same distance.
+- Armor (GM:1524-1544): Biker 2, Snake Eyes 3, Rammer 5, SUV 10, Truck 26, Chopper 40, Barrel 1, Boss = level's BossHp.
+- Spawned barrels stand still, so the car passes them in about 0.35 s. Bikers leave after 9 s, Snake Eyes 16 s, SUVs 22 s, trucks 26 s; rammers charge after about 1.6 s.
+- FTWreck <Kind|all> [N] [missile|ram] (FLOW:1022-1030): rearmost first; "all" = every Syndicate kind including the Boss (IsSyn, FLOW:38), not civilians or barrels (FTWreck Barrel N does those).
+
+BOSS, LEVEL 8 THE CHAIRMAN (FTData.cpp L8 block ~360-392 live; TickBossLimo baseline GM:3092)
+- Armor 220, escape 95 s, finale at 55900 su followed by a 5000 su (685 m) straight. Fighting spot 342*1.25 su = 58.6 m ahead, hovering 240 +/- 60 cm, weaving x = 695 cm * sin(0.42 t).
+- Phases by armor (GM:2645): 0 above 66%, 1 at 66% or less (145), 2 at 33% or less (72).
+- First attack 1.6 s after Arrive; then one attack per gap 2.2 / 1.9 / 1.6 s (+0.3 after rockets): phase 0 cycles wall of 15 shots with one gap, three aimed volleys of three, 2 lock-on rockets; phase 1 and 2 cycle wall, volleys, rockets (3 / 4), wall, plus a stream of shots every 0.2 s (0.14 s in phase 2) that starts 6 s into the phase. Below 66% he calls an SUV, below 33% a chopper.
+- FTBossNow (FLOW:1003-1013) is Play phase only and calls ClearEnts first: a convoy spawned before it is removed without a wreck. So "boss while the convoy is alive" can only be boss first, convoy after; the script does both inside one held instant.
+- A hit decides by 2D overlap: a player round hits when |dx| < W/2+40 cm and it overlaps in distance (GM:~2364), also for choppers. With the car on x=0 the rounds fly at x = +/-73 cm, so they hit what crosses the centre line (weaving bikers, rammers, the boss about a quarter of the time), not SUVs (they sit 548 cm to one side of the car) or trucks (lane +/-292).
+
+TIME (TickSlowmo GM:3729-3737)
+- FTFreeze 1 = time dilation 0.0001 in the Play, Wreck and Wrap phases; harness commands still act at once while held (FTSpawn, FTWreck, FTFire, FTPickup), which is how the convoy and the mass wreck land on one frame.
+- FTSlowMo <s> = 0.3x for s REAL seconds counted through held time too; it cannot be shortened (SlowT = max), so PART 1 waits it out before PART 2.
+- The game's own: a truck, chopper or boss wreck gives a 0.09 s hit-stop and 0.7 s at 0.3x (1.2 s cooldown, GM:~1960); the wrap gives 0.22 s hit-stop and 2.4 s at 0.22x (GM:~379-380); the player's wreck 0.14 s and 1.8 s at 0.3x.
+- Wrap: 4.2 real seconds, then RateAndCommit (GM:543; writes the best take to settings.json if beaten, and the pay), then the reel (always after a boss wreck: his clip is always recorded) which ends with "FT SCREEN name=Reel state=hold" (GM:3966/3978).
+- Slate (Card phase): 3.2 s, or Enter/Space from 1.2 s (GM:509). FTHUD.cpp DrawCard draws a full-screen 68% dark box plus the slate plate in the middle, so a frame during the slate shows little of the road.
+
+RETAKE AND RESTART
+- Retake: armor 0 in Play -> Wreck(): "FT PLAYER wrecked retakes=.. reels=.." (GM:354), 2.8 real seconds, then StartRace(true) in the same world: logs "FT CARNAGE wrecked=.. total=.. retake=1" (GM:284), car back at the top of the scene, armor max(checkpoint, 75%). Up to 3 retakes on a fresh career. FTCrash (FLOW:1066) does it, but only with FTInvuln 0 and no FTAutoRun.
+- Restart in the same world: FTStartLevel <same level> (StartLevelAt FLOW:681-691 -> StartRace(false)), and the player's reshoot: THE DAILIES key R -> PRE-PRODUCTION -> READY -> LeavePreProduction: PPNextLevel == Level -> StartRace(false) (FLOW:440). The pause menu's R reloads the map instead (GoToLevel).
+- StartRace (GM:236) clears the entity list and hazards only. Burning wrecks (AFTWreck, FTEntity.cpp:769-835: fire off at 6 s, smoke off at 7.5 s, actor gone at 9 s), barrel and crate debris (AGeometryCollectionActor, 7 s life, GM:1898) and pooled Niagara bursts are NOT cleared by a retake or restart on today's code: they run out by themselves. So in cleanup round 1 (wrecks about 4 s old when the retake starts) the 0.5 s and 2 s frames can legitimately show fire down the road on today's game; by 10 s everything should be gone.
+- Scene 1 of level 8 starts at D=600 cm on a 192 m straight; its first vehicles are called when the car is 172 m in (spawn "1400:mm").
+
+COUNTING LIVE EFFECTS
+- The game has no log line or stat for live particle systems or effect components. FTFx.cpp only logs "FTFX warm loaded=.." once per level. All bursts go through UNiagaraFunctionLibrary with ENCPoolMethod::AutoRelease (FTFx.cpp:80, 89).
+- Engine commands used instead (seen in K:\UE_5.9 source, non-Shipping): FX.DumpNCPoolInfo (NiagaraComponentPool.cpp:74; one line per system "Free: n | Used(Auto - Manual): a - m | System: .."), fx.Niagara.DumpComponents (NiagaraComponent.cpp:150; one line per component ending "is Active" / "is Inactive" / "Free In Component Pool"), obj list class=<Class> (UnrealEngine.cpp:8953), obj gc (UnrealEngine.cpp:8686; without it destroyed actors stay listed until the next collection, up to about a minute).
+- FTTEL (GM:617, every 2 s while ft.Autopilot > 0) prints ents=<entity list length> and fps=<smoothed>.
+
+FRAME TIME IN THE NORMAL RUN
+- FTTEL fps=, FTHITCH ms= (every frame over 40 ms, GM:456), and the engine's StartFPSChart <label> / StopFPSChart (UnrealEngine.cpp:5741/5745; dumps to the log and to <Checkout>\Saved\Profiling\FPSChartStats\<time>\; t.FPSChart.OpenFolderOnDump 0 stops it opening an Explorer window, ChartCreation.cpp:48, 966). The normal run keeps the checkout's own frame cap unless t.MaxFPS 0 holds (the script sets it before PART 2).
+
+BENCHMARK MODE + -ftexec, SO THE DENSE SCENE IS WHAT GETS TIMED
+- -ftbench (GI:130-145): bBench, PendingLevel = -ftlevel (level INDEX, 7 = City Center), quality = -ftquality (default 2), seconds = -ftseconds (default 75), tag = -fttag; VSync off, frame limit 0; no attract mode; settings are not saved. The first map's BeginPlay opens the level's map and starts the race there (GM BeginPlay); the slate lasts 0.5 s; the bench autopilot is the same one (drives, shoots, a missile every 1.7 s) and armor is reset every frame.
+- TickBench (GM:4116): BenchT counts real seconds (each frame capped at 0.1) in Play/Wreck/Wrap/Rating from the first frame of play of that game mode; frames are recorded once BenchT > 4; it ends when BenchT reaches seconds + 4, or at once if the level wraps; then it writes <Checkout>\Saved\FullThrottle\bench\bench_L7_EPIC<tag>.json, logs "FTBENCH {json}" (avg_fps, p1_low_fps, median_ms, p99_ms, worst_ms, frames_over_17_5ms, game/render/gpu ms) and quits the game itself. A restart on the spot does not reset BenchT.
+- -ftexec runs beside it (the runner is in the game instance). The first script line runs on the first frame after the level's map is up, with the slate already showing. The "FT LEVEL id=" line is printed during the load, before the runner's log tap exists, so in bench mode a script must wait for FT SPEED, not FT LEVEL, and must not send FTStartLevel.
+- combat_dense.txt itself is wrong for this (its stills, holds and 4 s run-in would be inside the sample). Use this script, which has the convoy up about 2.5 s into play, before sampling starts at 4 s:
+    waitfor FT SPEED|300
+    ft.AutoX 0
+    FTBossNow
+    waitfor FT BOSS state=Arrive|10
+    FTFreeze 1
+    FTFire 80 Boss
+    FTSpawn Truck 1
+    FTSpawn Truck 2 beside=Truck
+    FTSpawn SUV 5
+    FTSpawn Rammer 5
+    FTSpawn Biker 10
+    FTSpawn SnakeEyes 4
+    FTSpawn Chopper 1
+    FTSpawn Chopper 2 beside=Chopper
+    FTSpawnCivilian 4
+    FTSpawnBarrel 6
+    FTPickup Crate
+    FTFreeze 0
+    ft.Autopilot 1
+  (no quit: the benchmark quits). Command: jam_exec.ps1 -Tag <tag> -Script <that file> -Checkout <folder> -BudgetSec 900 -Extra "-ftnoattract -ftnodynres -ftslot=pie -ftbench -ftlevel=7 -ftquality=3 -ftseconds=10 -fttag=_dense". Sampling then covers seconds 1.5 to 11.5 of the same scene PART 2 times. -ftslot=pie makes it use the test career; run it after combat_dense.txt on that checkout (which resets that career and saves nothing else), because the car's stats are taken from the career at the race start, before any script line can run.
+
+SECOND SCRIPT
+File: K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\combat_cleanup.txt
+
+# combat_cleanup.txt : is anything left burning, smoking or flying after a retake and after a wrap + reshoot?
+# Game level 8 (City Center), EPIC. Everything is done in the first seconds of scene 1, so a restart (which puts the
+# car back at the top of the scene) looks down the same stretch of road where the wrecks were made.
+# Run it the same way on both checkouts (a new -Tag each run, the same frame size):
+#   powershell -File "K:\Full Throttle\SkyScratch\SourceArt\Jam\unreal\jam_exec.ps1" -Tag <tag> -Script <this file>
+#       -Checkout <project folder> -BudgetSec 1200 -Extra "-ftnoattract -ftnodynres"
+# It goes through a real wrap: the level is rated and paid on the test career (slot career_pie), and a best take for
+# level 8 is written to the checkout's settings.json if the score beats the one stored there.
+#
+# TWO ROUNDS.
+#  1 RETAKE : a missile that misses, a convoy, a missile that hits, wrecks by gun / missile / ram, barrels; the
+#             car trashed, then wrecked (FTCrash) -> 2.8 s later the game's own retake (the same world goes on).
+#  2 RESHOOT: a convoy, FTWrapNow (the boss is called 160 m ahead and wrecked, the wrap wrecks every vehicle), the
+#             reel, THE DAILIES, R = reshoot -> PRE-PRODUCTION, READY -> the race restarts in the same world.
+# After each restart the car's guns are off for good (FTAutoRun), so anything still burning is a leftover.
+# Stills at 0.5 / 2 / 5 / 10 s after each restart. The slate covers the frame for the first 1.2 s at least; Enter is
+# pressed at 1.4 s to drop it, so the 2 s and 5 s frames are clear (the 0.5 s frame is behind the slate).
+# Round 1 also takes frames WITHOUT the HUD or the slate (ft.Shots 0.5): 1280x720, <Checkout>\Saved\Shots\
+# ft_L7_000.png = about 0.8 s after the retake, then one every 0.5 s to about 5.3 s (ten frames; jam_exec does not
+# collect or clear that folder: empty it before the run).
+#
+# THE COUNTS. The game has no line of its own for live effects. Each count block is six console commands:
+#   obj gc                                   destroyed actors really go (otherwise they are listed for up to a minute)
+#   FTDumpLevel                              "FT LEVEL dump ... take= retakes= clock="
+#   FX.DumpNCPoolInfo                        LogNiagara: per effect "Free: n | Used(Auto - Manual): a - m | System: .."
+#                                            Used = pooled effects playing now (explosions, flashes, impacts, trails)
+#   obj list class=FTWreck                   burning wrecks alive (each carries a fire and a smoke effect)
+#   obj list class=GeometryCollectionActor   barrel and crate debris alive
+#   fx.Niagara.DumpComponents                LogNiagara: every effect component, "is Active" or "is Inactive"
+# Blocks, by the runner's "FT EXEC line=<n>" numbers (the same in both runs): 0 pristine (slate up, nothing fired
+# yet), 1 everything burning (the counts must be high here), 2 retake +5.9 s, 3 retake +10.5 s, 4 THE DAILIES,
+# 5 reshoot +5.5 s, 6 reshoot +10.5 s. Clean = blocks 3 and 6 like block 0: no FTWreck, no GeometryCollectionActor,
+# every "Used" 0 - 0, and the same number of "is Active" lines.
+# In the log also: "result=timeout" (the script lost its place), "fired=1" (each missile launch) against
+# "source=missile" (each missile hit: a launch with no hit after it was a miss).
+
+wait 2
+FTUseTestSlot
+FTCareerReset
+FTQuality 3
+FTStartLevel 8 1
+waitfor FT LEVEL id=|300
+# ---- count block 0: pristine (during the slate)
+obj gc
+FTDumpLevel
+FX.DumpNCPoolInfo
+obj list class=FTWreck
+obj list class=GeometryCollectionActor
+fx.Niagara.DumpComponents
+FTInvuln 1
+ft.AutoX 0
+ft.Autopilot 1
+waitfor FT SPEED|60
+
+# ================================================================ ROUND 1: fight, wrecks, the car wrecked, RETAKE
+# a missile that MISSES: the road is empty (the first vehicle of scene 1 is called 170 m in), so the autopilot's
+# first missile (race clock 1.7 s) flies its 2.6 s and bursts in the air
+FTPickup Crate
+waitfor fired=1|8
+# 1 s later it is 110 m out: what is spawned now is behind it
+wait 1.0
+FTSpawn SUV 2
+FTSpawn Truck 1
+FTSpawn Rammer 1
+FTSpawn Biker 3
+FTSpawn SnakeEyes 1
+FTSpawn Chopper 1
+# a missile that HITS: the next one homes on the nearest of them
+FTPickup Crate
+waitfor source=missile|8
+shot cleanup_a_fight
+# wrecks by every cause, barrels and their debris, then whatever is left
+FTSpawnBarrel 3
+FTWreck Barrel 9
+FTWreck SUV 1 missile
+FTWreck Truck 1
+FTWreck Biker 9 ram
+FTWreck Chopper 1
+FTWreck all
+# the car: armor 100 -> 30 (trashed: parts off, smoking)
+FTInvuln 0
+FTDamagePlayer 70
+# ---- count block 1: everything burning
+obj gc
+FTDumpLevel
+FX.DumpNCPoolInfo
+obj list class=FTWreck
+obj list class=GeometryCollectionActor
+fx.Niagara.DumpComponents
+shot cleanup_b_burning
+# the car wrecked: "FT PLAYER wrecked", 2.8 real seconds of CUT!, then the retake ("FT CARNAGE .. retake=1")
+FTCrash
+waitfor retake=1|15
+# from here the car never fires again in this world; SPEED UP let go; frames without the HUD every 0.5 s
+FTAutoRun
+FTHold SpeedUp 0
+ft.Shots 0.5
+wait 0.05
+shot cleanup_retake_0s5
+# 1.4 s: Enter drops the slate (it takes Enter from 1.2 s)
+wait 0.4
+ft.Press Enter
+wait 0.45
+shot cleanup_retake_2s
+wait 2.5
+shot cleanup_retake_5s
+wait 0.25
+ft.Shots 0
+# ---- count block 2: retake +5.9 s
+obj gc
+FTDumpLevel
+FX.DumpNCPoolInfo
+obj list class=FTWreck
+obj list class=GeometryCollectionActor
+fx.Niagara.DumpComponents
+wait 3.2
+shot cleanup_retake_10s
+# ---- count block 3: retake +10.5 s
+obj gc
+FTDumpLevel
+FX.DumpNCPoolInfo
+obj list class=FTWreck
+obj list class=GeometryCollectionActor
+fx.Niagara.DumpComponents
+
+# ================================================================ ROUND 2: the WRAP, the reel, the reshoot
+FTSpawn SUV 2
+FTSpawn Truck 1
+FTSpawn Biker 3
+FTSpawn Chopper 1
+wait 1.0
+FTWrapNow
+waitfor FT OUTCOME wrap|10
+# 1.2 real seconds into the wrap: the boss's wreck far ahead, every vehicle on the road going up, CUT!
+wait 1.0
+shot cleanup_c_wrap
+waitfor FT RATING value=|20
+# the highlight reel plays through (two shots of the boss's wreck) and holds
+waitfor Reel state=hold|180
+FTPress Continue
+waitfor FT SCREEN name=Dailies|15
+# ---- count block 4: THE DAILIES
+obj gc
+FTDumpLevel
+FX.DumpNCPoolInfo
+obj list class=FTWreck
+obj list class=GeometryCollectionActor
+fx.Niagara.DumpComponents
+# R = reshoot (THE DAILIES take keys after 1 s) -> PRE-PRODUCTION for level 8 -> READY
+wait 0.6
+ft.Press R
+waitfor PreProduction next=L8|15
+wait 0.6
+FTPress Ready
+# the race restarts (on today's code in the same world, at once; 300 s in case a build reloads the map here)
+waitfor FT LEVEL id=|300
+FTAutoRun
+FTHold SpeedUp 0
+wait 0.2
+shot cleanup_restart_0s5
+wait 0.4
+ft.Press Enter
+wait 0.45
+shot cleanup_restart_2s
+wait 2.5
+shot cleanup_restart_5s
+# ---- count block 5: reshoot +5.5 s
+obj gc
+FTDumpLevel
+FX.DumpNCPoolInfo
+obj list class=FTWreck
+obj list class=GeometryCollectionActor
+fx.Niagara.DumpComponents
+wait 3.6
+shot cleanup_restart_10s
+# ---- count block 6: reshoot +10.5 s
+obj gc
+FTDumpLevel
+FX.DumpNCPoolInfo
+obj list class=FTWreck
+obj list class=GeometryCollectionActor
+fx.Niagara.DumpComponents
+wait 1
+quit

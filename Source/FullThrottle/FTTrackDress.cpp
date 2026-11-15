@@ -113,39 +113,74 @@ namespace
 		}
 
 		void Level0(); void Level1(); void Level2(); void Level3(); void Level4(); void Level5(); void Level6(); void Level7();
+		// The population layer (people, creatures, film crews), one table a level: FTPeopleL<n>.inl, written with the same
+		// words. Read AFTER the level's dressing table, so its rules come last and no dressing rule's random stream moves.
+		void People0(); void People1(); void People2(); void People3(); void People4(); void People5(); void People6(); void People7();
 	};
 
 	void FTableWriter::Level0()
 	{
 #include "FTDressL0.inl"
 	}
+	void FTableWriter::People0()
+	{
+#include "FTPeopleL0.inl"
+	}
 	void FTableWriter::Level1()
 	{
 #include "FTDressL1.inl"
+	}
+	void FTableWriter::People1()
+	{
+#include "FTPeopleL1.inl"
 	}
 	void FTableWriter::Level2()
 	{
 #include "FTDressL2.inl"
 	}
+	void FTableWriter::People2()
+	{
+#include "FTPeopleL2.inl"
+	}
 	void FTableWriter::Level3()
 	{
 #include "FTDressL3.inl"
+	}
+	void FTableWriter::People3()
+	{
+#include "FTPeopleL3.inl"
 	}
 	void FTableWriter::Level4()
 	{
 #include "FTDressL4.inl"
 	}
+	void FTableWriter::People4()
+	{
+#include "FTPeopleL4.inl"
+	}
 	void FTableWriter::Level5()
 	{
 #include "FTDressL5.inl"
+	}
+	void FTableWriter::People5()
+	{
+#include "FTPeopleL5.inl"
 	}
 	void FTableWriter::Level6()
 	{
 #include "FTDressL6.inl"
 	}
+	void FTableWriter::People6()
+	{
+#include "FTPeopleL6.inl"
+	}
 	void FTableWriter::Level7()
 	{
 #include "FTDressL7.inl"
+	}
+	void FTableWriter::People7()
+	{
+#include "FTPeopleL7.inl"
 	}
 }
 
@@ -157,13 +192,13 @@ void FTDress::Build(int32 Level, FFTDress& Out)
 	FTableWriter W(Out, Dirs[FMath::Clamp(Level, 0, 7)]);
 	switch (Level)
 	{
-	case 0: W.Level0(); break;
-	case 1: W.Level1(); break;
-	case 2: W.Level2(); break;
-	case 3: W.Level3(); break;
-	case 4: W.Level4(); break;
-	case 5: W.Level5(); break;
-	case 6: W.Level6(); break;
-	default: W.Level7(); break;
+	case 0: W.Level0(); W.People0(); break;
+	case 1: W.Level1(); W.People1(); break;
+	case 2: W.Level2(); W.People2(); break;
+	case 3: W.Level3(); W.People3(); break;
+	case 4: W.Level4(); W.People4(); break;
+	case 5: W.Level5(); W.People5(); break;
+	case 6: W.Level6(); W.People6(); break;
+	default: W.Level7(); W.People7(); break;
 	}
 }

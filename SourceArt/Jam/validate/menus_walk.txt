@@ -1,0 +1,591 @@
+# menus_walk.txt - FULL THROTTLE: every screen of the racing game, filmed for before/after frames, and the
+# restart flows proved by log lines. Level 1 (Bayshore) only. Uses only line types, commands and log lines that the
+# untouched baseline (OverhaulBaseline, code of 12:11 on 15 Nov 2026) and main both have: no "film" line, no FTGo.
+#
+# RUN (same line on both checkouts, a new -Tag each time, the same frame size on both):
+#   powershell -NoProfile -ExecutionPolicy Bypass -File "K:\Full Throttle\SkyScratch\SourceArt\Jam\unreal\jam_exec.ps1"
+#     -Tag menus_before -Script "K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\menus_walk.txt"
+#     -Checkout "K:\Full Throttle\OverhaulBaseline\full-throttle-unreal" -BudgetSec 1800 -Small -Extra "-ftnodynres -ftslot=pie"
+#   Do NOT pass -ftnoattract (menu_attract* would then show the plain title), -ftauto, -ftday1 or -ftdays.
+#   Two map loads (the boot, and RESHOOT LEVEL from the pause menu) plus about eight minutes of script. 132 frames.
+#
+# TIMING OF THE BURSTS. The runner pauses 0.15 s after a console command and 0.5 s after a shot, in real seconds, so
+# at normal speed two shots are never closer than 0.5 s. A burst therefore runs frame by frame:
+#     t.MaxFPS 1        one frame a real second, so every script line takes exactly one frame
+#     t.OverrideFPS n   every frame is 1/n s of game and menu time whatever it really took (50 = 0.02, 20 = 0.05, 10 = 0.1)
+#   and "t.OverrideFPS 0" then "t.MaxFPS 0" ends it (in that order; the frame rate stays uncapped afterwards, on both
+#   builds alike). Inside a block a repeated "t.OverrideFPS n" line is one frame of filler, a shot shows the frame
+#   after its own line, and there is no "wait" (real seconds would break the frame count). The same script
+#   therefore films the same menu times on both builds, however fast either one runs, at either frame size.
+#   _seqN is at (seconds after the screen opened):
+#     title, preprod_skills, attract, card, rating, paycheck:  0.04 0.14 0.24 0.34 0.44 0.54
+#     options, controls, pause (a key opens them), preprod_garage:  0.02 0.12 ... 0.52 (or one frame, 0.02, earlier)
+#     reel:  0.05 0.15 ... 0.55 after FT SCREEN name=Reel          hud:  0.10 0.20 ... 0.60 after the slate ends
+#       (ACTION! replaces the scene's name 0.45 s in)
+#     card_clap (the same take as card, straight on):  0.64 ... 1.14   (the clapper shuts 0.88-1.0, sweep to 1.22)
+#     cut:   0.55 ... 1.05 after the wreck      (the CUT! card comes in at 0.6)
+#     wrap:  0.75 ... 1.25 after FTWrapNow      (the card comes in at 0.8)
+#     rating_stamp:  2.64 ... 3.14 on THE DAILIES (the stamp lands at 2.7)
+#   CHECK in the log: inside a block every "FT EXEC line=" must be one frame after the one before it (the [nnn]
+#   column). A line that took two frames (a stall of most of a second) puts the rest of that burst one step late.
+#   The stills are taken at normal speed, by real seconds: they pair by moment, not by pixel.
+#
+# WAITFOR only sees log lines printed after the script's last console command (t.MaxFPS and friends included), so
+# every waitfor here follows the command that causes its line, or waits for something still to come.
+#
+# AFTER THE RUN: the log must have no "result=timeout" (each one means the script lost its place there), and:
+#   title ENTER        : FT TITLE start level=1 attract=0, then FT LEVEL id=
+#   options, controls  : FT TITLE overlay=Options twice, FT TITLE overlay=Controls twice
+#   pre-production     : FT SKILL id=CAR1 state=PENDING then state=UNDONE; FT SCREEN name=PreProduction tab=1 .. tab=4
+#   attract            : FT ATTRACT shot twice (the boot's own and this script's)
+#   pause              : FT SCREEN name=Pause state=opened three times, state=resumed twice
+#   pause, RESHOOT (R) : FT MUTE reapplied .. map=L_Bayshore a second time (the map was loaded again) with FT LEVEL id=
+#                        beside it, then FT LEVEL dump .. take=1 retakes=0 .. score=0
+#   wreck, retake      : FT PLAYER wrecked retakes=1 (then 2), FT CARNAGE .. retake=1, FT LEVEL dump .. take=2
+#   wrap to paycheck   : FT OUTCOME wrap, FT RATING value=, FT SCREEN name=Reel, .. Reel state=hold, .. Dailies, .. Paycheck
+#   paycheck R reshoot : FT SCREEN name=PreProduction next=L1, FT SCREEN name=Slate next=L1, FT LEVEL id=
+#   hold to skip reel  : FT INPUT screen=Reel key=Enter result=hold
+#   dailies ESC, title : FT SCREEN name=PreProduction next=Title, FT SCREEN name=Title banner=""
+#   FT LEVEL id= nine times in all; FT MUTE reapplied twice.
+# NOT THE OVERHAUL if they differ between the two runs: the BEST lines on the title rows, the FPS counter, MUTED and
+# reduced motion (no entrances at all) come from each checkout's own Saved\FullThrottle\settings.json.
+
+# ---------------------------------------------------------------- 0. set-up: test career first, quality, no attract, known state
+FTUseTestSlot
+FTCareerReset
+FTSetCash 25000
+FTSetSP 3
+FTQuality 3
+ft.Attract 0
+FTGoto Title
+# the first frames after the boot and the new preset are slow: let them pass
+wait 10
+FTDumpCareer
+# the car on the start line of level 1 (the attract demo left it somewhere random), then the title
+FTStartLevel 1
+waitfor FT LEVEL id=|240
+
+# ---------------------------------------------------------------- 1. TITLE
+FTGoto Title
+shot menu_title_0s2
+wait 0.8
+shot menu_title_1s5
+ft.Press Down
+waitfor FT TITLE sel=2|5
+wait 0.4
+shot menu_title_sel2
+ft.Press Up
+waitfor FT TITLE sel=1|5
+ft.Press Tab
+wait 0.4
+shot menu_title_actions
+ft.Press Tab
+wait 0.4
+# burst: the entrance
+t.MaxFPS 1
+t.OverrideFPS 50
+FTGoto Title
+shot menu_title_seq1
+t.OverrideFPS 20
+shot menu_title_seq2
+t.OverrideFPS 20
+shot menu_title_seq3
+t.OverrideFPS 20
+shot menu_title_seq4
+t.OverrideFPS 20
+shot menu_title_seq5
+t.OverrideFPS 20
+shot menu_title_seq6
+t.OverrideFPS 0
+t.MaxFPS 0
+
+# ---------------------------------------------------------------- 2. OPTIONS (over the title; O opens and closes; never Left/Right: they save)
+wait 0.3
+ft.Press O
+waitfor FT TITLE overlay=Options|5
+wait 0.4
+shot menu_options
+ft.Press Down
+wait 0.4
+shot menu_options_row2
+ft.Press O
+wait 0.4
+# burst: opened once more
+t.MaxFPS 1
+t.OverrideFPS 50
+ft.Press O
+shot menu_options_seq1
+t.OverrideFPS 20
+shot menu_options_seq2
+t.OverrideFPS 20
+shot menu_options_seq3
+t.OverrideFPS 20
+shot menu_options_seq4
+t.OverrideFPS 20
+shot menu_options_seq5
+t.OverrideFPS 20
+shot menu_options_seq6
+t.OverrideFPS 0
+t.MaxFPS 0
+ft.Press O
+wait 0.4
+# known state again (FTStartLevel closes any overlay that a missed key left open)
+FTStartLevel 1
+waitfor FT LEVEL id=|240
+FTGoto Title
+wait 0.5
+
+# ---------------------------------------------------------------- 3. CONTROLS (over the title; C opens and closes; never Enter: it rebinds)
+ft.Press C
+waitfor FT TITLE overlay=Controls|5
+wait 0.4
+shot menu_controls
+ft.Press Down
+wait 0.4
+shot menu_controls_row2
+ft.Press C
+wait 0.4
+# burst: opened once more
+t.MaxFPS 1
+t.OverrideFPS 50
+ft.Press C
+shot menu_controls_seq1
+t.OverrideFPS 20
+shot menu_controls_seq2
+t.OverrideFPS 20
+shot menu_controls_seq3
+t.OverrideFPS 20
+shot menu_controls_seq4
+t.OverrideFPS 20
+shot menu_controls_seq5
+t.OverrideFPS 20
+shot menu_controls_seq6
+t.OverrideFPS 0
+t.MaxFPS 0
+ft.Press C
+wait 0.4
+FTStartLevel 1
+waitfor FT LEVEL id=|240
+FTGoto Title
+wait 0.5
+
+# ---------------------------------------------------------------- 4. PRE-PRODUCTION from the title: the skill tree and the four other departments
+FTGoto PreProduction
+waitfor FT SCREEN name=PreProduction from=Title|5
+wait 0.5
+shot menu_preprod_skills
+ft.Press Down
+wait 0.4
+shot menu_preprod_skills_sel2
+# a skill bought (PENDING) and taken back
+FTSelect CAR1
+FTPress Buy
+wait 0.5
+shot menu_preprod_skills_pending
+FTPress Undo
+wait 0.3
+ft.Press E
+waitfor FT SCREEN name=PreProduction tab=1|5
+wait 0.5
+shot menu_preprod_garage
+ft.Press Down
+wait 0.4
+shot menu_preprod_garage_sel2
+ft.Press E
+waitfor FT SCREEN name=PreProduction tab=2|5
+wait 0.5
+shot menu_preprod_custom
+ft.Press E
+waitfor FT SCREEN name=PreProduction tab=3|5
+wait 0.5
+shot menu_preprod_sfx
+ft.Press E
+waitfor FT SCREEN name=PreProduction tab=4|5
+wait 0.5
+shot menu_preprod_extras
+# bursts: the screen's entrance from the title (it opens on the skill tree), then a department's (skills -> garage)
+FTSelect CAR1
+FTGoto Title
+wait 0.3
+t.MaxFPS 1
+t.OverrideFPS 50
+FTGoto PreProduction
+shot menu_preprod_skills_seq1
+t.OverrideFPS 20
+shot menu_preprod_skills_seq2
+t.OverrideFPS 20
+shot menu_preprod_skills_seq3
+t.OverrideFPS 20
+shot menu_preprod_skills_seq4
+t.OverrideFPS 20
+shot menu_preprod_skills_seq5
+t.OverrideFPS 20
+shot menu_preprod_skills_seq6
+t.OverrideFPS 50
+FTSelect garage:armor:1
+shot menu_preprod_garage_seq1
+t.OverrideFPS 20
+shot menu_preprod_garage_seq2
+t.OverrideFPS 20
+shot menu_preprod_garage_seq3
+t.OverrideFPS 20
+shot menu_preprod_garage_seq4
+t.OverrideFPS 20
+shot menu_preprod_garage_seq5
+t.OverrideFPS 20
+shot menu_preprod_garage_seq6
+t.OverrideFPS 0
+t.MaxFPS 0
+FTPress Ready
+waitfor FT SCREEN name=Title|5
+
+# ---------------------------------------------------------------- 5. ATTRACT MODE (the title over the demo; left again long before its 11 s cut, which is a map load)
+ft.Attract 1
+t.MaxFPS 1
+t.OverrideFPS 50
+FTGoto Title
+shot menu_attract_seq1
+t.OverrideFPS 20
+shot menu_attract_seq2
+t.OverrideFPS 20
+shot menu_attract_seq3
+t.OverrideFPS 20
+shot menu_attract_seq4
+t.OverrideFPS 20
+shot menu_attract_seq5
+t.OverrideFPS 20
+shot menu_attract_seq6
+t.OverrideFPS 0
+t.MaxFPS 0
+wait 1.5
+shot menu_attract
+ft.Attract 0
+FTGoto Title
+wait 0.6
+
+# ---------------------------------------------------------------- 6. ROLL CAMERA from the title (the real key), the level card, the play HUD
+ft.Press One
+wait 0.3
+ft.Press Enter
+waitfor FT TITLE start level=1|5
+waitfor FT LEVEL id=|30
+# the same start through the harness, so the card and the HUD below never depend on that key
+FTStartLevel 1
+waitfor FT LEVEL id=|240
+FTAutoRun wreck=0
+wait 1.2
+shot menu_card
+# burst: the HUD's first frames. The slate is about 2.1 s old here and ends at 3.2 s: five frames of 0.1 s, then
+# 0.05 s a frame until the car is driven (the first FT SPEED)
+t.MaxFPS 1
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 20
+waitfor FT SPEED|120
+shot menu_hud_seq1
+t.OverrideFPS 20
+shot menu_hud_seq2
+t.OverrideFPS 20
+shot menu_hud_seq3
+t.OverrideFPS 20
+shot menu_hud_seq4
+t.OverrideFPS 20
+shot menu_hud_seq5
+t.OverrideFPS 20
+shot menu_hud_seq6
+t.OverrideFPS 0
+t.MaxFPS 0
+waitfor FT CLOCK level=5.|30
+shot menu_hud_5s
+# burst: the card from its first frame, then straight on across the clapper
+t.MaxFPS 1
+t.OverrideFPS 50
+FTStartLevel 1
+shot menu_card_seq1
+t.OverrideFPS 20
+shot menu_card_seq2
+t.OverrideFPS 20
+shot menu_card_seq3
+t.OverrideFPS 20
+shot menu_card_seq4
+t.OverrideFPS 20
+shot menu_card_seq5
+t.OverrideFPS 20
+shot menu_card_seq6
+t.OverrideFPS 20
+shot menu_card_clap_seq1
+t.OverrideFPS 20
+shot menu_card_clap_seq2
+t.OverrideFPS 20
+shot menu_card_clap_seq3
+t.OverrideFPS 20
+shot menu_card_clap_seq4
+t.OverrideFPS 20
+shot menu_card_clap_seq5
+t.OverrideFPS 20
+shot menu_card_clap_seq6
+t.OverrideFPS 0
+t.MaxFPS 0
+waitfor FT SPEED|60
+wait 2.0
+
+# ---------------------------------------------------------------- 7. PAUSE (P opens, Escape resumes: a key pressed while paused is only let go after the resume)
+ft.Press P
+waitfor FT SCREEN name=Pause state=opened|5
+wait 0.5
+shot menu_pause
+ft.Press Down
+wait 0.4
+shot menu_pause_row2
+ft.Press Up
+wait 0.2
+ft.Press Escape
+waitfor FT SCREEN name=Pause state=resumed|5
+wait 0.6
+# burst: opened once more
+t.MaxFPS 1
+t.OverrideFPS 50
+ft.Press P
+shot menu_pause_seq1
+t.OverrideFPS 20
+shot menu_pause_seq2
+t.OverrideFPS 20
+shot menu_pause_seq3
+t.OverrideFPS 20
+shot menu_pause_seq4
+t.OverrideFPS 20
+shot menu_pause_seq5
+t.OverrideFPS 20
+shot menu_pause_seq6
+t.OverrideFPS 0
+t.MaxFPS 0
+ft.Press Escape
+waitfor FT SCREEN name=Pause state=resumed|5
+wait 0.6
+
+# ---------------------------------------------------------------- 8. RESHOOT LEVEL from the pause menu (R): the map loads again and the race starts by itself
+# a known state first (running, not paused), whatever the keys above did
+FTStartLevel 1
+waitfor FT LEVEL id=|240
+waitfor FT SPEED|60
+wait 1.5
+ft.Press P
+waitfor FT SCREEN name=Pause state=opened|5
+wait 0.3
+ft.Press R
+waitfor FT MUTE reapplied|300
+waitfor FT LEVEL id=|60
+# a new game mode: the harness flags again, then the proof (take=1 retakes=0 score=0)
+FTAutoRun wreck=0
+FTDumpLevel
+waitfor FT SPEED|90
+wait 2.0
+shot menu_hud_restart
+
+# ---------------------------------------------------------------- 9. CUT! (a wreck) and the retake slate; twice: a still, then the burst
+FTInvuln 0
+FTCrash
+wait 1.2
+shot menu_cut
+waitfor retake=1|15
+wait 1.2
+shot menu_card_retake
+FTDumpLevel
+waitfor FT SPEED|30
+wait 1.5
+# burst: the CUT! card comes in 0.6 s after the wreck (five frames of 0.1 s, two of 0.05 s, then the six shots)
+t.MaxFPS 1
+t.OverrideFPS 10
+FTCrash
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 20
+t.OverrideFPS 20
+shot menu_cut_seq1
+t.OverrideFPS 20
+shot menu_cut_seq2
+t.OverrideFPS 20
+shot menu_cut_seq3
+t.OverrideFPS 20
+shot menu_cut_seq4
+t.OverrideFPS 20
+shot menu_cut_seq5
+t.OverrideFPS 20
+shot menu_cut_seq6
+t.OverrideFPS 0
+t.MaxFPS 0
+FTInvuln 1
+waitfor retake=1|20
+waitfor FT SPEED|30
+wait 1.0
+
+# ---------------------------------------------------------------- 10. the boss panel on the HUD, THAT'S A WRAP, the highlight reel, the rating, the paycheck
+FTBossNow
+waitfor FT BOSS state=Arrive|10
+wait 2.5
+shot menu_hud_boss
+FTDumpLevel
+# burst: the wrap card comes in 0.8 s after the boss goes down (six frames of 0.1 s, two of 0.05 s, then the six shots)
+t.MaxFPS 1
+t.OverrideFPS 10
+FTWrapNow
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 20
+t.OverrideFPS 20
+shot menu_wrap_seq1
+t.OverrideFPS 20
+shot menu_wrap_seq2
+t.OverrideFPS 20
+shot menu_wrap_seq3
+t.OverrideFPS 20
+shot menu_wrap_seq4
+t.OverrideFPS 20
+shot menu_wrap_seq5
+t.OverrideFPS 20
+shot menu_wrap_seq6
+t.OverrideFPS 0
+t.MaxFPS 0
+# the wrap is 1.35 s old here and lasts 4.2 s: two seconds at normal speed, then frame by frame until the reel opens
+wait 2.0
+t.MaxFPS 1
+t.OverrideFPS 20
+waitfor FT SCREEN name=Reel|120
+shot menu_reel_seq1
+t.OverrideFPS 20
+shot menu_reel_seq2
+t.OverrideFPS 20
+shot menu_reel_seq3
+t.OverrideFPS 20
+shot menu_reel_seq4
+t.OverrideFPS 20
+shot menu_reel_seq5
+t.OverrideFPS 20
+shot menu_reel_seq6
+t.OverrideFPS 0
+t.MaxFPS 0
+wait 3.8
+shot menu_reel
+waitfor FT SCREEN name=Reel state=hold|120
+wait 0.5
+shot menu_reel_hold
+# burst: THE DAILIES from their first frame, then on to the rating stamp (twenty frames of 0.1 s; the stamp lands at 2.7 s)
+t.MaxFPS 1
+t.OverrideFPS 50
+FTPress Continue
+shot menu_rating_seq1
+t.OverrideFPS 20
+shot menu_rating_seq2
+t.OverrideFPS 20
+shot menu_rating_seq3
+t.OverrideFPS 20
+shot menu_rating_seq4
+t.OverrideFPS 20
+shot menu_rating_seq5
+t.OverrideFPS 20
+shot menu_rating_seq6
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 10
+t.OverrideFPS 20
+shot menu_rating_stamp_seq1
+t.OverrideFPS 20
+shot menu_rating_stamp_seq2
+t.OverrideFPS 20
+shot menu_rating_stamp_seq3
+t.OverrideFPS 20
+shot menu_rating_stamp_seq4
+t.OverrideFPS 20
+shot menu_rating_stamp_seq5
+t.OverrideFPS 20
+shot menu_rating_stamp_seq6
+t.OverrideFPS 0
+t.MaxFPS 0
+wait 0.6
+shot menu_rating
+# burst: the paycheck from its first frame
+t.MaxFPS 1
+t.OverrideFPS 50
+FTPress Continue
+shot menu_paycheck_seq1
+t.OverrideFPS 20
+shot menu_paycheck_seq2
+t.OverrideFPS 20
+shot menu_paycheck_seq3
+t.OverrideFPS 20
+shot menu_paycheck_seq4
+t.OverrideFPS 20
+shot menu_paycheck_seq5
+t.OverrideFPS 20
+shot menu_paycheck_seq6
+t.OverrideFPS 0
+t.MaxFPS 0
+wait 5.5
+shot menu_paycheck
+
+# ---------------------------------------------------------------- 11. RESHOOT from the paycheck (R, the real key): PRE-PRODUCTION, READY, the slate, the same level again
+ft.Press R
+waitfor FT SCREEN name=PreProduction next=L1|10
+wait 0.6
+shot menu_preprod_reshoot
+FTPress Ready
+waitfor FT SCREEN name=Slate next=L1|5
+waitfor FT LEVEL id=|240
+wait 1.2
+shot menu_card_reshoot
+waitfor FT SPEED|30
+wait 1.5
+FTBossNow
+waitfor FT BOSS state=Arrive|10
+wait 2.0
+FTWrapNow
+wait 1.8
+shot menu_wrap
+waitfor FT SCREEN name=Reel|30
+# HOLD TO SKIP: Enter held; the reel is skipped after one second of it
+wait 1.0
+FTKey Enter 2.4
+wait 0.4
+shot menu_reel_skip
+waitfor FT SCREEN name=Dailies|15
+wait 2.5
+
+# ---------------------------------------------------------------- 12. back to the title the game's own way: THE DAILIES, Escape, PRE-PRODUCTION, READY
+ft.Press Escape
+waitfor FT SCREEN name=PreProduction next=Title|10
+wait 0.6
+shot menu_preprod_totitle
+FTDumpCareer
+FTPress Ready
+shot menu_title_back_0s2
+wait 0.8
+shot menu_title_back_1s5
+waitfor FT SCREEN name=Title banner|5
+# (the autopilot flag would start a race from this title 3.5 s after it appeared: the script ends before that)
+wait 0.5
+quit

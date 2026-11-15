@@ -1,0 +1,127 @@
+FILE: K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\boss_L4.txt
+CHANGED BY CHECKER: True
+RUN: powershell -NoProfile -ExecutionPolicy Bypass -File "K:\Full Throttle\SkyScratch\SourceArt\Jam\unreal\jam_exec.ps1" -Tag bossL4_before -Script "K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\boss_L4.txt" -Checkout "K:\Full Throttle\OverhaulBaseline\full-throttle-unreal" -BudgetSec 900 -Extra "-ftnoattract -ftnodynres -ftslot=pie"
+(For the after run use the same line with -Tag bossL4_after and -Checkout set to the integrated project folder. Keep the default 3440x1440 on both: the wrap and reel waits are tuned to that size's screenshot stall. I checked with a dummy script carrying jam_exec's param block that the -Extra value binds whole from both bash and a PowerShell session.)
+
+PROBLEMS FOUND BY THE CHECKER:
+Checked every line against the baseline source (K:\Full Throttle\OverhaulBaseline\full-throttle-unreal, Source\FullThrottle) and against today's real run log of that checkout, Saved\Logs\jam_exec_bosses_before.log (18:35, 3440x1440, Epic). Nothing was run by me. Line numbers are the old file's. GM = FTGameMode.cpp, FLOW = FTFlow.cpp.
+
+WHAT HELD UP
+- Every command exists with those arguments (FLOW:935-1179; ft.AutoX at GM:43), and every waitfor text is a real "FT " line (GM:267, 1034, 1497, 1683, 3921, 3966, 436; FLOW:361).
+- The log confirms the model: `FTStartLevel 4 7` gives "FT LEVEL id=L4 scene=7", then "FT BOSS state=Arrive armor=150 escape=80" 3.2 s later; hose hits log "FT HURT dmg=0.0" 2.6 s after Arrive under FTAutoRun; about 100 fps between stills; FTFire 52 and the boss kill cause no stall; "FTFLOW reel start, 2 shots".
+- Quality is set before the level, the test slot is used, the script is linear and ends in quit. FTFire 54 / 106 / +24 give 96 / 44 / 20 armor = phase 1 / phase 2 / under 20 %.
+
+PROBLEMS AND FIXES
+1. Defeat and reel waits (old lines 236-253) assumed a screenshot costs 0.5 s of the game's real clock. The log shows each 3440x1440 shot is one stalled frame of 0.41-0.62 s that the game counts as 0.1 s (GM:444), then one step of 0.4 s x dilation. So `defeat_after_1` would have been 0.02 game s after `defeat_moment` (the same picture), and the reel stills landed at 5.0 and 9.0 s, not 5.4 and 9.3.
+   Fix: moment / wait 0.1 / after_1 / after_2 back to back / wait 1.2 / wrap_cut. That gives about 0.01 / 0.05 / 0.15 game s after the kill with no CUT! card, then the card a second old. Reel waits are now 1.0 / 4.0 / 4.2, both stills in the 0.35x approach before the kill.
+2. Four stills sat on the edge of a real-time HUD plate (these run on while the world is frozen) and could flip between two runs:
+   - `enter_2`: 0.07 s inside ACTION!.
+   - `hose_windup`: the key-hint bar goes off at 10 s; the notes claimed OFF, it was borderline.
+   - `phase1_hose_release` and `phase2_hose_release`: 0.24 s and 0.04 s from the 3 s phase caption ending.
+   Fix: a `wait` between FTFreeze 1 and the shot at those four stills, which passes real time with the game held. The entrance waits became 0.85 / 0.8. Plate state per frame is listed in the header.
+3. Take 4 at clock 28 (old line 230): the phase-2 boss of take 3 drops his fourth barrel 8.2 s into that take at x about -383, in the car's lane. It reaches the car about 0.1 s before FTBossNow would clear it, so one run could get +50 score, KILLS 1 and a blast, and the other not.
+   Fix: take 4 starts on the first tick after `lowarmor` (7 s into take 3), before that barrel exists. Take 3 likewise starts on the first tick after the sweep still. Nominal summons are now at clock 4 / 14 / 18 / 25.
+4. Named clock values (`level=4.` `6.` `8.` ...): one unfrozen stall of 0.4-0.7 s in a tight spot would leave a waitfor on a number already gone, and everything after it would be off by 15 s timeouts.
+   Fix: ticks are counted, not named. `waitfor FT CLOCK level=|8` is the next tick after the last console command, with FTDumpLevel to open a new window. Nominal moments are unchanged; a stall now costs one take one second. The two hose-2 FT HURT syncs were dropped as no longer needed.
+5. Traffic: a civilian called into the pinned car's lane reaches it 4.3-6.2 s later. I estimate a 25 % chance per run in take 1 and 15 % in take 3 of a rear-end (COLLATERAL caption, blast, shove, -300) in the fireball frames.
+   Fix: four `FTPickup Crate ahead=.. offset=+-300` lines in takes 1 and 3. A crate on the centre line more than 130 m ahead stops civilians being called into both centre lanes (GM:1714-1715). At 3 m to the side it is not collected (touch is 2.28 m, GM:2453), and it passes the car between stills. No timing depends on them; delete the four lines to get traffic back.
+6. Road shots: ft.AutoX was only set after them, so the unpinned autopilot would change lane whenever a civilian was called into its lane. Fix: `ft.AutoX 292` right after FTAutoRun.
+7. The task asks for a windup still per attack and the fireballs had none. Added `L4_boss_lob_windup`, 0.2 s before the throw. Today it shows the truck doing nothing, which is where a new wind-up would appear. All other shot names are unchanged; 36 frames in total.
+8. Header: the run line now has -NoProfile -ExecutionPolicy Bypass, -ftslot=pie (FTGameInstance.cpp:104, so the real career is never loaded even if a command were lost) and -BudgetSec 900. The after-run checks were rewritten.
+
+LEFT AS IT WAS
+- The second FTUseTestSlot / FTCareerReset / FTQuality / FTStartLevel block is harmless; the log shows the same on-the-spot restart path working.
+- The lane change at the take-4 hose release and FTWrapNow 0.9 s later are kept.
+
+STILL UNSURE:
+Nothing was run by me; the model comes from the code plus today's baseline log (jam_exec_bosses_before.log). Only a real run settles these:
+
+1. Screenshot stall: every wrap and reel wait assumes one stalled frame of 0.4-0.6 s per 3440x1440 shot, counted by the game as 0.1 s. If the integrated build or a different frame size stalls differently, `defeat_after_2` may catch the CUT! card (its margin is 0.13-0.31 s of the game's clock) and the two reel stills move within their slow windows (about +-0.35 s of room).
+2. Crate trick (four FTPickup lines): correct by the code, never used in a script. Tell-tales are "pickup=Crate" (a crate was collected, missiles 6 -> 9) or "reason=COLLATERAL" (traffic still got hit). The crates are small objects on the centre line far ahead in the hose stills; whether one just passed is visible at the frame edge in `lob_windup` or `phase2_lob_flight` depends on the chase camera.
+3. Counted ticks: new and untested. The check is that the four later summons follow "FT CLOCK level=4.0 / 14.0 / 18.0 / 25.0". A different number means that take started a second late.
+4. Standing start: today's log has an FTSTALL at the finale's standing start (the car was put 4 m on at 0.6 x base speed), in a run that took unfrozen screenshots there. With frozen stills I expect none; if it appears the entrance frames differ.
+5. `ft.AutoX` as a script line: the variable exists (GM:43) but no existing script sets it. If it does not pin the car, `waitfor FT HURT` still fires but the frames show another lane.
+6. Frame rate on the integrated build: the log shows about 100 fps today. Below roughly 20 fps, or with first-use stalls of new effects, a take slips a second (see 3) and the fireball landing stills, which have only about 0.05 s to the neighbouring landing, can flip between "landed" and "about to land".
+7. Reel: the timed stills assume exactly the two boss clips ("FTFLOW reel start, 2 shots"). Any stunt during the takes adds a clip in front; `reel_title` and `reel_hold` stay right.
+8. Random in today's code and not pinnable: hose sweep direction in phases 1 and 2, fireball mark offsets (so hit or "DODGED +150", so the score on the dailies and paycheck), lightning flashes, which director line is on the HUD and its wording, outer-lane traffic, and particle seeds. Frames pair by moment, not by pixel.
+9. Take 4: whether the car takes a second hose hit 0.6 s after the release while changing lane is borderline (a small camera shake about 0.5 s before the kill).
+10. HUD plate states (key-hint bar, scene plate, phase caption) are computed, with margins of 0.4 s or more; the first run shows whether each frame has what the header says.
+11. Side effects on each checkout: the level-4 best score may be written to that checkout's settings.json, and career_pie is left with the level-4 result pending.
+
+SHOTS:
+35 shots, in order. "clock" = the level clock after the restart at THE FINALE (FT CLOCK lines); t = seconds of game time after that take's "FT BOSS state=Arrive".
+
+ROAD (level start, scene 1 THE ASH ROAD, autopilot free)
+1. L4_boss_road_1 - clock 2.0: the opening straight, car still launching, scene-name plate on the HUD.
+2. L4_boss_road_2 - clock 3.0: the same straight about 100 m further, HUD clean, just before the first bikers are called.
+
+ENTRANCE (natural spawn after FTStartLevel 4 7, car in lane 2, standing start)
+3. L4_boss_enter_1 - t 0.05: ENGINE 13 just spawned about 157 m ahead (tiny), THE FINALE plate.
+4. L4_boss_enter_2 - t 1.0: about 101 m ahead, still closing at 6000 cm/s (end of the fast part).
+5. L4_boss_enter_3 - t 2.0: about 72 m ahead, easing onto his spot (59 m); his first hose warning (red lane under the car) 40 % through.
+
+TAKE H (FTBossNow: fresh boss on his spot)
+6. L4_boss_idle - t 0.7: on his spot, weaving, no warning on the road, boss panel full (150).
+7. L4_boss_hurt - about 0.05 game s after 10 standard rounds (slow motion): armour sparks/ring on his tail, armor bar at 140/150.
+
+TAKE 1, phase 0 (clock 4 to 12, car in lane 2)
+8. L4_boss_hose_windup - clock 6.3 (t 2.3): the car's lane warned in red, 70 % through the 1.0 s warning.
+9. L4_boss_hose_release - clock 6.6: first live frame of the flame lane (marker turns orange, first flame bursts), on the FT HURT line.
+10. L4_boss_hose_flames - clock 7.05: 0.45 s into the 0.8 s of fire, camera in the flames (the car is in the lane).
+11. L4_boss_lob_launch - clock 10.8: two fireballs 0.2 s off the truck, their two marks blinking round the car.
+12. L4_boss_lob_flight - clock 11.25: fireballs near the top of their arc (about 9 m up).
+13. L4_boss_lob_land - clock 12.1: first fireball's blast 0.25 s old, the second's 0.1 s old (explosion + fire splash on the marks).
+
+TAKE 2, phase 1 (clock 14 to 17.3, car in lane 1)
+14. L4_boss_phase1_start - 0.2 s after 54 rounds: caption THE HOSE IS SWEEPING!, line "He's swinging the hose! Keep moving!", armor bar 64 %, the volley's sparks.
+15. L4_boss_phase1_barrel - clock 15.4: the first burning barrel on the road about 25 m ahead, right of the car.
+16. L4_boss_phase1_hose_windup - clock 16.0: lane warned, 47 % through the 0.85 s warning.
+17. L4_boss_phase1_hose_release - clock 16.45: first live frame.
+18. L4_boss_phase1_hose_sweep - clock 17.15: the flame wall 0.7 s into its 1.1 s, swept about 4 m off the car's line (side view; left or right is random).
+
+TAKE 3, phase 2 (clock 19 to 25.8, car in lane 1)
+19. L4_boss_phase2_start - 0.2 s after 106 rounds: caption FIVE-ALARM FIRE!, line "Everything's on fire! Dodge and SHOOT!", armor bar 29 %.
+20. L4_boss_phase2_hose_windup - clock 21.0: two lanes warned (the car's and the one two over).
+21. L4_boss_phase2_hose_release - clock 21.45: the car's lane goes live, the second still warning (live 0.1 s later).
+22. L4_boss_phase2_hose_sweep - clock 22.1: both flame walls live, sweeping opposite ways.
+23. L4_boss_phase2_lob_flight - clock 24.7: four fireballs in the air, four marks.
+24. L4_boss_phase2_lob_land - clock 25.4: first landed, second landing, two still coming down.
+25. L4_boss_lowarmor - 0.2 s after 24 more rounds: armor bar 13 %, line "He's running dry! Finish him!".
+
+TAKE 4, defeat and wrap (clock 28; the rest is real seconds after FTWrapNow / after the reel starts)
+26. L4_boss_defeat_moment - 0.15 s real (inside the 0.22 s hit stop): the first instant of his explosion, boss panel gone.
+27. L4_boss_defeat_after_1 - 0.65 s real (about 0.14 game s, slow motion): the fireball grown, wreck leaving, just before the CUT! card.
+28. L4_boss_defeat_after_2 - 1.75 s real (about 0.4 game s): CUT! / PRINT IT. THAT'S A WRAP! card up, blast and wreck in slow motion.
+29. L4_boss_wrap_cut - 3.05 s real: slow motion over, wreck tumbling/burning, card still up.
+30. L4_boss_wrap_reel_title - reel + 1.0 s: the highlight reel's title card.
+31. L4_boss_wrap_reel_crane - reel + 5.4 s: the kill from camera D CRANE, in its 0.35x stretch.
+32. L4_boss_wrap_reel_killcam - reel + 9.8 s: the kill again from G KILL CAM (ANOTHER ANGLE), in its 0.35x stretch.
+33. L4_boss_wrap_reel_hold - the reel's last frame held, CONTINUE button.
+34. L4_boss_wrap_dailies - THE DAILIES 3.5 s in (rating stamped; B-MOVIE expected, score about 5000).
+35. L4_boss_wrap_paycheck - the paycheck 3 s in.
+
+FACTS:
+WHICH CODE: the working checkout moved while I read it (abf845f at 13:48 -> 497759b at 13:58: 3.8 boss music, 3.9 FTGo/-ftgo, a "film" runner line). The copy the lead runs first, K:\Full Throttle\OverhaulBaseline\full-throttle-unreal, is at d771da5 (12:05). git diff d771da5..HEAD shows NO change in TickBoss, TickBossFire, TickHazards, HarnessCmd's existing commands, FTEntity.cpp or FTData.cpp; HEAD only adds SetBossMusic(true) in SpawnGroup (audio + an FTMUSIC line), FTGo, film, a corkscrew camera. The script uses none of the additions. All line numbers below are the BASELINE's (d771da5), Source\FullThrottle; GM = FTGameMode.cpp, FLOW = FTFlow.cpp.
+
+DATA (FTData.cpp): ENGINE 13 = EFTBoss::FireTruck, BossHp 150, BossEscape 80 (:245); FinaleD 60800 (:234); scene 7 THE FINALE at 60800 with spawn "60800:B" (:242, 'B' = Boss :62). The Opening is 62000 SU and ends in a plain 1500 straight; the Arena starts with a 5000 straight (:232 area): from the finale there are 6200 SU (85000 cm, 13 s at the autopilot's 470 SU/s = 6444 cm/s) of straight flat road, so no take leaves it (no jump, car always grounded). Units: DU 13.71, XU 9.14, lanes at -877/-292/+292/+877 cm (FTCore.h:13-18).
+
+MODEL (FTEntity.cpp): mesh SM_FireTruck (:180). Setup (:259) and Animate (:633) have NO branch for the level-3 boss. It gets only what every boss gets: separate wheels and suspension springs (SetupWheels :292, Animate :660-711, heavy factor 0.6), an orange boss light 1500 cd (:406-414). SetGlow (:417, alert flare + brighter light) only reacts to E.Glow, which TickBossFire never sets; KickBike (:594) does nothing for a boss. The only Level==3 branches are the BARREL (NS_BarrelFire trail :387-392, flicker :733). So today the truck has no moving cannon/hose, no windup on the model and no hit reaction on the model; attacks read only through road markers and effects.
+
+ARRIVAL (GM SpawnGroup :1658-1687): spawned 16000 cm ahead at x 0, spot Ta = 342*DU*1.25 = 5861 cm, T1 1.6 / T2 1.0 / T3 6.0, boss clock 0, logs "FT BOSS state=Arrive armor=150 escape=.." (:1683) and firstAttack (:1684), Sfx BossIntro. He closes with Sp = Vp + clamp((Want-Ahead)*1.4, +-6000) (:2814): 6000 cm/s for about 1.0 s, then an exponential ease (time constant 0.71 s). FTBossNow (FLOW:1003-1012) instead clears the road, puts the car at FinaleD*DU+100 keeping x and speed, and places him exactly on his spot (:1011).
+
+FIGHT (TickBoss GM:2639, TickBossFire GM:2866): weave Want += 329 cm*sin(0.7T), x -> 603 cm*sin(0.5T). Phase = armor fraction: 0 above 0.66, 1 above 0.33, else 2 (:2645, strict >; 51 rounds = 99/150 sits exactly on 0.66, so the script uses 54 and 106). On a phase change BossPhaseLine (:2825): step counter back to 0, director line + caption (3 s, FTHUD.cpp:650), Sfx BossPhase. Captions: THE HOSE IS SWEEPING! / FIVE-ALARM FIRE!.
+- Attack clock: T1 counts down always; fires when T1<=0 and he is within spot+3000 cm (:2874). Gap after an attack 2.5 / 2.1 / 1.7 s by phase (:2877). Steps 0 and 1 of every three = HOSE, step 2 = FIREBALLS.
+- HOSE (:2880-2887, FlameLane :2845): the lane nearest the car's x; warning 1.0 s (phase 0) or 0.85 s, fire 0.8 s (phase 0) or 1.1 s; from phase 1 it sweeps at 60*XU = 548 cm/s, direction random (:2882); phase 2 adds lane (n+2)%4 with warning 0.95, fire 0.9, opposite sweep. Hazard type 4 (GM:3282): half-width 329 cm, 9000 cm long marker, red then orange, 3 NS_FlameBurst every 0.09 s between 1200 cm behind and 5000 cm ahead of the car; hits (13) if |car x - lane x| < 329 + 90 and the car is grounded (:3301).
+- FIREBALLS (:2889-2895, Lob :2834): 2 + phase of them, thrown at once from the truck (420 cm up), flight 1.25 + 0.15k s, arc 900; first aimed at the car's x, the others +-1005 cm random, -200..600 cm along; no warning before the throw. Hazard type 5 (GM:3305): a blinking mark that rides with the car, the fireball mesh on its arc, then Explode(0.8) + NS_FireSplash (:3328); hit (14) inside 340+77 / 340+144 cm, otherwise "DODGED! +150".
+- BARRELS (:2899-2904): T2 counts down from 1.0 in every phase; in phase >= 1 a burning barrel drops off his tail at his own x when T2 <= 0, then every 3.4 s (phase 1) / 2.4 s (phase 2). Touching one = 14 + blast.
+- Under 20 % armor: "He's running dry! Finish him!" once per race (:2905).
+- What decides a hit on the car: HurtPlayer (GM:1484): nothing if Invuln > 0; logs "FT HURT dmg=.. " (:1497), sets 0.6 s of invulnerability, shakes. With FTAutoRun dmg is 0 but the line is still logged; a hose therefore logs FT HURT at its first live frame and again 0.6 s later while the car is still in the fire.
+- Escape: TickBossClock (FLOW:280), 80 s at rate 1.0..0.5; every FTBossNow resets it; no take is longer than 9 s.
+
+HURTING HIM: "FTFire <n> Boss" (FLOW:1031) pushes n rounds of the current load through BulletHit (FLOW:150) in one frame: a standard round does 1 to a boss, effects NS_ImpactArmor + NS_ImpactRing on his tail (:169-170), then HurtEnt (GM:1807) logs "FT DAMAGE target=Boss amount=1 left=<hp> load=STD source=gun" (:1815). Used: 10 (hurt), 54 (-> 96, phase 1), 106 (-> 44, phase 2), +24 (-> 20). FTAutoRun stops the car's own guns (GM:1177). "FTWrapNow" (FLOW:1100) takes all remaining armor in one hit through the same path.
+
+DEFEAT (Kill GM:1825, boss :1858, :1968-1993): +3000, Explode size 3, a rigid-body wreck, boss reel clip (:1975), finisher only if one is worn (none on a fresh career), then Wrap (GM:371): hit stop 0.22 s, slow motion 0.22x for 2.4 real s, everything else on the road wrecked, "FT OUTCOME wrap", CUT! card from 0.8 s (:398). Hazards are not ticked in the Wrap phase (they would freeze on the road), hence the kill between two hoses. After 4.2 real s (:543): "FT RATING" (:424), reel (StartReel :3898: title 2.2 s, the boss clip twice, camera 3 from kill-2.6 s and camera 6 from kill-0.9 s, both to +2.0, rate 0.35 within 0.3 s of the kill and 0.6 within 0.6 s, :3907-3908/:3975; total 12.7 s), "FT SCREEN name=Reel state=hold" (:3966/:3978), FTPress Continue -> "FT SCREEN name=Dailies" (:436) -> again -> "FT SCREEN name=Paycheck" (FLOW:361).
+
+HARNESS FACTS THE SCRIPT LEANS ON: FTStartLevel <level> <scene> (FLOW:996, :681) on the same map restarts the race at that scene (GM:253) and keeps the FTAutoRun flags (they are never reset on a game mode); the finale's own spawn then fires on the first Play frame. ft.AutoX (GM:43, :1114) pins the autopilot's x. FTFreeze (FLOW:1092, GM:3735), FTSlowMo 0.3x (FLOW:1065), FTDumpLevel (FLOW:1126; used as a harmless command to restart waitfor's window and as a state snapshot). Runner (FTGameInstance.cpp:507-556): waitfor's window starts at the last console command (:552); a found waitfor runs the next line in the same tick; command pause 0.15 s, shot pause 0.5 s. Real-time HUD items the waits avoid: ACTION! 0.45-1.45 s and the scene plate 2.8 s after play starts (GM:322, FTHUD.cpp:667-668), the key-hint bar for the first 10 s of a new race (GM:310, :1036, FTHUD.cpp:711): it is ON in the entrance, idle and hurt frames and OFF from L4_boss_hose_windup on. Game time used: about 3.5 s on the first start + about 32 s to the kill.
+
+RANDOM IN TODAY'S CODE (cannot be pinned): hose sweep direction, fireball mark offsets, civilian traffic (GM:1708), lightning flashes in the sky every 2.2-5.5 s (GM:3160; no road strikes while a boss is on, :3192), particle seeds.

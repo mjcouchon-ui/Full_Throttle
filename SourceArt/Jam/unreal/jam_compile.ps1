@@ -9,8 +9,10 @@
 #   -NoMutex             the locks here already keep this to one build at a time, and without the engine-wide build
 #                        mutex a compile no longer makes every editor start in every checkout wait (an editor asks the
 #                        build tool for its targets on start-up, behind that mutex).
-#   -NoUBA               the build accelerator froze compiles for many minutes when memory ran short.
-#   -MaxParallelActions=3  each compiler process takes close to 3 GB.
+#   -NoUBA               in this engine (5.9) this only switches off the accelerator's detouring: its executor always runs,
+#   -UBADisableWaitOnMem  and by itself it holds new compiler processes back while the PC's committed memory is high
+#                        (four jobs keep it near four fifths): that wait is switched off here.
+#   -MaxParallelActions=4  each compiler process takes close to 3 GB (three until 15 Nov 16:00, while the PC was shared).
 #   -Touch <file>        a source file under Source\FullThrottle to mark as changed once the locks are held, so it is
 #                        compiled again (for a table .inl swapped in while another job's compile may still have been
 #                        reading the old one: the build tool would otherwise call the stale object up to date).
@@ -28,7 +30,9 @@ try {
   $lock = Enter-UeLock -ProjectDir $Checkout
   try {
     if ($Touch) { (Get-Item -LiteralPath (Join-Path $Checkout ("Source\FullThrottle\" + $Touch))).LastWriteTime = Get-Date }
-    & "K:\UE_5.9\Engine\Build\BatchFiles\Build.bat" FullThrottleEditor Win64 Development "-project=$Checkout\FullThrottle.uproject" -NoMutex -NoUBA -NoHotReloadFromIDE -MaxParallelActions=3 *> $log
+    # through jam_ubt.bat, not the engine's Build.bat: Build.bat holds a lock of its own while it runs, and every game
+    # or editor start on the PC waits behind it (see jam_ubt.bat). The build tool's log goes to a file per checkout.
+    & (Join-Path $here "jam_ubt.bat") FullThrottleEditor Win64 Development "-project=$Checkout\FullThrottle.uproject" -NoMutex -NoUBA -UBADisableWaitOnMem -NoHotReloadFromIDE -MaxParallelActions=4 "-log=K:\Full Throttle\PortBuilds\ubt_$tagName.txt" *> $log
     $code = $LASTEXITCODE
   } finally { Exit-UeLock $lock }
 } finally { Exit-UeLock $global }

@@ -1,0 +1,204 @@
+FILE: K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\boss_L6.txt
+CHANGED BY CHECKER: True
+RUN: Before (untouched copy):
+powershell -NoProfile -ExecutionPolicy Bypass -File "K:\Full Throttle\SkyScratch\SourceArt\Jam\unreal\jam_exec.ps1" -Tag L6_before -Script "K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\boss_L6.txt" -Checkout "K:\Full Throttle\OverhaulBaseline\full-throttle-unreal" -BudgetSec 1200 -Extra "-ftnoattract -ftnodynres -ftslot=pie"
+
+After (integrated build): the same line with -Tag L6_after -Checkout "K:\Full Throttle\UE\full-throttle-unreal".
+
+Same frame size on both (default 3440x1440; add -Small to both or to neither). Expect "39 frames" and no result=timeout. Frames land in K:\Full Throttle\SkyScratch\HandBack\jam\play\<Tag>\, the log in <Checkout>\Saved\Logs\jam_exec_<Tag>.log. I confirmed with a throwaway script that this -Extra value binds as one argument through powershell -File.
+
+PROBLEMS FOUND BY THE CHECKER:
+Nothing was run; every finding is from reading the code. I checked the baseline copy (K:\Full Throttle\OverhaulBaseline\full-throttle-unreal) line by line and confirmed the same lines in the working checkout. Line numbers below are the baseline's; "old line N" is the colleague's file.
+
+FIXED
+
+1. Career safety (old lines 56-58). A waitfor that times out does not stop the script (FTGameInstance.cpp:520-522), so if the first FTUseTestSlot had not taken effect, FTCareerReset would have wiped the checkout's real career slot. Now FTUseTestSlot is sent twice, each waited for, and a third waitfor on "FT CAREER reset slot=career_pie" (FTProgress.cpp:421) shows in the log which slot was reset. The run line also gets -ftslot=pie (FTGameInstance.cpp:104), which puts the game on career_pie from start-up.
+
+2. L6_boss_enter_1 (old line 99, "wait 0.4"). The HUD runs on the real clock, which keeps running during FTFreeze (FTHUD.cpp:547, 650, 668): a shout shows for exactly 1.0 real second, a caption for 3.0. The still was captured 0.9 to 1.0 real seconds after the Arrive line, so "IT'S CHASING US!" would be on screen in one run and gone in the other. Now "wait 1.0": captured at about 1.3 s, shout gone, caption up. "ft.AutoX 15" moved to after this still, so the frame is straight driving and not the start of the swerve.
+
+3. L6_boss_pound_windup (old line 153, "wait 4.1"). Same edge: captured 0.83 to 1.05 real seconds after the "ICE!" shout. Now the still is 0.3 real seconds (0.1 to 0.15 s of game time) after the pound starts, with the shout 0.5 to 0.7 s old. The following pound_warn lands 0.55 to 0.6 s into the 1.0 s warning.
+
+4. L6_boss_aval_windup (old line 242, "wait 4.3"). Captured about 1.07 real seconds after the "AVALANCHE!" shout, a 0.07 s margin. Now 1.25 s after (0.34 s into the 0.8 s warning). The next three waits were re-derived (1.5, 1.6, 0.85) so release, roll and arrive keep their moments.
+
+5. L6_boss_aval_arrive (old line 256, "wait 1.05"). By my count the still fell 1.07 s after the wall starts rolling, plus per-line frame delay. The wall reaches the car's nose after 1.12 to 1.24 s (3976 cm/s from 47 to 52 m, FTGameMode.cpp:3036-3037, 3343, 3359), so the frame could show it already past. Now about 0.99 s rolling: 5 to 10 m in front of the nose.
+
+6. Defeat stills (old line 283, "FTSlowMo 9.5"). The plan needed about 2 s of slow motion left at the kill. But SlowT and PhaseT count min(frame time, 0.1 s) (FTGameMode.cpp:444, 3731), so every slow screenshot frame stretches them and defeat_after_2 could land anywhere from 0.32 to 0.47 s of game time after the kill. Now every FTSlowMo is 15, about 7 s are left at the kill, and the whole 4.2 s wrap runs at the kill's own 0.22 scale (Wrap(), GM:380 sets the scale). The stills are at 0.01 / 0.17 / 0.32 s after the kill whatever the frame times.
+   - Side effect: the reel's two kill clips hold their last recorded frame for about 1.5 s at the end (about 0.9 s with the old numbers; the stills cause this either way).
+
+7. Near-miss slow motion. The car on the centre line near-misses traffic in both inner lanes; a close pass calls Slowmo(0.45, 0.35, 2.4) (GM:2585) and the scale stays 0.35 until the next FTSlowMo (GM:3722-3723). The two long counted waits (before pound_windup and aval_windup) are now cut in two with an FTSlowMo between.
+
+8. Hurt stills (a judgement call, not a defect). hurt_1 was 0.11 s of game time after the ten hits and hurt_2 0.31 s. They are now 0.06 s and 0.21 s, so a short hit flash is not missed.
+
+9. Margins.
+   - Waitfor timeouts on the attack anchors raised (6/4/8/10/8/5.5/9/7 to 8/8/12/12/10/10/12/10), alongside and turned 12 to 15, charge 14 to 18, FTFire confirmations 1 and 0.5 to 2. Found waits cost nothing.
+   - Paycheck wait 4 to 5.
+   - Wait before FTWrapNow 0.8 to 0.9: the kill sits mid-way between the end of the spikes (+0.45 s) and the next avalanche (+0.85 s).
+   - BudgetSec in the header 900 to 1200: all timeouts together are about 850 s before start-up.
+
+CHECKED AND LEFT AS IT WAS
+
+- Every command exists with those arguments (FTFlow.cpp HarnessCmd 884-1180; ft.AutoX at FTGameMode.cpp:43, 1114).
+- Every waitfor text can appear where it is waited for:
+  - "FT HURT .. line=- push=0 near=" is printed under FTAutoRun with dmg=0.0 (GM:1484-1498).
+  - Snowball 0 always lands on a pinned car (GM:3018, 3335); the pound always hits within 356 cm of the lane (GM:3252).
+  - "left=140/95/45/25" follow from %g (GM:1815).
+  - Each search window starts at a console command placed after the previous matching line.
+- The attack order and times in the header match TickBossYeti (GM:2953-3043).
+- The charge stops about 20 m short (GM:3001, 2814), so no boss-wall hit.
+- Quality is set before FTStartLevel and re-applied at map start (GM:105).
+- The script is linear and ends with quit on every path.
+- Shot names are unchanged: 39 frames, all starting L6_boss_.
+- The task's list is covered: two road shots, four entrance, idle, four attacks with windup/release/flight-or-land, hurt, phases 1 and 2 plus low health, defeat moment and two after, reel/dailies/paycheck. Game time is about 1.5 min.
+
+NOT FIXABLE FROM A SCRIPT
+
+- The wrap writes a new level-6 best take into that checkout's Saved\FullThrottle\settings.json if this run's few thousand points beat what is there (GM:417-421). Copy that file aside before each run if the title's best takes matter.
+- I only skimmed boss_L5.txt (named in the notes as a sibling) and did not change it. Its stills use the same idiom, so the 1.0 s shout edge may apply there too.
+- To confirm the -Extra value binds as one argument through powershell -File, I created a two-line throwaway script in the validate folder, ran it, and deleted it. Nothing else was written outside boss_L6.txt.
+
+STILL UNSURE:
+Only a real run can settle these.
+
+1. Does ft.AutoX hold the car well enough on the arena's bends? No existing jam script uses it. The fight runs on alternating gentle bends, and the autopilot is a plain proportional steer (GM:1117-1121), so the car may sit some tens of cm off x=15.
+   - Margins at x=15: ordinary traffic in lane 3 is cleared by 40 cm, a bus by 9 cm.
+   - Look in the log for "FT HURT .. push=650" or "push=-650" (a traffic hit: the car is shoved, and its 0.6 s of invulnerability can hide the next attack anchor, giving result=timeout).
+   - The pound's lane is the one nearest the car, so the spikes may come up left on one bend and right on another. That should match between the two runs, but only if the offsets do.
+
+2. Do all eight "line=- push=0 near=" waits say result=found, and are all 39 frames there? One timeout puts the stills of that attack late; the next anchor re-syncs.
+
+3. Is the frame rate close to what the timing assumes? Every script line is read up to one frame late, and I assumed 30 to 60 fps. At much lower rates the counted stills drift later by a few hundredths of a game second each. The tightest are:
+   - charge_windup: must fall before the pound at c+0.4, about 0.3 real seconds of slack.
+   - the kill: must fall between s=24.70 and 25.10.
+   - the last FTFreeze 0: must come before the wrap ends 4.2 s after the kill, about 0.7 s of slack.
+
+4. Do frames over 100 ms occur between a shout and its still? The HUD clock counts at most 0.1 s per frame (GM:444), so such a hitch makes the shout look younger. The warm-up boss is there to prevent it; FTHITCH lines inside the take say whether it did.
+
+5. Random in both runs whatever the script does:
+   - the avalanche's gap lane (the car is hit, or gets DODGED +200);
+   - the scatter of the second and later snowballs;
+   - traffic and the NEAR MISS popups and score it gives (the centre line near-misses both inner lanes);
+   - the director's ambient lines;
+   - camera shake of a centimetre or two in stills taken right after a hit;
+   - bikers' lanes in road_2;
+   - the reel's cameras for non-boss clips.
+   If a near miss falls within 1.9 s before the kill, the boss's reel event merges into that clip (GM:3878-3886) and the reel has no crane/kill-cam pair, so wrap_reel_hold differs.
+
+6. What do the first frames after a teleport look like? enter_1 is 1.3 real seconds after FTBossNow moves the car about 600 m back; whether Lumen and TSR have settled by then is a look question.
+
+7. Are the worked-out distances right? aval_arrive should show the wall 5 to 10 m ahead of the nose, enter_2 the yeti on the left about 5 m ahead, charge_close the yeti about 21 m ahead with no "source=BossWall" line. If the avalanche wall is already at or past the car, his distance at launch was shorter than the 47 to 52 m I derived from the sway.
+
+8. Does the working checkout still match? It was changing while I read it (a "film" line type and FTBRAWL lines in the log tap have appeared in FTGameInstance.cpp). The yeti code, the harness commands and the log texts this script uses were identical in both copies when I checked, but the integrated build may differ again by the time it runs.
+
+9. If the overhaul changes a timer (adds a wind-up, changes a gap), the anchors still re-sync, but counted stills land elsewhere in the cycle and an FTFire could fall on the other side of an attack boundary. Compare between the two logs the order and spacing of "FT BOSS yeti=", "FT HURT .. push=0", "FT DAMAGE .. left=" and the fight= value on "FT BOSS state=Down" (about 30).
+
+10. Start-up plus the level-6 map load on the shared disk. The script allows 240 s for the load and the budget is 1200 s; a normal run should take 5 to 7 minutes.
+
+SHOTS:
+39 shots, in order. "s" = game seconds after the yeti has finished turning round (State 0 starts); "T" = game seconds after the real boss's Arrive line. Stills in the fight are FTFreeze 1 / shot / FTFreeze 0.
+
+ROAD
+1. L6_boss_road_1 - level clock 3 s: top of the ski run (scene FIRST TRACKS), car at road x 585, nothing spawned yet (first script spawn needs the car at 18,565 cm). Key-hint overlay still on (first 10 s).
+2. L6_boss_road_2 - level clock 8 s: further down the first bends; the first bikers/rammer may be in frame (random lanes).
+
+ENTRANCE (real boss, after a warm-up boss that is not filmed)
+3. L6_boss_enter_1 - T=0.2: finale road, yeti still 25 m behind and out of frame; caption THE ABOMINABLE IS ON YOUR TAIL!, boss bar up.
+4. L6_boss_enter_2 - T=2.2 (0.33 s after "yeti=alongside"): he bounds past on the LEFT, about 5 m ahead of the car's centre, facing downhill.
+5. L6_boss_enter_3 - T=2.9: about 21 m ahead, back to the camera, pulling away to his spot.
+6. L6_boss_enter_4 - 0.33 s after "yeti=turned": half way through the 0.7 s spin (heading about 95 degrees).
+
+IDLE
+7. L6_boss_idle - s=0.4: facing the car, loping, arms up, nothing thrown yet.
+
+SNOWBALLS (phase 0, two balls)
+8. L6_boss_snow_windup - s=0.92, 0.28 s before the throw (today: plain lope, no wind-up).
+9. L6_boss_snow_release - s=1.36, 0.16 s after the throw: balls just out, marks on the road.
+10. L6_boss_snow_flight - s=1.86, 0.66 s into the 1.2 s flight (near the top of the arc).
+11. L6_boss_snow_land - 0.08 s after the first ball lands on the car (FT HURT anchor, s=2.4); second lands 0.12 s after the first.
+
+GROUND POUND (phase 0)
+12. L6_boss_pound_windup - 0.2 s after the pound starts (s=3.8): shake, ICE!, lane mark just up.
+13. L6_boss_pound_warn - 0.66 s into the 1.0 s lane warning.
+14. L6_boss_pound_release - 0.05 s after the lane goes live (FT HURT anchor, s=4.6): ice bursts just born.
+15. L6_boss_pound_land - 0.25 s after live: spikes up the lane (live lasts 0.45 s).
+
+HURT
+16. L6_boss_hurt_1 - 0.1 s after FTFire 10 Boss (150 -> 140): armor sparks on him.
+17. L6_boss_hurt_2 - 0.3 s after the same hits.
+
+CHARGE (first charge, phase 0; c = "yeti=charge" line, s=8.0)
+18. L6_boss_charge_windup - c+0.3: leaning in, glow on, HE'S CHARGING!; before the pound that starts at c+0.4.
+19. L6_boss_charge_release - c+0.95: he starts to close (T2 past 0.8); a lane is under warning.
+20. L6_boss_charge_lunge - c+1.6: half way in; that lane's spikes are up.
+21. L6_boss_charge_close - c+2.15: nearest point, about 21 m ahead; spikes gone; charge ends at c+2.4.
+
+PHASE 1
+22. L6_boss_phase1_start - 0.17 s after FTFire 45 Boss (140 -> 95) sent as a snowball lands at s=12.0: caption HE'S STARTING AVALANCHES!, sparks.
+23. L6_boss_phase1_snow_land - 0.05 s after the first of THREE snowballs lands (s=14.4); two still in the air.
+24. L6_boss_phase1_pound_release - 0.05 s after the phase-1 pound's lane goes live (s=16.05).
+
+AVALANCHE (phase 1; L = its start, s=17.2)
+25. L6_boss_aval_windup - L+0.28: wall warned where he stands, AVALANCHE!
+26. L6_boss_aval_release - L+0.86: warning over, the wall starts to roll.
+27. L6_boss_aval_roll - L+1.39: wall about 26 m from the car, one gap lane.
+28. L6_boss_aval_arrive - L+1.8: wall 7 to 12 m from the car, just before it reaches it.
+
+PHASE 2
+29. L6_boss_phase2_start - 0.17 s after FTFire 50 Boss (95 -> 45) at s=21.0: caption THE YETI IS BERSERK!; he is late in his second charge.
+30. L6_boss_phase2_snow_land - 0.05 s after the first of FOUR snowballs lands (s=22.9); three in the air.
+31. L6_boss_phase2_pound_release - 0.05 s after the TWO-lane pound goes live (s=24.25).
+32. L6_boss_phase2_lowhealth - 0.17 s after FTFire 20 Boss (45 -> 25, under 20%): director's line "He's slowing down! Take the shot!".
+
+DEFEAT (FTWrapNow at s=24.85, road empty of attacks)
+33. L6_boss_defeat_moment - one frame after the kill, inside the 0.22 s hit-stop.
+34. L6_boss_defeat_after_1 - 0.17 s of game time after: fireball growing, wreck thrown, CUT! card up.
+35. L6_boss_defeat_after_2 - about 0.47 s of game time after: full blast, CUT! PRINT IT. THAT'S A WRAP!
+
+WRAP
+36. L6_boss_wrap_reel_1 - 1.0 s into the highlight reel: its title card.
+37. L6_boss_wrap_reel_hold - the reel holding on its last frame: the kill from the kill camera, 2 s after the hit.
+38. L6_boss_wrap_dailies - THE DAILIES 3.5 s in (rating stamp down).
+39. L6_boss_wrap_paycheck - the paycheck 4 s in (lines counted up).
+
+FACTS:
+All from reading the code; nothing was run. GM = K:\Full Throttle\UE\full-throttle-unreal\Source\FullThrottle\FTGameMode.cpp, FLOW = FTFlow.cpp, ENT = FTEntity.cpp, DATA = FTData.cpp (line numbers are today's working checkout; in the baseline copy K:\Full Throttle\OverhaulBaseline\full-throttle-unreal the same yeti code sits about 9 lines earlier in GM and 5 earlier in FLOW, and I checked that the constants below are identical there).
+
+DATA
+- DATA:318 BossHp 150, BossEscape 80 s, BossBullet 0; DATA:307 FinaleD 65200 (on the level's last straight); DATA:305 the arena after it has only gentle bends, no half pipe. FTCore.h:13-18: XU 9.14 cm, DU 13.71 cm, lanes at x = -877, -292, +292, +877 cm, road half 1170, barrier 1371. GM:68 car 256 x 480 cm. GM:295 every race starts at x = +292.
+- GM:1551 boss box W = 409 cm, L = 1234 cm, bBig.
+
+ARRIVAL (GM:1667-1696 SpawnGroup case Boss; FLOW:1008-1018 FTBossNow)
+- GM:1678 fighting spot Ta = 300*DU*1.2 = 4936 cm ahead. GM:1681-1683: starts 2600 cm BEHIND, x = +/-713 cm on the side opposite the car (Car->X > 0 -> left), State 10, Heading 180, T1 = 0. So his line reads "FT BOSS firstAttack t1=0.0 t2=1.0 t3=6.0" (not 1.6 as for other bosses). GM:1686 caption THE ABOMINABLE IS ON YOUR TAIL!
+- FLOW:1016: FTBossNow does not move him to his spot on level index 5: the real entrance plays.
+- GM:2968-2985 State 10: position on a clock, smoothstep over 4.5 s from -2600 to Ta-900 (= +4036 cm); GM:2978 logs "FT BOSS yeti=alongside t=.." when he is within 200 cm behind the car's centre (T = 1.83 s by my arithmetic), ROOOAAARRR!, shake 0.6; GM:2982 logs "FT BOSS yeti=turned ahead=.." at 4.5 s.
+- GM:2986-2999 State 11: Heading 180 -> 0 in 0.7 s, then State 0 with T1 = 1.2, T3 = 8.0, second roar, shake 0.5. During States 10/11 he is no wall (GM:2462).
+- The boss clock and BossFightT run from the Arrive line, entrance included (GM:2821).
+
+PHASES (GM:2653-2654): phase 0 above 66% armor, 1 from 66% down (<= 99), 2 from 33% down (<= 49). GM:3015 + GM:2834-2841 BossPhaseLine: on a change Step = 0 (attack order restarts; T1 and T3 are left alone), captions HE'S STARTING AVALANCHES! / THE YETI IS BERSERK!, BossPhase sound. GM:3051 under 20% once: "He's slowing down! Take the shot!".
+
+ATTACK CYCLE (GM:3017-3050), timer T1, only when he is within Ta+3000 cm: gap 2.4 / 2.0 / 1.7 s by phase (GM:3021); phase 0 alternates snowballs, pound; phases 1-2 cycle snowballs, pound, avalanche (GM:3022). T1 keeps counting during a charge.
+- Snowballs GM:3023-3030: N = 2 + phase; Lob (GM:2843-2852) from his hands (height 520) to a mark that rides with the car, flight 1.2 s + 0.12 s per further ball, radius 380 cm, arc 700, damage 15; ball 0 is aimed at the car's x, the others +/-120 XU random. No wind-up. Hit test GM:3344: |dx| < 380 + 0.3*CarW and |d| < 380 + 0.3*CarL at landing; else DODGED +150 if within 2.2 radii.
+- Ground pound GM:3031-3040: lane nearest the car (plus the lane two over in phase 2), warning 1.0 s (0.85 s from phase 1), live 0.45 s, shake 0.5, ICE!. GM:3250-3264: when live, four ice bursts down the lane and 16 damage if |car x - lane x| < 356 cm.
+- Avalanche GM:3041-3049: gap lane FMath::RandRange(0,3), gap width 78*XU*1.3 = 927 cm (66 -> 784 in phase 2), warning 0.8 s at his distance, then rolls at 290*DU = 3976 cm/s (320 -> 4387 in phase 2); T1 = gap + 0.5. GM:3349-3376: reaching the car's nose it does 14 damage unless the car is in the gap or airborne; in the gap: +200 and "FT STUNT dodge=shock count=..". NS_SnowWall bursts every 0.1 s on the three closed lanes.
+- Charge GM:3004-3014, timer T3: 8.0 s after the turn; "FT BOSS yeti=charge phase=<n>", HE'S CHARGING!; State 1 for 2.4 s: Glow = 1 throughout, steers toward the car's x, model Charge value ramps to 1 in 0.5 s; from 0.8 s his target distance becomes Ta - 170*DU*1.4 = 1673 cm; at 2.4 s back to State 0 and T3 = 9 / 7 / 5.5 s by the phase at that moment. He approaches by GM:2823 (speed = car speed + (want - ahead)*1.4), so by my arithmetic he gets no nearer than about 20 m; a hit needs contact (GM:2462: |dx| < 333 cm and |ahead| < 857 cm) and is then the boss-wall rule GM:2536-2551: 10 damage (8 with Crash Pads), car shoved back, "FT PLAYER delta=.. source=BossWall".
+- Between attacks: sway GM:3000-3001 (distance +/-274 cm at 0.9 rad/s, x +/-640 cm at 0.6 rad/s).
+
+HURT / DEFEAT
+- GM:1816-1832 HurtEnt: logs "FT DAMAGE target=Boss amount=1 left=<hp> load=STD source=gun"; the only reaction is the Hit sound (KickBike, ENT:594-597, acts on bikes only). The visible part is BulletHit FLOW:163-171: NS_ImpactArmor + NS_ImpactRing sparks at his tail for a standard round. No hurt pose, no flash today.
+- FLOW:1036-1066 FTFire <n> Boss: n rounds of the current load through BulletHit in one frame; standard = 1 armor each on a fresh career (FLOW:154-158).
+- FLOW:1105-1111 FTWrapNow: remaining armor in one hit, cause gun. GM:1867, 1974-2003 Kill: +3000, "FT BOSS state=Down clock=.. fight=.. lastChance=0", size-3 explosion (GM:1918), the body mesh thrown as a burning wreck (GM:1931-1943; the arms are a separate component and are not part of it), boss reel clip (GM:1984), Wrap(false).
+- GM:375-403 Wrap: hit-stop 0.22 s real, slow motion 0.22x for 2.4 s real, every other vehicle wrecked, "FT OUTCOME wrap clock=..", card CUT! PRINT IT. THAT'S A WRAP! from 0.8 s real. GM:540-555: after 4.2 REAL seconds (PhaseT counts real time) rating + save, then the reel (GM:3992-4023: boss clip twice, crane then kill camera, after up to five other clips; title 2.2 s; "FT SCREEN name=Reel state=hold" at the end). Hazards are not ticked in the Wrap phase, so anything in the air at the kill stays frozen on screen: the script kills in the 0.4 s after a pound when nothing is out.
+- Escape clock FLOW:280-322: LAST CHANCE at boss clock 80, gone within 8 s more. The script kills at boss clock about 30.
+
+MODEL (ENT)
+- ENT:301-309 Setup: his arms are their own mesh /Game/Characters/Bosses/SM_YetiArms on the Extra component at YetiShoulderZ. ENT:682: the yeti animates his own body (no suspension lean).
+- ENT:746-757 Animate: YetiPhase advances at 1 + 0.7*Charge; body pitch -5*sin(6A) - 9*Charge deg, roll 5*sin(3A), bounce 90*|sin(3A)| cm; arms pitch 14*sin(6A+0.8) + 12*Charge, roll 16*sin(3A+0.4). Charge is 1 during the run-in, fades during the turn (GM:2977, 2991), 0..1 in a charge (GM:3011). GM:1628: yaw += Heading (the turn).
+
+HARNESS POINTS THE SCRIPT LEANS ON
+- GM:1493-1516 HurtPlayer: with FTAutoRun/FTInvuln damage becomes 0 but "FT HURT dmg=0.0 hp=.. line=- push=0 near=.. gap=.. scene=.." is still printed, and Invuln = 0.6 s of game time follows (a second landing inside it prints nothing). Attacks pass no line key and no push; traffic and boss-wall bumps have push=+/-650. This line is the script's anchor for "an attack has just landed".
+- GM:1123: ft.AutoX replaces the autopilot's lane choice. GM:1186: FTAutoRun never fires.
+- GM:3727-3746: FTSlowMo n = Slowmo(n, 0.3): SlowT = max(SlowT, n) in real seconds, cannot be shortened; any later Slowmo call replaces the scale (a near miss sets 0.35, GM:2594). FTFreeze = dilation 0.0001, applied in Play, Wreck and Wrap.
+- FTGameInstance.cpp:536-588 (baseline 518-554): waitfor searches from the last console command, and that index is taken before the command runs, so a waitfor right after FTFire / FTBossNow / FTUseTestSlot sees that command's own lines.
+- GM:1045 / 314: key hints stay on screen for the first 10 real seconds of play. GM:1702-1715 script spawns need the car within 2000 cm of the spawn's distance. GM:1717-1731 civilian traffic spawns 170 m ahead in a random lane all through the fight (every 1.4-3.5 s while a boss is out).
+- A sibling script in the same folder (boss_L5.txt) uses the same still/slow-motion idiom and the same shot-name pattern; mine follows its names (road_1/2, enter_n, idle, hurt_1/2, <attack>_windup/release/flight/land, phase1_start, phase2_start, phase2_lowhealth, defeat_moment, defeat_after_1/2, wrap_reel_1, wrap_dailies, wrap_paycheck).
+
+BUDGET: game time about 11 s road + 13 s warm-up + 30 s fight + wrap, reel, dailies, paycheck (real time, under 50 s): about 1 min 45 s. Wall time after the map load about 3.5 min (the fight runs at 0.3x).

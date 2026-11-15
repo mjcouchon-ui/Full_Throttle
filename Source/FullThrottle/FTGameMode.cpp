@@ -44,7 +44,7 @@
 
 // test hooks: ft.Autopilot 1 drives the car (and starts the race from the title); ft.Shots N takes a screenshot every N seconds
 static TAutoConsoleVariable<int32> CVarFTAutopilot(TEXT("ft.Autopilot"), 0, TEXT("FULL THROTTLE: 1 = the autopilot drives and starts races (tests, benchmarks)"));
-static TAutoConsoleVariable<int32> CVarFTTwistCam(TEXT("ft.TwistCam"), 1, TEXT("FULL THROTTLE 3.7: 1 = through corkscrews the chase camera rides the road's own frame where it is, pulled halfway to the corkscrew's centre line (never under the road); 0 = the 3.6 camera"));
+static TAutoConsoleVariable<int32> CVarFTTwistCam(TEXT("ft.TwistCam"), 1, TEXT("FULL THROTTLE 3.7/3.9.7: 1 = through corkscrews and corkscrew pipes the chase camera rides the road's own frame where it is, pulled halfway to the corkscrew's centre line (never under the road); 0 = the 3.6 camera"));
 static TAutoConsoleVariable<float> CVarFTAutoX(TEXT("ft.AutoX"), -99999.f, TEXT("FULL THROTTLE 3.6 tests: the autopilot holds this road x (cm, -1371..1371 between the barriers) instead of picking a lane; -99999 = off"));
 static TAutoConsoleVariable<float> CVarFTHp(TEXT("ft.Hp"), 0.f, TEXT("FULL THROTTLE test hook: start each race with this armour, e.g. 30 = already burning (0 = normal)"));
 static TAutoConsoleVariable<int32> CVarFTAttract(TEXT("ft.Attract"), 1, TEXT("FULL THROTTLE 3.0: 1 = the title plays the game by itself and cuts between the levels (attract mode)"));
@@ -4353,8 +4353,11 @@ bool AFTGameMode::ComputeCamera(FMinimalViewInfo& POV, float Dt)
 	// Blends in just before the corkscrew (looks ahead half a second) and out once the camera itself has left it.
 	const float DCam = FMath::Max(Car->D - Back, 0.f);
 	const FFTFrame FC = Track->Sample(DCam);
+	// 3.9.7 (owner: "camera going under the road in level 2... it's a corkscrew again"): Level 2's corkscrews are mostly
+	// PIPES (the road spirals 1-3 times round the glass tube), flagged Pipe, not Twist, so 3.7 never switched on there.
+	// Every section that rolls the road round (Twist, Pipe, coaster modes 2/6 which carry Twist) now gets this camera.
 	const bool bTwistNear = CVarFTTwistCam.GetValueOnGameThread() != 0 && Phase != EFTPhase::Wreck
-		&& ((F.Flags | FC.Flags | Track->FlagsAt(Car->D + Spd * 0.5f)) & FTFlag::Twist) != 0;
+		&& ((F.Flags | FC.Flags | Track->FlagsAt(Car->D + Spd * 0.5f)) & (FTFlag::Twist | FTFlag::Pipe)) != 0;
 	TwistCamW = FMath::FInterpTo(TwistCamW, bTwistNear ? 1.f : 0.f, RDt, 4.f);
 	if (TwistCamW > 0.001f)
 	{

@@ -24,6 +24,14 @@
 param([Parameter(Mandatory=$true)][string]$Tag, [Parameter(Mandatory=$true)][string]$Script, [string]$Checkout = "",
       [int]$BudgetSec = 600, [int]$GraceSec = 1800, [int]$ResX = 3440, [int]$ResY = 1440, [string]$Extra = "", [switch]$Small, [string]$Engine = "K:\UE_5.9")
 $ErrorActionPreference = "Stop"
+# Runs that are already lined up (the steps of a jam_turn.ps1 turn) can be called off without stopping anything: a
+# file jam_exec.skip beside this script, one tag pattern a line (wildcards), makes a run whose tag matches end at once.
+$skipFile = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "jam_exec.skip"
+if (Test-Path -LiteralPath $skipFile) {
+  foreach ($pat in @(Get-Content -LiteralPath $skipFile | ForEach-Object { $_.Trim() } | Where-Object { $_ -and -not $_.StartsWith("#") })) {
+    if ($Tag -like $pat) { "SKIPPED: tag '$Tag' is called off by jam_exec.skip ($pat)"; exit 0 }
+  }
+}
 if (-not $Checkout) { $Checkout = if ($env:JAM_PORT) { $env:JAM_PORT } else { "K:\Full Throttle\UE\full-throttle-unreal" } }
 if (-not (Test-Path -LiteralPath $Script)) { throw "no script at $Script" }
 if ($Small) { $ResX = 1720; $ResY = 720 }

@@ -1,0 +1,39 @@
+# Track fingerprints (the FTTRACK log line: every frame's place and attitude, and the four solid sections).
+# A level's line must stay exactly this whatever scenery is added.
+#
+# 15 Nov 2026, about 02:20: branch aaa-world-polish at 56bc76a (origin/main b75303e, FULL THROTTLE 3.3.0, merged in),
+# every level loaded with the dressing OFF (ft.Dress 0). Levels 0-3 and 5-7 are identical to the lines recorded before
+# the merge (8605d6b / 697e942 and the workers' own no-dressing runs). Level 4 (Theme Park) changed with main's 3.3.0
+# (three coaster rails, coaster loops and corkscrews): its line before the merge was
+#   FTTRACK level=4 frames=12710 route=754193f4 solid=5d66549f solidTriangles=946800
+FTTRACK level=0 frames=12717 route=dc9e032b solid=d2e759f4 solidTriangles=986296
+FTTRACK level=1 frames=12792 route=09fbdb9f solid=a2d79366 solidTriangles=950948
+FTTRACK level=2 frames=12888 route=efc95392 solid=e2d27537 solidTriangles=964188
+FTTRACK level=3 frames=12497 route=506786e7 solid=eead12ba solidTriangles=900592
+FTTRACK level=4 frames=12518 route=673f0081 solid=3e2a2030 solidTriangles=987216
+FTTRACK level=5 frames=12415 route=b2fc812a solid=9cada242 solidTriangles=931996
+FTTRACK level=6 frames=12470 route=04d3f899 solid=8927e339 solidTriangles=930148
+FTTRACK level=7 frames=12717 route=5faaeb1d solid=25fa2576 solidTriangles=957884
+
+# The same tracks as one line each that does not depend on how the code was compiled (FTTRACKSUM: the route's length,
+# its box, the mean of its frames and of their up vectors, to a tenth of a centimetre). From the editor binary,
+# main 223c349 with the summary line added, 15 Nov 2026.
+FTTRACKSUM level=0 length=2548014.5 min=(-112243.2,-17679.5,-0.5) max=(390944.3,1256811.9,9159.6) mean=(142455.4,706481.5,2217.8) up=(-0.0010,-0.0032,0.8106)
+FTTRACKSUM level=1 length=2575754.5 min=(-269257.0,0.0,-320.8) max=(437277.8,777901.3,10699.2) mean=(55077.2,477928.1,798.4) up=(-0.0050,-0.0051,0.7716)
+FTTRACKSUM level=2 length=2578511.1 min=(0.0,0.0,-665.7) max=(2426597.6,281719.8,6746.4) mean=(1185050.1,151053.7,-182.5) up=(0.0004,0.0001,0.9602)
+FTTRACKSUM level=3 length=2500311.0 min=(0.0,0.0,-1248.3) max=(986284.2,1884727.3,5694.1) mean=(560479.7,810411.2,-762.5) up=(-0.0016,0.0038,0.9456)
+FTTRACKSUM level=4 length=2508014.8 min=(-1255651.7,0.0,-0.0) max=(201678.8,979560.6,7668.7) mean=(-344153.9,671760.5,1077.4) up=(-0.0080,0.0002,0.8261)
+FTTRACKSUM level=5 length=2483540.7 min=(0.0,0.0,-173900.1) max=(2161990.1,755224.6,0.0) mean=(1091003.2,312249.4,-86974.4) up=(0.0593,0.0222,0.9321)
+FTTRACKSUM level=6 length=2510275.5 min=(0.0,-48439.6,-833.6) max=(2323238.4,271776.6,5912.4) mean=(1173843.6,21241.3,-407.2) up=(0.0003,0.0020,0.8371)
+FTTRACKSUM level=7 length=2543940.7 min=(-1211656.4,0.0,0.0) max=(142698.9,1439049.4,7214.3) mean=(-325037.8,875046.2,627.2) up=(-0.0067,-0.0007,0.8982)
+
+# The checksums of a PACKAGED game (Development, PortBuilds/RC_Development, main 223c349 with the summary line, 15 Nov 2026).
+# They differ from the editor binary's above although the track is the same: the summaries agree within 0.5 cm on every level.
+FTTRACK-PACKAGED level=0 frames=12717 route=44dd0d23 solid=2cb61963 solidTriangles=986296
+FTTRACK-PACKAGED level=1 frames=12792 route=f745c368 solid=6f8dbf8b solidTriangles=950948
+FTTRACK-PACKAGED level=2 frames=12888 route=5537fd3f solid=d9852399 solidTriangles=964188
+FTTRACK-PACKAGED level=3 frames=12497 route=f2beec07 solid=67924e66 solidTriangles=900592
+FTTRACK-PACKAGED level=4 frames=12518 route=996841ac solid=fbcce0b0 solidTriangles=987216
+FTTRACK-PACKAGED level=5 frames=12415 route=8ac78e94 solid=87bc6e97 solidTriangles=931996
+FTTRACK-PACKAGED level=6 frames=12470 route=857cff00 solid=fbf868a4 solidTriangles=930148
+FTTRACK-PACKAGED level=7 frames=12717 route=6919ff6f solid=78030b86 solidTriangles=957884

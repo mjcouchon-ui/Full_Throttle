@@ -373,77 +373,81 @@ Set(TEXT("GatePost"), {                                   // one side of Nereida
 	{ TEXT("SM_Tethered"),     22, 14, 0,  0, 1.2f },
 });
 
+// No rule of this pass has a chance under 1. A chance is not a sprinkle in this game: the first random number of a
+// slot and a rule steps by 0.039 from slot to slot and by 0.052 from rule to rule, so a chance of 0.6 is "15 slots
+// on, 10 off", and rules written one after another are off at nearly the same slots (round one left 450 m of
+// water empty at a time). Each rule has a longer step instead and its pieces come evenly.
 Zone(TEXT("The reef, third pass"), 0.0f, 1.7f);
-	Scatter(TEXT("SM_KelpRaft"), 34, 130, 3, 1, 0.8f, 1.f, 0.25f, 0, 180.f);
-	Scatter(TEXT("SM_FishRing"), 30, 70, 2, 0, 0.6f, 1.f, 0.3f, 0, 180.f);
-	Scatter(TEXT("SM_FishStream"), 31, 46, 4, 2, 0.7f, 1.f, 0.f, 0, 6.f);
-	Scatter(TEXT("SM_SharkRing"), 90, 190, 9, 4, 0.9f, 1.f, 0.2f, 0, 180.f);
-	Scatter(TEXT("SM_BubbleVent"), 30, 100, 5, 3, 0.8f, 1.f, 0.2f, 0, 180.f);
-	Scatter(TEXT("SM_MantaFlight"), 36, 60, 11, 6, 0.9f, 1.f, 0.15f, 0, 5.f);
+	Scatter(TEXT("SM_KelpRaft"), 34, 130, 3, 1, 1.f, 1.f, 0.25f, 0, 180.f);
+	Scatter(TEXT("SM_FishRing"), 42, 70, 2, 0, 1.f, 1.f, 0.3f, 0, 180.f);
+	Scatter(TEXT("SM_FishStream"), 38, 50, 4, 2, 1.f, 1.f, 0.f, 0, 6.f);
+	Scatter(TEXT("SM_SharkRing"), 90, 190, 9, 4, 1.f, 1.f, 0.2f, 0, 180.f);
+	Scatter(TEXT("SM_BubbleVent"), 30, 100, 5, 3, 1.f, 1.f, 0.2f, 0, 180.f);
+	Scatter(TEXT("SM_MantaFlight"), 36, 60, 11, 6, 1.f, 1.f, 0.15f, 0, 5.f);
 Zone(TEXT("The kelp forest, third pass"), 1.7f, 3.4f);
-	Scatter(TEXT("SM_KelpRaft"), 30, 140, 1, 0, 0.6f, 1.1f, 0.3f, 0, 180.f);          // weed adrift over the forest
-	Scatter(TEXT("SM_FishRing"), 30, 60, 3, 1, 0.6f, 1.f, 0.3f, 0, 180.f);
-	Scatter(TEXT("SM_FishStream"), 31, 46, 4, 0, 0.7f, 1.f, 0.f, 0, 6.f);
-	Scatter(TEXT("SM_MantaFlight"), 36, 60, 9, 4, 0.9f, 1.f, 0.15f, 0, 5.f);
+	Scatter(TEXT("SM_KelpRaft"), 30, 140, 2, 0, 1.f, 1.1f, 0.3f, 0, 180.f);          // weed adrift over the forest
+	Scatter(TEXT("SM_FishRing"), 42, 70, 3, 1, 1.f, 1.f, 0.3f, 0, 180.f);
+	Scatter(TEXT("SM_FishStream"), 38, 50, 4, 0, 1.f, 1.f, 0.f, 0, 6.f);
+	Scatter(TEXT("SM_MantaFlight"), 36, 60, 9, 4, 1.f, 1.f, 0.15f, 0, 5.f);
 Zone(TEXT("The research station, third pass"), 3.4f, 5.0f);
-	Scatter(TEXT("SM_PodLow"), 18.3f, 21, 2, 0, 0.9f, 1.f, 0.f, 1, 4.f);              // the right verge (the pipeline has the left)
-	Scatter(TEXT("SM_PressureHab"), 33, 38, 2, 1, 0.9f, 1.f, 0.1f, -1, 180.f);     // left, behind the pipeline
-	Scatter(TEXT("SM_PressureHab"), 44, 50, 3, 2, 0.9f, 1.f, 0.1f, 1, 180.f);         // right, behind the travel tube
-	Scatter(TEXT("SM_Tethered"), 40, 110, 3, 0, 0.8f, 1.f, 0.25f, 0, 180.f);
-	Scatter(TEXT("SM_BubbleVent"), 36, 100, 4, 1, 0.8f, 1.f, 0.2f, 0, 180.f);
-	Scatter(TEXT("SM_FishRing"), 40, 80, 4, 3, 0.6f, 1.f, 0.3f, 0, 180.f);
-	Scatter(TEXT("SM_FishStream"), 38, 50, 6, 2, 0.7f, 1.f, 0.f, 0, 6.f);
+	Scatter(TEXT("SM_PodLow"), 18.3f, 21, 2, 0, 1.f, 1.f, 0.f, 1, 4.f);              // the right verge (the pipeline has the left)
+	Scatter(TEXT("SM_PressureHab"), 33, 38, 2, 1, 1.f, 1.f, 0.1f, -1, 180.f);     // left, behind the pipeline
+	Scatter(TEXT("SM_PressureHab"), 44, 50, 3, 2, 1.f, 1.f, 0.1f, 1, 180.f);         // right, behind the travel tube
+	Scatter(TEXT("SM_Tethered"), 40, 110, 4, 0, 1.f, 1.f, 0.25f, 0, 180.f);
+	Scatter(TEXT("SM_BubbleVent"), 36, 100, 5, 1, 1.f, 1.f, 0.2f, 0, 180.f);
+	Scatter(TEXT("SM_FishRing"), 42, 80, 7, 3, 1.f, 1.f, 0.3f, 0, 180.f);
+	Scatter(TEXT("SM_FishStream"), 38, 50, 9, 2, 1.f, 1.f, 0.f, 0, 6.f);
 Zone(TEXT("The salvage field, third pass"), 5.0f, 6.6f);
-	Scatter(TEXT("SM_PodLow"), 18.3f, 21, 4, 1, 0.9f, 1.f, 0.f, 0, 4.f);
-	Scatter(TEXT("SM_PressureHab"), 33, 38, 6, 2, 0.9f, 1.f, 0.1f, 0, 180.f);
-	Scatter(TEXT("SM_Tethered"), 36, 110, 3, 0, 0.8f, 1.f, 0.25f, 0, 180.f);          // floats over the finds
-	Scatter(TEXT("SM_KelpRaft"), 34, 130, 5, 2, 0.8f, 1.f, 0.3f, 0, 180.f);
-	Scatter(TEXT("SM_SharkRing"), 90, 190, 7, 3, 0.9f, 1.f, 0.2f, 0, 180.f);          // sharks over the dead ships
-	Scatter(TEXT("SM_FishRing"), 30, 70, 4, 1, 0.6f, 1.f, 0.3f, 0, 180.f);
-	Scatter(TEXT("SM_FishStream"), 31, 46, 5, 3, 0.7f, 1.f, 0.f, 0, 6.f);
-	Scatter(TEXT("SM_BubbleVent"), 30, 100, 5, 4, 0.8f, 1.f, 0.2f, 0, 180.f);
+	Scatter(TEXT("SM_PodLow"), 18.3f, 21, 4, 1, 1.f, 1.f, 0.f, 0, 4.f);
+	Scatter(TEXT("SM_PressureHab"), 33, 38, 6, 2, 1.f, 1.f, 0.1f, 0, 180.f);
+	Scatter(TEXT("SM_Tethered"), 36, 110, 4, 0, 1.f, 1.f, 0.25f, 0, 180.f);          // floats over the finds
+	Scatter(TEXT("SM_KelpRaft"), 34, 130, 6, 2, 1.f, 1.f, 0.3f, 0, 180.f);
+	Scatter(TEXT("SM_SharkRing"), 90, 190, 7, 3, 1.f, 1.f, 0.2f, 0, 180.f);          // sharks over the dead ships
+	Scatter(TEXT("SM_FishRing"), 42, 70, 7, 1, 1.f, 1.f, 0.3f, 0, 180.f);
+	Scatter(TEXT("SM_FishStream"), 38, 50, 7, 3, 1.f, 1.f, 0.f, 0, 6.f);
+	Scatter(TEXT("SM_BubbleVent"), 30, 100, 6, 4, 1.f, 1.f, 0.2f, 0, 180.f);
 Zone(TEXT("The approach, third pass"), 6.6f, 7.94f);
-	Scatter(TEXT("SM_PodLow"), 18.3f, 21, 3, 0, 0.9f, 1.f, 0.f, 0, 4.f);
-	Scatter(TEXT("SM_PressureHab"), 33, 38, 3, 1, 0.9f, 1.f, 0.1f, 0, 180.f);
-	Scatter(TEXT("SM_Tethered"), 36, 110, 3, 2, 0.8f, 1.f, 0.25f, 0, 180.f);
-	Scatter(TEXT("SM_BubbleVent"), 30, 110, 2, 0, 0.8f, 1.f, 0.2f, 0, 180.f);         // the bottom smokes here: bubbles on both sides
-	Scatter(TEXT("SM_SharkRing"), 90, 190, 8, 5, 0.9f, 1.f, 0.2f, 0, 180.f);
-	Scatter(TEXT("SM_FishRing"), 30, 70, 4, 2, 0.6f, 1.f, 0.3f, 0, 180.f);
-	Scatter(TEXT("SM_KelpRaft"), 34, 130, 6, 3, 0.8f, 1.f, 0.3f, 0, 180.f);
-	Scatter(TEXT("SM_MantaFlight"), 36, 54, 10, 7, 0.9f, 1.f, 0.15f, 0, 5.f);
+	Scatter(TEXT("SM_PodLow"), 18.3f, 21, 3, 0, 1.f, 1.f, 0.f, 0, 4.f);
+	Scatter(TEXT("SM_PressureHab"), 33, 38, 3, 1, 1.f, 1.f, 0.1f, 0, 180.f);
+	Scatter(TEXT("SM_Tethered"), 36, 110, 4, 2, 1.f, 1.f, 0.25f, 0, 180.f);
+	Scatter(TEXT("SM_BubbleVent"), 30, 110, 3, 0, 1.f, 1.f, 0.2f, 0, 180.f);         // the bottom smokes here: bubbles on both sides
+	Scatter(TEXT("SM_SharkRing"), 90, 190, 8, 5, 1.f, 1.f, 0.2f, 0, 180.f);
+	Scatter(TEXT("SM_FishRing"), 42, 70, 7, 2, 1.f, 1.f, 0.3f, 0, 180.f);
+	Scatter(TEXT("SM_KelpRaft"), 34, 130, 8, 3, 1.f, 1.f, 0.3f, 0, 180.f);
+	Scatter(TEXT("SM_MantaFlight"), 36, 54, 10, 7, 1.f, 1.f, 0.15f, 0, 5.f);
 Zone(TEXT("Nereida, third pass"), 7.94f, 99.f);
-	Scatter(TEXT("SM_PodLow"), 18.3f, 21, 4, 0, 0.9f, 1.f, 0.f, -1, 4.f);             // the left verge (the pipeline has the right)
-	Scatter(TEXT("SM_PressureHab"), 33, 38, 6, 2, 0.9f, 1.f, 0.1f, 1, 180.f);      // right
-	Scatter(TEXT("SM_PressureHab"), 44, 50, 6, 5, 0.9f, 1.f, 0.1f, -1, 180.f);        // left, behind the travel tube
-	Scatter(TEXT("SM_Tethered"), 40, 120, 6, 1, 0.8f, 1.f, 0.25f, 0, 180.f);
-	Scatter(TEXT("SM_KelpRaft"), 36, 140, 8, 3, 0.8f, 1.f, 0.3f, 0, 180.f);
-	Scatter(TEXT("SM_FishRing"), 36, 80, 5, 4, 0.6f, 1.f, 0.3f, 0, 180.f);
-	Scatter(TEXT("SM_FishStream"), 38, 46, 7, 2, 0.7f, 1.f, 0.f, 0, 6.f);             // between the tube and the watch towers
-	Scatter(TEXT("SM_BubbleVent"), 40, 110, 8, 6, 0.8f, 1.f, 0.2f, 0, 180.f);
-	Scatter(TEXT("SM_SharkRing"), 100, 200, 11, 5, 0.9f, 1.f, 0.2f, 0, 180.f);
-	Scatter(TEXT("SM_MantaFlight"), 68, 92, 12, 7, 0.9f, 1.f, 0.15f, 0, 5.f);         // beyond the watch towers (40 m tall at 52-56 m)
-// The horizon. The trench walls stand 14 m over the road at 300 m: the whales swim 28 to 52 m over the road's level,
+	Scatter(TEXT("SM_PodLow"), 18.3f, 21, 4, 0, 1.f, 1.f, 0.f, -1, 4.f);             // the left verge (the pipeline has the right)
+	Scatter(TEXT("SM_PressureHab"), 33, 38, 6, 3, 1.f, 1.f, 0.1f, 1, 180.f);      // right (slot 178 stays free: the habitat of the gate stands there)
+	Scatter(TEXT("SM_PressureHab"), 44, 50, 6, 5, 1.f, 1.f, 0.1f, -1, 180.f);        // left, behind the travel tube
+	Scatter(TEXT("SM_Tethered"), 40, 120, 8, 1, 1.f, 1.f, 0.25f, 0, 180.f);
+	Scatter(TEXT("SM_KelpRaft"), 36, 140, 10, 3, 1.f, 1.f, 0.3f, 0, 180.f);
+	Scatter(TEXT("SM_FishRing"), 42, 80, 8, 4, 1.f, 1.f, 0.3f, 0, 180.f);
+	Scatter(TEXT("SM_FishStream"), 38, 50, 10, 2, 1.f, 1.f, 0.f, 0, 6.f);             // between the tube and the watch towers
+	Scatter(TEXT("SM_BubbleVent"), 40, 110, 10, 6, 1.f, 1.f, 0.2f, 0, 180.f);
+	Scatter(TEXT("SM_SharkRing"), 100, 200, 11, 5, 1.f, 1.f, 0.2f, 0, 180.f);
+	Scatter(TEXT("SM_MantaFlight"), 68, 92, 12, 7, 1.f, 1.f, 0.15f, 0, 5.f);         // beyond the watch towers (40 m tall at 52-56 m)
+// The far water. The trench walls stand 14 m over the road at 300 m: the whales swim 28 to 52 m over the road's level,
 // clear of that crest from the chase camera; the hulls float on the surface (a Far piece's base is its drop under the road).
 Zone(TEXT("In the water, far out"), 0.f, 99.f);
-	Far(TEXT("SM_WhalePod"), 300, 600, 17, 3, 0.9f, 1.f, 0.3f, 0, 5.f, 40.f);
-	Far(TEXT("SM_HullAbove"), 420, 900, 19, 8, 0.9f, 1.f, 0.2f, 0, 25.f, 180.f);
-// Moving caustics. The net of light lies flat, 12 cm over the sand, so it goes on level sand only (the land rises or
+	Far(TEXT("SM_WhalePod"), 170, 380, 8, 3, 1.f, 1.f, 0.3f, 0, 5.f, 40.f);            // (round one: 300 to 600 m, every 17th slot: in the real game the haze had them, and few frames held one)
+	Far(TEXT("SM_HullAbove"), 260, 480, 16, 8, 1.f, 1.f, 0.2f, 0, 25.f, 180.f);          // (round one: 420 to 900 m: past the haze, or over the top of the frame)
+// Moving caustics. The net of light lies flat, 8 cm over the sand, so it goes on level sand only (the land rises or
 // falls no more than 20 cm within 17 m of the slot's middle).
 auto LightNet = [&](float A, float B, int32 Every, float Chance)
 {
 	Zone(TEXT("Light on the sand"), SlotKm(A - 0.5f), SlotKm(B + 0.5f));
-	Scatter(TEXT("SM_CausticNet"), 30, 92, Every, 0, Chance, 1.2f, 0.25f, 0, 180.f);
+	Scatter(TEXT("SM_CausticNet"), 57, 92, Every, 0, Chance, 1.2f, 0.25f, 0, 180.f);   // its middle from 57 m: a net is 30 x 20 m, up to half as large again and turned any way, and no corner of it comes nearer than 30 m
 };
-LightNet(1, 4, 2, 0.7f); LightNet(10, 14, 2, 0.7f); LightNet(21, 29, 2, 0.7f); LightNet(35, 36, 2, 0.7f); LightNet(44, 52, 2, 0.7f); LightNet(61, 61, 2, 0.7f);
-LightNet(69, 70, 2, 0.7f); LightNet(77, 78, 2, 0.7f); LightNet(84, 93, 2, 0.7f); LightNet(99, 100, 2, 0.7f); LightNet(109, 117, 2, 0.7f); LightNet(126, 127, 2, 0.7f);
-LightNet(132, 139, 2, 0.7f); LightNet(147, 147, 2, 0.7f); LightNet(155, 155, 2, 0.7f); LightNet(161, 166, 2, 0.7f); LightNet(173, 175, 2, 0.7f); LightNet(176, 309, 5, 0.7f);
-LightNet(315, 330, 5, 0.7f); LightNet(336, 351, 5, 0.7f); LightNet(357, 372, 5, 0.7f); LightNet(378, 393, 5, 0.7f); LightNet(399, 413, 5, 0.7f); LightNet(420, 434, 5, 0.7f);
-LightNet(441, 455, 5, 0.7f); LightNet(462, 476, 5, 0.7f); LightNet(483, 497, 5, 0.7f); LightNet(504, 518, 5, 0.7f); LightNet(524, 539, 5, 0.7f); LightNet(545, 550, 5, 0.7f);
+LightNet(1, 4, 3, 1.f); LightNet(10, 14, 3, 1.f); LightNet(21, 29, 3, 1.f); LightNet(35, 36, 3, 1.f); LightNet(44, 52, 3, 1.f); LightNet(61, 61, 3, 1.f);
+LightNet(69, 70, 3, 1.f); LightNet(77, 78, 3, 1.f); LightNet(84, 93, 3, 1.f); LightNet(99, 100, 3, 1.f); LightNet(109, 117, 3, 1.f); LightNet(126, 127, 3, 1.f);
+LightNet(132, 139, 3, 1.f); LightNet(147, 147, 3, 1.f); LightNet(155, 155, 3, 1.f); LightNet(161, 166, 3, 1.f); LightNet(173, 175, 3, 1.f); LightNet(176, 309, 7, 1.f);
+LightNet(315, 330, 7, 1.f); LightNet(336, 351, 7, 1.f); LightNet(357, 372, 7, 1.f); LightNet(378, 393, 7, 1.f); LightNet(399, 413, 7, 1.f); LightNet(420, 434, 7, 1.f);
+LightNet(441, 455, 7, 1.f); LightNet(462, 476, 7, 1.f); LightNet(483, 497, 7, 1.f); LightNet(504, 518, 7, 1.f); LightNet(524, 539, 7, 1.f); LightNet(545, 550, 7, 1.f);
 // ---- The signature moments, each in a district of one slot.
 // The fish tornado (slot 6, 0.27 km, the left): the school in three rings, 5 to 32 m up, turning; the first big
 // thing of the level, on the outside of its first curve.
 Zone(TEXT("The fish tornado"), 0.2488f, 0.2941f);
-	Site(TEXT("Tornado"), -1, 46, 1, 0, 1.f);
+	Site(TEXT("Tornado"), -1, 51, 1, 0, 1.f);
 // The salvage ship (slot 115, 5.20 km): a hull on the surface right over the field, her anchor cable coming down among the wrecks.
 Zone(TEXT("The salvage ship"), 5.1803f, 5.2256f);
 	Far(TEXT("SM_HullAbove"), 115, 125, 1, 0, 1.f, 1.f, 0.f, -1, 25.f, 20.f);
@@ -451,7 +455,7 @@ Zone(TEXT("The salvage ship"), 5.1803f, 5.2256f);
 // and at slot 181 the whales: a cow, her calf and a second cow cross over the road 38 m up, all the time (SM_WhalePass:
 // its base is 38 m OVER the road's level, a negative drop, and nothing of it comes lower than 31 m).
 Zone(TEXT("The gate of Nereida"), 8.0759f, 8.1211f);
-	Site(TEXT("GatePost"), -1, 42, 1, 0, 1.f);
-	Site(TEXT("GatePost"), 1, 40, 1, 0, 1.f);
+	Site(TEXT("GatePost"), -1, 52, 1, 0, 1.f);               // (where the level's own watch towers stand: their lamps blink)
+	Site(TEXT("GatePost"), 1, 50, 1, 0, 1.f);
 Zone(TEXT("The whales over the gate"), 8.1664f, 8.2116f);
 	Far(TEXT("SM_WhalePass"), 0, 0, 1, 0, 1.f, 1.f, 0.f, 1, -38.f, 0.f);

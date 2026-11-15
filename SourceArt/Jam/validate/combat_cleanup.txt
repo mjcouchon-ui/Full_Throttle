@@ -1,0 +1,216 @@
+# combat_cleanup.txt : is anything left burning, smoking or flying after a retake and after a wrap + reshoot?
+# Game level 8 (City Center), EPIC. Run it the same way on both checkouts (a new -Tag each run, the same frame size):
+#   powershell -NoProfile -ExecutionPolicy Bypass -File "K:\Full Throttle\SkyScratch\SourceArt\Jam\unreal\jam_exec.ps1"
+#       -Tag <tag> -Script <this file> -Checkout <project folder> -BudgetSec 1200 -Extra "-ftnoattract -ftnodynres"
+# It goes through a real wrap: the level is rated and paid on the test career (slot career_pie), and a best take for
+# level 8 is written to the checkout's settings.json if the score beats the one stored there (run it after any
+# script that photographs the title).
+#
+# TWO ROUNDS.
+#  1 RETAKE : all on the 192 m straight the level starts with, so that the retake (the car back on the start line)
+#             looks down the road at what was wrecked. NO autopilot in this round (it would floor the turbo and be
+#             400 m away in 5 s): the car rolls straight on at 260 su/s (FTHold Brake 1), the script holds the
+#             trigger (FTHold Fire 1) and launches the missiles itself (FTKey RightMouseButton = the missile button):
+#               - a missile that MISSES: launched on the empty road at ACTION!; nothing is ahead of it for its 2.6 s
+#                 (the first vehicles of the scene are called 172 m in; a crate 170 m ahead in the car's lane keeps
+#                 the first civilian out of that lane), so it bursts in the air;
+#               - 0.9 s later a convoy (held instant), guns on it, a missile that HITS (it homes);
+#               - in one held instant: barrels, and every vehicle wrecked (by gun, missile, ram), about 90 to 120 m
+#                 from the start line (the wrecks tumble on from there); the car trashed (armor 30), then wrecked
+#                 about 125 m out (FTCrash) -> 2.8 s later the game's own retake (the same world goes on).
+#  2 RESHOOT: a convoy, FTWrapNow (the boss is called 160 m ahead and wrecked, the wrap wrecks every vehicle), the
+#             reel, THE DAILIES, R = reshoot -> PRE-PRODUCTION, READY -> the race restarts in the same world.
+# After each restart FTAutoRun drives: its guns are off for good and it uses no turbo, so anything still burning is
+# a leftover. The brake stays held, so the scene's own first vehicles (bikers) only start shooting about 11.5 s
+# after a restart, after the last count.
+# Stills at 0.5 / 2 / 5 / 10 s after each restart. The slate covers the frame until Enter is pressed at 1.7 s (it
+# takes Enter from 1.2 s), so the 0.5 s frame is behind the slate and the 2 s frame is clear.
+# Round 1 also takes frames WITHOUT the HUD or the slate (ft.Shots 0.5): 1280x720, <Checkout>\Saved\Shots\
+# ft_L7_000.png = about 0.8 s after the retake, then 1.3 / 1.8 / 2.3 s (three or four frames; jam_exec does not
+# collect or clear that folder: empty it before the run).
+#
+# WHAT TODAY'S GAME DOES (so the baseline is read right): a retake or restart clears the vehicles, not their
+# wrecks. A burning wreck lasts 9 s of game time (fire off at 6 s, smoke at 7.5 s), barrel and crate debris 7 s.
+# The wrecks are about 2.5 s old at the retake, so on the baseline cleanup_retake_0s5 and _2s SHOW them burning
+# down the road, _5s the last smoke, _10s nothing. A finding is anything in _10s, or more in the others than the
+# baseline has. After the reshoot (the reel takes over 15 s) every frame should be clean on both.
+#
+# THE COUNTS. The game has no line of its own for live effects. Each count block is six console commands:
+#   obj gc                                   destroyed actors really go (otherwise they are listed for up to a minute)
+#   FTDumpLevel                              "FT LEVEL dump ... take= retakes= clock="
+#   FX.DumpNCPoolInfo                        LogNiagara: per effect "Free: n (..B) | Used(Auto - Manual): a - m (..B) |
+#                                            System: <path>". Used = pooled effects playing now (explosions,
+#                                            flashes, impacts)
+#   obj list class=FTWreck                   burning wrecks alive (each carries a fire and a smoke effect); the last
+#                                            line is "<n> Objects (Total: ..."
+#   obj list class=GeometryCollectionActor   barrel and crate debris alive
+#   fx.Niagara.DumpComponents                LogNiagara: every effect component with its actor, "is Active" / "is Inactive"
+# Blocks, in the order of the runner's "FT EXEC line=<n>" numbers (the same in both runs):
+#   0 pristine (slate up, nothing fired yet)
+#   1 everything wrecked, in the held instant (the counts must be high here: it proves the commands count)
+#   2 retake + 3 s    (today's game: the wrecks and debris are still listed, see above)
+#   3 retake + 10.5 s (must be clean)
+#   4 THE DAILIES     5 reshoot + 3 s     6 reshoot + 10.5 s   (all three must be clean)
+# Clean = like block 0: no FTWreck, no GeometryCollectionActor beyond block 0's, and every explosion / fire / smoke /
+# impact / missile system "Used(Auto - Manual): 0 - 0". The number of "is Active" lines is never the same as block 0 (live vehicles
+# and civilians carry effects of their own): read which system and which actor.
+# In the log also: "result=timeout" (the script lost its place); "fired=1" twice before "cmd=FTCrash" (the two
+# launches; none = FTKey did not reach the car); "source=missile" once, after the second (a "source=missile" between
+# the two launches = the first one hit something and was not a miss that run).
+
+wait 2
+FTUseTestSlot
+FTCareerReset
+FTQuality 3
+FTStartLevel 8 1
+waitfor FT LEVEL id=|300
+# ---- count block 0: pristine (during the slate)
+obj gc
+FTDumpLevel
+FX.DumpNCPoolInfo
+obj list class=FTWreck
+obj list class=GeometryCollectionActor
+fx.Niagara.DumpComponents
+FTInvuln 1
+FTHold Brake 1
+waitfor FT SPEED|60
+
+# ================================================================ ROUND 1: fight, wrecks, the car wrecked, RETAKE
+# a missile that MISSES, launched on the first frames of play
+FTKey RightMouseButton 0.1
+FTPickup Crate ahead=17000
+# 0.9 s later it is 100 m ahead of the car: what is spawned now is behind it, and it does not turn back
+wait 0.75
+FTFreeze 1
+FTSpawn SUV 2
+FTSpawn Truck 1
+FTSpawn Rammer 1
+FTSpawn Biker 3
+FTSpawn SnakeEyes 1 beside=Truck
+FTSpawn Chopper 1
+FTHold Fire 1
+FTFreeze 0
+# a missile that HITS: it homes on the nearest of them (0.2 to 0.5 s)
+FTKey RightMouseButton 0.1
+waitfor source=missile|2.5
+shot cleanup_a_fight
+# one held instant: barrels and their debris, wrecks by every cause, then whatever is left; the counts; the car
+# trashed (armor 100 -> 30: parts off, smoking)
+FTFreeze 1
+FTHold Fire 0
+FTSpawnBarrel 3
+FTWreck Barrel 9
+FTWreck SUV 1 missile
+FTWreck Truck 1
+FTWreck Biker 9 ram
+FTWreck Chopper 1
+FTWreck all
+# ---- count block 1: everything wrecked (held)
+obj gc
+FTDumpLevel
+FX.DumpNCPoolInfo
+obj list class=FTWreck
+obj list class=GeometryCollectionActor
+fx.Niagara.DumpComponents
+FTDamagePlayer 70
+FTFreeze 0
+# 0.45 s after the wrecks: every fireball open
+wait 0.3
+shot cleanup_b_burning
+# the car wrecked: "FT PLAYER wrecked", 2.8 real seconds of CUT!, then the retake ("FT CARNAGE .. retake=1")
+FTInvuln 0
+FTCrash
+waitfor retake=1|15
+# from here the autopilot steers and the car never fires again in this world; SPEED UP let go (the brake is still
+# held); frames without the HUD every 0.5 s while the slate is up
+FTAutoRun
+FTHold SpeedUp 0
+ft.Shots 0.5
+wait 0.05
+shot cleanup_retake_0s5
+# 1.7 s: Enter drops the slate
+wait 0.7
+ft.Press Enter
+wait 0.15
+shot cleanup_retake_2s
+ft.Shots 0
+# ---- count block 2: retake + 3 s
+obj gc
+FTDumpLevel
+FX.DumpNCPoolInfo
+obj list class=FTWreck
+obj list class=GeometryCollectionActor
+fx.Niagara.DumpComponents
+wait 1.45
+shot cleanup_retake_5s
+wait 4.5
+shot cleanup_retake_10s
+# ---- count block 3: retake + 10.5 s
+obj gc
+FTDumpLevel
+FX.DumpNCPoolInfo
+obj list class=FTWreck
+obj list class=GeometryCollectionActor
+fx.Niagara.DumpComponents
+
+# ================================================================ ROUND 2: the WRAP, the reel, the reshoot
+FTSpawn SUV 2
+FTSpawn Truck 1
+FTSpawn Biker 3
+FTSpawn Chopper 1
+wait 1.0
+FTWrapNow
+waitfor FT OUTCOME wrap|10
+# 1.2 real seconds into the wrap: the boss's wreck far ahead, every vehicle on the road going up, CUT!
+wait 1.0
+shot cleanup_c_wrap
+waitfor FT RATING value=|20
+# the highlight reel plays through (two shots of the boss's wreck) and holds
+waitfor Reel state=hold|180
+FTPress Continue
+waitfor FT SCREEN name=Dailies|15
+# ---- count block 4: THE DAILIES
+obj gc
+FTDumpLevel
+FX.DumpNCPoolInfo
+obj list class=FTWreck
+obj list class=GeometryCollectionActor
+fx.Niagara.DumpComponents
+# R = reshoot (THE DAILIES take keys after 1 s) -> PRE-PRODUCTION for level 8 -> READY
+wait 0.8
+ft.Press R
+waitfor PreProduction next=L8|15
+wait 0.6
+FTPress Ready
+# the race restarts (on today's code in the same world, at once; 300 s in case a build reloads the map here, which
+# is also why the holds are sent again)
+waitfor FT LEVEL id=|300
+FTAutoRun
+FTHold SpeedUp 0
+FTHold Brake 1
+shot cleanup_restart_0s5
+# 1.7 s: Enter drops the slate
+wait 0.6
+ft.Press Enter
+wait 0.15
+shot cleanup_restart_2s
+# ---- count block 5: reshoot + 3 s
+obj gc
+FTDumpLevel
+FX.DumpNCPoolInfo
+obj list class=FTWreck
+obj list class=GeometryCollectionActor
+fx.Niagara.DumpComponents
+wait 1.6
+shot cleanup_restart_5s
+wait 4.5
+shot cleanup_restart_10s
+# ---- count block 6: reshoot + 10.5 s
+obj gc
+FTDumpLevel
+FX.DumpNCPoolInfo
+obj list class=FTWreck
+obj list class=GeometryCollectionActor
+fx.Niagara.DumpComponents
+wait 1
+quit

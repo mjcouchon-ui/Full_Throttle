@@ -1,0 +1,158 @@
+FILE: K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\boss_L2.txt
+CHANGED BY CHECKER: True
+RUN: Before (untouched copy):
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& 'K:\Full Throttle\SkyScratch\SourceArt\Jam\unreal\jam_exec.ps1' -Tag bossL2_base -Script 'K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\boss_L2.txt' -Checkout 'K:\Full Throttle\OverhaulBaseline\full-throttle-unreal' -BudgetSec 1200 -Extra '-ftnoattract -ftnodynres'"
+
+After (integrated build): the same line with -Tag bossL2_new and -Checkout '<integrated project folder>'. The tags must differ: jam_exec.ps1:55 deletes the tag's old PNGs first. Frames land in K:\Full Throttle\SkyScratch\HandBack\jam\play\<Tag>\ (47 PNGs expected), the log in <Checkout>\Saved\Logs\jam_exec_<Tag>.log.
+
+The -Command form is deliberate: the -Extra value starts with a dash, and I checked that this form binds it as one string (no game was started for that check). Keep the default 3440x1440 on both runs, or add -Small to BOTH if the log shows FTHITCH lines during the fight. Expected wall time about 2.5 minutes after the level has loaded; 1200 s covers a slow load plus every wait timing out.
+
+PROBLEMS FOUND BY THE CHECKER:
+Checked against the untouched copy (K:\Full Throttle\OverhaulBaseline\full-throttle-unreal\Source\FullThrottle; GM = FTGameMode.cpp, FLOW = FTFlow.cpp) and spot-checked in the live checkout. Nothing was run. Every command and argument exists (FLOW:935-1179), every waitfor text can appear where it is waited for, quality is set before the level, the test slot and a fresh career come first, and it ends with quit on every path (a timeout never stops the runner). What was wrong, and what I did (all 47 shot names kept):
+
+1. ROAD + ENTRANCE (old lines 30-43). Scene 7 starts 1000 su before the big pipe (FTData.cpp:157: pipe = 60000-62800). At 470 su/s (FLOW:76, GM:1304) the car is inside it from level clock 2.8 to 8.7, so both road shots (clock 4 and 8) were pipe interiors with the scene's truck 21 m ahead in a random lane (lane 1 or 2, GM:1645: the car's own lane half the time). Worse, FTNextScene came at clock 8.65-8.75, exactly as the car leaves the pipe: either way TickStunts (GM:3397-3408) scores a PIPE RUN there (falsely if still inside: the section changes under it). Result: "PIPE RUN +1000" popup and "PIPE!" shout over the entrance stills, a non-boss clip with a random camera at the head of the reel (so L2_boss_wrap_reel_play differs per run), and the L2-pipe Director's Note in the pay. FIX: road stills at level clock 1.0 and about 1.9 (foes still 100 m and more off), FTNextScene at about 2.0, 45 m before the pipe. No stunt, so the reel is the boss's two clips with fixed cameras.
+
+2. L2_boss_ph1_zone2_land and L2_boss_ph2_zone3_land (old lines 218-222, 269-273) sat exactly on an edge: the second mark goes live 0.18 s after the first (GM:2714) and the still was at 0.15 s plus one or two frames. It would show one or two live marks at random. FIX: these, and every other "land" still, are now timed in 0.3x slow motion from the release (FTSlowMo while held, then a wait), landing 0.25 s after go-live for the multi-mark strikes (window 0.18-0.32), 0.2 s for the single strike, 0.25 s for the lanes.
+
+3. L2_boss_ring_pass (old line 162-165) was at release + 1.2 s; the wave reaches the car at release + 1.19 to 1.26 s (GM:3359, from where the boss stood). Coin flip between "about to hit" and "gone through". FIX: flight, land and pass are filmed in one slow-motion stretch from the release: 0.45 s, 0.95 s and 1.3 s after it.
+
+4. L2_boss_ph2_ring2_flight (old line 243-247) was at t 21.08-21.18 with the second wave going live at 21.05: on the edge again. FIX: moved to t 20.75 (first wave about 23 m ahead, second still charging).
+
+5. SLOW MOTION CLOCK. FTSlowMo's timer is real time and keeps running through FTFreeze holds (TickSlowmo, GM:3729-3736), and the time scale takes about a second to come back. The old hurt block left about 0.8 s of slow motion plus the ramp running afterwards; it only worked because the next line was an anchor. FIX: every slow-motion block now ends with a hold long enough for it to run out and the scale to be back at 1.
+
+6. HUD EDGES ON THE REAL CLOCK. (a) The key-hint strip leaves 10 real seconds into play (GM:1036); in the old script that fell between L2_boss_enter_4_onspot and L2_boss_idle_1. FIX: a 7 s hold before the entrance, so it is gone from enter_1 on. (b) L2_boss_defeat_1 was 0.65-0.8 s after the blow and the CUT! card appears at 0.8 s (GM:398). FIX: defeat stills at real 0.45 s (before the card, blast about 0.1 s of game time old), 1.4, 2.3 and 3.0 s. (c) ACTION!/scene-name plate (FTHud.cpp:667-668) on the road and entrance stills: holds sized so each still is clearly inside or outside. (d) Holds are now shot first, dump second, so a still is 0.15 s fresher (the SHOCK WAVE! shout lasts 1 s).
+
+7. ENTRANCE COVERAGE. The three stills covered only the first 1.1 s of a 3 s arrival (148 to 95 m) and FTBossNow cut it at 1.25 s. FIX: stills at about 0.2, 1.05 and 1.95 s (147, 97, 67 m; the third has his first lane warning charging); FTBossNow at about 2.1 s, 0.4 s before that warning would go live, so the TESLA count stays 10.
+
+8. HEADER. It said the hand-back folder is not cleared; jam_exec.ps1:55 now deletes the tag's old PNGs, so the second run needs a different tag or it wipes the first. Corrected. Budget raised to 1200 s.
+
+9. TIMEOUTS. TESLA waits 12-15 s cut to 10 s, reel hold 90 to 80 s, so even a run where everything times out reaches quit inside the budget. Dailies wait 3.5 to 4 s, paycheck 3 to 6 s (pay lines appear one per 0.32 s, FLOW:370; 3 s could catch the last line arriving).
+
+Confirmed as the colleague said: TickLightning is not this boss; attack order and timers (GM:2690-2733); FTFire 5/36/40 gives 115/79/39 = phases 0/1/2 (GM:2645); one FT TESLA per attack and none early (no earlier hazard is still arcing when the next attack starts); the wrap, reel, Dailies and Paycheck chain.
+
+STILL UNSURE:
+Nothing was run. Only a real run settles these:
+
+1. FTNextScene is used by no existing script. If it does nothing, the first "waitfor FT BOSS state=Arrive" times out, the car drives on into the pipe, enter_1..3 show road, and FTBossNow then scores a PIPE RUN. Tell: two Arrive lines, and no "FT STUNT name=" line. I also could not check how fast the chase camera settles after the teleport (the first still is 0.2 s after it).
+
+2. Frame rate at 3440x1440 Epic off-screen. The script is sized for 30 fps and up; under about 25 fps the multi-mark stills (ph1_zone2_land, ph2_zone3_land) and the kill slot slip. Tell: FTHITCH lines, and the "FT LEVEL dump ... clock=" stamps of the same still differing by more than 0.1 s between the two runs. Related: a still is requested 0.15 s after FTFreeze 1 (as fx_c_blasts.txt does); temporal AA has only a few frames to settle, the same in both runs if their frame rates are close.
+
+3. My figure for the shock wave's start distance (about 53 m, from the boss's sway lagged by his follow speed) places L2_boss_ring_land 10-12 m ahead and L2_boss_ring_pass 2-5 m behind the car. If it is off by more than 4 m, ring_land shows the wave already at the car, or ring_pass shows it behind the camera. I did not read the chase camera's distance.
+
+4. That the level's own boss starts his first warning exactly 1.6 s after he appears (needs him within 81 m by then: my estimate is 74 m). If later, enter_3 shows less charge; nothing else changes.
+
+5. Random and not pinnable: civilian traffic (with the car held in one lane it bumps a same-lane civilian in roughly 9 runs out of 10 at some point in the fight: a shove, FT HURT dmg=0.0, sparks, camera shake; a shove followed by a close pass can trigger the game's own slow motion and shift one wall-timed windup); the shock wave's gap lane; the second lane of lane2; the offsets of extra strike marks; arc shapes; the DIRECTOR line text. The engine switch -fixedseed is untested here and would not fix draws that depend on frame count.
+
+6. Whether particles born in slow motion or just before a hold look right in the stills (hurt sparks at 0.05 and 0.10 s; I did not check NS_ImpactArmor's lifetime), and that FTSlowMo has no look of its own (none in today's code; the overhaul could add one, which would then show in every land, ring and hurt still).
+
+7. If the overhaul changes any boss timer, the attack order, the phase thresholds, or drops the "FT TESLA" log line, the anchored stills still pair but wall-timed ones shift, and without FT TESLA every release wait times out (10 x 10 s) and the boss escapes at 70 s. The live checkout still has the line and the same timers as of this check; it was being edited while I read it.
+
+8. Side effect: the wrap saves only to the test slot (career_pie), but a new best score for level 2 is written to that checkout's settings.json (RateAndCommit, GM:417-421), which changes the title screen's best-take line for later title shots in that checkout.
+
+9. The Dailies and Paycheck backgrounds move with real time since the map loaded, so those two frames pair by screen content, not by pixel.
+
+SHOTS:
+47 shots, in order. "held" = taken with FTFreeze on (crisp, no motion blur); t = game seconds after the FTBossNow Arrive line.
+
+ROAD (moving frames)
+1. L2_boss_road_1 - level clock 4 s, scene 7 THE TOXIC RUN (the road that leads to the boss), car in lane 2, the scene's truck and bikers may be in frame.
+2. L2_boss_road_2 - level clock 8 s, same road further on.
+
+ENTRANCE (held)
+3. L2_boss_enter_1_far - the level's own arrival, about 0.2 s after it: tanker about 148 m ahead, THE FINALE slate, boss panel on the HUD.
+4. L2_boss_enter_2_closing - about 0.65 s: about 121 m.
+5. L2_boss_enter_3_near - about 1.1 s: about 93 m.
+6. L2_boss_enter_4_onspot - t 0.2 after FTBossNow: fresh boss on his fighting spot (51 m), full bar.
+
+IDLE (held)
+7. L2_boss_idle_1 - t 0.8: coil at rest (charge 0.12, faint glow), before any attack.
+8. L2_boss_idle_2 - t 3.55: between attack 1 and 2.
+
+PHASE 0 attacks (held)
+9. L2_boss_lane_windup - t 2.15: red warning strip down lane 2, coil about half charged.
+10. L2_boss_lane_release - t 2.65: lane live, arcs from the coil to the lane, coil light at full.
+11. L2_boss_lane_land - t 2.85: zap bursts down the lane and on the car.
+12. L2_boss_zone_windup - t 4.75: red strike ring on the car, coil charging.
+13. L2_boss_zone_release - t 5.4: ring live, arc from the coil onto it, blast starting.
+14. L2_boss_zone_land - t 5.6: the blast on the mark.
+15. L2_boss_hurt_1 - 5 rounds just landed (0.06 s old): armor sparks on the tanker's tail, bar at 115/120.
+16. L2_boss_hurt_2 - same, 0.12 s old.
+17. L2_boss_ring_windup - t 9.95: warning strip across the road at the truck, SHOCK WAVE! shout, coil charging.
+18. L2_boss_ring_release - t 10.45: wave live at the truck, arcs to its front.
+19. L2_boss_ring_flight - release + 0.5 s: wave about 30 m ahead, the gap lane open.
+20. L2_boss_ring_land - release + 1.1 s: wave just in front of the car.
+21. L2_boss_ring_pass - 0.18 s later: it has gone through (hit shake or DODGED! +200).
+
+PHASE 1 (held)
+22. L2_boss_ph1_overcharge_start - right after FTFire 36 (79/120): caption HE'S OVERCHARGING THE COILS!, spark burst on the tail.
+23. L2_boss_ph1_lane2_windup - t 12.95: two lanes warned.
+24. L2_boss_ph1_lane2_release - t 13.5: two lanes live, arcs.
+25. L2_boss_ph1_lane2_land - t 13.7: bursts down both lanes.
+26. L2_boss_ph1_ring_release - t 15.4: the faster wave live at the truck.
+27. L2_boss_ph1_ring_flight - release + 0.55 s: wave about 25 m ahead.
+28. L2_boss_ph1_zone2_windup - t 17.65: two strike rings (one on the car, one beside).
+29. L2_boss_ph1_zone2_release - t 18.2: first ring live, second still warning.
+30. L2_boss_ph1_zone2_land - t 18.4: both live.
+
+PHASE 2 (held)
+31. L2_boss_ph2_meltdown_start - right after FTFire 40 (39/120): caption MELTDOWN! THE WHOLE TANKER IS LIVE!.
+32. L2_boss_ph2_ring2_windup - t 19.8: two waves warned.
+33. L2_boss_ph2_ring2_release - t 20.2: first wave live.
+34. L2_boss_ph2_ring2_flight - t 21.1: first wave at the car, second just off the truck.
+35. L2_boss_ph2_lane2_release - t 23.05: double lane arc live.
+36. L2_boss_ph2_zone3_windup - t 24.25: three strike rings warned.
+37. L2_boss_ph2_zone3_release - t 24.9: first ring live.
+38. L2_boss_ph2_zone3_land - t 25.1: first and second live, third about to go.
+
+DEFEAT and WRAP (moving frames, real-clock times after the killing blow)
+39. L2_boss_defeat_0_moment - 0.15 s: inside the 0.22 s hit-stop, the blast just born, boss panel gone.
+40. L2_boss_defeat_1 - 0.65 s: fireball growing in 0.22x slow motion, wreck leaving the ground.
+41. L2_boss_defeat_2 - 1.55 s: fireball and tumbling wreck, CUT! PRINT IT. THAT'S A WRAP! card up.
+42. L2_boss_wrap_cut - 2.75 s: the card, slow motion ending.
+43. L2_boss_wrap_reel_title - highlight reel title card (1 s in).
+44. L2_boss_wrap_reel_play - 4 s into the reel: first clip playing (weakly paired, see doubts).
+45. L2_boss_wrap_reel_hold - reel finished, held on its last frame (ANOTHER ANGLE of the boss), CONTINUE live.
+46. L2_boss_wrap_dailies - THE DAILIES, rating stamped (3.5 s in).
+47. L2_boss_wrap_paycheck - the paycheck, 3 s in.
+
+FACTS:
+Nothing was run; all from reading. Line numbers are from the UNTOUCHED copy, BASE = K:\Full Throttle\OverhaulBaseline\full-throttle-unreal\Source\FullThrottle (GM = FTGameMode.cpp, FLOW = FTFlow.cpp, ENT = FTEntity.cpp). The live checkout K:\Full Throttle\UE\full-throttle-unreal is being edited right now: FTGameMode.cpp moved by about 50 lines while I was reading it, so its numbers are not stable. The Alchemist code is the same text in both.
+
+NOT WHAT THE BRIEF SAYS
+- TickLightning (GM:3160) is not part of this boss. It only runs when the level has bLightning, which only level 4 Volcano sets (FTData.cpp:251). THE ALCHEMIST is the Level == 1 branch of TickBoss (GM:2675-2736), the coil block (GM:2737-2760) and TickHazards (GM:3217).
+- The live checkout's script runner has a new "film <name> <frames> [fps]" line (FTGameInstance.cpp:569-584 there). The untouched copy does not have it, so the script does not use it.
+
+DATA: FTData.cpp:173 BossName THE ALCHEMIST, BossHp 120, BossEscape 70; FinaleD 69000 (161); 8 scenes, last two THE TOXIC RUN at 59000 (169) and THE FINALE at 69000 with the single spawn "69000:B" (170). Escape time actually used comes from the progress table (GM:1682): read escape= in the Arrive line. Footprint 64*XU*0.7 = 409 cm wide, 150*DU*0.6 = 1234 cm long (GM:1542). XU 9.14, DU 13.71, lanes at x = -877, -292, 292, 877 cm (FTCore.h:13-18).
+
+ARRIVAL: SpawnGroup Boss (GM:1658-1687): 16000 cm ahead at x 0, fighting distance Ta = 300*DU*1.25 = 5141 cm (1662), timers T1 1.6 / T2 1.0 / T3 6.0 (1665), boss clock 0, logs "FT BOSS state=Arrive armor= escape= clock=0.0" (1683) and "FT BOSS firstAttack" (1684). He closes at up to 6000 cm/s (GM:2814), about 3 s to settle. The level spawns him itself when the car is within 2000 cm of the finale line (TickSpawns GM:1693; fallback GM:3544). FTBossNow (FLOW:1003-1012) clears entities AND hazards (ClearEnts, GM:1583), moves the car to the finale line and puts him straight on his spot (1011). No entrance animation exists in today's code.
+
+IDLE: sways along the road +-22*DU*sin(0.8 t) = +-302 cm and across +-60*XU*sin(0.45 t) = +-548 cm (GM:2678-2679), both from his age, so repeatable. Coil charge at rest 0.12 + 0.06 sin(9 t) (2742).
+
+PHASES by armor (GM:2645): 0 above 66%, 1 from 66% down, 2 from 33% down. A change (2680-2686) restarts the attack list (Step = 0), shows a caption for 3 real seconds (FTHud.cpp:650) and a director's line; NO log line. Captions: HE'S OVERCHARGING THE COILS! / MELTDOWN! THE WHOLE TANKER IS LIVE!.
+
+ATTACK CYCLE (GM:2687-2735): next attack when T1 <= 0 and he is within Ta + 3000 cm. List per phase (2690): ph0 lane, zone, lane, ring; ph1 lane2, ring, zone, lane2, zone; ph2 ring2, lane2, zone3, ring, lane2. Gap between starts 2.6 / 2.1 / 1.75 s (2694), +0.2 after a zone (2718), +0.4 after a ring, +0.9 after ring2 (2733).
+- lane (lane arc): the lane nearest the car (2698); lane2 adds a neighbour, 35% two lanes over (2700, random). Warning 1.0 s, 0.85 s in ph1-2; live 0.4 s (2701).
+- zone (lock-on strike): 1 mark in ph0, 2 in ph1, 3 for zone3; first mark follows the car for 0.55 s, others offset 75-105*XU (random). Warning 1.15 s (0.95 in ph1-2) + 0.18 per extra mark; live 0.32 s; radius 461 cm (2708-2714).
+- ring (shock wave): starts at the boss, warning 0.8 s (0.65 in ph1-2), second wave of ring2 +0.9 s; rolls at 300*DU = 4113 cm/s (340*DU = 4661 in ph1-2); random gap lane 927 cm wide (784 in ph2) (2722-2729, 3343).
+- Coil (2737-2760, ENT:599-631, 639): charge follows the warning 0 to 1; top glow 0.25 + 3.2 c^2 with flicker above 0.7; point light 400 + 5200 c^2, +9000 while arcing; top spins 25 + 400 c deg/s; up to 3 arc meshes from the coil top to what is live, new random twist and thickness every frame. Model parts: SM_TeslaTop at (-185, 0, 880) and 3 x SM_TeslaArc (ENT:49, 311-325).
+- "FT TESLA arcs=<n> charge=<c>" (GM:2758): once per attack, the frame after its first hazard goes live; first 20 per process. No log line at the start of a warning.
+
+WHAT DECIDES A HIT ON THE CAR (TickHazards)
+- lane: at go-live, car within 39*XU = 356 cm of the lane centre: 16 damage (GM:3252).
+- zone: at go-live, car within 461 cm of the mark: 18 damage (GM:3277).
+- ring: when the wave reaches the car: outside the gap lane and on the ground: 14 damage; otherwise +200 and "FT STUNT dodge=shock" (GM:3363-3364).
+- HurtPlayer (GM:1484-1497): 0.6 s untouchable after each hit; with the harness on, damage 0 but "FT HURT dmg=0.0 ..." still prints.
+
+HURTING HIM: FTFire <n> Boss (FLOW:1031) = n rounds through BulletHit in one frame, 1 armor each on a fresh career with the standard load, each logging "FT DAMAGE target=Boss amount=1 left=<hp> load=STD source=gun" (GM:1815). Effect on him: NS_ImpactArmor + NS_ImpactRing at his tail, a "Hit" sound, the bar. There is NO hurt animation today: HurtEnt calls KickBike (GM:1820), which only moves bikes (ENT:594-597). Script: 5 (115), 36 (79 = 65.8%, phase 1), 40 (39 = 32.5%, phase 2), then FTWrapNow (FLOW:1100) for the rest.
+
+DEFEAT (Kill, GM:1858, 1968-1993; Wrap, GM:371-398): explosion size 3, his mesh thrown as a burning rigid-body wreck, +3000, "FT BOSS state=Down", boss panel off, "FT OUTCOME wrap"; 0.22 s hit-stop then 2.4 s at 0.22x; CUT! card 0.8 s later. The Wrap phase lasts 4.2 s of REAL time (PhaseT is real, GM:448, 543), so FTFreeze does not stretch it. Then "FT RATING", the pay saved, "FT SCREEN name=Reel" (title card 2.2 s, GM:3923; boss clip twice, crane then kill cam), "FT SCREEN name=Reel state=hold", FTPress Continue -> "FT SCREEN name=Dailies", again -> "FT SCREEN name=Paycheck".
+
+ESCAPE: boss clock at rate 0.5-1.0; at 70 s LAST CHANCE, gone within 8 s (FLOW TickBossClock). The script's fight is about 26 s of game time.
+
+HARNESS FACTS THE SCRIPT LEANS ON
+- FTStartLevel 2 7 starts the race at scene 7 (FLOW:681-692, GM:253, 289-291); the log line should read "FT LEVEL id=L2 scene=7". The car starts at x = 32*XU = 292 cm, from standstill.
+- ft.AutoX overrides the autopilot's lane (GM:1114). FTAutoRun: no gun, no missile (GM:1177).
+- FTFreeze = time dilation 0.0001 in Play/Wreck/Wrap (GM:3735). Snapshots for the reel are stamped in game time (GM:3854), so the holds do not show in the reel.
+- Whole run: about 75-95 s of game time (slate 3.2, road 9, entrance 1.3, fight 26, wrap 4.2, reel 12-30, screens 8). Wall time adds the map load and about 1 s per held shot.
+
+EXPECTED LOG, in order: FT LEVEL id=L2 scene=7; FT BOSS state=Arrive (level's own); FT BOSS state=Arrive armor=120 (FTBossNow); 10 x FT TESLA arcs=; FT DAMAGE ... left=115, left=79, left=39, left=0; FT WRECK Boss; FT BOSS state=Down; FT OUTCOME wrap; FT RATING; FT SCREEN name=Reel; ... state=hold; name=Dailies; name=Paycheck. One "FT LEVEL dump ... clock=" per held shot.

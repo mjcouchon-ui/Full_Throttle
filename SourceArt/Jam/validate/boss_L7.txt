@@ -1,0 +1,188 @@
+# boss_L7.txt : THE GREAT WHITE (game level 7, Under the Sea, level index 6): the whole fight, staged for before/after frames.
+# Run it the same way on both checkouts (same frame size, a new tag each run):
+#   powershell -NoProfile -ExecutionPolicy Bypass -File "K:\Full Throttle\SkyScratch\SourceArt\Jam\unreal\jam_exec.ps1" -Tag <tag> -Script "K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\boss_L7.txt" -Checkout <project folder> -BudgetSec 1200 -Extra "-ftnoattract -ftnodynres -ftslot=pie"
+# Only lines today's runner knows: console commands, wait, waitfor, shot, quit (no "film": the untouched copy does not have it).
+#
+# HOW IT KEEPS ITS PLACE. The level is started a second time AT ITS LAST SCENE (FTStartLevel 7 7). The game then brings the
+# boss in by itself on the first frame of play, 160 m ahead (FTBossNow would put him straight on his spot: no arrival to
+# film), and the level clock starts at 0 on that same frame. So "FT CLOCK level=N." (game time, one line a second) is the
+# boss's own time, and every shot hangs on one of those lines plus a wait of well under a second.
+# A waitfor for a clock line only works if no console command ran after that line was logged: keep that in mind when editing.
+#
+# THE CAR IS PINNED TO ITS OWN LANE (ft.AutoX 292 = lane 3 of 4, where every race starts), not to the centre line.
+# On the centre line every civilian passed in either middle lane is a NEAR MISS: 0.45 s of the game's own slow motion
+# (the real-time waits below then land early) and a clip in the highlight reel (the three reel shots then show a random
+# near-miss camera, or the boss clip is swallowed by it). In a lane centre the next lane is too far for a near miss.
+# What is left: a civilian in the car's own lane is bumped (0 damage, a shake, a sideways nudge; no slow motion, no clip).
+#
+# THE BOSS'S TIMERS (TickBossShark / SpawnGroup / TickHazards, FTGameMode.cpp):
+#   first attack 1.6 s after he appears, then one attack every 2.3 s (phase 0), 1.9 s (phase 1), 1.6 s (phase 2),
+#   swordfish fan and flying-fish lob in turn; a change of phase starts the turn again with a fan.
+#   fan: 7 swordfish (9 from phase 1), 4113 cm/s, from his tail about 50 m ahead: 1.15 to 1.25 s to the car.
+#   lob: 2 fish (3 in phase 1, 4 in phase 2), in the air 1.15 s + 0.12 s for each further fish, the mark stays live 0.25 s.
+#   lunge (phase 1 on): its timer (6.0 s) only runs from phase 1; 0.9 s of warning (glow), then he drops back until 2.3 s.
+#   So with phase 1 at clock 12 and phase 2 at clock 22 the fight is:
+#   fan 1.6, lob 3.9, fan 6.2, lob 8.5, fan 10.8 | fan 13.1, lob 15.0, fan 16.9, lob 18.8, fan 20.7, lunge 18.0-20.3 |
+#   fan 22.6, lob 24.2, fan 25.8 | down at 27.0. (Each attack runs up to a frame late, so late ones drift ~0.1-0.2 s.)
+#
+# AFTER EACH RUN look in the log for: no "result=timeout"; "FT LEVEL id=L7 scene=7"; "FT BOSS state=Arrive armor=150";
+# "FT DAMAGE target=Boss .. left=" 145, 98, 48, 28, 0; "FT HURT dmg=0.0 .. near=Boss" after FTRam; "FT BOSS state=Down";
+# "FT OUTCOME wrap clock=27."; "FTFLOW reel start, 2 shots" (more than 2 = a near miss got in: the reel shots do not pair);
+# and no "FT SCORE delta=.. bucket=1" (a near miss) during the fight.
+#
+# ---- set-up: test save slot, fresh career, Epic, the autopilot holds the car's own lane (attacks aim at the car's x)
+FTUseTestSlot
+FTCareerReset
+FTQuality 3
+ft.AutoX 292
+wait 6
+# ---- the road before the boss: level 7 from the top (scene 1), autopilot, at level clock 2 s and 4 s
+FTStartLevel 7
+waitfor FT LEVEL id=|240
+FTAutoRun wreck=0
+waitfor FT CLOCK level=2.|120
+shot L7_boss_road_1
+waitfor FT CLOCK level=4.|20
+shot L7_boss_road_2
+# ---- the boss: the same level again from scene 7 (same map: an instant restart, level clock back to 0)
+FTStartLevel 7 7
+waitfor scene=7 sequel=|60
+FTAutoRun wreck=0
+# ---- ENTRANCE. He appears 16000 cm ahead and closes at 6000 cm/s, then eases onto his spot (5861 cm): about 3 s.
+# (the slate before it is 3.2 s of drawn frames, however slow they are after the jump down the track: a long timeout)
+waitfor FT BOSS state=Arrive|60
+shot L7_boss_enter_1
+shot L7_boss_enter_2
+waitfor FT CLOCK level=1.|15
+shot L7_boss_enter_3
+# (his first fan leaves at 1.6 s: first-attack timer T1)
+waitfor FT CLOCK level=2.|15
+shot L7_boss_enter_4
+waitfor FT CLOCK level=3.|15
+shot L7_boss_enter_5
+# ---- LOB (phase 0, two fish): thrown at 3.9 (T1 1.6 + gap 2.3), first fish lands 1.15 s later (5.05), second at 5.17
+shot L7_boss_lob_windup
+waitfor FT CLOCK level=4.|15
+shot L7_boss_lob_release
+shot L7_boss_lob_flight
+# the landing: 0.15 s past clock 5 = 5.15 to 5.2, the first splash is there and the second fish is coming down
+# (0.05 s was on the very frame the first fish lands: one run would show the fish, the other the splash)
+waitfor FT CLOCK level=5.|15
+wait 0.15
+shot L7_boss_lob_land
+# ---- FAN (phase 0, seven swordfish): fired at 6.2 (3.9 + gap 2.3), at the car's nose about 1.15 s later (7.35 to 7.4)
+# the windup is a held frame at clock 6.0 (FTFreeze: time stands still while it is photographed, the timers do not move)
+waitfor FT CLOCK level=6.|15
+FTFreeze 1
+shot L7_boss_fan_windup
+FTFreeze 0
+wait 0.18
+shot L7_boss_fan_release
+shot L7_boss_fan_flight
+waitfor FT CLOCK level=7.|15
+shot L7_boss_fan_land
+# ---- IDLE: clock 8.0, on his spot, nothing in the air (the next lob leaves at 8.5)
+waitfor FT CLOCK level=8.|15
+shot L7_boss_idle
+# ---- HURT and CONTACT, in the quiet gap between the lob landing (9.8) and the next fan (10.8).
+# FTSlowMo = the game's slow motion (0.3x) so the 0.15 s between two script lines is 0.045 s of the fight. It is 4 s
+# long so that it still holds at the contact frame on a slow PC (the lines below take 3.3 s plus a frame each).
+# FTFire 5 Boss = five standard rounds through the real hit path, 1 armor each: log "FT DAMAGE target=Boss .. left=145".
+# FTRam Boss = puts him on the car's nose (the "he is a wall" contact path, the only way the lunge's bite can land).
+waitfor FT CLOCK level=10.|15
+FTSlowMo 4
+wait 0.35
+FTFire 5 Boss
+FTFreeze 1
+shot L7_boss_hurt_1
+FTFreeze 0
+wait 0.3
+shot L7_boss_hurt_2
+FTRam Boss
+wait 0.1
+FTFreeze 1
+shot L7_boss_contact
+FTFreeze 0
+# ---- PHASE 1 at clock 12.0: 47 more rounds, armor 98 of 150 (66% or less). Caption FEEDING TIME!
+waitfor FT CLOCK level=12.|20
+FTFire 47 Boss
+shot L7_boss_phase1
+# phase-1 fan (nine swordfish): fired at 13.1 (10.8 + gap 2.3; the phase change put the turn back to a fan)
+waitfor FT CLOCK level=13.|15
+wait 0.35
+shot L7_boss_p1_fan_release
+shot L7_boss_p1_fan_flight
+# phase-1 lob (three fish): thrown at 15.0 (13.1 + gap 1.9), landing 16.15 / 16.27 / 16.39
+waitfor FT CLOCK level=15.|15
+wait 0.6
+shot L7_boss_p1_lob_flight
+wait 0.3
+shot L7_boss_p1_lob_land
+# ---- LUNGE: starts 6.0 s after phase 1 (timer T3) = 18.0; warning (glow, JAWS!) until 18.9; drops back at the car
+# until 20.3 (closest about 33 m), then pulls away. A lob (18.8) lands around him at 20.0-20.2.
+waitfor FT CLOCK level=18.|15
+wait 0.2
+shot L7_boss_lunge_windup_1
+shot L7_boss_lunge_windup_2
+shot L7_boss_lunge_release
+waitfor FT CLOCK level=20.|15
+wait 0.08
+shot L7_boss_lunge_bite
+shot L7_boss_lunge_recover
+# ---- PHASE 2 at clock 22.0: 50 more rounds, armor 48 of 150 (33% or less). Caption FEEDING FRENZY!
+waitfor FT CLOCK level=22.|15
+FTFire 50 Boss
+shot L7_boss_phase2
+# phase-2 fan (nine swordfish): fired at 22.6 (20.7 + gap 1.9)
+wait 0.3
+shot L7_boss_p2_fan_release
+shot L7_boss_p2_fan_flight
+# phase-2 lob (four fish): thrown at 24.2 (22.6 + gap 1.6), landing 25.35 / 25.47 / 25.59 / 25.71
+# (flight at 24.7 and landing at 25.6, so that the lines down to the kill are through a quarter second before clock 27)
+waitfor FT CLOCK level=24.|15
+wait 0.7
+shot L7_boss_p2_lob_flight
+wait 0.4
+shot L7_boss_p2_lob_land
+# ---- under 20% armor (28 of 150): the director's "It's belly up! Finish it!"
+waitfor FT CLOCK level=26.|15
+FTFire 20 Boss
+shot L7_boss_bellyup
+# ---- DEFEAT at clock 27.0. FTWrapNow = the rest of his armor through the gun path: FT WRECK Boss, FT BOSS state=Down,
+# FT OUTCOME wrap. The game then holds a freeze frame for 0.22 s, runs at 0.22x for 2.4 s, and ends the take 4.2 s
+# after the kill (all real seconds), so these waits are real time from the kill.
+waitfor FT CLOCK level=27.|15
+FTWrapNow
+shot L7_boss_defeat
+shot L7_boss_defeat_after_1
+wait 1.0
+shot L7_boss_defeat_after_2
+wait 0.6
+shot L7_boss_wrap_cut
+# ---- THE WRAP: rating, highlight reel, dailies, paycheck. The reel with the two boss clips only (real seconds from
+# "name=Reel"): title to 2.2, the crane clip 2.2 to 8.3 with the kill at 5.55, the kill camera 8.3 to 12.7 with the kill at
+# 9.95. The shots: crane at 3.3, the kill from the crane 0.45 s after it (6.0), the kill camera 0.4 s after its kill (10.35).
+waitfor FT RATING value=|20
+waitfor FT SCREEN name=Reel|10
+wait 3.3
+shot L7_boss_wrap_reel_crane
+wait 2.2
+shot L7_boss_wrap_reel_kill
+wait 3.85
+shot L7_boss_wrap_reel_killcam
+waitfor FT SCREEN name=Reel state=hold|90
+wait 0.3
+shot L7_boss_wrap_reel_hold
+FTPress Continue
+waitfor FT SCREEN name=Dailies|10
+wait 4.0
+shot L7_boss_wrap_dailies
+# (the paycheck writes one line every 0.32 s: 5 s shows it whole up to 14 lines)
+FTPress Continue
+waitfor FT SCREEN name=Paycheck|10
+wait 5.0
+shot L7_boss_wrap_paycheck
+FTDumpLevel
+FTDumpCareer
+wait 1
+quit

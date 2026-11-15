@@ -1,0 +1,135 @@
+FILE: K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\boss_L1.txt
+CHANGED BY CHECKER: True
+RUN: powershell -NoProfile -ExecutionPolicy Bypass -File "K:\Full Throttle\SkyScratch\SourceArt\Jam\unreal\jam_exec.ps1" -Tag bossL1_before -Script "K:\Full Throttle\SkyScratch\DevLog\jam\overhaul\validate\boss_L1.txt" -Checkout "K:\Full Throttle\OverhaulBaseline\full-throttle-unreal" -BudgetSec 900 -Extra "-ftnoattract -ftnodynres"
+
+For the integrated build, the same line with -Tag bossL1_after -Checkout "K:\Full Throttle\UE\full-throttle-unreal". Same frame size on both (default 3440x1440; add -Small to both if the log shows under 20 frames a second). Use a new -Tag for every run. Expect about 2.5 minutes after the level has started (36 s of game time, 35 frames).
+
+PROBLEMS FOUND BY THE CHECKER:
+Nothing was run; every finding is from the code of the untouched copy (K:\Full Throttle\OverhaulBaseline\full-throttle-unreal), and the commands and log lines used were checked to exist in the live project too. The file is rewritten in place; all 35 shot names are kept.
+
+WOULD HAVE FILMED THE WRONG THING
+1. The finale road has a loop. FTData.cpp 95-115: the level's opening sections add up to exactly FinaleD (122500), so the fight runs on the closing circuit: 206 m right-hand bend with humps, 164 m banked left-hand bend, 82 m straight, then a 288 m LOOP, later a corkscrew. At the old 64 m/s the car is in the loop from 7.0 to 11.5 s after a summon. The old L1_boss_phase2_call (boss clock 8.0) and phase2_bikers_pass (11.4) were inside it, with the boss 59 m ahead and about 37 degrees above the camera's axis (frame half height about 22 degrees), and phase3_chopper (17.9) was in the corkscrew. FIX: five short encounters, each from the top of the finale road (the real entrance plus four FTBossNow summons), and every shot at or before 6.6 s.
+2. Leaving a loop scores a stunt, even by a jump of the car (FTGameMode.cpp 3397-3401: LOOP THE LOOP +700, a "LOOP!" plate, a pop-up and a highlight clip). A summon at 8.0 s would have triggered it. FIX: from the entrance on the car drives at base speed (FTHold SpeedUp 0, sent inside a freeze; 380 su = 52 m/s), so the loop is 8.7 s away and every summon at 8.0 s is 34 m short of it.
+3. L1_boss_fan_release was a coin flip. Counting the runner's real pauses (0.15 s after each command, plus frames), the old frame fell at 5.82 to 5.90 s; the third fan fires at 5.8 to 5.95 s (each reload starts a frame late). FIX: taken in the frame after "FT CLOCK level=15." (6.05 s), always 0.1 to 0.3 s after the fire. The seven-round fan is done the same way.
+4. The fan would probably have missed the car at x = 340. On a bend the autopilot sits to the outside of its x (FTPlayerCar.cpp 1102-1111, RoadFollow 0.55): about 1 m at 64 m/s on this right-hand bend, so about x = 245. The middle round needs 260 to 516, so L1_boss_fan_land would have timed out. FIX: x = 460 for that encounter (about 390 on the bend, the middle of both the fan's and the barrel's window).
+5. The reel could get a random camera. A kill within 1.9 s after any other highlight event is merged into that clip (ReelEvent, 3875-3889) and loses the two fixed boss cameras. The chopper's first trooper lands on the car 4.7 s after the call (2203-2268, a PASSENGER clip), and a latched trooper stays on the car through later summons. FIX: the under-33% encounter ends at 4.0 s; the defeat is a fifth encounter with a fresh boss alone, killed at 3.25 s.
+6. WALL RIDE stunt in the road scene. At x = 340 the car sits past x = 457 on the banked wall bend (3434-3438): +600, a pop-up in the road frames and another random-camera clip. FIX: x = -300 for the road scene and the entrance.
+
+NOT DETERMINISTIC
+7. Combo coin flip. His second barrels reach the car 3.0 s after the first, exactly the combo timer, so COMBO x2 or x3 and 50 points of score were a toss-up, visible in the HUD of five frames. FIX: after the fan has landed the car moves to x = -800 and stays there; no barrel of a fight's first 8 s comes within 0.9 m of touching it. At x = -300 the entrance's barrels and fan also pass it by.
+8. Civilians. With ft.AutoX the autopilot no longer changes lane (1114), so at 64 m/s civilians in the car's lane are rammed from 4.6 s after each summon. FIX: at base speed they need at least 6.5 s; the latest frame is at 6.6 s.
+9. HUD plates on a real-time edge (plates switch hard, FTHUD.cpp 650-717): ACTION! and the scene slate at enter_1 to enter_3, the key-hint strip around enter_3/enter_4, the +50 pop-up at fan_flight. FIX: waits inside the freeze, which cost no game time.
+10. Chase camera still swinging 0.3 s after a jump of the car (it eases on real time, 3794-3795). FIX: 0.3 to 0.5 s of frozen wait before the first frame of each encounter.
+
+TIMING AND SMALLER THINGS
+11. Tight windows below 20 frames a second: two waits cut from 0.2-0.3 s to 0.1 s, the wait before barrels_flight removed, the barrel wait's timeout 0.6 -> 0.9 s (the barrel now lands at about 1.9 s).
+12. L1_boss_low moved to 1.25 s of its encounter (a clock mark), clear of the barrel drop at 1.0 s.
+13. Paycheck wait 2.5 -> 5 s (lines appear every 0.32 s).
+14. Added, log only: "ft.Autopilot 1" (FTTEL lines with the car's x and the frame rate every 2 s; the autopilot is already on) and one FTDumpLevel before the kill.
+15. Run line: added -NoProfile -ExecutionPolicy Bypass. I tested with a dummy script that Windows PowerShell 5.1 -File binds -Extra "-ftnoattract -ftnodynres" correctly.
+
+CHECKED AND FOUND RIGHT
+- Every command exists with these arguments in FTFlow.cpp HarnessCmd, including FTStartLevel's scene argument (681-692, FTGameMode.cpp 253) and FTNextScene.
+- Every waitfor text is a real "FT " line; each clock mark falls after the console command before it.
+- FTQuality 3 is sent before the level starts; FTUseTestSlot then FTCareerReset run first, so only career_pie is written.
+- The script reaches quit on every path: a timeout never stops it; worst case about 170 s extra.
+- Armor steps 114 / 79, 53 / 39, 23 match the thresholds.
+
+SIDE EFFECT, UNCHANGED: the wrap writes a level-1 best take into that checkout's settings.json if the score (about 5000) beats the stored one.
+
+STILL UNSURE:
+1. Where the autopilot really holds the car across the road. The 1 m "outside of the bend" offset is my calculation from the steering code. Check the FTTEL X= lines, then "FT WRECK Barrel cause=2" about 1.9 s and "FT HURT dmg=0.0" about 2.85 s after the second "FT BOSS state=Arrive". If either is missing, L1_boss_barrels_land or L1_boss_fan_land shows a later moment (a timeout of 0.9 s, nothing else moves); correct the "ft.AutoX 460" line by the offset seen.
+2. Frame rate at Epic, 3440x1440, on a shared PC. The waits hold down to about 12 frames a second; below that a clock mark can be missed (a 6 to 14 s timeout, later frames at wrong moments). FTTEL prints fps=. If it is low, use -Small on both runs.
+3. Base speed really 380 su after "FTHold SpeedUp 0" (check "FT SPEED ... target=380"). At 410 su or more the summons at 8.0 s would land inside the loop and score LOOP THE LOOP; any "FT STUNT" line in the log means that happened.
+4. "FTStartLevel 1 15" (starting at a scene) is used by no other script; I only read its code path. Check "FT LEVEL id=L1 scene=15". If it starts elsewhere, the entrance frames are wrong but the four summons still work.
+5. Whether the title sits on Bayshore with a full track (the race then starts on the spot) or needs a map load; either path is covered by the 240 s wait.
+6. What the frames look like: the boss partly behind the first hump in the first 0.6 s of an encounter (I worked out up to about half a metre of his wheels hidden), the views on the banked left-hand bend (idle, fan release, hurt, hard fan, bikers on station are taken there), and whether the hit sparks read at 59 m.
+7. The reel holding exactly two shots (check "FTFLOW reel start, 2 shots"). Any other highlight event in the run adds a clip with a random camera; the title-card and last-frame shots would still pair.
+8. Random and not pinned: the bikers' lanes, the chopper's and trooper's side, the director's ambient lines, camera shake within about 0.3 s of a blast (barrels_land, fan_land, the defeat frames). The engine switch -fixedseed is untested.
+9. Dailies and paycheck backgrounds: by then the car is driving into the loop behind the panels. The car is held on the road there, but how it looks I cannot tell.
+10. If the integrated build changes any timer, cadence, armor, distance or the car's speed, the same shot names show different moments: read those frames against the FT BOSS / FT DAMAGE / FT WRECK / FT HURT lines, not only against each other.
+11. settings.json differs between the two checkouts (reduced motion, FPS counter, key layout): HUD details can differ for reasons that are not the overhaul.
+
+SHOTS:
+36 shots, in order. "t" = seconds on the boss's own clock (game time). All fight stills are taken with the world held (FTFreeze), HUD in frame.
+
+ROAD (scene 15 of 16, SUNSET STRIP, the stretch before the finale)
+1. L1_boss_road_1 - level clock 2.0: the road just after the start; the scene's three rammers about 90-125 m ahead.
+2. L1_boss_road_2 - level clock 4.0: about 200 m further on; rammers 30-65 m ahead.
+
+ENTRANCE (the level's own spawn after FTNextScene; boss clock = level clock - 5)
+3. L1_boss_enter_1 - t 0.2: he has just appeared about 148 m ahead; THE FINALE slate and his HUD panel come up.
+4. L1_boss_enter_2 - t 0.6: about 125 m, closing at 60 m/s.
+5. L1_boss_enter_3 - t 1.2: about 90 m, braking; his first two barrels (T2 = 1.0) are on the road behind him.
+6. L1_boss_enter_4 - t 2.0: about 71 m; his first fan (T1 = 1.6) is in the air.
+7. L1_boss_enter_5 - t 3.0: on his spot (64 m, settling to 59 m); the fan about to reach the car.
+
+ON-SPOT ENCOUNTER (FTBossNow at level clock 9; boss clock = level clock - 9)
+8. L1_boss_onspot - t 0.2: fresh boss on his fighting spot, road cleared, nothing fired.
+9. L1_boss_barrels_windup - t 0.7: last frame before the barrel drop (no wind-up exists in today's code).
+10. L1_boss_barrels_release - t 1.1: two barrels just off his tail (0.1-0.2 s after T2 ran out).
+11. L1_boss_barrels_flight - t 1.4: the barrels about half way to the car.
+12. L1_boss_barrels_land - t about 1.75, one frame after `FT WRECK Barrel`: the right-hand barrel going off on the car.
+13. L1_boss_fan_flight - t 2.2: first 5-round fan, 0.6 s after he fired, half way.
+14. L1_boss_fan_land - t about 2.85, one frame after `FT HURT`: the middle round striking the car.
+15. L1_boss_idle - t 5.3: between attacks, nothing in the air, he sways on his spot.
+16. L1_boss_fan_windup - t 5.55: last frame before the third fan (fires at 5.8).
+17. L1_boss_fan_release - t 5.95: five rounds a few metres off his tail.
+
+HURT AND DAMAGE PHASES (FTFire <n> Boss)
+18. L1_boss_hurt_1 - 0.05 s of game time after 6 rounds hit him (120 -> 114), in 0.3x slow motion: sparks off his tail armor, armor bar down.
+19. L1_boss_hurt_2 - 0.1 s after the same hits.
+20. L1_boss_phase2_call - t 8.2, armor 79 (under 66%): caption HE'S CALLING IN THE BIKERS!, two bikers 150 m up the road.
+21. L1_boss_phase2_bikers_pass - t 11.4: the bikers dropping back past him.
+22. L1_boss_phase2_bikers_on - t 13.3: both bikers on station between the car and the boss.
+23. L1_boss_hard_fan_release - t 14.55, armor 53 (under 50% and 45%): the first 7-round fan just fired.
+24. L1_boss_hard_fan_flight - t 15.0: the seven rounds spread out, most of the way to the car.
+25. L1_boss_phase3_call - t 15.5, armor 39 (under 33%): caption HE'S CALLED IN A CHOPPER! ONE MORE PUSH!
+26. L1_boss_phase3_chopper - t 18.2: the chopper over the road.
+27. L1_boss_phase3_fight - t 20.9: chopper, troopers on ropes or on the car, bikers, 7-round fans and barrels together.
+28. L1_boss_low - t 21.3, armor 23 (under 20%): the director's "Finish him! FINISH HIM!".
+
+DEFEAT (FTWrapNow at about t 24.5, level clock about 34)
+29. L1_boss_defeat_0 - 0.15 real s after the kill, inside the game's own 0.22 s hit-stop: the explosion's first frame.
+30. L1_boss_defeat_1 - 0.65 real s (about 0.15 s of game time): the fireball grown, helpers blown up with him.
+31. L1_boss_defeat_2 - 1.75 real s (about 0.4 s of game time): his wreck tumbling, the CUT! card up.
+32. L1_boss_wrap_cut - 3.15 real s: CUT! PRINT IT. THAT'S A WRAP!, slow motion over.
+
+WRAP
+33. L1_boss_wrap_reel_title - 1 s into the highlight reel's 2.2 s title card.
+34. L1_boss_wrap_reel_hold - the reel finished, holding its last frame (the kill's second angle, 2 s after the kill).
+35. L1_boss_wrap_dailies - THE DAILIES, 3.2 s in: rating stamp down.
+36. L1_boss_wrap_paycheck - the paycheck, 2.5 s in.
+
+FACTS:
+LINE NUMBERS are those of the untouched copy, K:\Full Throttle\OverhaulBaseline\full-throttle-unreal (commit d771da5). The live project moved while I read it (abf845f -> 497759b): there FTGameMode.cpp is 57-58 lines further down from BeginPlayPhase on, and about 94 lines further from the camera code on. The boss code itself is identical in both. GM = Source\FullThrottle\FTGameMode.cpp, FLOW = FTFlow.cpp.
+
+DATA (FTData.cpp, same in both): level 1 has 16 scenes, not 11 (117-132). Scene 15 SUNSET STRIP starts at 111500 with three rammers (131; letters at 59-62), scene 16 THE FINALE at 122500 spawns "B" (132). FinaleD 122500 (115). Boss: THE JUGGERNAUT, BossHp 120, BossEscape 70 (135). Units (FTCore.h 13-19): XU 9.14 cm, DU 13.71 cm, lanes at x = -877/-292/+292/+877 cm, road half width 1170 cm.
+
+SPAWN (GM SpawnGroup 1631, boss case 1658-1687): spawned 16000 cm ahead at x 0 (1660); fighting distance Ta = 342 x DU x 1.25 = 5861 cm (1662); timers T1 1.6, T2 1.0, T3 6.0 (1665); logs `FT BOSS state=Arrive armor=120 escape=70 clock=0.0` (1683). Size 409 x 1234 cm (1542). New entities join the list at the top of TickEnts (2044), so a script-spawned boss ticks in the frame he is spawned.
+
+ARRIVAL: there is no entrance state for him. His speed is car speed + clamp((Want - Ahead) x 1.4, +-6000) (GM 2814), so from 160 m he closes at 60 m/s for about 0.94 s, then eases in: about 91 m at 1.2 s, 71 m at 2.0 s, 64 m at 3.0 s. His timers run meanwhile: barrels at 1.0 s; the fan waits for Ahead < Ta + 2000 (2652), which he reaches at about 1.6 s. FTBossNow (FLOW 1003-1013) skips all this: line 1011 puts him straight on his spot.
+
+HIS FIGHT (GM TickBoss 2639; level-1 block 2647-2674; no phase switch of its own)
+- Sway: distance Ta + 356 cm x sin(0.7 t) (2649); x follows 676 cm x sin(0.55 t) at rate 2 (2650). Worked out: x = 205 at t 1.0, 382 at 1.6, 640 at 3.7, 610 at 4.0, 142 at 5.8.
+- Fan, T1 (2651-2663): fires the frame T1 runs out, no wind-up; reload 2.1 s, 1.5 s under 50% (2655); 5 rounds, 7 under 50% (2656), 0.17 rad apart, from his tail at height 200, 300 su = 4113 cm/s toward the car (2660). Flight about 1.25 s. A round is 6 damage (2377) and lives 2.6 s.
+- Barrels, T2 (2664-2669): reload 3.0 s, 2.2 s under 50% (2667); two barrels at his x +-201 cm, 200 cm behind his tail, standing still (2668). The car touching one: 14 damage and the barrel blows (2483), logging `FT WRECK Barrel cause=2` (1851).
+- Under 66%: two bikers, caption HE'S CALLING IN THE BIKERS! (2670). Under 45%: "He's cracking! Pour it on!" (2671). Under 33%: a chopper and a biker, caption HE'S CALLED IN A CHOPPER! ONE MORE PUSH! (2672). Under 20%: "Finish him! FINISH HIM!" (2673). None of these four logs a line.
+- Escape clock (FLOW TickBossClock 280-322): rate 1 at or below his pace 520 su; LAST CHANCE at 70, gone within 8 s. The script's second boss lives about 25 s.
+
+HIS MODEL (FTEntity.cpp, same in both): mesh SM_Juggernaut (178-180); separate rolling wheels (292-293); a red light 6 m behind and 3 m up (406-414); the body rides springs, damped as a heavy vehicle (660-712). No moving part of his own, no attack animation, and no hit reaction: KickBike is bikes only (594-597). The Alert glow and flare (417-443) need Glow, which the level-1 code never sets.
+
+HURTING HIM: `FTFire <n> Boss` (FLOW 1031-1061) sends n rounds of the current load through BulletHit (FLOW 150-189) in one frame: 1 armor each on a fresh career (154), armor sparks and a ring on his tail (166-171), then HurtEnt (GM 1807) logs `FT DAMAGE target=Boss amount=1 left=<hp> load=STD source=gun` (1815). Thresholds from 120: under 66% at 79, 50% at 59, 45% at 53, 33% at 39, 20% at 23. The script goes 114, 79, 53, 39, 23.
+
+DEFEAT: `FTWrapNow` (FLOW 1100-1106) takes the rest through the gun path: `FT WRECK Boss cause=0`, `FT BOSS state=Down` (GM 1968), 3x explosion and a tumbling wreck, then Wrap (371): hit-stop 0.22 real s (379), 0.22x for 2.4 real s (380), every other vehicle wrecked with cause 6 (381-382), `FT OUTCOME wrap`, CUT! card at 0.8 s (398). 4.2 real s later (543): rating, pay saved, then the reel (StartReel 3898; title 2.2 s at 3923; the boss clip twice, from 2.6 s and from 0.9 s before the kill to 2 s after, 3907-3908).
+
+CAR AND HARNESS
+- FTAutoRun (FLOW 1164-1179): autopilot, invulnerable, SpeedUp held; no gun, missile or turbo (GM 1177). Target speed 380 + 90 = 470 su = 6444 cm/s (GM 1304, FLOW 76).
+- ft.AutoX (GM 43) pins the autopilot's lane. With invulnerability a hit still logs `FT HURT dmg=0.0 ...` (GM 1488, 1497).
+- FTStartLevel <level> <scene> (FLOW 996, 681-692; GM 253) starts at that scene. FTNextScene (FLOW 997-1002) clears the road and puts the car 50 cm into the next scene at speed.
+- FTFreeze (FLOW 1092; GM 3735) sets time dilation 0.0001 at the end of the next game tick. FTSlowMo is 0.3x for that many real seconds (FLOW 1065).
+- `FT CLOCK level=` is printed in the first frame past each whole second of level clock (GM 1034).
+- waitfor looks from the last console command on (FTGameInstance.cpp 552), and the line after a satisfied waitfor runs in the same frame.
+- HUD (FTHUD.cpp): boss panel with armor and escape meters (640-648), caption plate 3 s (650-655), scene slate 2.8 s (667-674), key hints strip for the first 10 s of a race (711-718).
+
+NOT USED, ON PURPOSE: the `film` script line, `FTGo` and `-ftgo` exist only in the live project (commits 6ad38b2, 4d267b4). The untouched copy has none of them.

@@ -1,0 +1,364 @@
+# boss_L6.txt - THE ABOMINABLE (game level 6, Ice Mountain, level index 5): the whole fight, staged for before/after pairs.
+# Run it the same way on both checkouts, with a new tag each time:
+#   jam_exec.ps1 -Tag <tag> -Script boss_L6.txt -Checkout <project> -BudgetSec 1200 -Extra "-ftnoattract -ftnodynres -ftslot=pie"
+# (-ftslot=pie: the game starts on the test career slot, so no line of this script can ever reach the real career.)
+# After each run look in the log for: result=timeout (the script lost its place), FTHITCH (a long frame inside the
+# take), LogFT: Error, "FT HURT" lines with push=650 or push=-650 (the car hit traffic: the shots near it are off),
+# "source=BossWall" (he touched the car: not expected).
+# Expected: "FT CAREER reset slot=career_pie", then "FT BOSS state=Arrive armor=150", "yeti=alongside t=1.8" and
+# "yeti=turned" TWICE (a warm-up boss, then the real one); then for the real one, in this order: "FT DAMAGE
+# target=Boss ... left=140", "FT BOSS yeti=charge phase=0", "left=95", "FT BOSS yeti=charge phase=1", "left=45",
+# "left=25", "left=0", "FT BOSS state=Down clock=.. fight=30 (about)", "FT OUTCOME wrap", "FT RATING".
+# Eight waits on "line=- push=0 near=" must all be found.
+#
+# HOW IT KEEPS THE TWO RUNS ON THE SAME MOMENTS
+# - ONE continuous fight (his entrance takes 5.2 s, so a fresh boss for every part would cost too much). It is put
+#   back on time at every step by a log line the game prints at an exact moment of the fight:
+#     "FT BOSS state=Arrive", "FT BOSS yeti=alongside", "FT BOSS yeti=turned", "FT BOSS yeti=charge", and
+#     "FT HURT dmg=0.0 .. line=- push=0 near=.." = one of his attacks landing on the car. FTAutoRun makes the car
+#     take no damage, but HurtPlayer still prints the line (FTGameMode.cpp HurtPlayer). "push=0" leaves out bumps
+#     from traffic (those have push=650 or -650).
+#   Between two such lines the script counts at most 3 s of game time by itself.
+# - The fight is filmed in slow motion (FTSlowMo = time scale 0.3: a script step of 0.15 s is 0.045 s of game time,
+#   "wait 1" is 0.3 s). FTSlowMo counts REAL seconds, freezes included, and cannot be cancelled, so it is asked for
+#   again every few lines (15 s each time). Asking again also undoes a near miss's own slow motion (traffic passing
+#   the car sets the scale to 0.35 until the next FTSlowMo), which is why the two long waits are cut in two.
+#   The last FTSlowMo leaves about 7 s at the kill, so the whole wrap (4.2 real seconds) runs at the kill's own scale
+#   of 0.22 and the three defeat stills do not depend on how long a frame takes to save.
+# - A still is FTFreeze 1 / shot / FTFreeze 0 (the world holds at time dilation 0.0001 while the frame is saved).
+#   The HUD's clock is REAL time and runs on in a freeze: a shout (ICE!, AVALANCHE! ...) shows for 1.0 real second,
+#   a caption for 3.0, the CUT! card from 0.8 after the kill. Every still is placed at least 0.15 real seconds (most
+#   of them 0.25 or more) away from those edges, so the same words are on screen in both runs.
+# - The car is pinned with ft.AutoX (the autopilot would otherwise weave, and his attacks aim at the car's x):
+#   x = 585 cm (between lanes 3 and 4) up to the summon, so that the car is surely right of the centre line when he
+#   spawns (he comes past on the other side: SpawnGroup case Boss, "E.X = (Car->X > 0 ? -1 : 1) * 78 * XU" = on the
+#   LEFT); then, after the first entrance still, x = 15 cm (the centre line, between lanes 2 and 3, clear of the
+#   traffic in both). FTAutoRun: autopilot steers, car takes no damage, car never fires.
+# - The boss is hurt only by "FTFire <n> Boss": n standard rounds through the real hit path in one frame, 1 armor
+#   each on a fresh career. 150 armor: 10 rounds -> 140 (hurt shots, still phase 0), 45 -> 95 (phase 1 is 66% or
+#   less = 99), 50 -> 45 (phase 2 is 33% or less = 49), 20 -> 25 (under 20%: the director's "He's slowing down!").
+#   FTWrapNow deals the rest in one hit. Each FTFire is sent right after an attack has landed, at least 0.7 s of game
+#   time before his next attack is chosen, because a phase change restarts his attack order.
+#
+# THE ABOMINABLE'S TIMERS (FTGameMode.cpp TickBossYeti, SpawnGroup case Boss; s = game seconds after he has turned)
+#   entrance: spawns 26 m BEHIND the car in the next lane, comes past on a 4.5 s clock (level with the car at 1.83 s:
+#     "yeti=alongside"), reaches 40 m ahead ("yeti=turned"), spins round in 0.7 s, roars: s = 0.
+#   attack timer T1: 1.2 s at s = 0; each time it runs out one attack starts and T1 = the gap: 2.4 s in phase 0,
+#     2.0 s in phase 1, 1.7 s in phase 2 (+0.5 s after an avalanche). It keeps running while he charges.
+#     phase 0 order: snowballs, ground pound.  phase 1 and 2: snowballs, ground pound, avalanche.
+#     snowballs  : 2 (+1 a phase), no wind-up, in the air 1.2 s (+0.12 s each further ball), the first onto the car
+#     ground pound: the car's lane is warned for 1.0 s (0.85 s from phase 1), then ice spikes for 0.45 s; phase 2: two lanes
+#     avalanche  : a wall of snow with one gap (a random lane), warned 0.8 s where he stands, then it rolls at the car
+#                  at 3976 cm/s (4387 in phase 2): about 1.1 to 1.25 s from his spot 49 m ahead
+#   charge timer T3: 8.0 s at s = 0. The charge lasts 2.4 s: 0.8 s leaning in and glowing (wind-up), then he closes
+#     to about 20 m; then T3 = 9 s (phase 0), 7 s (phase 1), 5.5 s (phase 2).
+#   This script's fight, in s: snowballs 1.2 (land 2.4), pound 3.6 (spikes 4.6), [FTFire 10 at 4.95], snowballs 6.0,
+#   CHARGE 8.0-10.4 (a pound at 8.4), snowballs 10.8 (land 12.0), [FTFire 45 at 12.1 = phase 1], three snowballs 13.2
+#   (land 14.4), pound 15.2 (spikes 16.05), AVALANCHE 17.2 (rolls from 18.0, at the car 19.12 to 19.24), second charge
+#   19.4-21.8, three snowballs 19.7 (land 20.9), [FTFire 50 at 21.0 = phase 2], four snowballs 21.7 (land 22.9),
+#   pound on two lanes 23.4 (spikes 24.25), [FTFire 20 at 24.35], KILL at 24.9: the pound is over (24.7), the next
+#   avalanche would start at 25.1 and the next charge at 27.3, so the road is empty when the wrap stops everything.
+# "windup" shots of the snowballs and the pound: today nothing shows before the throw, and the pound's only warning
+# is the lane mark; they are there to catch a wind-up pose if the overhaul adds one.
+
+# ---- the test career slot, a fresh career, Epic quality (all before the level starts). FTUseTestSlot is sent twice
+# and each one is waited for, so FTCareerReset can only ever act on career_pie; the third waitfor proves it did.
+FTUseTestSlot
+waitfor FT SAVE slot=career_pie reason=UseTestSlot|20
+FTUseTestSlot
+waitfor FT SAVE slot=career_pie reason=UseTestSlot|20
+FTCareerReset
+waitfor FT CAREER reset slot=career_pie|10
+FTQuality 3
+ft.AutoX 585
+wait 2
+
+# ---- the level, from the top (scene 1, FIRST TRACKS), on the autopilot: two shots of the road
+FTStartLevel 6
+waitfor FT LEVEL id=|240
+FTAutoRun wreck=0
+waitfor FT SPEED|60
+waitfor FT CLOCK level=3.|90
+FTFreeze 1
+shot L6_boss_road_1
+FTFreeze 0
+waitfor FT CLOCK level=8.|60
+FTFreeze 1
+shot L6_boss_road_2
+FTFreeze 0
+# the key hints leave the screen 10 s after ACTION; the half pipe starts near 23 s
+waitfor FT CLOCK level=11.|60
+FTDumpLevel
+
+# ---- warm-up boss, real time, no shots: the first yeti of a session loads and compiles what the fight draws.
+# 55 rounds at once put him in phase 1 from his first step: three snowballs land 7.6 s after the Arrive line, spikes
+# at 9.25, an avalanche rolls from 11.2 and reaches the car near 12.4. He is replaced before his first charge (13.2).
+# Nothing is timed off this one.
+FTBossNow
+waitfor FT BOSS state=Arrive|10
+FTFire 55 Boss
+wait 12.2
+
+# ---- ENTRANCE (the real boss; FTBossNow clears the road and puts the car back on the finale line).
+# T = game seconds after the Arrive line. enter_1 T=0.35: he is 25 m behind and not in frame yet; the caption THE
+# ABOMINABLE IS ON YOUR TAIL! is up (3 real seconds), the shout IT'S CHASING US! has just gone (1 real second: the
+# still is taken 1.3 real seconds after the Arrive line). The car leaves x = 585 for the centre line after it.
+# enter_2 T=2.17: 0.34 s after "yeti=alongside" (T=1.83), 5 m in front of the car's nose line, on the left.
+# enter_3 T=2.9: 21 m ahead, running away from the camera. enter_4: 0.34 s after "yeti=turned" (T=4.5), half way
+# through the 0.7 s spin (Heading 180 -> 0).
+FTSlowMo 15
+wait 0.6
+FTBossNow
+waitfor FT BOSS state=Arrive|10
+wait 1.0
+FTFreeze 1
+shot L6_boss_enter_1
+FTFreeze 0
+ft.AutoX 15
+FTSlowMo 15
+waitfor FT BOSS yeti=alongside|15
+wait 1.1
+FTFreeze 1
+shot L6_boss_enter_2
+FTFreeze 0
+wait 2.3
+FTFreeze 1
+shot L6_boss_enter_3
+FTFreeze 0
+FTSlowMo 15
+waitfor FT BOSS yeti=turned|15
+wait 1.1
+FTFreeze 1
+shot L6_boss_enter_4
+FTFreeze 0
+
+# ---- IDLE, s=0.4: turned round, loping on his spot, arms up; nothing thrown yet (T1 = 1.2 s runs from s=0).
+# (His second roar's shout went 0.4 real seconds before this still.)
+wait 2.3
+FTFreeze 1
+shot L6_boss_idle
+FTFreeze 0
+FTSlowMo 15
+
+# ---- ATTACK 1, SNOWBALLS (phase 0, T1 = 1.2 -> thrown at s=1.2; Lob flight 1.2 s and 1.32 s).
+# windup s=0.93 (0.27 s before T1 runs out), release s=1.38 (0.18 s after), flight s=1.89 (0.57 of the 1.2 s),
+# land = the FT HURT line of the first ball (s=2.4) + 0.08 s.
+wait 1.5
+FTFreeze 1
+shot L6_boss_snow_windup
+FTFreeze 0
+wait 1.3
+FTFreeze 1
+shot L6_boss_snow_release
+FTFreeze 0
+wait 1.5
+FTFreeze 1
+shot L6_boss_snow_flight
+FTFreeze 0
+FTSlowMo 15
+waitfor line=- push=0 near=|8
+wait 0.25
+FTFreeze 1
+shot L6_boss_snow_land
+FTFreeze 0
+FTSlowMo 15
+
+# ---- ATTACK 2, GROUND POUND (phase 0, T1 = gap 2.4 -> starts 1.2 s of game time = 4.0 real seconds after the
+# snowball landed; lane warned 1.0 s (Hz.Warn), spikes for 0.45 s (Hz.Live)).
+# windup = 0.1 to 0.15 s after the start (the pound: shake, the mark appears; the shout ICE! is 0.5 to 0.7 real
+# seconds old of its 1.0), warn = 0.55 to 0.6 s into the 1.0 s warning, release = the FT HURT line (the lane goes
+# live) + 0.05 s, land = + 0.26 s.
+wait 1.8
+FTSlowMo 15
+wait 1.8
+FTFreeze 1
+shot L6_boss_pound_windup
+FTFreeze 0
+FTSlowMo 15
+wait 1.2
+FTFreeze 1
+shot L6_boss_pound_warn
+FTFreeze 0
+waitfor line=- push=0 near=|8
+wait 0.15
+FTFreeze 1
+shot L6_boss_pound_release
+FTFreeze 0
+wait 0.5
+FTFreeze 1
+shot L6_boss_pound_land
+FTFreeze 0
+FTSlowMo 15
+
+# ---- HURT (phase 0, s=4.95 to 5.2: the spikes are gone, the next snowballs come at s=6.0). FTFire 10 Boss: 150 -> 140.
+# hurt_1 0.06 s of game time after the ten hits, hurt_2 0.21 s after. (Today: sparks off his armor, no pose.)
+FTFire 10 Boss
+waitfor target=Boss amount=1 left=140 load=STD|2
+FTFreeze 1
+shot L6_boss_hurt_1
+FTFreeze 0
+wait 0.35
+FTFreeze 1
+shot L6_boss_hurt_2
+FTFreeze 0
+FTSlowMo 15
+
+# ---- ATTACK 3, THE CHARGE (T3 = 8.0 -> s=8.0, "FT BOSS yeti=charge"; c = that line).
+# windup c+0.31 (leaning in, glow on; 0.3 real seconds before the pound that starts at c+0.4; the shout HE'S
+# CHARGING! went 0.15 real seconds earlier), release c+0.97 (T2 has passed 0.8: he starts to close; a lane is
+# warned), lunge c+1.62 (half way in; that lane's spikes are up, c+1.4 to c+1.85), close c+2.17 (nearest, about
+# 21 m; the charge ends at T2 = 2.4).
+waitfor FT BOSS yeti=charge|18
+FTSlowMo 15
+wait 0.85
+FTFreeze 1
+shot L6_boss_charge_windup
+FTFreeze 0
+wait 2.0
+FTFreeze 1
+shot L6_boss_charge_release
+FTFreeze 0
+wait 2.0
+FTFreeze 1
+shot L6_boss_charge_lunge
+FTFreeze 0
+FTSlowMo 15
+wait 1.5
+FTFreeze 1
+shot L6_boss_charge_close
+FTFreeze 0
+FTSlowMo 15
+
+# ---- PHASE 1 (armor at 66% or less). The next FT HURT is the snowball thrown at s=10.8 landing at s=12.0; then
+# FTFire 45 Boss: 140 -> 95, at s=12.1 (his next attack is chosen at s=13.2). Caption HE'S STARTING AVALANCHES!
+# phase1_start 0.18 s of game time after the hits.
+waitfor line=- push=0 near=|12
+wait 0.3
+FTFire 45 Boss
+waitfor target=Boss amount=1 left=95 load=STD|2
+wait 0.4
+FTFreeze 1
+shot L6_boss_phase1_start
+FTFreeze 0
+FTSlowMo 15
+# three snowballs (s=13.2): the first lands at s=14.4 (FT HURT), the others 0.12 s and 0.24 s later: still at + 0.05 s
+waitfor line=- push=0 near=|12
+wait 0.15
+FTFreeze 1
+shot L6_boss_phase1_snow_land
+FTFreeze 0
+FTSlowMo 15
+# the pound (s=15.2, warned 0.85 s): its lane goes live at s=16.05 (FT HURT): still at + 0.05 s
+waitfor line=- push=0 near=|10
+wait 0.15
+FTFreeze 1
+shot L6_boss_phase1_pound_release
+FTFreeze 0
+FTSlowMo 15
+
+# ---- ATTACK 4, AVALANCHE (phase 1, T1 = gap 2.0 after the pound -> starts 1.15 s of game time after that FT HURT
+# line; A = its start). windup A+0.34 (warned where he stands; the shout AVALANCHE! went 0.25 real seconds earlier),
+# release A+0.9 (Hz.Warn 0.8 over: it has just started to roll), roll A+1.43 (about 26 m from the car), arrive
+# A+1.79 (5 to 10 m in front of the car's nose; it reaches the car at A+1.92 to A+2.04).
+wait 2.1
+FTSlowMo 15
+wait 2.25
+FTFreeze 1
+shot L6_boss_aval_windup
+FTFreeze 0
+FTSlowMo 15
+wait 1.5
+FTFreeze 1
+shot L6_boss_aval_release
+FTFreeze 0
+wait 1.6
+FTFreeze 1
+shot L6_boss_aval_roll
+FTFreeze 0
+FTSlowMo 15
+wait 0.85
+FTFreeze 1
+shot L6_boss_aval_arrive
+FTFreeze 0
+
+# ---- PHASE 2 (armor at 33% or less). The avalanche passes the car (it may print its own FT HURT, by s=19.25), he
+# starts his second charge (s=19.4) and throws three snowballs (s=19.7). The wait and FTDumpLevel put the start of
+# the next search at s=19.75, so the FT HURT found is the first of those snowballs landing at s=20.9; then
+# FTFire 50 Boss: 95 -> 45, at s=21.0 (next attack chosen at s=21.7, the charge ends at 21.8).
+# Caption THE YETI IS BERSERK! phase2_start 0.18 s after the hits (he is in the last part of the charge).
+wait 2.4
+FTDumpLevel
+waitfor line=- push=0 near=|10
+wait 0.3
+FTFire 50 Boss
+waitfor target=Boss amount=1 left=45 load=STD|2
+wait 0.4
+FTFreeze 1
+shot L6_boss_phase2_start
+FTFreeze 0
+FTSlowMo 15
+# four snowballs (s=21.7): the first lands at s=22.9 (FT HURT), the others 0.12 s apart: still at + 0.05 s
+waitfor line=- push=0 near=|12
+wait 0.15
+FTFreeze 1
+shot L6_boss_phase2_snow_land
+FTFreeze 0
+# the last FTSlowMo: 15 real seconds from here, the kill comes about 7.7 after it
+FTSlowMo 15
+# the pound on TWO lanes (s=23.4): live at s=24.25 (FT HURT): still at + 0.05 s
+waitfor line=- push=0 near=|10
+wait 0.15
+FTFreeze 1
+shot L6_boss_phase2_pound_release
+FTFreeze 0
+# under 20%: FTFire 20 Boss: 45 -> 25. The director's "He's slowing down! Take the shot!"
+FTFire 20 Boss
+waitfor target=Boss amount=1 left=25 load=STD|2
+wait 0.4
+FTFreeze 1
+shot L6_boss_phase2_lowhealth
+FTFreeze 0
+FTDumpLevel
+
+# ---- DEFEAT at s=24.9, 0.65 s of game time after the two-lane pound went live (its spikes end at +0.45, the next
+# avalanche would start at +0.85; see the plan in the header).
+# FTWrapNow = his remaining 25 armor in one hit through the gun path. The game then holds 0.22 real seconds
+# (hit-stop), runs at 0.22x and ends the take 4.2 REAL seconds after the kill, freezes included: three stills fit,
+# the last FTFreeze 0 comes at about 3.5 s. moment = the hit-stop frame, 0.01 s of game time after the kill (the
+# CUT! card is not up yet: it comes 0.8 real seconds after the kill, the still is taken at 0.3); after_1 = 0.17 s of
+# game time after the kill (card up); after_2 = 0.32 s after.
+wait 0.9
+FTWrapNow
+FTFreeze 1
+shot L6_boss_defeat_moment
+FTFreeze 0
+wait 0.6
+FTFreeze 1
+shot L6_boss_defeat_after_1
+FTFreeze 0
+wait 0.5
+FTFreeze 1
+shot L6_boss_defeat_after_2
+FTFreeze 0
+
+# ---- THE WRAP: the highlight reel (real time: title card 2.2 s; the kill from the crane camera and again from the
+# kill camera are its LAST two shots, any near-miss clips come before them, so the reel's length is not fixed and
+# the second still waits for the reel to hold on its last frame), THE DAILIES, the paycheck. No Enter on the
+# paycheck: that would start the night.
+waitfor FT SCREEN name=Reel|30
+wait 1.0
+shot L6_boss_wrap_reel_1
+waitfor FT SCREEN name=Reel state=hold|90
+wait 0.3
+shot L6_boss_wrap_reel_hold
+FTPress Continue
+waitfor FT SCREEN name=Dailies|20
+wait 3.5
+shot L6_boss_wrap_dailies
+FTPress Continue
+waitfor FT SCREEN name=Paycheck|20
+wait 5
+shot L6_boss_wrap_paycheck
+FTDumpCareer
+wait 1
+quit
