@@ -147,10 +147,18 @@ public:
 	float AirTime = 0.f;
 	bool bWallLeft = false, bWallRight = false; // scraping a barrier this frame
 	float WallImpact = 0.f;
+	// Which side OF THE CAR is touching a barrier (0 = left door, 1 = right door), from where the hit landed on the body
+	// rather than which half of the road the car is on (bWallLeft/Right). WallSideImpact is that side's peak impulse per
+	// mass (cm/s) while the contact lasts; WallSideHits counts fresh contacts (a new one after the side went quiet).
+	bool bWallSide[2] = { false, false };
+	float WallSideImpact[2] = { 0.f, 0.f };
+	int32 WallSideHits[2] = { 0, 0 };
 	FVector RoadUp = FVector::UpVector;
 
 	/** Put the car on the road at d, x, facing along it, at a given speed. */
 	void PlaceOnTrack(float InD, float InX, float InSpeed);
+	/** 4.6 tests (ft.NosePin): parked at the barrier 4 m on, nose turned Deg into it, crawling. */
+	void NosePin(float Deg, int32 Side);
 	void Shove(const FVector& WorldDir, float CmPerSec, float SpinRad = 0.f);
 	void SetDamageLook(float Hp);           // smoke, fire, sparks, soot
 	void ShedPart(int32 Index);
@@ -158,7 +166,7 @@ public:
 	int32 NumPartsOn() const;
 	void SetHenchmenForLevel(int32 Level);
 	void SetHenchmenVisible(bool bLeft, bool bRight, FVector2D Age = FVector2D::ZeroVector,
-		FVector2D UntilPunch = FVector2D(2.f, 2.f));
+		FVector2D UntilPunch = FVector2D(2.f, 2.f), FVector2D SinceWallHit = FVector2D(10.f, 10.f));
 	void Wreck();
 	bool IsWrecked() const { return bWrecked; }
 	void SetLightsForLevel(int32 Level);
@@ -181,16 +189,25 @@ protected:
 	FFTDrive Drive;
 	bool bWrecked = false;
 	float WallTimer = 0.f;
+	float WallSideT[2] = { 0.f, 0.f };   // per car side: a barrier touched it within the last moment
 	float DriftBlend = 0.f;
 	float CapsizeT = 0.f;
 	float LaunchT = 0.f;   // a ramp launch is in the air: no glue until it lands
 	// 2.5 set pieces: speed at the way in, held as a floor all the way through; telemetry
-	bool bLandArmed = false; float LandAirV = 0.f, LandFloor = 0.f, LandHoldT = 0.f; // 3.6: a jump's landing keeps its speed
+	float LandProbeT = 0.f, LandProbeV = 0.f, LandProbeMin = 0.f, LandProbeLowT = 0.f;   // 4.6 FTLANDED telemetry
+	bool bLandArmed = false, bLandAbove = false; float LandAirV = 0.f, LandFloor = 0.f, LandHoldT = 0.f; // 3.6: a jump's landing keeps its speed
 	bool bInSet = false; uint16 SetKind = 0; float SetEntry = 0.f, SetFloor = 0.f, SetMin = 0.f, SetMaxLift = 0.f, SetAir = 0.f, SetD0 = 0.f; int32 SetSnaps = 0;
 	// 2.5 coaster: the rail the car rides (followed by continuity: the rail point nearest the last one)
 	bool bRailInit = false; FVector2D RailPt = FVector2D::ZeroVector; float HopCd = 0.f;
 	FVector SurfN = FVector::UpVector;
 	float StallT = 0.f;
+	// 4.6 barrier contact: a glancing hit keeps the speed the car had (WallFloor, held while it scrapes, eased to the
+	// governor's speed); a nose pinned into the barrier is turned back along the road (NoseT). LastSpeed = last tick's.
+	float LastSpeed = 0.f, WallFloor = 0.f, WallHoldT = 0.f, NoseT = 0.f;
+	bool bGlanceHit = false, bNoseHit = false, bUnstickLogged = false; float NoseHitT = -10.f;
+	float WallEpT = -1.f, WallEpV0 = 0.f, WallEpMin = 0.f, WallEpTgt = 0.f, WallEpD = 0.f, WallEpX = 0.f, WallEpFwd = 0.f; int32 WallEpHits = 0;
+	float NoseProbeT = -1.f, NoseProbeD = 0.f;   // 4.6 ft.NosePin probe
+	float CrestA = 0.f, PipeA = 0.f;   // 4.6: the crest and pipe feed-forwards this tick (cm/s^2, telemetry)
 	// 2.5 coaster: a hop's arc (HopT < 0: not hopping) from where it left
 	float HopT = -1.f; FVector2D HopFrom = FVector2D::ZeroVector;
 	static constexpr float HopDur = 0.85f;

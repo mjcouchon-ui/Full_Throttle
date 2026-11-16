@@ -10,6 +10,12 @@
 // FULL THROTTLE 3.0 title logo: an original lettering. Chrome "THROTTLE" (Orbitron Black, SIL OFL 1.1)
 // with a neon "Full" script over it (Mr Dafoe, SIL OFL 1.1). Rendered to a transparent PNG by headless Edge.
 const bg = new URLSearchParams(location.search).get('bg');
+// ?layer=throttle|star1|star2|full|lines draws one part alone (the animated title logo's layers, in draw order);
+// no parameter draws all of it, exactly as before. Render (Tools/title/render_layers.ps1 does all six and the derived textures):
+//   msedge.exe --headless=new --disable-gpu --hide-scrollbars --allow-file-access-from-files --default-background-color=00000000
+//     --window-size=1600,608 --force-device-scale-factor=1 --virtual-time-budget=8000 --user-data-dir=<profile>
+//     --screenshot=<out.png> "file:///<repo>/full-throttle-unreal/Tools/title/logo.html[?layer=<name>]"
+const layer = new URLSearchParams(location.search).get('layer'); const L = n => !layer || layer === n;
 (async () => {
   const fonts = [
     new FontFace('Orb', 'url(Orbitron-900.ttf)'),
@@ -27,6 +33,7 @@ const bg = new URLSearchParams(location.search).get('bg');
   const x0 = (W - tw) / 2 + 40;
   const slant = (fn) => { g.save(); g.setTransform(1, 0, -0.2, 1, base * 0.2 - 316, -84); fn(); g.restore(); };
 
+  if (L('throttle')) {
   // glow behind everything
   slant(() => {
     g.shadowColor = 'rgba(255,47,168,0.85)'; g.shadowBlur = 46;
@@ -59,6 +66,7 @@ const bg = new URLSearchParams(location.search).get('bg');
     // a thin bright rim
     g.lineWidth = 3; g.strokeStyle = 'rgba(255,255,255,0.85)'; g.strokeText(word, x0, base);
   });
+  }
   // star glints on the chrome
   const star = (x, y, r) => {
     g.save(); g.translate(x, y);
@@ -70,10 +78,11 @@ const bg = new URLSearchParams(location.search).get('bg');
     g.lineTo(0, r); g.lineTo(-r * 0.09, r * 0.09); g.lineTo(-r, 0); g.lineTo(-r * 0.09, -r * 0.09); g.closePath(); g.fill();
     g.restore();
   };
-  star(x0 + tw * 0.255 + 46, base - size * 0.60, 46);
-  star(x0 + tw * 0.86 + 20, base - size * 0.30, 34);
+  if (L('star1')) star(x0 + tw * 0.255 + 46, base - size * 0.60, 46);
+  if (L('star2')) star(x0 + tw * 0.86 + 20, base - size * 0.30, 34);
 
   // ---- Full: hot pink neon script, tilted up, over the top left of THROTTLE
+  if (L('full')) {
   g.save();
   g.translate(x0 + 150, base - size * 0.66);
   g.rotate(-0.13);
@@ -90,8 +99,10 @@ const bg = new URLSearchParams(location.search).get('bg');
   g.shadowBlur = 0;
   g.lineWidth = 3.5; g.strokeStyle = '#fff0fa'; g.strokeText(fw, 0, 0);
   g.restore();
+  }
 
   // ---- a cyan neon underline swoosh with the speed lines
+  if (L('lines')) {
   g.save();
   g.shadowColor = '#36f2ff'; g.shadowBlur = 22;
   g.strokeStyle = '#7ff8ff'; g.lineCap = 'round';
@@ -100,6 +111,7 @@ const bg = new URLSearchParams(location.search).get('bg');
   g.lineWidth = 4;
   for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(ux0 + 260 + i * 140, uy + 20 + i * 14); g.lineTo(ux1 - 120 - i * 60, uy + 14 + i * 14); g.globalAlpha = 0.75 - i * 0.2; g.stroke(); }
   g.restore();
+  }
   document.title = 'done';
 })();
 </script>

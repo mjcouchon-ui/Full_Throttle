@@ -33,3 +33,9 @@ this overhaul alike; Shipping builds never show such text).
 
 Script waits are in real seconds and the game runs on game time: the stills hang off `FT CLOCK` log lines, so they
 hold as long as the game makes about 20 frames a second. Run one game at a time when timing matters.
+
+The title menu's logo is animated (`SourceArt/Integration/TITLE_LOGO.md`): for a second after each arrival at the
+title, and lightly for as long as the title is up, the masthead differs from frame to frame. A script that compares
+title frames pixel for pixel should set `ft.TitleLogo 0` (the flat logo, drawn exactly as before) or mask the logo's
+rectangle; `menus_walk.txt` does the first in its set-up. Its log lines (`FT TITLE logo ...`, `FT CUE logo=...`) and
+console variables are listed in `notes/harness_reference.txt`.

@@ -11,6 +11,7 @@
 #include "FTHUD.h"
 #include "FTProgress.h"
 #include "FTNightFlow.h"
+#include "FTTitleLogo.h"
 #include "EngineUtils.h"
 #include "Engine/World.h"
 #include "Engine/Engine.h"
@@ -318,6 +319,7 @@ void AFTGameMode::StartRace(bool bRetake)
 	Car->RestoreParts();
 	Car->SetHenchmenVisible(false, false);
 	HenchOn[0] = HenchOn[1] = 0;
+	HenchHP[0] = HenchHP[1] = 0.f; HenchWallT[0] = HenchWallT[1] = 10.f;
 	PartsShed = 0;
 	for (int32 i = 0; i < 7; ++i) if (HpPct() < 88.f - 12.f * i) { Car->ShedPart(i); PartsShed = i + 1; }
 	PrevHp = Hp;
@@ -921,21 +923,22 @@ void AFTGameMode::TickTitle(float RDt)
 		if (PC->Hit(EKeys::LeftMouseButton)) Activate = 4;
 		break;
 	}
-	for (int32 I = 0; I < TitleBtnRects.Num(); ++I)
-		if (PC->Clicked(TitleBtnRects[I])) { Activate = I; break; }
+	for (int32 I = 0; I < TitleBtnRects.Num() && I < Actions; ++I)
+		if (PC->Clicked(TitleBtnRects[I])) { Activate = TitleSlotAction[I]; break; }
 
 	if (PC->Hit(EKeys::C) || PC->Hit(EKeys::Gamepad_FaceButton_Top)) Activate = 5;
 	else if (PC->Hit(EKeys::O)) Activate = 2;
 	else if (PC->Hit(EKeys::G) || PC->Hit(EKeys::Gamepad_Special_Left)) Activate = 6;
 	else if (PC->Hit(EKeys::Escape)) Activate = 3;
 	else if (Activate == INDEX_NONE && (PC->MenuOk() || PC->Hit(EKeys::Gamepad_Special_Right)) && TitleT > .4f)
-		Activate = TitleActionFocus == INDEX_NONE ? 4 : TitleActionFocus;
+		Activate = TitleActionFocus == INDEX_NONE ? 4 : TitleSlotAction[FMath::Clamp(TitleActionFocus, 0, Actions - 1)];
 	const UFTGameInstance* GT = GI();
 	if (Activate == INDEX_NONE && ((CVarFTAutopilot.GetValueOnGameThread() > 0 && TitleT > 1.5f) || (GT && GT->bAutoDrive && TitleT > 3.5f)))
 		Activate = 4;
 
 	if (TitleSel != PreviousLevel || TitleActionFocus != PreviousAction || Activate != INDEX_NONE) LastMenuInputT = RealClock;
 	if (TitleSel != PreviousLevel) UE_LOG(LogFT, Display, TEXT("FT TITLE sel=%d"), TitleSel + 1);
+	if (Activate != INDEX_NONE) UFTTitleLogo::Confirm(this, Activate);
 	switch (Activate)
 	{
 	case 0: ContinueCampaign(); return;
@@ -945,13 +948,13 @@ void AFTGameMode::TickTitle(float RDt)
 		else { SystemAction = 3; AttemptSystemAction(); }
 		return;
 	case 2:
-		OpenSystemPause(); bOverlayFromPause = false;
+		OpenSystemPause(); bOverlayFromPause = false; bControlsFromOptions = false;
 		Overlay = EFTOverlay::Options; OptionsRow = 0;
 		return;
 	case 3: RequestSystemQuit(true); return;
 	case 4: MenuCue(TEXT("Clap")); TitleStart(); return;
 	case 5:
-		OpenSystemPause(); bOverlayFromPause = false;
+		OpenSystemPause(); bOverlayFromPause = false; bControlsFromOptions = false;
 		Overlay = EFTOverlay::Controls; ControlsPage = 0; ControlsRow = 0; ControlsCol = GT ? GT->Layout : 0; OverlayFeedback.Reset();
 		return;
 	case 6: StopAttract(); EnterPreProduction(-2, true); return;
@@ -1088,8 +1091,12 @@ void AFTGameMode::TickAttract(float RDt)
 		if (AttractOutT >= AttractWipeOut && ++AttractHeld == 3) CutAttract();
 		return;
 	}
+	// 16 Nov 2026 (the owner: "mousing over or moving the controller 'selector' over a level should show you the level"):
+	// the feed follows the chosen shoot. A choice that has stood for AttractFollowAfter cuts the feed to it; a list being
+	// scrolled through loads nothing.
+	const bool bFollow = TitleSel != Level && AttractT > 0.8f && RealClock - LastMenuInputT > AttractFollowAfter;
 	// cut on time, but never right under a key press or a click (the load would swallow the next one)
-	if (AttractT >= AttractLen && RealClock - LastMenuInputT > 1.2f)
+	if (bFollow || (AttractT >= AttractLen && RealClock - LastMenuInputT > 1.2f))
 	{
 		AttractOutT = 0.f; AttractHeld = 0;
 		Sfx(TEXT("Zap"), 0.7f, 1.4f);
@@ -1110,12 +1117,20 @@ void AFTGameMode::CutAttract()
 	UFTGameInstance* G = GI();
 	if (!G) return;
 	const int32 Next = AttractNextLevel();
+	TitleSel = Next;   // (when the feed tours by itself the choice goes with it: what is on air is what PLAY SELECTED starts)
 	int32 S = 0, K = 0; float D0 = 600.f;
 	PickAttractShot(Next, S, K, D0);
 	G->AttractD0 = D0; G->AttractScene = S; G->AttractSpawn = K; G->bAttractCut = true;
 	G->KeepTitleSel = TitleSel; G->KeepTitleT = TitleT; G->KeepTitleActionFocus = TitleActionFocus; G->AttractCuts++;
 	UE_LOG(LogFT, Display, TEXT("FT ATTRACT cut from=%d to=%d scene=%d spawn=%d D0=%.0f"), Level + 1, Next + 1, S + 1, K, D0);
 	GoToLevel(Next, false);
+}
+
+int32 AFTGameMode::AttractNextLevel() const
+{
+	if (TitleSel != Level) return TitleSel;   // the feed follows the chosen shoot
+	// the chosen shoot is on air: another shot of it, until the menu has been left alone for a while; then the tour
+	return RealClock - LastMenuInputT > AttractTourAfter ? (Level + 1) % FTData::NumLevels() : Level;
 }
 
 void AFTGameMode::StopAttract()
@@ -1456,8 +1471,8 @@ void AFTGameMode::TickOverlay(float RDt)
 		PauseRow = Action; // Clicks and shortcuts restore focus to their originating row too.
 		MenuCue(TEXT("Near"), Action == 0 ? .9f : 1.35f);
 		if (Action == 0) ResumeSystemPause();
-		else if (Action == 1) { Overlay = EFTOverlay::Options; OptionsRow = 0; bOverlayFromPause = true; }
-		else if (Action == 2) { Overlay = EFTOverlay::Controls; ControlsPage = 0; ControlsRow = 0; ControlsCol = G->Layout; OverlayFeedback.Reset(); bOverlayFromPause = true; }
+		else if (Action == 1) { Overlay = EFTOverlay::Options; OptionsRow = 0; bOverlayFromPause = true; bControlsFromOptions = false; }
+		else if (Action == 2) { bControlsFromOptions = false; Overlay = EFTOverlay::Controls; ControlsPage = 0; ControlsRow = 0; ControlsCol = G->Layout; OverlayFeedback.Reset(); bOverlayFromPause = true; }
 		else if (Action == 5 && bRestart)
 		{
 			SystemMessage = TEXT("Restart this race from its beginning? This take's score and position will not be kept. Your career progress is kept.");
@@ -1470,6 +1485,8 @@ void AFTGameMode::TickOverlay(float RDt)
 	const auto Close = [&]()
 	{
 		MenuCue(TEXT("Near"), .9f);
+		// (16 Nov 2026) Controls opened from its row in Options goes back to Options, on that row
+		if (Overlay == EFTOverlay::Controls && bControlsFromOptions) { bControlsFromOptions = false; Overlay = EFTOverlay::Options; OptionsRow = 5; DrawnOverlay = EFTOverlay::None; return; }
 		if (bOverlayFromPause) { Overlay = EFTOverlay::Pause; DrawnOverlay = EFTOverlay::None; }
 		else ResumeSystemPause();
 	};
@@ -1572,11 +1589,14 @@ void AFTGameMode::TickOverlay(float RDt)
 	if (Overlay == EFTOverlay::Options)
 	{
 		if (Clicked(0) || bBack || PC->Hit(EKeys::O) || PC->Hit(EKeys::Gamepad_Special_Right)) { Close(); return; }
-		constexpr int32 Rows = 5;
+		// five settings, then CONTROLS (16 Nov 2026: it was a button of its own on the title; the owner: "controls should
+		// probably be under options"). Its one button is the overlay's control after the settings' ten.
+		constexpr int32 Rows = 5, AllRows = 6, OpenControls = 1 + 2 * Rows;
 		const int32 Was = OptionsRow;
-		if (PC->MenuUp()) OptionsRow = (OptionsRow + Rows - 1) % Rows;
-		if (PC->MenuDown()) OptionsRow = (OptionsRow + 1) % Rows;
+		if (PC->MenuUp()) OptionsRow = (OptionsRow + AllRows - 1) % AllRows;
+		if (PC->MenuDown()) OptionsRow = (OptionsRow + 1) % AllRows;
 		if (Hover >= 1 && Hover <= 2 * Rows) OptionsRow = (Hover - 1) / 2;
+		if (Hover == OpenControls) OptionsRow = Rows;
 		int32 Dir = PC->MenuRight() ? 1 : PC->MenuLeft() ? -1 : bConfirm ? 1 : 0;
 		for (int32 I = 0; I < 2 * Rows; ++I)
 		{
@@ -1584,6 +1604,20 @@ void AFTGameMode::TickOverlay(float RDt)
 			OptionsRow = I / 2;
 			Dir = I % 2 ? 1 : -1;
 			break;
+		}
+		if (Clicked(OpenControls)) { OptionsRow = Rows; Dir = 1; }
+		if (OptionsRow == Rows)
+		{
+			if (Dir > 0)
+			{
+				bControlsFromOptions = true;
+				Overlay = EFTOverlay::Controls; ControlsPage = 0; ControlsRow = 0; ControlsCol = G->Layout; OverlayFeedback.Reset();
+				DrawnOverlay = EFTOverlay::None;
+				MenuCue(TEXT("Near"), 1.35f);
+				UE_LOG(LogFT, Display, TEXT("FT OPTIONS row=5 controls=open"));
+			}
+			else if (Was != OptionsRow) MenuCue(TEXT("Near"), 1.6f);
+			return;
 		}
 		if (Dir == 0)
 		{
@@ -2027,10 +2061,47 @@ void AFTGameMode::TickPlayer(float Dt)
 			Sfx(TEXT("HenchOff"));
 			continue;
 		}
-		const bool bWall = s == 0 ? Car->bWallLeft : Car->bWallRight;
-		if (bWall && (FMath::Abs(Car->LatSpeed) > 60.f * XU || Car->WallImpact > 250.f || Car->Speed > 4000.f))
+		// the barrier on HIS side of the car (the door he hangs from, not the half of the road) wears him down: a fresh
+		// hit takes a third of him for a scrape up to all of him for a slam as hard as the old one-shot thresholds
+		// (550 cm/s across, 250 impulse), a little more at speed; staying on the wall grinds him down by the second.
+		// (The old rule also knocked him off on ANY contact above 4000 cm/s, i.e. at ordinary cruising speed (~6000):
+		// that made it all-or-nothing, so speed now only adds a little.)
+		HenchWallT[s] += Dt;
+		if (Car->bWallSide[s])
 		{
-			HenchOn[s] = 0; HenchOnT[s] = 0.f;
+			const float SpeedK = FMath::Clamp(FMath::Abs(Car->Speed) / 6000.f, 0.f, 1.3f);
+			const bool bFresh = Car->WallSideHits[s] != HenchWallSeen[s];
+			float Dmg = 0.f;
+			if (bFresh && HenchWallT[s] > 0.25f)
+			{
+				const float Sev = FMath::Max(Car->WallSideImpact[s] / 250.f, FMath::Abs(Car->LatSpeed) / (60.f * XU)) + 0.1f * SpeedK;
+				Dmg = 100.f * FMath::Clamp(Sev, 0.34f, 1.f);
+				HenchWallT[s] = 0.f;
+				HenchPunch[s] = FMath::Min(HenchPunch[s] + 0.6f, 2.5f);   // knocked senseless for a moment
+				Sfx(TEXT("HenchHit")); Sfx(TEXT("Rail"), 0.6f); Shake(0.25f + 0.35f * Dmg / 100.f);
+				const FTransform Ct = Car->GetActorTransform();
+				FTFx::Attach(TEXT("NS_HitPlayerSparks"), Car->GetRootComponent(), Ct.TransformPosition(FVector(0.f, s == 0 ? -125.f : 125.f, 70.f)), (Ct.GetUnitAxis(EAxis::Y) * (s == 0 ? -1.f : 1.f)).Rotation(), 0.9f, FTFx::Extra);
+				HenchHP[s] -= Dmg;
+				UE_LOG(LogFT, Display, TEXT("FT HENCH wall side=%d hit imp=%.0f lat=%.0f spd=%.0f dmg=%.0f hp=%.0f"), s, Car->WallSideImpact[s], Car->LatSpeed, Car->Speed, Dmg, FMath::Max(HenchHP[s], 0.f));
+			}
+			else
+			{
+				// grinding along it: ~20 HP a second at cruising speed (sparks and a log line every 0.3 s)
+				HenchHP[s] -= Dt * (10.f + 10.f * SpeedK);
+				if ((HenchGrindFxT[s] -= Dt) <= 0.f)
+				{
+					HenchGrindFxT[s] = 0.3f;
+					const FTransform Ct = Car->GetActorTransform();
+					FTFx::Attach(TEXT("NS_HitPlayerSparks"), Car->GetRootComponent(), Ct.TransformPosition(FVector(-40.f, s == 0 ? -125.f : 125.f, 60.f)), (Ct.GetUnitAxis(EAxis::Y) * (s == 0 ? -1.f : 1.f)).Rotation(), 0.45f, FTFx::Extra);
+					UE_LOG(LogFT, Display, TEXT("FT HENCH wall side=%d grind spd=%.0f hp=%.0f"), s, Car->Speed, FMath::Max(HenchHP[s], 0.f));
+				}
+			}
+			HenchWallSeen[s] = Car->WallSideHits[s];
+		}
+		if (HenchHP[s] <= 0.f)
+		{
+			UE_LOG(LogFT, Display, TEXT("FT HENCH wallsmash side=%d after %.1f s"), s, HenchOnT[s]);
+			HenchOn[s] = 0; HenchOnT[s] = 0.f; HenchHP[s] = 0.f;
 			Stunt(TEXT("WALL SMASH"), 500, TEXT("Into the wall! Ha! Print it!"), 8.f);
 			AddScore(200 * Combo, 2, 200, TEXT("Henchman"));
 			Slowmo(0.55f, 0.35f);
@@ -2053,7 +2124,7 @@ void AFTGameMode::TickPlayer(float Dt)
 		if (HenchHangT > 3.2f) { HenchHangT = 0.f; Say(TEXT("henchHang"), 1); }
 	}
 	Car->SetHenchmenVisible(HenchOn[0] != 0, HenchOn[1] != 0,
-		FVector2D(HenchOnT[0], HenchOnT[1]), FVector2D(HenchPunch[0], HenchPunch[1]));
+		FVector2D(HenchOnT[0], HenchOnT[1]), FVector2D(HenchPunch[0], HenchPunch[1]), FVector2D(HenchWallT[0], HenchWallT[1]));
 
 	// fell off the world: put it back (costs armour)
 	if (Car->H < -3000.f || FMath::Abs(Car->X) > FT::Edge + 2500.f)
@@ -2954,6 +3025,7 @@ void AFTGameMode::TickEnts(float Dt)
 				if (bCaught && !HenchOn[E.Side] && Phase == EFTPhase::Play && !Car->IsOnRails())
 				{
 					HenchOn[E.Side] = 1; HenchPunch[E.Side] = R(1.1f, 1.5f); HenchHangT = 0.f;
+					HenchHP[E.Side] = 100.f; HenchWallT[E.Side] = 10.f; HenchGrindFxT[E.Side] = 0.f; HenchWallSeen[E.Side] = Car->WallSideHits[E.Side];
 					Sfx(TEXT("Latch")); Duck(0.7f, 0.3f);
 					const FTransform CarT = Car->GetActorTransform();
 					const float Side = E.Side == 0 ? -1.f : 1.f;

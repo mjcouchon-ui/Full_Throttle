@@ -10,7 +10,7 @@ and loading), so the new ones sit in the mix exactly as the old ones do; a secon
 those of the sound it is a take of (the takes are in the project; since the revert of 15 Nov the game plays S_<Name>
 only). A sound that replaces one keeps that asset's
 own settings: they are read before the import and put back after it (the report says which, if any, the import had
-changed). Loops (LOOPS) are saved looping.
+changed). Loops (LOOPS) are saved looping (the title logo's neon hum, S_TitleNeonHum, is one).
 A sound the game already has never changes (owner's rule): build() without names leaves out the ten the overhaul once
 replaced (KEPT; put back by commit ff773438) even if an old overhaul.txt still lists them, and says so in its report.
 sfx_synth.py now writes its heavier versions of those to <folder>/offered/, which nothing here reads.
@@ -21,7 +21,7 @@ import os
 import unreal
 
 DEST = '/Game/Audio/SFX'
-LOOPS = ('S_EngineLoop', 'S_Rotor', 'S_Skid', 'S_PropBuzz')
+LOOPS = ('S_EngineLoop', 'S_Rotor', 'S_Skid', 'S_PropBuzz', 'S_TitleNeonHum')
 MODEL = 'S_Pickup'
 # existing sounds the overhaul's heavier versions must never replace: left out of the default (overhaul.txt) import
 KEPT = ('S_Explode', 'S_Wreck', 'S_HeliDown', 'S_Missile', 'S_Hit', 'S_PlayerHit', 'S_Bump', 'S_Land', 'S_BossIntro', 'S_BossPhase')

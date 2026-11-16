@@ -92,8 +92,26 @@ bool UFTInputSubsystem::PointerPosition(const APlayerController* PC, FVector2D& 
 void UFTInputSubsystem::ObservePointer(const APlayerController* PC)
 {
 	FVector2D At;
-	if (!PointerPosition(PC, At)) { bPointerSeen = false; return; }
-	if (bPointerSeen && FVector2D::DistSquared(At, PointerLast) > 4.f) bPointer = true;
+	if (!PointerPosition(PC, At)) { bPointerSeen = false; PointerTravel = 0.f; return; }
+	const double Now = FPlatformTime::Seconds();
+	const float Moved = bPointerSeen ? FVector2D::Distance(At, PointerLast) : 0.f;
+	if (Moved > 2.f)
+	{
+		bPointer = true;
+		// 16 Nov 2026 (the owner: "keyboard and mouse don't work when a gamepad is connected"): on a screen that takes
+		// the mouse, MOVING it takes over from the controller. Until now only a click or a key did, so after any
+		// controller input the pointer stayed hidden and nothing lit under it however far the mouse went. A real move,
+		// not a nudge: 30 pixels of travel without a pause, and not in the moment after a controller button.
+		if (Now - PointerMovedAt > .4) PointerTravel = 0.f;
+		PointerTravel += Moved; PointerMovedAt = Now;
+		if (bGamepad && PC->bShowMouseCursor && PointerTravel > 30.f && Now - LastDigitalInputTime > .35)
+		{
+			bGamepad = false;
+			LastDigitalInputTime = Now;
+			AxisIntentSince.Reset();
+			UE_LOG(LogTemp, Display, TEXT("FTINPUT device=mouse why=moved travel=%.0f"), PointerTravel);
+		}
+	}
 	PointerLast = At; bPointerSeen = true;
 }
 

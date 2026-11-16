@@ -215,6 +215,7 @@ public:
 	int32 HitchCount = 0;
 	float LastRumbleT = -10.f;
 	int32 OptionsRow = 0, ControlsRow = 0, ControlsCol = 0; bool bControlsWaiting = false;
+	bool bControlsFromOptions = false;   // Controls was opened from its row in Options: closing it goes back there
 	int32 PauseRow = 0;
 	int32 ControlsPage = 0; // 0 driving/fighting guide, 1 keyboard bindings
 	EFTSystemDialog SystemDialog = EFTSystemDialog::None;
@@ -273,12 +274,18 @@ public:
 	static constexpr float AttractLen = 11.f;
 	static constexpr float AttractWipeOut = 0.6f;
 	static constexpr float AttractWipeIn = 0.75f;
-	int32 AttractNextLevel() const { return (Level + 1) % FTData::NumLevels(); }
+	/** The level the feed cuts to next: the chosen shoot, or, left alone for AttractTourAfter seconds, the one after it. */
+	int32 AttractNextLevel() const;
+	static constexpr float AttractTourAfter = 25.f;   // seconds without a menu input before the feed tours the shoots by itself
+	static constexpr float AttractFollowAfter = 0.9f; // seconds a newly chosen shoot waits before the feed cuts to it (a list being scrolled loads nothing)
 	/** 0 = clear, 1 = the screen is covered by the channel-change wipe. */
 	float AttractCover() const;
 	float LastMenuInputT = -10.f;
 	TArray<FBox2D> TitleRowRects;    // the HUD writes the level rows and the buttons here for the mouse
-	TArray<FBox2D> TitleBtnRects;    // Continue, New Game, Options, Quit, selected shoot, Controls
+	TArray<FBox2D> TitleBtnRects;    // the title's buttons, left to right (see TitleSlotAction)
+	// 16 Nov 2026: the bar reads start, play, prepare, settings, leave: Continue, New Game, Play Selected, Pre-production,
+	// Options, Quit Desktop (the far right). Controls is a row of Options now. The numbers are TickTitle's actions.
+	static constexpr int32 TitleSlotAction[6] = { 0, 1, 4, 6, 2, 3 };
 	int32 TitleActionFocus = INDEX_NONE;
 	float LastMenuSoundT = -10.f;
 	FVector2D TitleMouse = FVector2D(-1, -1);
@@ -500,6 +507,10 @@ protected:
 	float LastKillT = -10.f; int32 MultiKills = 0;
 	float LastNearT = -10.f; int32 LastNearSide = 0;
 	float HenchPunch[2] = { 0, 0 };
+	// a trooper on the door wears down against the barrier on his side: his HP (100 on latch), the time since the wall
+	// last hit him (his jolt, and the cooldown between hits), the car's WallSideHits count already taken, the grind sparks
+	float HenchHP[2] = { 0, 0 }, HenchWallT[2] = { 10.f, 10.f }, HenchGrindFxT[2] = { 0, 0 };
+	int32 HenchWallSeen[2] = { 0, 0 };
 	float HenchHangT = 0.f;
 	float WallRideT = 0.f; int32 WallRideSection = -1;
 	int32 SetPieceRolls = 0;

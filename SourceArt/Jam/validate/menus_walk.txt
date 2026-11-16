@@ -49,6 +49,8 @@
 #   FT LEVEL id= nine times in all; FT MUTE reapplied twice.
 # NOT THE OVERHAUL if they differ between the two runs: the BEST lines on the title rows, the FPS counter, MUTED and
 # reduced motion (no entrances at all) come from each checkout's own Saved\FullThrottle\settings.json.
+# The title's logo is animated since 16 Nov 2026 (a one-second intro on every arrival). This walk switches that off
+# in its set-up (ft.TitleLogo 0): its title stills at 0.2 to 0.7 s would otherwise catch the intro.
 
 # ---------------------------------------------------------------- 0. set-up: test career first, quality, no attract, known state
 FTUseTestSlot
@@ -57,6 +59,9 @@ FTSetCash 25000
 FTSetSP 3
 FTQuality 3
 ft.Attract 0
+# the title's animated logo (SourceArt/Integration/TITLE_LOGO.md) is switched off for this walk, so its title stills
+# show the flat logo and compare with older runs; a build without it only logs an unknown command here
+ft.TitleLogo 0
 FTGoto Title
 # the first frames after the boot and the new preset are slow: let them pass
 wait 10

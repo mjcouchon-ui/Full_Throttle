@@ -9,6 +9,7 @@
 #include "FTEntity.h"
 #include "FTPlayerController.h"
 #include "FTProgress.h"
+#include "FTTitleLogo.h"
 #include "Engine/Canvas.h"
 #include "Engine/Font.h"
 #include "Engine/Engine.h"
@@ -979,9 +980,13 @@ void AFTHUD::DrawTitle(AFTGameMode* G)
 			const float Asp = TLogo->GetSizeX() > 0 && TLogo->GetSizeY() > 0 ? float(TLogo->GetSizeY()) / float(TLogo->GetSizeX()) : .42f;
 			const float LogoH = FMath::Min(LogoW * Asp, 162.f * S), LogoDrawW = LogoH / Asp;
 			const float LogoX = X + (BoardW - LogoDrawW) * .5f, LogoY = Y + 36.f * S + (166.f * S - LogoH) * .5f;
-			FCanvasTileItem Logo(FVector2D(LogoX, LogoY), TLogo->GetResource(), FVector2D(LogoDrawW, LogoH), FLinearColor(1.f, 1.f, 1.f, (.74f + .26f * In) * Fade));
-			Logo.BlendMode = SE_BLEND_Translucent;
-			Canvas->DrawItem(Logo);
+			// (the animated logo, FTTitleLogo.cpp; when it is off or a layer is missing, the flat logo exactly as before)
+			if (!UFTTitleLogo::Draw(Canvas, G, TLogo, LogoX, LogoY, LogoDrawW, LogoH, (.74f + .26f * In) * Fade, S, bInteractive, bReducedMotion))
+			{
+				FCanvasTileItem Logo(FVector2D(LogoX, LogoY), TLogo->GetResource(), FVector2D(LogoDrawW, LogoH), FLinearColor(1.f, 1.f, 1.f, (.74f + .26f * In) * Fade));
+				Logo.BlendMode = SE_BLEND_Translucent;
+				Canvas->DrawItem(Logo);
+			}
 			if (!bLogoSaid) { bLogoSaid = true; UE_LOG(LogFT, Display, TEXT("FT TITLE logo size=%dx%d drawn=%.0fx%.0f at %.0f,%.0f fade=%.2f"), TLogo->GetSizeX(), TLogo->GetSizeY(), LogoDrawW, LogoH, LogoX, LogoY, Fade); }
 		}
 		else Print(TEXT("FULL THROTTLE"), X + BoardW * .5f, Y + 89 * S, White, Heading, 1, true, BoardW - 30 * S);
@@ -1067,10 +1072,12 @@ void AFTHUD::DrawTitle(AFTGameMode* G)
 		Print(SaveDetail, X + 16 * S, TellY + 24 * S, Career->bSaveError || Career->bLoadError ? Amber : Grey, LabelSize, 0, false, BoardW - 32 * S);
 	}
 
-	static const TCHAR* Actions[] = { TEXT("CONTINUE"), TEXT("NEW GAME"), TEXT("OPTIONS"), TEXT("QUIT DESKTOP"), TEXT("PLAY SELECTED"), TEXT("CONTROLS") };
+	// 16 Nov 2026, left to right as AFTGameMode::TitleSlotAction: start, play, prepare, settings, and leaving at the far
+	// right. (CONTROLS was a sixth button here; it is a row of OPTIONS now. PRE-PRODUCTION had only its key in the hint row.)
+	static const TCHAR* Actions[] = { TEXT("CONTINUE"), TEXT("NEW GAME"), TEXT("PLAY SELECTED"), TEXT("PRE-PRODUCTION"), TEXT("OPTIONS"), TEXT("QUIT DESKTOP") };
 	const FString Hints[] = { TEXT("SAVED CHECKPOINT"), TEXT("FRESH CAMPAIGN"),
-		InputHint(this, TEXT("O"), EKeys::Gamepad_FaceButton_Bottom), InputHint(this, TEXT("ESC"), EKeys::Gamepad_FaceButton_Bottom),
-		TEXT("SELECTED SHOOT"), InputHint(this, TEXT("C"), EKeys::Gamepad_FaceButton_Top) };
+		FTData::Level(Selection).Zone, TEXT("SKILLS & CAR"),
+		TEXT("SETTINGS & CONTROLS"), InputHint(this, TEXT("ESC"), EKeys::Gamepad_FaceButton_Bottom) };
 	const AFTPlayerController* PC = Cast<AFTPlayerController>(GetOwningPlayerController());
 	const float BarW = Right - X - Safe * S, LeadW = 220 * S;
 	const float OtherW = (BarW - LeadW - 5 * Gap * S) / 5.f;
@@ -1145,7 +1152,8 @@ void AFTHUD::DrawAttractOsd(AFTGameMode* G)
 	if (G->Overlay == EFTOverlay::None)
 		AccentSweep(Rect(X + 7 * S, Monitor.Max.Y - 6 * S, 284 * S, 3 * S), G->TitleT - .085f, Pink, MenuEntrance);
 	Icon(EIcon::Record, X + 12 * S, Y + 10 * S, 18 * S, Pink);
-	Print(bOut ? TEXT("CHANGING FEED") : TEXT("ATTRACT FEED"), X + 36 * S, Y + 10 * S, Pink, LabelSize, 0, true);
+	// (16 Nov 2026) the feed shows the chosen shoot; it says so, and says when it is touring by itself
+	Print(bOut ? TEXT("CHANGING FEED") : Index == G->TitleSel ? TEXT("SELECTED SHOOT") : TEXT("ATTRACT FEED"), X + 36 * S, Y + 10 * S, Pink, LabelSize, 0, true);
 	Print(FString::Printf(TEXT("CH %02d"), Index + 1), Monitor.Max.X - 14 * S, Y + 10 * S, Grey, LabelSize, 2, true);
 	Print(Level.Zone + TEXT(" / ") + Level.Title, X + 15 * S, Y + 34 * S, White, Strong, 0, false, 276 * S);
 }
@@ -3285,25 +3293,38 @@ void AFTHUD::DrawOptions(AFTGameMode* G)
 		G->OverlayRects.Add(Control(Dec, TEXT("<"), FString(), ControlState(Dec), Cyan));
 		G->OverlayRects.Add(Control(Inc, TEXT(">"), FString(), ControlState(Inc), Cyan));
 	}
-	Box(X + 24 * S, Y + 434 * S, WidthPx - 48 * S, S, Rule);
+	{
+		// CONTROLS, the sixth row (16 Nov 2026): no value to change, one button that opens the controls
+		const float RowY = Y + (112 + 5 * 53 + 38) * S;
+		const bool bSelected = G->OptionsRow == 5;
+		const FBox2D Row = Rect(X + 24 * S, RowY, WidthPx - 48 * S, 45 * S);
+		Box(Row.Min.X, Row.Min.Y, Row.GetSize().X, Row.GetSize().Y, bSelected ? Active : Steel);
+		Frame(Row.Min.X, Row.Min.Y, Row.GetSize().X, Row.GetSize().Y, bSelected ? Cyan : Rule, bSelected ? 1.5f : 1.f);
+		if (bSelected && Chosen > 0.f) Box(Row.Min.X, Row.Min.Y, Row.GetSize().X, Row.GetSize().Y, Alpha(White, .13f * Chosen));
+		Print(TEXT("CONTROLS"), Row.Min.X + 14 * S, RowY + 10 * S, White, Strong, 0, true);
+		const FBox2D Open = Rect(Row.Max.X - 215 * S, RowY + 5 * S, 196 * S, 35 * S);
+		G->OverlayRects.Add(Control(Open, TEXT("OPEN"), FString(), ControlState(Open), Cyan));
+	}
+	Box(X + 24 * S, Y + 470 * S, WidthPx - 48 * S, S, Rule);
 	static const TCHAR* Details[] = {
 		// (2.7 left Lumen to EPIC only and 2.8 gave LOW and MEDIUM TAA: this line still described 2.6)
 		TEXT("Low and Medium use TAA with Lumen off. High uses TSR. Epic adds Lumen lighting and reflections. Auto chooses for this computer."),
 		TEXT("Display the current frame rate and frame time in the corner."),
 		TEXT("Synchronize frame presentation to the display refresh rate."),
 		TEXT("Reduce decorative movement and flashes in the interface and game."),
-		TEXT("Turn game audio on or mute it. This setting carries between driving and fighting.")
+		TEXT("Turn game audio on or mute it. This setting carries between driving and fighting."),
+		TEXT("See the controls, choose a layout and change the keys and buttons.")
 	};
-	float DetailY = Y + 451 * S;
+	float DetailY = Y + 484 * S;
 	{
 		// the line that explains the chosen row follows the choice (a short fade; it is never clear)
 		FBlock Told(*this, .5f + .5f * In01(MenuAge(EMenuView::Options, true), 0.f, .12f));
-		for (const FString& Line : WrapText(Details[FMath::Clamp(G->OptionsRow, 0, 4)], WidthPx - 48 * S, Body))
+		for (const FString& Line : WrapText(Details[FMath::Clamp(G->OptionsRow, 0, 5)], WidthPx - 48 * S, Body))
 		{
 			Print(Line, X + 24 * S, DetailY, Grey, Body, 0, false, WidthPx - 48 * S);
 			DetailY += 22 * S;
 		}
 	}
-	Print(TEXT("CHANGES SAVE AUTOMATICALLY"), X + 24 * S, Y + 526 * S, Grey, LabelSize, 0, true);
-	HintRow(TEXT("UP-DOWN / D-PAD   PICK     LEFT-RIGHT   CHANGE"), X + 24 * S, Y + 561 * S, White, Body);
+	Print(TEXT("CHANGES SAVE AUTOMATICALLY"), X + 24 * S, Y + 556 * S, Grey, LabelSize, 0, true);
+	HintRow(TEXT("UP-DOWN / D-PAD   PICK     LEFT-RIGHT   CHANGE"), X + 24 * S, Y + 579 * S, White, Body);
 }

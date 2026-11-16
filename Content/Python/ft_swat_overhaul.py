@@ -193,9 +193,12 @@ def rappel(m, level):
 
 
 def window_cling(m, level):
+    # He faces the car (+Y) and hangs from his grip at the origin; his hips land at about (-+10, -33, -97).
+    # The knees bend the human way: forward toward the door (+Y) of the hip-ankle line, shins down and back,
+    # boots braced on the door with the toes to it (the knee pads follow ankle->toe, so they sit on the kneecaps).
     joints = dict(ha_r=(-13, 0, 0), el_r=(-29, -20, -20), ha_l=(13, 0, 0), el_l=(29, -20, -20),
-                  kn_r=(-18, -68, -118), an_r=(-16, -32, -146), toe_r=(-16, -19, -149),
-                  kn_l=(16, -58, -138), an_l=(16, -30, -168), toe_l=(16, -17, -172))
+                  kn_r=(-15, -6, -132), an_r=(-14, -16, -170), toe_r=(-14, -2, -174),
+                  kn_l=(15, -8, -133), an_l=(15, -23, -171), toe_l=(16, -9, -175))
     trooper(m, level, 'y', (0, -31.9, -92.4), (-15, 90, 0), (0, -16, -31), (24, 90, 0), joints)
 
 

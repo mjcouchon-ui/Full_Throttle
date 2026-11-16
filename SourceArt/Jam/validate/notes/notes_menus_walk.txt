@@ -58,6 +58,7 @@ SHOTS:
 120 shots, in order. "Age" = seconds after the command/key that opened the screen (about; wall-clock).
 
 TITLE (attract off, car on the level-1 start line behind it)
+(16 Nov 2026: the title's logo is animated now, SourceArt/Integration/TITLE_LOGO.md. The walk's set-up sets `ft.TitleLogo 0`, so every title still here shows the flat logo as described below; with the animated logo on, the stills at 0.2 to 0.7 s would catch its one-second intro. Not re-run on the lead's PC after that line was added.)
 - menu_title_0s2: title 0.2 s after it appears (the pink sweep on the board still running, logo still rising).
 - menu_title_1s5: title settled at 1.5 s, row 01 focused.
 - menu_title_sel2: after Down: row 02 focused (log FT TITLE sel=2).

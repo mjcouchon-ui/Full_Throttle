@@ -5,7 +5,6 @@
 #include "CanvasTypes.h"
 #include "Engine/Texture.h"
 #include "GameFramework/PlayerController.h"
-#include "Framework/Application/SlateApplication.h"
 #include "GenericPlatform/ICursor.h"
 
 namespace
@@ -121,21 +120,12 @@ void FTCursor::Draw(UCanvas* Canvas, const FVector2D& At, float S, EState State,
 void FTCursor::HideSystemCursor(APlayerController* PC)
 {
 	if (!PC) return;
-	static void* Blank = nullptr;
-	static bool bTried = false;
-	if (!bTried && FSlateApplication::IsInitialized())
-	{
-		bTried = true;
-		const TSharedPtr<ICursor> Platform = FSlateApplication::Get().GetPlatformCursor();
-		if (Platform.IsValid() && Platform->IsCreateCursorFromRGBABufferSupported())
-		{
-			FColor Clear[16 * 16];
-			FMemory::Memzero(Clear, sizeof(Clear));
-			Blank = Platform->CreateCursorFromRGBABuffer(Clear, 16, 16, FVector2D::ZeroVector);
-			if (Blank) Platform->SetTypeShape(EMouseCursor::Custom, Blank);
-		}
-		UE_LOG(LogTemp, Display, TEXT("FTINPUT system cursor blank=%d"), Blank ? 1 : 0);
-	}
-	// no empty shape on this platform: the system's arrow stays (two pointers are better than none)
-	PC->CurrentMouseCursor = Blank ? EMouseCursor::Custom : EMouseCursor::Default;
+	// The system's pointer is switched OFF (EMouseCursor::None), not swapped for an empty shape. Until 16 Nov 2026
+	// this made a 16 x 16 picture with every pixel clear and set it as a custom shape; on the owner's PC Windows drew
+	// that as a small black square beside the drawn pointer ("two cursors almost"; it is the system's own pointer, so
+	// it is in no screenshot). bShowMouseCursor stays as it is, so clicks and positions arrive as before: the viewport
+	// only asks the player controller which shape to show, and None shows nothing.
+	static bool bSaid = false;
+	if (!bSaid) { bSaid = true; UE_LOG(LogTemp, Display, TEXT("FTINPUT system cursor=none")); }
+	PC->CurrentMouseCursor = EMouseCursor::None;
 }

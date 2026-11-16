@@ -255,12 +255,13 @@ def soft(x, drive=1.5):
     return np.tanh(unit(x) * drive) / np.tanh(drive)
 
 
-def over(name, x, gain):
-    """A net-new sound: <out_dir>/S_<name>.wav, and its name into overhaul.txt (what ft_audio.build imports)."""
+def over(name, x, gain, loop=False):
+    """A net-new sound: <out_dir>/S_<name>.wav, and its name into overhaul.txt (what ft_audio.build imports).
+    loop: a seamless loop (write() then leaves its end unfaded)."""
     if name in EXISTING:
         raise ValueError('S_%s is a sound the game already has: offer() it, never over() it' % name)
     x = np.asarray(x, dtype=np.float64)
-    write(name, x - np.mean(x), gain)
+    write(name, x - np.mean(x), gain, loop)
     OVERHAUL.append('S_' + name)
 
 
@@ -573,6 +574,103 @@ def boss_phase():
 
 offer('BossIntro', boss_intro(), 0.8)
 offer('BossPhase', boss_phase(), 0.7)
+
+
+# ================================================================================================ the title's logo
+# The animated FULL THROTTLE logo on the title menu (Source/FullThrottle/FTTitleLogo.cpp plays these, by name):
+#   S_TitleSlam         "Full" thrown in from behind the camera: a whoosh that rises for 0.18 s, then the thud. The game
+#                       starts it with the flight, so THE THUD'S ONSET IS 0.180 s INTO THE FILE: keep it there.
+#   S_TitleWipe         the chrome wipe: a shimmer that climbs and ends as the wipe ends (0.36 s)
+#   S_TitleTwinkle      one star's glint: a small bright bell (the second star plays it a tone up, by pitch)
+#   S_TitleTwinklePair  both stars on a confirmed selection: the bell and its fifth, 45 ms apart
+#   S_TitleNeonTick     the neon tube dipping: a tiny electrical tick
+#   S_TitleNeonHum      the tube's hum under the menu: A SEAMLESS LOOP of exactly 4 s (Content/Python/ft_audio.py LOOPS)
+# Same rules as the overhaul: each has its own noise, seeded by its name (gen), and nothing here draws from the 2.x
+# generator, so no other sound changes. Import only these six:
+#   ft_audio.build(<out_dir>, names=['S_TitleSlam', 'S_TitleWipe', 'S_TitleTwinkle', 'S_TitleTwinklePair',
+#                                    'S_TitleNeonTick', 'S_TitleNeonHum'])
+TITLE_HIT = 0.18      # seconds into S_TitleSlam at which the thud starts (the length of the flight of "Full")
+
+
+def title_slam():
+    g = gen('TitleSlam')
+    d = 0.45 - TITLE_HIT
+    u = np.linspace(0, 1, int(SR * TITLE_HIT))
+
+    def band(lo, hi, enters):   # a band of the whoosh; the higher ones come in later, as the thing nears
+        return unit(fir(nz(g, TITLE_HIT), lo, hi)) * np.clip((u - enters) / 0.3, 0, 1)
+
+    whoosh = (band(300, 900, 0.0) + band(900, 2600, 0.2) * 0.8 + band(2600, 7000, 0.45) * 0.6) * u ** 2.2
+    # the thud, after stamp(): a sine that falls, a knock, a slap
+    thud = (glide(160, 48, d, 0.03) * dec(d, 0.07) + 0.5 * unit(fir(nz(g, d), 150, 900) * dec(d, 0.02))
+            + 0.35 * unit(fir(nz(g, d), 2000, 8000) * dec(d, 0.006)))
+    return soft(at(0.45, (0, unit(whoosh), 0.45), (TITLE_HIT, unit(thud), 1.0)), 1.4)
+
+
+def title_wipe():
+    """After ui_open(): three bands of noise, each loudest later than the last, and a sine that climbs with them.
+    Nearly silent for its first 40 ms (it starts on the thud of S_TitleSlam), loudest near its end, gone in 15 ms."""
+    g = gen('TitleWipe')
+    d = 0.36
+    tt = t(d)
+    u = np.linspace(0, 1, len(tt))
+
+    def band(lo, hi, c):
+        return unit(fir(nz(g, d), lo, hi)) * np.exp(-((u - c) / 0.2) ** 2)
+
+    shimmer = band(1500, 3500, 0.35) * 0.8 + band(3500, 6500, 0.6) + band(6500, 11000, 0.85) * 0.9
+    tone = np.sin(2 * np.pi * np.cumsum(1200 + 2400 * u) / SR) * (0.5 + 0.5 * np.sin(2 * np.pi * 28 * tt)) * 0.3
+    return (shimmer + tone) * u ** 1.5 * np.minimum(1.0, (d - tt) / 0.015)
+
+
+def title_bell(g, f0, d):
+    """A small bright bell: four partials that are not harmonics, the higher ones dying sooner, and the tap that rang it.
+    (A partial that would fall above 20 kHz is left out: it would fold back as a wrong note.)"""
+    tt = t(d)
+    ring = sum(a * np.sin(2 * np.pi * f0 * r * tt) * np.exp(-tt / tau)
+               for r, a, tau in ((1.0, 1.0, 0.11), (2.76, 0.5, 0.07), (5.40, 0.25, 0.04), (8.93, 0.12, 0.025)) if f0 * r < 20000.0)
+    return unit(ring * np.minimum(1.0, tt / 0.002)) + 0.2 * unit(fir(nz(g, d), 6000, 12000) * dec(d, 0.003))
+
+
+def title_twinkle():
+    return title_bell(gen('TitleTwinkle'), 2093.0, 0.5)
+
+
+def title_twinkle_pair():
+    g = gen('TitleTwinklePair')
+    return at(0.65, (0, title_bell(g, 2093.0, 0.5), 1.0), (0.045, title_bell(g, 3136.0, 0.6), 1.0))
+
+
+def title_neon_tick():
+    g = gen('TitleNeonTick')
+    d = 0.03
+    return unit(fir(nz(g, d), 3000, 12000) * dec(d, 0.0015)) + 0.5 * unit(fir(sweep(240, 240, d, 'square'), None, 4000)) * dec(d, 0.008)
+
+
+def title_neon_hum():
+    """A transformer's hum and a tube's faint hiss, built to repeat exactly every 4 s: every part is a whole number of
+    cycles long, and the hiss is the inverse transform of a spectrum (periodic by construction). Nothing here goes
+    through fir() or any other filter that has a start and an end, so the loop point is like any other sample."""
+    g = gen('TitleNeonHum')
+    n = int(SR * 4.0)
+    tt = np.arange(n) / SR
+    x = 0.3 * np.sin(2 * np.pi * 60.0 * tt + g.uniform(0, 2 * np.pi))
+    for k in range(1, 41):
+        f = 120.0 * k
+        a = k ** -1.1 * (1.0 + 0.8 * np.exp(-(np.log2(f / 750.0) / 0.9) ** 2))   # a gentle bump round 400 to 1400 Hz
+        x += a * np.sin(2 * np.pi * f * tt + g.uniform(0, 2 * np.pi))
+    fr = np.fft.rfftfreq(n, 1.0 / SR)
+    hiss = np.fft.irfft(((fr >= 2000.0) & (fr <= 7000.0)) * np.exp(1j * g.uniform(0, 2 * np.pi, len(fr))), n)
+    x += hiss * (np.sqrt(np.mean(x * x)) / np.sqrt(np.mean(hiss * hiss)) * 0.1)        # the hiss 20 dB under the hum
+    return x * (1.0 + 0.06 * np.sin(2 * np.pi * 0.25 * tt) + 0.04 * np.sin(2 * np.pi * 0.75 * tt))
+
+
+over('TitleSlam', title_slam(), 0.9)
+over('TitleWipe', title_wipe(), 0.5)
+over('TitleTwinkle', title_twinkle(), 0.6)
+over('TitleTwinklePair', title_twinkle_pair(), 0.6)
+over('TitleNeonTick', title_neon_tick(), 0.5)
+over('TitleNeonHum', title_neon_hum(), 0.5, loop=True)
 
 with open(os.path.join(OUT, 'overhaul.txt'), 'wb') as f:
     f.write(('\n'.join(OVERHAUL) + '\n').encode('ascii'))

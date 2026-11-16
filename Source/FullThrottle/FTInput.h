@@ -59,6 +59,7 @@ private:
 	void ResolveDevice(FInputDeviceId Device);
 	bool bPointer = false, bPointerSeen = false;
 	FVector2D PointerLast = FVector2D::ZeroVector;
+	float PointerTravel = 0.f; double PointerMovedAt = -100.0;   // how far the mouse has gone without a pause (it takes over from a controller)
 	FVector2D PointerOverride = FVector2D(-1.f, -1.f);
 	bool bGamepad = false;
 	bool bDisconnected = false;

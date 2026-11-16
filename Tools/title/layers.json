@@ -1,0 +1,204 @@
+{
+  "about": "The animated title logo's textures (make_layers.py). cover = x, y, w, h in logo px (the 1600x608 flat canvas of T_TitleLogo.png). For the record: the game does not read this file, FTTitleLogo.cpp carries the same table.",
+  "canvas": [
+    1600,
+    608
+  ],
+  "draw_order": [
+    "T_TitleLogo_Throttle",
+    "T_TitleLogo_Star1",
+    "T_TitleLogo_Star2",
+    "T_TitleLogo_Full",
+    "T_TitleLogo_Lines"
+  ],
+  "textures": [
+    {
+      "name": "T_TitleLogo_Throttle",
+      "asset": "/Game/UI/Title/T_TitleLogo_Throttle",
+      "size": [
+        1600,
+        320
+      ],
+      "cover": [
+        0,
+        256,
+        1600,
+        320
+      ],
+      "alpha": "straight"
+    },
+    {
+      "name": "T_TitleLogo_Lines",
+      "asset": "/Game/UI/Title/T_TitleLogo_Lines",
+      "size": [
+        1600,
+        128
+      ],
+      "cover": [
+        0,
+        480,
+        1600,
+        128
+      ],
+      "alpha": "straight"
+    },
+    {
+      "name": "T_TitleLogo_Full",
+      "asset": "/Game/UI/Title/T_TitleLogo_Full",
+      "size": [
+        768,
+        416
+      ],
+      "cover": [
+        48,
+        0,
+        768,
+        416
+      ],
+      "alpha": "straight"
+    },
+    {
+      "name": "T_TitleLogo_Star1",
+      "asset": "/Game/UI/Title/T_TitleLogo_Star1",
+      "size": [
+        128,
+        128
+      ],
+      "cover": [
+        370,
+        273,
+        128,
+        128
+      ],
+      "alpha": "straight"
+    },
+    {
+      "name": "T_TitleLogo_Star2",
+      "asset": "/Game/UI/Title/T_TitleLogo_Star2",
+      "size": [
+        128,
+        128
+      ],
+      "cover": [
+        1232,
+        342,
+        128,
+        128
+      ],
+      "alpha": "straight"
+    },
+    {
+      "name": "T_TitleLogo_Star1Lit",
+      "asset": "/Game/UI/Title/T_TitleLogo_Star1Lit",
+      "size": [
+        128,
+        128
+      ],
+      "cover": [
+        370,
+        273,
+        128,
+        128
+      ],
+      "alpha": "lit: RGB premultiplied on black, A 255, for additive drawing"
+    },
+    {
+      "name": "T_TitleLogo_Star2Lit",
+      "asset": "/Game/UI/Title/T_TitleLogo_Star2Lit",
+      "size": [
+        128,
+        128
+      ],
+      "cover": [
+        1232,
+        342,
+        128,
+        128
+      ],
+      "alpha": "lit: RGB premultiplied on black, A 255, for additive drawing"
+    },
+    {
+      "name": "T_TitleLogo_FullSoft",
+      "asset": "/Game/UI/Title/T_TitleLogo_FullSoft",
+      "size": [
+        240,
+        160
+      ],
+      "cover": [
+        -48,
+        -112,
+        960,
+        640
+      ],
+      "alpha": "straight"
+    },
+    {
+      "name": "T_TitleLogo_FullGlow",
+      "asset": "/Game/UI/Title/T_TitleLogo_FullGlow",
+      "size": [
+        240,
+        160
+      ],
+      "cover": [
+        -48,
+        -112,
+        960,
+        640
+      ],
+      "alpha": "lit: RGB premultiplied on black, A 255, for additive drawing"
+    },
+    {
+      "name": "T_TitleLogo_FullGlowIn",
+      "asset": "/Game/UI/Title/T_TitleLogo_FullGlowIn",
+      "size": [
+        228,
+        132
+      ],
+      "cover": [
+        0,
+        0,
+        912,
+        528
+      ],
+      "alpha": "lit: RGB premultiplied on black, A 255, for additive drawing"
+    },
+    {
+      "name": "T_TitleLogo_ThrottleLit",
+      "asset": "/Game/UI/Title/T_TitleLogo_ThrottleLit",
+      "size": [
+        800,
+        176
+      ],
+      "cover": [
+        0,
+        256,
+        1600,
+        352
+      ],
+      "alpha": "lit: RGB premultiplied on black, A 255, for additive drawing"
+    }
+  ],
+  "constants": {
+    "soft_sigma": 12.0,
+    "glow_sigma": 35.0,
+    "feather": 40,
+    "glow_canvas": [
+      960,
+      640
+    ],
+    "glow_canvas_origin": [
+      48,
+      112
+    ]
+  },
+  "measured": {
+    "FullSoft_border_alpha_max": 0,
+    "FullGlow_border_max_before_forcing": 0,
+    "FullGlowIn_border_max_before_forcing": {
+      "top": 1,
+      "left": 0,
+      "bottom": 0,
+      "right": 0
+    }
+  }
+}
