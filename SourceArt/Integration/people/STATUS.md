@@ -1,69 +1,89 @@
 # The population pass: status (second machine)
 
-Last written: 15 Nov 2026, after the core and the film crew kit; the level workers are running.
+Last written: 16 Nov 2026, after population pass 3 (built, reviewed once, fixed once, joined with `main`).
 Report rule: only what was run and seen. "Not checked" means exactly that.
 
 ## Machine
 
-i9-12900KF (24 threads), 64 GB, RTX 3080 Ti, Unreal 5.9.0 (launcher build), MSVC 14.44, 447 GB free.
-Branch `claude/people`, started from `origin/claude/overhaul-integration` (`1df93f9`).
-First editor build: succeeded. A table change compiles in about 12 s; a 40-second drive of a level takes about 60 s.
+i9-12900KF (24 threads), 64 GB, RTX 3080 Ti, Unreal 5.9.0 (launcher build), MSVC 14.44.
+Branch `claude/people`. A table change compiles in about 12 s; one start of a level takes about 90 s.
 
 ## What exists
 
 | What | Where | How it was made |
 |---|---|---|
 | The figure builder, birds, four-legged animals | `Content/Python/ft_people.py` | `figure()`, `bird()`, `quadruped()`, `Scene`, `export()` |
-| The population's material | `/Game/People/Core/M_People`, `M_PeopleFar` | `ft_people.build_core()` (`_master`) |
-| The film crew kit, 10 pieces x 8 wardrobes = 80 meshes | `/Game/People/Crew/SM_Crew<Piece>_<Wardrobe>` | `ft_people_crew.run()`; one function a piece (`camera`, `applause`, `stunt`, `village`, `dolly`, `crane`, `lights`, `sound`, `catering`) |
-| Close-up contact sheets | `Content/Python/ft_people_sheet.py` | `sheet()` (plain light, no cel pass) |
+| The population's material | `/Game/People/Core/M_People`, `M_PeopleFar` | `ft_people.build_core()` |
+| The film crew kit, 10 pieces x 8 wardrobes | `/Game/People/Crew/SM_Crew<Piece>_<Wardrobe>` | `ft_people_crew.run()` |
+| First and second pass, per level | `Content/Python/ft_people_<key>.py`, `FTPeopleL<n>.inl` | notes `L<n>_<key>.md` |
+| Pass 3, six builders a level | `Content/Python/ft_people_<key>_p3<a..f>.py`, meshes `SM_P3<A..F>_<Name>`, blocks `p3a`..`p3f` at the end of `FTPeopleL<n>.inl` | notes `L<n>_<key>_p3.md` |
 
-**M_People.** One ordinary lit material for every population mesh (the cel pass inks it like any prop; `M_PP_Cel`,
-`ft_life.py` and `M_Life` are untouched). A population mesh has ONE section, so one draw call an instanced mesh,
-whatever its colours and however its parts move. Each part's colour and movement are written into the mesh's eight
-UV channels, the same for every vertex of the part: colour and glow; phase and rate; a hop or a float; a swing in
-degrees about a pivot and an axis (an arm waves, a leg strides, a wing beats, a camera pans); travel along a line and
-round again (walkers), or round a circle (a wheeling flock). A part can be marked to liven up as the camera comes
-within 25 to 110 m (crowds hop higher as the chase passes). Vertex shader only; no ticking actor, no skeleton.
-Shader size reported by the editor: 329 pixel and 375 vertex instructions.
+Keys: bay, chem, nevada, volcano, park, ice, sea, city. `M_PP_Cel`, `ft_life.py` and `M_Life` are untouched.
+A population mesh has ONE section (one draw call an instanced mesh); colour and movement are in eight UV channels,
+vertex shader only.
 
-**The figure.** Chunky, big head and hands, flat palette colours; six skins, eight hair colours, seven hair styles,
-nine hats, four builds, sleeves, trousers, shorts, skirt, dress, coat, swimwear; 13 named arm poses; things in the
-hand. About 250 triangles by the road, about 100 for crowds.
+## Pass 3
 
-**The crew.** Marked on every level by a pink band across the chest, headsets, yellow-and-dark equipment and
-pink-and-white tape. Sheets: `sheets/crew_kit_sun.jpg`, `sheets/crew_wardrobes.jpg`.
-Low pieces (top under 2 m as built, may stand from 17 m): Camera 1.94 m, ApplauseA 1.87, ApplauseB 1.79, Stunt 1.75,
-Village 1.88, Dolly 1.77. Tall (24 m or more): Crane 4.3 m, Lights 3.87, Sound 2.15, Catering 2.47.
+Six builders a level, each with one focus (a gaps, b scenes, c movers, d heights, e far and sky, f film shoot),
+nobody reviewing while building. Then one review a level (one reader of the table and generators against the rules,
+one driver of the whole level with frames, neither of whom built it), one fix round, one compile, one start.
 
-## Over budget, and why
+How it differed from the plan: the six builders of a level shared one built checkout and each wrote a block file;
+one integrator a level joined the blocks, compiled and committed. (48 separate checkouts did not fit on the disk.)
 
-- Crew pieces with six or seven near-detail figures are 1,800 to 2,700 triangles (the guide is about 1,500): a
-  near figure with a hat and something in its hand is about 300. They are single-section meshes. To be trimmed in
-  the second round if the lead wants it (fewer tape segments, detail 1 for the back row).
+Numbers are the game's own `FTDRESS ... pieces placed=` line (dressing and population together), one start of each
+level on the joined build with `main` merged (`ecafa7c3` plus this file). The road's `FTTRACK` line equals
+`track_baseline.txt` on all eight; no `Fatal error` and no `LogFT: Error` in any of the eight logs.
 
-## Seen in the game so far
+| Level | New meshes | Placed before pass 3 | After the build | After the fix round | Review: fixed / left |
+|---|---|---|---|---|---|
+| 0 Bayshore | 70 | 11,608 | 13,641 | 13,415 | 7 / 8 |
+| 1 Chemical Works | 67 | 10,460 | 11,932 | 11,878 | 15 / 12 |
+| 2 Nevada | 71 | 9,404 | 11,676 | 11,589 | 12 / 7 |
+| 3 Volcano | 65 | 9,828 | 11,810 | 11,436 | 10 / 11 |
+| 4 Theme Park | 71 | 10,951 | 13,169 | 13,163 | 10 / 7 |
+| 5 Ice Mountain | 73 | about 9,600 (not read from a log line) | 11,896 | 11,796 | 14 / 7 |
+| 6 Under the Sea | 70 | 11,072 | 13,521 | 13,377 | 10 / 8 |
+| 7 City Center | 78 | 8,283 | 10,406 | 10,018 | 8 / 11 |
 
-- One test drive of Bayshore with two test meshes placed (since removed): the level came up, drove to 30 s, frames
-  read. `FTTRACK level=0 frames=12717 route=dc9e032b solid=d2e759f4 solidTriangles=986296`: equal to the baseline.
-  The figures are inked by the cel pass and sit in the world's style. They are SMALL from the chase camera, and the
-  raised, banked road's barrier hides people who stand on low ground near it: the level workers are told to raise
-  people (stands, platforms, terraces), mass them, and move them.
-- Movement in the game (`film` frames): not yet judged by me; the level workers and their reviewers do it per level.
+565 new meshes. No builder's block was dropped; every level compiled at the first try.
 
-## Levels
+### What the review found that broke a rule, and what was done
 
-Being made now, one worker a level in its own worktree, each followed by a reviewer who did not make the work and
-then a fix pass. Per-level status files will be `L<n>_<key>.md` beside this file. Nothing is placed on any level yet
-in this commit: the eight `FTPeopleL<n>.inl` are still empty.
+- Camera drones circling or hovering near the road (levels with enemy helicopters): on every level the circling was
+  taken out of the generators or the drone teams were replaced or moved; Bayshore's drones are smaller and only bob.
+- Bayshore: parachutists read as the helicopter's dropped men: all parachute rules off; paragliders off in every
+  second district.
+- Volcano: the airship read as a missile: all its rules removed; no balloons or kites over the boss's road.
+- Ice Mountain: snowballs in flight removed; dark circling birds recoloured; a snowmobile in the patrol's colours and
+  an orange pickup-sized balloon recoloured.
+- Chemical Works: steady light nearer than 24 m on three first-round pieces removed; a far flock that could pass over
+  the road moved out; orange lit lanterns that resembled a pickup redrawn taller and pale.
+- Volcano, City Center: lit limbs moving faster than 2 a second inside 30 m slowed.
+- Theme Park: a far duck flight whose path could cross the road straightened.
+- Everywhere: pieces of different builders standing in the same spot were shared out or moved (details in each note).
+
+### Left as found (each note lists its own)
+
+- Most pass 3 meshes are over the 1,500-triangle guide (scenes and press pens 3,000 to 3,700).
+- Banked bends, loops, wall rides and jump approaches still have nobody near: the track clears pieces there.
+- Low kerb figures show as heads and shoulders over the barrier from the near lane.
+- Chemical Works: clapping arms and dogs at 2.4 to 2.6 a second on first-round lit pieces inside 30 m were reported
+  as a broken rule and NOT fixed in this round.
+- Some overlaps remain between pass 3 pieces and first-pass pieces (counts in the notes).
+- Older meshes placed more than 60 times (first passes' rules) were not thinned.
+- The player's car drawn as four wheels after jumps was seen by several drivers; it is not population and was not touched.
 
 ## Not checked
 
-- Performance of any kind (by the owner's order: later, elsewhere).
-- Whether vertex movement really stops past 180 m for these meshes (I did not find the switch in the track's code;
-  far pieces take `M_PeopleFar`, which always moves).
-- The crew kit in the game's own frames (only close-up sheets under plain light so far).
+- Performance of any kind after pass 3 (frame time, draw calls, triangles, memory, load time).
+- Movement: no reviewer could judge it from films taken at racing speed; no standing-camera run was made.
+- The joined build was started once a level (6 s of driving each); the whole-level drives were made on the level
+  checkouts before the fix round, and each fixer started its level once after it. Nobody drove a whole level after
+  the fixes.
+- Vertex movement past 180 m: `main` now switches it off for population and life components (`FTWPO` line; Bayshore
+  reports 112 of 216 components). How that looks on far pieces was not looked at.
 
 ## ASKS
 
-- None yet.
+- None.

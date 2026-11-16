@@ -541,6 +541,7 @@ protected:
 	// the real work per frame (the window is composed at the display's refresh, so fps alone hides the headroom)
 	double BenchGameMs = 0.0, BenchRenderMs = 0.0, BenchGpuMs = 0.0;
 	TArray<float> BenchGpuFrames;
+	FString BenchSlow; // 4.2: the slow frames (> 17.5 ms): bench second, car distance, frame/game/gpu ms
 	float AutoLane = 0.f;
 
 	// reel

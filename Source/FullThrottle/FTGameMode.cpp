@@ -5088,6 +5088,10 @@ void AFTGameMode::TickBench(float RDt)
 		const float Gpu = FPlatformTime::ToMilliseconds(RHIGetGPUFrameCycles(0));
 		BenchGpuMs += Gpu;
 		BenchGpuFrames.Add(Gpu);
+		const float FrameMs = FApp::GetDeltaTime() * 1000.f;
+		if (FrameMs > 1000.f / 60.f * 1.05f && BenchSlow.Len() < 1500)
+			BenchSlow += FString::Printf(TEXT("%s\"t%.2f d%.0f f%.1f g%.1f r%.1f gpu%.1f\""), BenchSlow.IsEmpty() ? TEXT("") : TEXT(","), BenchT - 4.f, Car ? Car->D / 100.f : 0.f,
+				FrameMs, FPlatformTime::ToMilliseconds(GGameThreadTime), FPlatformTime::ToMilliseconds(GRenderThreadTime), Gpu);
 	}
 	if (BenchT < G->BenchSeconds + 4.f && Phase == EFTPhase::Play) return;
 	if (BenchFrames.Num() < 10) return;
@@ -5113,17 +5117,18 @@ void AFTGameMode::TickBench(float RDt)
 		*CV(TEXT("r.VSync")), *CV(TEXT("t.MaxFPS")), *CV(TEXT("r.ScreenPercentage")))
 		// 2.9: anti-aliasing (2 TAA, 4 TSR) and the dynamic-resolution range the frames were allowed
 		+ FString::Printf(TEXT(" aa%s dynres%s-%s apple%d"), *CV(TEXT("r.AntiAliasingMethod")), *CV(TEXT("r.DynamicRes.MinScreenPercentage")), *CV(TEXT("r.DynamicRes.MaxScreenPercentage")), UFTGameInstance::IsAppleGpu() ? 1 : 0);
-	const FString Json = FString::Printf(TEXT("{\"level\":%d,\"quality\":\"%s\",\"tag\":\"%s\",\"seconds\":%.1f,\"frames\":%d,\"avg_fps\":%.1f,\"p1_low_fps\":%.1f,\"median_ms\":%.2f,\"p99_ms\":%.2f,\"worst_ms\":%.2f,\"frames_over_17_5ms\":%d,\"game_thread_ms\":%.2f,\"render_thread_ms\":%.2f,\"gpu_ms\":%.2f,\"gpu_p99_ms\":%.2f,\"live\":\"%s\",\"resolution\":\"%dx%d\",\"rhi\":\"%s\",\"gpu\":\"%s\",\"distance_m\":%.0f}"),
+	const FString Json = FString::Printf(TEXT("{\"level\":%d,\"quality\":\"%s\",\"tag\":\"%s\",\"seconds\":%.1f,\"frames\":%d,\"avg_fps\":%.1f,\"p1_low_fps\":%.1f,\"median_ms\":%.2f,\"p99_ms\":%.2f,\"worst_ms\":%.2f,\"frames_over_17_5ms\":%d,\"game_thread_ms\":%.2f,\"render_thread_ms\":%.2f,\"gpu_ms\":%.2f,\"gpu_p99_ms\":%.2f,\"live\":\"%s\",\"resolution\":\"%dx%d\",\"rhi\":\"%s\",\"gpu\":\"%s\",\"distance_m\":%.0f,\"slow\":[%s]}"),
 		Level, *UFTGameInstance::QualityName(G->BenchQuality), *G->BenchTag, BenchT - 4.f, S.Num(), 1000.f / Avg, Low1, Pct(0.5f), Pct(0.99f), S.Last(), Over,
 		BenchGameMs / N, BenchRenderMs / N, BenchGpuMs / N, GpuP99, *Live,
 		GEngine && GEngine->GameViewport ? (int32)GEngine->GameViewport->Viewport->GetSizeXY().X : 0, GEngine && GEngine->GameViewport ? (int32)GEngine->GameViewport->Viewport->GetSizeXY().Y : 0,
-		GDynamicRHI ? GDynamicRHI->GetName() : TEXT("?"), *GRHIAdapterName, Car->D / 100.f);
+		GDynamicRHI ? GDynamicRHI->GetName() : TEXT("?"), *GRHIAdapterName, Car->D / 100.f, *BenchSlow);
 	const FString Dir = FPaths::Combine(G->SaveDir(), TEXT("bench"));
 	IFileManager::Get().MakeDirectory(*Dir, true);
 	FFileHelper::SaveStringToFile(Json, *FPaths::Combine(Dir, FString::Printf(TEXT("bench_L%d_%s%s.json"), Level, *UFTGameInstance::QualityName(G->BenchQuality), *G->BenchTag)));
 	UE_LOG(LogFT, Display, TEXT("FTBENCH %s"), *Json);
 	UKismetSystemLibrary::QuitGame(this, nullptr, EQuitPreference::Quit, false);
 	BenchFrames.Reset();
+	BenchSlow.Reset();
 }
 
 void AFTGameMode::Snap(const FString& Name)

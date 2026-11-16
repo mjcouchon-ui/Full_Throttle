@@ -472,6 +472,7 @@ void UFTGameInstance::StopTitleMusic(float FadeSeconds)
 	UE_LOG(LogFT, Display, TEXT("FTMUSIC title stop fade=%.1f"), FadeSeconds);
 }
 
+static TAutoConsoleVariable<float> CVarFTHitchMs(TEXT("ft.HitchMs"), 40.f, TEXT("4.2: frames longer than this (ms) are logged as FTHITCH2 with the loads and GCs in them (17 to catch the bench's > 17.5 ms frames)"));
 static TAutoConsoleVariable<int32> CVarWarmBrawlAudio(TEXT("ft.WarmBrawlAudio"), 1, TEXT("1 = preload the nights' SFX with their sprites (run 2 cycle 2)"));
 
 void UFTGameInstance::OnPostLoadMap(UWorld* World)
@@ -682,7 +683,7 @@ bool UFTGameInstance::TickHitch(float Dt)
 	UWorld* W = GetWorld();
 	if (bWindowCloseQueued && !bSessionLoading && W && W->HasBegunPlay() && W->GetAuthGameMode() && HandleWindowClose())
 		UKismetSystemLibrary::QuitGame(this, W->GetFirstPlayerController(), EQuitPreference::Quit, false);
-	if (Ms > 40.0 && W && W->HasBegunPlay() && W->GetTimeSeconds() > 1.f)
+	if (Ms > CVarFTHitchMs.GetValueOnGameThread() && W && W->HasBegunPlay() && W->GetTimeSeconds() > 1.f)
 	{
 		UE_LOG(LogFT, Display, TEXT("FTHITCH2 ms=%.0f map=%s t=%.1f loads=%d gc=%d %s"), Ms, *W->GetMapName(), W->GetTimeSeconds(),
 			HitchLoadN, HitchGCs, *FString::Join(HitchLoads, TEXT(",")));
