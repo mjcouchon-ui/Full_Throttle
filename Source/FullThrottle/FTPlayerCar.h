@@ -104,6 +104,11 @@ public:
 	bool IsLaunched() const { return LaunchT > 0.f || HopT >= 0.f; }
 	// 2.5 "stick to the road": anything over this much lift off the road (not on a real jump) is put back on it
 	UPROPERTY(EditAnywhere, Category = "Car|Tuning") float StickMaxLift = 40.f;
+	// 4.5 bump stop: the chassis never sinks deeper than this under ride height (cm, negative). The springs bottom out
+	// at about -13 under the glue and track gravity at speed; past them the box sat on its belly (lift -55), the wheel
+	// traces started under the road and read "in the air", and the car lost grip, the governor and its speed
+	UPROPERTY(EditAnywhere, Category = "Car|Tuning") float BumpStopLift = -18.f;
+	int32 StopFrames = 0;   // frames the bump stop held the car (FTGLUE telemetry)
 	// 2.5 coaster: the spring that keeps the car on its rail (1/s^2) and its damping (1/s)
 	UPROPERTY(EditAnywhere, Category = "Car|Tuning") float RailK = 36.f;
 	UPROPERTY(EditAnywhere, Category = "Car|Tuning") float RailDamp = 12.f;
@@ -190,7 +195,7 @@ protected:
 	float HopT = -1.f; FVector2D HopFrom = FVector2D::ZeroVector;
 	static constexpr float HopDur = 0.85f;
 	// 2.5 tests: what the car last hit (stall reports)
-	FString LastHit; float LastHitT = 0.f;
+	FString LastHit; float LastHitT = 0.f; float LastHitUp = 1.f; bool LastHitTrack = false;
 	TArray<FTransform> PartRest;
 	bool bHangModel = false;
 	// 3.3 half pipe air: where it left (x, height over the frame), its speed up and along

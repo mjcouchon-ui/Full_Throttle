@@ -26,6 +26,10 @@
 // which arcade assists run on top of Chaos (bits): 1 speed governor, 2 grip, 4 yaw, 8 anti-flip, 16 track gravity, 32 air control,
 // 64 road glue (2.4 downforce)
 static TAutoConsoleVariable<int32> CVarFTArcade(TEXT("ft.Arcade"), 127, TEXT("FULL THROTTLE: arcade assist bitmask on the Chaos car"));
+static TAutoConsoleVariable<int32> CVarFTPipeSweep(TEXT("ft.PipeSweep"), 1,
+	TEXT("4.5: 1 = in a pipe (as in a twist since 3.6) the car rides with the deck's sweep along its normal near the surface, and a put-back there leaves with the deck's own motion. 0 = 4.4 (Level 7's fast pipe put the car back 32 times in 1.5 s)."));
+static TAutoConsoleVariable<int32> CVarFTBumpStop(TEXT("ft.BumpStop"), 1,
+	TEXT("4.5: 1 = a bump stop under the springs: the chassis is never let sink more than BumpStopLift under ride height (its speed into the road is taken out, and it is eased back up), so a dip, a crest or a landing at speed can't put the car on its belly with its wheels reading 'in the air'. 0 = 4.4."));
 
 namespace
 {
@@ -621,6 +625,8 @@ void AFTPlayerCar::OnBodyHit(UPrimitiveComponent* HitComp, AActor* Other, UPrimi
 		LastHit = FString::Printf(TEXT("%s/%s n.up=%.2f n.fwd=%.2f at D=%.0f X=%.0f H=%.0f"), *Other->GetName(), OtherComp ? *OtherComp->GetName() : TEXT("-"),
 			FVector::DotProduct(Hit.ImpactNormal, RoadUp), FVector::DotProduct(Hit.ImpactNormal, Chassis->GetForwardVector()), Hd, Hx, Hh);
 		LastHitT = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+		LastHitUp = FVector::DotProduct(Hit.ImpactNormal, RoadUp);
+		LastHitTrack = Other == Track;
 	}
 	if (Other && Other == Track)
 	{
@@ -704,8 +710,8 @@ void AFTPlayerCar::Tick(float Dt)
 			GlueT += Dt;
 			if (GlueT > 5.f)
 			{
-				UE_LOG(LogFT, Display, TEXT("FTGLUE D=%.0f straysAir=%.2fs strayMaxH=%.0f jumpAir=%.2fs jumpMaxH=%.0f v=%.0f fps=%.0f"), D, StrayAir, StrayMaxH, JumpAir, JumpMaxH, Speed, 1.f / FMath::Max(Dt, 1e-4f));
-				StrayAir = StrayMaxH = JumpAir = JumpMaxH = GlueT = 0.f;
+				UE_LOG(LogFT, Display, TEXT("FTGLUE D=%.0f straysAir=%.2fs strayMaxH=%.0f jumpAir=%.2fs jumpMaxH=%.0f v=%.0f fps=%.0f stop=%d"), D, StrayAir, StrayMaxH, JumpAir, JumpMaxH, Speed, 1.f / FMath::Max(Dt, 1e-4f), StopFrames);
+				StrayAir = StrayMaxH = JumpAir = JumpMaxH = GlueT = 0.f; StopFrames = 0;
 			}
 		}
 	}
@@ -735,8 +741,12 @@ void AFTPlayerCar::Tick(float Dt)
 		{
 			LastBumpT = Now;
 			float U = 0.f; const FFTSection* Sc = Track->SectionAt(D, &U);
-			UE_LOG(LogFT, Display, TEXT("FTBUMP D=%.0f X=%.0f H=%.0f v=%.0f from %.0f in %.2fs target=%.0f section=%d shape=%d u=%.2f flags=%d wheels=%d hit(%.2fs ago)=%s"),
-				D, X, H, Speed, Peak, Now - PeakT, Drive.TargetSpeed, F.Section, Sc ? (int32)Sc->Shape : -1, U, (int32)F.Flags, WheelsDown,
+			// 4.5: what took the speed. gov = the governor easing a turbo or a boost back to its target (no contact, wheels down)
+			const bool bRecent = Now - LastHitT < 0.3f;
+			const TCHAR* Cause = !bRecent ? (WheelsDown >= 3 && Peak > Drive.TargetSpeed + 500.f ? TEXT("gov") : TEXT("other"))
+				: (FMath::Abs(LastHitUp) < 0.5f ? TEXT("wall") : (LastHitTrack ? TEXT("deck") : TEXT("prop")));
+			UE_LOG(LogFT, Display, TEXT("FTBUMP cause=%s D=%.0f X=%.0f H=%.0f v=%.0f from %.0f in %.2fs target=%.0f section=%d shape=%d u=%.2f flags=%d wheels=%d hit(%.2fs ago)=%s"),
+				Cause, D, X, H, Speed, Peak, Now - PeakT, Drive.TargetSpeed, F.Section, Sc ? (int32)Sc->Shape : -1, U, (int32)F.Flags, WheelsDown,
 				Now - LastHitT, Now - LastHitT < 0.7f ? *LastHit : TEXT("-"));
 		}
 	}
@@ -751,6 +761,8 @@ void AFTPlayerCar::Tick(float Dt)
 		if (CapsizeT > 1.5f)
 		{
 			CapsizeT = 0.f;
+			UE_LOG(LogFT, Display, TEXT("FTCAPSIZE D=%.0f X=%.0f lift=%.0f upright=%.2f wheels=%d v=%.0f belly=%d lastHit(%.1fs ago)=%s"), D, X, H - SurfH - ChassisZ, Upright, WheelsDown, Speed, bBelly ? 1 : 0,
+				GetWorld() ? GetWorld()->GetTimeSeconds() - LastHitT : -1.f, *LastHit);
 			PlaceOnTrack(D, FMath::Clamp(X, -FT::RoadHalf, FT::RoadHalf), FMath::Max(0.f, Speed) * 0.5f);
 		}
 		// 2.5: wedged (nose up on a banked wall, hung on a barrier) with the throttle open: after 1.2 s the crew puts
@@ -1301,14 +1313,16 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 		const FFTFrame F2 = Track->Sample(D + 100.f);
 		const float DRoll = FMath::Atan2(FVector::DotProduct(FVector::CrossProduct(F.Up, F2.Up), F.Fwd), FVector::DotProduct(F.Up, F2.Up));
 		const float RollRate = DRoll / 100.f * FVector::DotProduct(Vc, F.Fwd);
-		if (F.Flags & FTFlag::Twist)
+		const bool bSweep = (F.Flags & FTFlag::Twist) || ((F.Flags & FTFlag::Pipe) && CVarFTPipeSweep.GetValueOnGameThread());
+		if (bSweep)
 		{
 			const float VLatR = FVector::DotProduct(Vc, F.Right);
-			Chassis->AddForce(F.Right * FMath::Clamp(-X * 22.f - VLatR * 9.f, -12000.f, 12000.f), NAME_None, true);
+			if (F.Flags & FTFlag::Twist) Chassis->AddForce(F.Right * FMath::Clamp(-X * 22.f - VLatR * 9.f, -12000.f, 12000.f), NAME_None, true);
 			// 3.6: and the car rides with the deck's sweep. Off the centreline a rolling deck moves along its own normal
 			// (roll rate x distance out), so a car driving straight was struck by it (Level 2's second corkscrew, entered at
 			// turbo speed: ~8,200 -> ~2,700 cm/s for a frame in every run) or left hanging. Near the surface, its speed along
-			// the normal is the deck's own there. (Tried in the fast pipes too: no clear gain, left out.)
+			// the normal is the deck's own there. (Tried in the fast pipes too: no clear gain, left out. 4.5: in again for
+			// pipes, ft.PipeSweep: off the centreline at turbo speed Level 7's pipe dropped away from the car every 2-3 frames.)
 			if (Lift < 80.f)
 			{
 				const FVector Sweep = (F2.Pos + F2.Right * X) - (F.Pos + F.Right * X);
@@ -1337,10 +1351,41 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 			const float Vr = FMath::Max(FVector::DotProduct(Chassis->GetPhysicsLinearVelocity(), F.Fwd), bInSet ? SetFloor : 0.f);
 			UE_LOG(LogFT, Display, TEXT("FTPUTBACK D=%.0f X=%.0f lift=%.0f v=%.0f %s"), D, X, Lift, Vr, bSetP ? TEXT("setpiece") : TEXT("road"));
 			Chassis->SetWorldTransform(Track->TransformAt(D, Xc, Track->SurfaceH(D, Xc) + ChassisZ + 6.f), false, nullptr, ETeleportType::TeleportPhysics);
-			Chassis->SetPhysicsLinearVelocity(F.Fwd * Vr);
+			FVector Vput = F.Fwd * Vr;
+			// 4.5: in a twist or a pipe the deck off the centreline sweeps along its own normal (roll rate x distance out:
+			// ~4,700 cm/s at X 1,200 in Level 7's fast pipe). Put back with only the road's forward speed, the deck fell
+			// away from it again in 2-3 frames: 32 put-backs in 1.5 s there (a stutter). It leaves with the deck's own motion
+			if (bSetP && (F.Flags & (FTFlag::Twist | FTFlag::Pipe)) && CVarFTPipeSweep.GetValueOnGameThread())
+			{
+				const FFTFrame F2 = Track->Sample(D + 100.f);
+				const FVector Sweep = (F2.Pos + F2.Right * Xc) - (F.Pos + F.Right * Xc);
+				Vput += F.Up * (FVector::DotProduct(Sweep, F.Up) / 100.f * Vr);
+			}
+			Chassis->SetPhysicsLinearVelocity(Vput);
 			Chassis->SetPhysicsAngularVelocityInRadians(FVector::ZeroVector);
 			if (bInSet) ++SetSnaps;
 			return;
+		}
+	}
+
+	// 4.5 bump stop (physics run, owner 2026-11-16). At speed the glue, the track gravity's speed term and the aero push
+	// past what the springs hold (~2 g at full compression), so a dip or a landing pressed the car through their 14 cm onto
+	// its belly box (lift -55; v450 survey: 11 such "flights" on Level 1 and 17 on Level 2 in 90 s, 0.3-1.4 s each). Down
+	// there the wheel traces start under the road and read "in the air": no grip, no governor, no steering, the belly
+	// scraping the deck (FTBUMP deck hits, -25 to -35% speed with the turbo on) and landing sparks on flat road. Now the
+	// chassis stops at BumpStopLift: its speed into the road is taken out there and it eases back up, so the wheels keep
+	// the road. Only the speed along the road's normal is touched, never the speed along it.
+	if (CVarFTBumpStop.GetValueOnGameThread() && !bWrecked && !bCoaster && bSolid && !(F.Flags & FTFlag::Gap) && FMath::Abs(X) < FT::Edge
+		&& Lift < BumpStopLift && Lift > -120.f)
+	{
+		FVector Vb = Chassis->GetPhysicsLinearVelocity();
+		const float Into = FVector::DotProduct(Vb, Up);   // < 0: still sinking
+		const float WantOut = FMath::Min((BumpStopLift - Lift) * 12.f, 500.f);
+		if (Into < WantOut)
+		{
+			Vb += Up * (WantOut - Into);
+			Chassis->SetPhysicsLinearVelocity(Vb);
+			++StopFrames;
 		}
 	}
 

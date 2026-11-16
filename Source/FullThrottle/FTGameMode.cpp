@@ -45,6 +45,8 @@
 // test hooks: ft.Autopilot 1 drives the car (and starts the race from the title); ft.Shots N takes a screenshot every N seconds
 static TAutoConsoleVariable<int32> CVarFTAutopilot(TEXT("ft.Autopilot"), 0, TEXT("FULL THROTTLE: 1 = the autopilot drives and starts races (tests, benchmarks)"));
 static TAutoConsoleVariable<int32> CVarFTTwistCam(TEXT("ft.TwistCam"), 1, TEXT("FULL THROTTLE 3.7/3.9.7: 1 = through corkscrews and corkscrew pipes the chase camera rides the road's own frame where it is, pulled halfway to the corkscrew's centre line (never under the road); 0 = the 3.6 camera"));
+static TAutoConsoleVariable<int32> CVarFTSweptContact(TEXT("ft.SweptContact"), 1,
+	TEXT("4.5: 1 = a missile's hit test is swept over its move this frame. At ~13,000 cm/s on the game clock a frame slower than ~1/27 s carried it clean past a biker's 500 cm window between two looks (a laptop at 20-25 fps, a hitch). 0 = 4.4 (overlap test only)."));
 static TAutoConsoleVariable<float> CVarFTAutoX(TEXT("ft.AutoX"), -99999.f, TEXT("FULL THROTTLE 3.6 tests: the autopilot holds this road x (cm, -1371..1371 between the barriers) instead of picking a lane; -99999 = off"));
 static TAutoConsoleVariable<float> CVarFTHp(TEXT("ft.Hp"), 0.f, TEXT("FULL THROTTLE test hook: start each race with this armour, e.g. 30 = already burning (0 = normal)"));
 static TAutoConsoleVariable<int32> CVarFTAttract(TEXT("ft.Attract"), 1, TEXT("FULL THROTTLE 3.0: 1 = the title plays the game by itself and cuts between the levels (attract mode)"));
@@ -3117,6 +3119,7 @@ void AFTGameMode::TickEnts(float Dt)
 			E.T1 -= Dt;
 			if (E.T1 <= 0.f)
 			{
+				UE_LOG(LogFT, Display, TEXT("FT MISSILE fizzle"));
 				// FX overhaul: out of fuel: a small burst in the air, carrying on the way it was going
 				const FTransform Mt = EntTransform(E);
 				GBlastHint = FFTBlastHint();
@@ -3154,8 +3157,22 @@ void AFTGameMode::TickEnts(float Dt)
 			for (FFTEnt& O : Ents)
 			{
 				if (O.bDead || &O == &E || O.Kind == EFTKind::Bullet || O.Kind == EFTKind::Missile || O.Kind == EFTKind::Crate || O.Kind == EFTKind::Wrench || O.Kind == EFTKind::Ramp) continue;
-				if (FMath::Abs(O.X - E.X) < O.W / 2 + 60.f && FMath::Abs(O.D - E.D) < O.L / 2 + 120.f)
+				// 4.5: and swept over this frame's move (it moves after this test): at ~13,000 cm/s a slow frame flew it past a biker's
+				// 500 cm window between two looks
+				const float MRaw = FMath::Max(0.f, (E.Sp - O.Sp) * Dt);
+				const float MStep = CVarFTSweptContact.GetValueOnGameThread() ? MRaw : 0.f;
+				const float MRel = O.D - E.D, MWin = O.L / 2 + 120.f;
+				const bool bMLat = FMath::Abs(O.X - E.X) < O.W / 2 + 60.f;
+				if (bMLat && MRel >= MWin && MRel - MRaw <= -MWin && MStep <= MWin)
 				{
+					// test log: this frame's move carries it clean past the target, and the overlap test alone never sees it
+					UE_LOG(LogFT, Display, TEXT("FT MISSILE jumped target=%s rel=%.0f step=%.0f window=%.0f dt=%.3f"), *KindName(O.Kind), MRel, MRaw, 2.f * MWin, Dt);
+				}
+				if (bMLat && MRel > -MWin && MRel < MWin + (MStep > MWin ? MStep : 0.f))
+				{
+					UE_LOG(LogFT, Display, TEXT("FT MISSILE hit target=%s rel=%.0f step=%.0f swept=%d dt=%.3f"), *KindName(O.Kind), MRel, MRaw, MRel >= MWin ? 1 : 0, Dt);
+					// a swept hit lands this frame on the target's tail, not short of it where it flew from
+					if (MRel >= MWin) E.D = O.D - O.L / 2;
 					const float Mx = E.X, Md = E.D;
 					{
 						// FX overhaul: the missile's own blast: on along its flight, rolling on with what it hit, and its ring on the road at
@@ -3206,8 +3223,18 @@ void AFTGameMode::TickEnts(float Dt)
 		if (Phase == EFTPhase::Play && !E.bAir && E.Kind != EFTKind::Bullet && E.Kind != EFTKind::Missile && E.H < 300.f)
 		{
 			const float Dx = E.X - Px;
+			// (4.5 checked: the car can't jump this window in one frame. Its D is the physics body's, and UE steps physics at
+			// most 1/30 s a frame, so even at turbo it moves under 370 cm a frame against a pickup's 680 cm window)
+			const float HalfL = (CarL + E.L) / 2;
 			// 2.8: the yeti bounding past in the next lane on his way in is no wall (State 10/11)
-			const bool bTouch = FMath::Abs(Dx) < (CarW + E.W) / 2 && FMath::Abs(Ahead) < (CarL + E.L) / 2 && !(E.Kind == EFTKind::Boss && E.State >= 10);
+			const bool bTouch = FMath::Abs(Dx) < (CarW + E.W) / 2 && FMath::Abs(Ahead) < HalfL && !(E.Kind == EFTKind::Boss && E.State >= 10);
+			if (E.Kind == EFTKind::Crate || E.Kind == EFTKind::Wrench || E.Kind == EFTKind::Barrel)
+			{
+				// 4.5 test log: every pickup or barrel the car reaches, got or passed (dx = how far across from a touch)
+				if (bTouch) { UE_LOG(LogFT, Display, TEXT("FT CONTACT got kind=%s ahead=%.0f prev=%.0f dx=%.0f swept=%d v=%.0f dt=%.3f"), *KindName(E.Kind), Ahead, E.PrevAhead, Dx, 0, Vp, Dt); }
+				else if (E.PrevAhead >= HalfL && Ahead <= -HalfL) { UE_LOG(LogFT, Display, TEXT("FT CONTACT jumped kind=%s dx=%.0f need=%.0f step=%.0f window=%.0f v=%.0f dt=%.3f"), *KindName(E.Kind), Dx, (CarW + E.W) / 2, E.PrevAhead - Ahead, 2.f * HalfL, Vp, Dt); }
+				else if (E.PrevAhead > 0.f && Ahead <= 0.f) { UE_LOG(LogFT, Display, TEXT("FT CONTACT pass kind=%s dx=%.0f need=%.0f v=%.0f"), *KindName(E.Kind), Dx, (CarW + E.W) / 2, Vp); }
+			}
 			if (bTouch)
 			{
 				if (E.Kind == EFTKind::Crate)
