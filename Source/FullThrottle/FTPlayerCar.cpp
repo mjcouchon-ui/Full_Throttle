@@ -6,6 +6,9 @@
 #include "Components/BoxComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/SpotLightComponent.h"
+#include "Components/DirectionalLightComponent.h"
+#include "UObject/UObjectIterator.h"
+#include "TimerManager.h"
 #include "Components/AudioComponent.h"
 #include "Engine/StaticMesh.h"
 #include "NiagaraComponent.h"
@@ -333,9 +336,38 @@ void AFTPlayerCar::BeginPlay()
 	if (SkidAudio->Sound) { SkidAudio->SetVolumeMultiplier(0.f); SkidAudio->Play(); }
 }
 
+static TAutoConsoleVariable<float> CVarFTHeadDay(TEXT("ft.HeadDay"), 0.1f,
+	TEXT("4.1: the headlights' strength on a level lit by a sun (the brightest directional light >= ft.HeadDayLux), as a share of the night strength. Their pool lands 1-2 m ahead of the nose, so from the chase camera it sat behind the spoiler as a pale smudge in broad daylight. 1 = 4.0."));
+static TAutoConsoleVariable<float> CVarFTHeadDayLux(TEXT("ft.HeadDayLux"), 6.5f,
+	TEXT("4.1: a directional light this bright (lux) or brighter makes a level a day level for the headlights (the suns are 7-10 lux, Bayshore's low sun 7; the moons 4-5.5)."));
+
+void AFTPlayerCar::ApplyHeadlights()
+{
+	UWorld* W = GetWorld();
+	if (!W || !HeadL || !HeadR) return;
+	float Sun = 0.f; int32 NumSun = 0;
+	for (TObjectIterator<UDirectionalLightComponent> It; It; ++It)
+		if (It->GetWorld() == W && It->IsRegistered() && It->IsVisible()) { Sun = FMath::Max(Sun, It->Intensity); ++NumSun; }
+	const bool bDay = Sun >= CVarFTHeadDayLux.GetValueOnGameThread();
+	const float I = 2600.f * (bDay ? FMath::Clamp(CVarFTHeadDay.GetValueOnGameThread(), 0.f, 1.f) : 1.f);
+	if (!FMath::IsNearlyEqual(HeadL->Intensity, I))
+	{
+		HeadL->SetIntensity(I); HeadR->SetIntensity(I);
+		UE_LOG(LogFT, Display, TEXT("FTHEAD suns=%d sun=%.1f lux day=%d headlights=%.0f cd"), NumSun, Sun, bDay ? 1 : 0, I);
+	}
+}
+
 void AFTPlayerCar::SetLightsForLevel(int32 Level)
 {
 	Underglow->SetLightColor(FTData::Level(Level).Glow);
+	ApplyHeadlights();
+	// a level instance's sun (Bayshore's) registers a little after the map: look again shortly (and at every take)
+	if (UWorld* W = GetWorld())
+		for (float Dly : { 1.f, 3.f })
+		{
+			FTimerHandle Th;
+			W->GetTimerManager().SetTimer(Th, FTimerDelegate::CreateWeakLambda(this, [this]() { ApplyHeadlights(); }), Dly, false);
+		}
 	// FX round 3: the level's surface: what the rear wheels throw off it (NS_WheelA<n> the run of it at speed, NS_WheelB<n>
 	// the rooster tail of a slide or a boost; n in FTData's order of levels), what a landing kicks up, and the colour of
 	// the marks the tyres leave. Looks only
@@ -410,6 +442,7 @@ void AFTPlayerCar::PlaceOnTrack(float InD, float InX, float InSpeed)
 	Half = EFTHalf::None;
 	bPrevVel = false;
 	bWrecked = false;
+	ApplyHeadlights(); // 4.1: a level instance's sun may stream in after the car was set up for the level
 	// FX overhaul: Wreck() puts the underglow and the headlights out and nothing put them back, so every take after
 	// the first wreck drove on without them. And the effects' counters start again with the car
 	if (!Underglow->IsVisible()) { Underglow->SetVisibility(true); HeadL->SetVisibility(true); HeadR->SetVisibility(true); }

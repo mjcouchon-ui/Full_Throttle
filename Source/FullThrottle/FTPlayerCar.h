@@ -157,6 +157,8 @@ public:
 	void Wreck();
 	bool IsWrecked() const { return bWrecked; }
 	void SetLightsForLevel(int32 Level);
+	// 4.1: headlights by daylight: dimmed where the level is lit by a sun (ft.HeadDay), full under the moon
+	void ApplyHeadlights();
 	FTransform GunMuzzle(int32 Side) const;
 	/** FX overhaul (looks only): the turbo lighting, or a drift boost letting go: long flames out of the pipes and a ring. */
 	void BoostKick(float Scale);
