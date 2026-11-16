@@ -344,6 +344,12 @@ static TAutoConsoleVariable<int32> CVarFTSunRays(TEXT("ft.SunRays"), 0,
 	TEXT("0 = one hard sample: the projection pass 0.64 -> 0.37 ms (Level 1) and 0.81 -> 0.35 ms (Level 2), +2.3 to +4.7 fps in 4 interleaved EPIC runs, ")
 	TEXT("same picture side by side (cel bands + motion blur hide the soft edge). -1 = the preset's own count (4.2). Applied with the quality preset."));
 
+static TAutoConsoleVariable<int32> CVarFTGpuTrim(TEXT("ft.GpuTrim"), 1,
+	TEXT("4.3: 1 = three cuts over the preset that look the same side by side (Bayshore day + Chem Works night frames): Lumen's screen-probe ")
+	TEXT("integrate at half resolution (r.Lumen.ScreenProbeGather.IntegrateDownsampleFactor 2), motion blur gathers at half resolution ")
+	TEXT("(r.MotionBlur.HalfResGather 1), translucency lighting volume 32^3 (r.TranslucencyLightingVolume.Dim, never raised). Release build EPIC 2560x1440, ")
+	TEXT("4 interleaved pairs on Levels 1-2: 140.4-142.2 -> 150.6-152.3 fps (GPU 6.64-6.71 -> 6.14-6.23 ms). 0 = the preset's own values (4.2). Applied with the quality preset."));
+
 void UFTGameInstance::ApplyQuality(int32 Q, bool bSave)
 {
 	Quality = Q;
@@ -418,7 +424,16 @@ void UFTGameInstance::ApplyQuality(int32 Q, bool bSave)
 		const int32 SunRays = CVarFTSunRays.GetValueOnGameThread();
 		if (SunRays >= 0)
 			if (IConsoleVariable* V = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Shadow.Virtual.SMRT.RayCountDirectional"))) V->Set(SunRays, ECVF_SetByCode);
-		UE_LOG(LogFT, Display, TEXT("FTQUALITY applied=%d overall=%d dynres=%d aa=%s sunrays=%d"), Q, S->GetOverallScalabilityLevel(), bDyn ? 1 : 0, Aa == 4 ? TEXT("TSR") : TEXT("TAA"), SunRays);
+		// 4.3: ft.GpuTrim (see its help); each one only ever makes the preset cheaper
+		const int32 GpuTrim = CVarFTGpuTrim.GetValueOnGameThread();
+		if (GpuTrim > 0)
+		{
+			IConsoleManager& CM = IConsoleManager::Get();
+			if (IConsoleVariable* V = CM.FindConsoleVariable(TEXT("r.Lumen.ScreenProbeGather.IntegrateDownsampleFactor"))) if (V->GetInt() < 2) V->Set(2, ECVF_SetByCode);
+			if (IConsoleVariable* V = CM.FindConsoleVariable(TEXT("r.MotionBlur.HalfResGather"))) V->Set(1, ECVF_SetByCode);
+			if (IConsoleVariable* V = CM.FindConsoleVariable(TEXT("r.TranslucencyLightingVolume.Dim"))) if (V->GetInt() > 32) V->Set(32, ECVF_SetByScalability); // preset priority: a lower preset picked later can still go under 32
+		}
+		UE_LOG(LogFT, Display, TEXT("FTQUALITY applied=%d overall=%d dynres=%d aa=%s sunrays=%d gputrim=%d"), Q, S->GetOverallScalabilityLevel(), bDyn ? 1 : 0, Aa == 4 ? TEXT("TSR") : TEXT("TAA"), SunRays, GpuTrim);
 		if (AppleCap > 0.f)
 		{
 			UE_LOG(LogFT, Display, TEXT("FT QUALITY auto=apple cap=HIGH view=%d aa=%d shadow=%d gi=%d refl=%d pp=%d fx=%d tex=%d screenPercentage=%.0f dynres=%s"),
