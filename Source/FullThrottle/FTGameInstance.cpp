@@ -339,6 +339,11 @@ float UFTGameInstance::CapAutoForApple(UGameUserSettings* S) const
 	return Cur > 0.f ? FMath::Min(Cur, Cap) : Cap;
 }
 
+static TAutoConsoleVariable<int32> CVarFTSunRays(TEXT("ft.SunRays"), 0,
+	TEXT("4.3: soft-shadow rays per pixel for the sun / moon's virtual shadow map (r.Shadow.Virtual.SMRT.RayCountDirectional), set over the preset. ")
+	TEXT("0 = one hard sample: the projection pass 0.64 -> 0.37 ms (Level 1) and 0.81 -> 0.35 ms (Level 2), +2.3 to +4.7 fps in 4 interleaved EPIC runs, ")
+	TEXT("same picture side by side (cel bands + motion blur hide the soft edge). -1 = the preset's own count (4.2). Applied with the quality preset."));
+
 void UFTGameInstance::ApplyQuality(int32 Q, bool bSave)
 {
 	Quality = Q;
@@ -409,7 +414,11 @@ void UFTGameInstance::ApplyQuality(int32 Q, bool bSave)
 		// radiance cache. Metro's EPIC frame -0.5 ms, same look side by side (full-throttle-tests/v340/look). Not a
 		// scalability variable (the .ini can't set it), so it is set here; below EPIC Lumen reflections are off anyway.
 		if (IConsoleVariable* V = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Lumen.Reflections.MaxRoughnessToTrace"))) V->Set(0.15f, ECVF_SetByCode);
-		UE_LOG(LogFT, Display, TEXT("FTQUALITY applied=%d overall=%d dynres=%d aa=%s"), Q, S->GetOverallScalabilityLevel(), bDyn ? 1 : 0, Aa == 4 ? TEXT("TSR") : TEXT("TAA"));
+		// 4.3: the sun's soft-shadow rays (ft.SunRays); the shadow preset sets them at Scalability priority, so this goes over it
+		const int32 SunRays = CVarFTSunRays.GetValueOnGameThread();
+		if (SunRays >= 0)
+			if (IConsoleVariable* V = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Shadow.Virtual.SMRT.RayCountDirectional"))) V->Set(SunRays, ECVF_SetByCode);
+		UE_LOG(LogFT, Display, TEXT("FTQUALITY applied=%d overall=%d dynres=%d aa=%s sunrays=%d"), Q, S->GetOverallScalabilityLevel(), bDyn ? 1 : 0, Aa == 4 ? TEXT("TSR") : TEXT("TAA"), SunRays);
 		if (AppleCap > 0.f)
 		{
 			UE_LOG(LogFT, Display, TEXT("FT QUALITY auto=apple cap=HIGH view=%d aa=%d shadow=%d gi=%d refl=%d pp=%d fx=%d tex=%d screenPercentage=%.0f dynres=%s"),
