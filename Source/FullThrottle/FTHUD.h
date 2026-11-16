@@ -105,7 +105,7 @@ private:
 	UFont* BodyFace() const;
 	UPROPERTY(Transient) TObjectPtr<class UTexture2D> TLogo = nullptr;
 	bool bTitleAssets = false;
-	FVector2D MeasureF(UFont* F, const FString& Str, float Scale);
+	FVector2D MeasureF(UFont* F, FStringView Str, float Scale);
 	/** A gradient rectangle (A at the top/left, B at the bottom/right). */
 	void Grad(float X, float Y, float Wd, float Ht, const FLinearColor& A, const FLinearColor& B, bool bHorizontal);
 	void DrawAttractWipe(AFTGameMode* G);
@@ -120,9 +120,12 @@ private:
 	/** Ghost: where the value was a moment ago (drawn behind the value while it drains). */
 	void Meter(const FBox2D& R, float Fraction, const FLinearColor& Accent, int32 Segments = 1, float Ghost = -1.f);
 	void Print(const FString& Str, float X, float Y, const FLinearColor& Color, float Height, int32 Align = 0, bool bDisplay = false, float MaxWidth = 0.f);
+	/** Print's body, on a view of the string (a label written in the code costs no FString on its way here).
+	 *  Premeasured: TextSize(Str, Height, bDisplay).X when the caller has just measured it; negative: measured here. */
+	void PrintText(FStringView Str, float X, float Y, const FLinearColor& Color, float Height, int32 Align, bool bDisplay, float MaxWidth, float Premeasured = -1.f);
 	/** A row of key hints: Print's own arguments; a key cap of the kit stands under each key. */
 	void HintRow(const FString& Str, float X, float Y, const FLinearColor& Color, float Height, int32 Align = 0, bool bDisplay = false, float MaxWidth = 0.f);
-	FVector2D TextSize(const FString& Str, float Height, bool bDisplay = false);
+	FVector2D TextSize(FStringView Str, float Height, bool bDisplay = false);
 	FBox2D Control(const FBox2D& R, const FString& Label, const FString& Hint, EControl State, const FLinearColor& Accent, const FLinearColor* LabelColor = nullptr);
 	EControl ControlState(const FBox2D& R, bool bFocus = false, bool bEnabled = true) const;
 	void Box(float X, float Y, float Wd, float Ht, const FLinearColor& C);
@@ -149,13 +152,37 @@ private:
 	// DrawReel share on top of FTHUDSkin, and what stands in while a kit texture is missing. Nothing else calls these.
 	bool bLastArmorLow = false;
 	float ArmorLowAt = -10.f;
-	float RaceTextW(const FString& Str, float Height, bool bDisplay = false);
-	void RacePrint(const FString& Str, float X, float MidY, const FLinearColor& Color, float Height, int32 Align = 0, bool bDisplay = false, float MaxWidth = 0.f);
+	// (15 Nov, the frame-cost pass) The text of these is a view: a label written in the code, a word picked from a
+	// table and a string all go in as they are, and no FString is made for a label every frame. Premeasured is
+	// RaceTextW(Str, Height, bDisplay) when the caller already has it (negative: not measured yet), so a string
+	// whose width the layout needs is measured once a frame, not once more in RacePrint and again in Print.
+	float RaceTextW(FStringView Str, float Height, bool bDisplay = false);
+	void RacePrint(FStringView Str, float X, float MidY, const FLinearColor& Color, float Height, int32 Align = 0, bool bDisplay = false, float MaxWidth = 0.f, float Premeasured = -1.f);
 	float RaceDigits(const FString& Str, float X, float CapTop, float CapH, const FLinearColor& Fill, int32 Align = 0, float MaxWidth = 0.f);
 	void RaceChip(float X, float Y, float Wd, float Ht, const FLinearColor& Tint);
-	float RaceTab(const FString& Label, float X, float Y, const FLinearColor& Tint, const FLinearColor& TextColor);
+	float RaceTab(FStringView Label, float X, float Y, const FLinearColor& Tint, const FLinearColor& TextColor);
 	void RaceIcon(int32 Cell, float X, float Y, float Size, const FLinearColor& Tint, int32 Fallback = -1);
-	float RaceKey(const FString& Label, float X, float MidY, float Room = 0.f, float HeightKit = 28.f);
+	float RaceKey(FStringView Label, float X, float MidY, float Room = 0.f, float HeightKit = 28.f);
+	/** A figure the race HUD writes out (the speed, SCENE 2/5, the box office): formatted again only when a value it
+	 *  is written from changes, so a frame in which nothing changed formats nothing. A, B, C: those values (a float
+	 *  goes in by its bits, FMath::AsUInt). The text is the one the same Printf gave every frame before. */
+	struct FKept
+	{
+		uint64 Key[3] = { 0, 0, 0 };
+		bool bMade = false;
+		FString Text;
+		template <typename MakeType>
+		const FString& Get(uint64 A, uint64 B, uint64 C, MakeType&& Make)
+		{
+			if (!bMade || Key[0] != A || Key[1] != B || Key[2] != C)
+			{
+				bMade = true; Key[0] = A; Key[1] = B; Key[2] = C;
+				Text = Make();
+			}
+			return Text;
+		}
+	};
+	FKept KeptSpeed, KeptPool, KeptArmorPct, KeptMissileCap, KeptMissiles, KeptRounds, KeptScene, KeptTake, KeptClock, KeptScore, KeptCounts, KeptStunts, KeptCarnage, KeptFilm;
 	float RacePips(int32 FullCell, float X, float Y, int32 Have, int32 Total, float Room, float PitchKit, const FLinearColor& Tint, int32 FlashAt = -1, float Flash = 0.f);
 	void RaceTile(class UTexture2D* Tex, float X, float Y, float Wd, float Ht, float U0, float V0, float U1, float V1, const FLinearColor& Tint);
 	void RaceStick(float X, float Y, const FLinearColor& Tint, bool bFlipY);

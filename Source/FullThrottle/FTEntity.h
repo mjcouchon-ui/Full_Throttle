@@ -138,6 +138,9 @@ public:
 	UPROPERTY(VisibleAnywhere) TObjectPtr<UNiagaraComponent> Smoke;   // 3.1: it smokes as it tumbles (not at Low)
 	void Launch(UStaticMesh* InMesh, const FTransform& At, const FVector& Velocity, const FVector& Spin, float Scale = 1.f);
 	virtual void Tick(float Dt) override;
+	/** Perf: takes every wreck of World within Radius of Point out of the picture (looks only): FTFx::Tick's lens
+	 *  test, over the wrecks Launch has entered instead of a class walk a frame. Launch a wreck as it is spawned. */
+	static void HideWithin(const UWorld* World, const FVector& Point, float Radius);
 	float Age = 0.f;
 };
 

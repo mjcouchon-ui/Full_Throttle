@@ -583,8 +583,7 @@ void FTFx::Tick(const UObject* Ctx, float Dt)
 		if (PC->PlayerCameraManager)
 		{
 			const FVector Lens = PC->PlayerCameraManager->GetCameraLocation();
-			for (TActorIterator<AFTWreck> It(W); It; ++It)
-				if (!It->IsHidden() && FVector::DistSquared(It->GetActorLocation(), Lens) < FMath::Square(520.f)) It->SetActorHiddenInGame(true);
+			AFTWreck::HideWithin(W, Lens, 520.f);   // perf: the same test, here as before, over the wrecks that are out (no class walk a frame)
 		}
 	}
 	S.PruneT -= Dt;

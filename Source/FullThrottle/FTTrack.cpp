@@ -5,6 +5,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInterface.h"
+#include "Materials/Material.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "HAL/IConsoleManager.h"
@@ -155,6 +156,10 @@ static TAutoConsoleVariable<int32> CVarFTLand(TEXT("ft.Land"), 1,
 	TEXT("3.4: 1 = the land and the bed wear the level's own surface (/Game/Maps/<Level>/Materials/MI_Land: slabs, ripples or cracked ground, ft_world.land_materials); 0 = the plain ground, for before/after checks. Takes effect when a track is rebuilt."));
 static TAutoConsoleVariable<int32> CVarFTDress(TEXT("ft.Dress"), 1,
 	TEXT("3.2: 0 = build tracks without the dressing (districts, sets round landmarks, the horizon), for before/after checks. Takes effect when a track is rebuilt."));
+static TAutoConsoleVariable<int32> CVarFTPropWPODist(TEXT("ft.PropWPODist"), 18000,
+	TEXT("4.1: cm past which a roadside prop stops moving by its material (people, creatures, fronds, wheels: world position offset). The population pass was written for 180 m (M_People; M_PeopleFar always moves) but nothing set it, so every figure on the level ran its vertex animation every frame. 0 = never stop (4.0). Takes effect when a track is rebuilt."));
+static TAutoConsoleVariable<int32> CVarFTPropWPOVel(TEXT("ft.PropWPOVel"), 0,
+	TEXT("4.1: 0 = the people and roadside life (M_People, M_Life) draw no motion vectors of their own (velocity pass L1 0.43 -> 0.23 ms, L2 0.38 -> 0.11 ms; a waving arm is small next to the camera's own motion at speed); 1 = they do, as 4.0. Takes effect when a track is rebuilt."));
 static TAutoConsoleVariable<int32> CVarFTDressBank(TEXT("ft.DressBank"), 1,
 	TEXT("3.4: 0 = the dressing leaves the cut banks inside banked bends bare (no Bank panels), for before/after checks. Takes effect when a track is rebuilt."));
 static TAutoConsoleVariable<int32> CVarFTBedRoom(TEXT("ft.BedRoom"), 1,
@@ -1918,6 +1923,7 @@ void AFTTrack::BuildProps()
 	if (Frames.Num() < 2) return;
 
 	const TArray<FFTPropRule> Rules = Props.Num() ? Props : DefaultProps(LevelIndex);
+	int32 WpoCutComps = 0; // 4.1: components whose WPO stops at ft.PropWPODist
 	TMap<FString, UHierarchicalInstancedStaticMeshComponent*> ByMesh;
 	auto Comp = [&](const FString& Path, float MaxScale) -> UHierarchicalInstancedStaticMeshComponent*
 	{
@@ -1938,6 +1944,22 @@ void AFTTrack::BuildProps()
 		// fish) keeps its cached shadow: the shadow stays where the mesh was built, which nobody can tell at speed,
 		// instead of every moving prop redrawing its shadow pages each frame
 		C->ShadowCacheInvalidationBehavior = EShadowCacheInvalidationBehavior::Static;
+		// 4.1: the population and the roadside life (M_People, M_Life) stop moving out past ft.PropWPODist, as their
+		// masters were written for (180 m; their M_PeopleFar / M_LifeFar twins ignore the distance and keep moving).
+		// Only those two: the other moving materials (fish, whales, drifting cloud, the eruption) stand far out on
+		// purpose and have no far twin, so they keep 4.0's behaviour.
+		bool bRoadsideLife = false;
+		for (const FStaticMaterial& SMat : M->GetStaticMaterials())
+		{
+			const UMaterial* Base = SMat.MaterialInterface ? SMat.MaterialInterface->GetMaterial() : nullptr;
+			if (Base && (Base->GetFName() == TEXT("M_People") || Base->GetFName() == TEXT("M_Life"))) { bRoadsideLife = true; break; }
+		}
+		if (bRoadsideLife)
+		{
+			C->WorldPositionOffsetDisableDistance = FMath::Max(0, CVarFTPropWPODist.GetValueOnGameThread());
+			if (CVarFTPropWPOVel.GetValueOnGameThread() == 0) C->bWorldPositionOffsetWritesVelocity = false;
+			++WpoCutComps;
+		}
 		C->RegisterComponent();
 		PropComps.Add(C);
 		ByMesh.Add(Path, C);
@@ -2480,6 +2502,7 @@ void AFTTrack::BuildProps()
 		}
 	}
 	for (UHierarchicalInstancedStaticMeshComponent* C : PropComps) C->BuildTreeIfOutdated(false, true);
+	UE_LOG(LogFT, Display, TEXT("FTWPO level=%d life components=%d of %d stop moving past %d cm (velocity %d)"), LevelIndex, WpoCutComps, PropComps.Num(), CVarFTPropWPODist.GetValueOnGameThread(), CVarFTPropWPOVel.GetValueOnGameThread());
 	if (Pillars) Pillars->BuildTreeIfOutdated(false, true);
 
 	FDrop Tot;

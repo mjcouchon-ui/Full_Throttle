@@ -179,13 +179,26 @@ namespace
 		const FLinearColor& C0, const FLinearColor& C1, const FLinearColor& C2, const FLinearColor& C3)
 	{
 		if (!C) return;
-		TArray<FCanvasUVTri> Tris;
 		FCanvasUVTri A; A.V0_Pos = P0; A.V1_Pos = P1; A.V2_Pos = P2; A.V0_Color = C0; A.V1_Color = C1; A.V2_Color = C2;
 		FCanvasUVTri B; B.V0_Pos = P0; B.V1_Pos = P2; B.V2_Pos = P3; B.V0_Color = C0; B.V1_Color = C2; B.V2_Color = C3;
-		Tris.Add(A); Tris.Add(B);
-		FCanvasTriangleItem It(Tris, GWhiteTexture);
+		// (the item is made from the first triangle and takes the second: its list is the same two, and the one
+		// allocation is the item's own, where a list built here and copied by the item was two)
+		FCanvasTriangleItem It(A, GWhiteTexture);
+		It.TriangleList.Add(B);
 		It.BlendMode = SE_BLEND_Translucent;
 		C->DrawItem(It);
+	}
+
+	/** The two triangles Para draws, added to a list instead of drawn: the same corners, colour and order, and the
+	 *  same reasons to draw nothing. (HudMeter draws a whole meter as one item.) */
+	void ParaTris(TArray<FCanvasUVTri>& Tris, float X, float Y, float W, float H, float Lean, const FLinearColor& Color, float A)
+	{
+		const FLinearColor Col = WithA(Color, A);
+		if (W <= 0.f || H <= 0.f || Col.A <= 0.f) return;
+		const FVector2D P0(X + Lean, Y), P1(X + W, Y), P2(X + W - Lean, Y + H), P3(X, Y + H);
+		FCanvasUVTri One; One.V0_Pos = P0; One.V1_Pos = P1; One.V2_Pos = P2; One.V0_Color = Col; One.V1_Color = Col; One.V2_Color = Col;
+		FCanvasUVTri Two; Two.V0_Pos = P0; Two.V1_Pos = P2; Two.V2_Pos = P3; Two.V0_Color = Col; Two.V1_Color = Col; Two.V2_Color = Col;
+		Tris.Add(One); Tris.Add(Two);
 	}
 
 	/** A filled circle (an n-gon of the white texture). */
@@ -962,9 +975,16 @@ void FilmMeterMark(UCanvas* C, float S, float X, float Y, float W, float H, floa
 
 void HudMeter(UCanvas* C, float S, float X, float Y, float W, float H, float Fraction, int32 Segments, const FLinearColor& Tint, const FLinearColor& TrackColor, float A, float Ghost)
 {
-	if (Segments <= 0) return;
+	if (Segments <= 0 || !C) return;
 	const float Kp = KitPx(S), Between = 4.f * Kp, Pad = 3.f * Kp, Lean = H * 0.35f;
-	Para(C, X - Pad, Y - Pad, W + 2.f * Pad + Lean, H + 2.f * Pad, (H + 2.f * Pad) * 0.35f, Ink, A);
+	// (15 Nov, the frame-cost pass.) The whole meter is ONE canvas item: the bed's and every segment's triangles, in
+	// the order they were drawn one parallelogram at a time. They always shared the white texture and the blend
+	// mode, so they were one batch of the canvas already and the triangles reach it unchanged; what goes is an
+	// item and two allocations a parallelogram (the armour bar alone, when full, drew 37 of them every frame).
+	FCanvasTriangleItem It(FVector2D::ZeroVector, FVector2D::ZeroVector, FVector2D::ZeroVector, GWhiteTexture);
+	TArray<FCanvasUVTri>& Tris = It.TriangleList;
+	Tris.Reset(2 + 8 * FMath::Min(Segments, 64));       // (the constructor's own triangle goes; room for the usual meter at once)
+	ParaTris(Tris, X - Pad, Y - Pad, W + 2.f * Pad + Lean, H + 2.f * Pad, (H + 2.f * Pad) * 0.35f, Ink, A);
 	const float Pitch = (W + Between) / static_cast<float>(Segments), SegW = Pitch - Between;
 	const float Filled = FMath::Clamp(Fraction, 0.f, 1.f) * static_cast<float>(Segments);
 	const float Trail = FMath::Clamp(Ghost, 0.f, 1.f) * static_cast<float>(Segments);
@@ -972,16 +992,19 @@ void HudMeter(UCanvas* C, float S, float X, float Y, float W, float H, float Fra
 	for (int32 I = 0; I < Segments; ++I)
 	{
 		const float SegX = X + static_cast<float>(I) * Pitch;
-		Para(C, SegX, Y, SegW + Lean, H, Lean, TrackColor, A);
+		ParaTris(Tris, SegX, Y, SegW + Lean, H, Lean, TrackColor, A);
 		const float Part = FMath::Clamp(Filled - static_cast<float>(I), 0.f, 1.f);
 		const float Was = FMath::Clamp(Trail - static_cast<float>(I), 0.f, 1.f);
-		if (Was > Part) Para(C, SegX, Y, SegW * Was + Lean, H, Lean, White, A * 0.85f);
+		if (Was > Part) ParaTris(Tris, SegX, Y, SegW * Was + Lean, H, Lean, White, A * 0.85f);
 		if (Part > 0.f)
 		{
-			Para(C, SegX, Y, SegW * Part + Lean, H, Lean, Tint, A);
-			Para(C, SegX + Lean * 0.7f, Y, SegW * Part + Lean * 0.3f, H * 0.3f, Lean * 0.3f, Light, A);    // the cel highlight
+			ParaTris(Tris, SegX, Y, SegW * Part + Lean, H, Lean, Tint, A);
+			ParaTris(Tris, SegX + Lean * 0.7f, Y, SegW * Part + Lean * 0.3f, H * 0.3f, Lean * 0.3f, Light, A);    // the cel highlight
 		}
 	}
+	if (Tris.Num() == 0) return;        // (nothing was visible: nothing was drawn before either)
+	It.BlendMode = SE_BLEND_Translucent;
+	C->DrawItem(It);
 }
 
 void BlockMeter(UCanvas* C, float S, float X, float Y, float W, float H, float Fraction, int32 Segments, const FLinearColor& Tint, const FLinearColor& TrackColor, float A, float GapKit)

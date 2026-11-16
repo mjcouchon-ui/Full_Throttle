@@ -2252,7 +2252,8 @@ namespace
 		if (Look.Pieces.Num() == 0 && !bEarly && !(Sc && Sc->IsActive())) return;
 		const FVector At = W->GetActorLocation();
 		// the road under the wreck: one line a frame, shared by its pieces (they are never far from it)
-		if (W->Age < 4.f)
+		// (perf: from 3.5 s on only a piece still out reads it; the drag and the trail below need bEarly. No line then)
+		if (W->Age < 4.f && (bEarly || Look.Pieces.Num() > 0))
 		{
 			FHitResult Hit;
 			FCollisionObjectQueryParams What;
@@ -2297,8 +2298,24 @@ namespace
 					}
 				}
 			}
-			C->SetWorldLocation(Pc.P);
-			C->AddWorldRotation(Pc.Spin * Dt);
+			// perf: its place and its turn in one move instead of two, in the frames where that leaves exactly what the two
+			// calls left (the engine's own tests, MoveComponentImpl and InternalSetWorldLocationAndRotation, read with
+			// these values): it has clearly moved, its turn is over the quaternion tolerance, and it is not pitched near
+			// +-90, where a rotator and its quaternion part company. A piece is absolute in the world (Throw), so Was is
+			// the rotation SetWorldLocation leaves it with and To is AddWorldRotation's own product. In every other
+			// frame (a piece at rest, its spin run down) the two calls, as before
+			const FQuat Was = C->GetRelativeRotationCache().RotatorToQuat(C->GetRelativeRotation());
+			const FQuat To = (Pc.Spin * Dt).Quaternion() * Was;
+			if (!Pc.P.Equals(C->GetRelativeLocation(), 1.e-3) && !Pc.P.Equals(C->GetComponentLocation(), 1.e-3)
+				&& FMath::Abs(C->GetRelativeRotation().Pitch) < 85. && !To.Equals(Was, SCENECOMPONENT_QUAT_TOLERANCE))
+			{
+				C->SetWorldLocationAndRotation(Pc.P, To);
+			}
+			else
+			{
+				C->SetWorldLocation(Pc.P);
+				C->AddWorldRotation(Pc.Spin * Dt);
+			}
 			// it shrinks away at the end, and nothing tumbles into the lens
 			C->SetWorldScale3D(Pc.Scale * FMath::Clamp((Pc.Life - Pc.Age) / 0.3f, 0.f, 1.f));
 			if (bLens && FVector::DistSquared(Pc.P, Lens) < FMath::Square(420.f)) C->SetVisibility(false);
@@ -2415,6 +2432,19 @@ void AFTWreck::Tick(float Dt)
 	if (Age > 6.f && Fire->IsActive()) Fire->Deactivate();
 	if (Age > 7.5f && Smoke->IsActive()) Smoke->Deactivate();
 	if (FWreckLook* Look = WreckLooks().Find(TWeakObjectPtr<AFTWreck>(this))) TickWreckLook(this, *Look, Dt);   // FX round 3: its pieces and its sparks
+}
+
+void AFTWreck::HideWithin(const UWorld* World, const FVector& Point, float Radius)
+{
+	// perf: FTFx::Tick walked the class for this every frame (an object-table query, an array and a spawn handler
+	// added and removed, also with no wreck out). Every wreck is launched as it is spawned (ThrowPart, the game mode's
+	// Kill) and Launch enters it in WreckLooks, where it stays for as long as it lives: the same wrecks, at the same
+	// moment of the frame, by the same test
+	for (const TPair<TWeakObjectPtr<AFTWreck>, FWreckLook>& P : WreckLooks())
+	{
+		AFTWreck* Wr = P.Key.Get();
+		if (Wr && Wr->GetWorld() == World && !Wr->IsHidden() && FVector::DistSquared(Wr->GetActorLocation(), Point) < FMath::Square(Radius)) Wr->SetActorHiddenInGame(true);
+	}
 }
 
 // ------------------------------------------------------------------------------------------ hazard

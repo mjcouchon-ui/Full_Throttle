@@ -280,7 +280,7 @@ UFont* AFTHUD::BodyFace() const
 	return FRaj ? FRaj.Get() : FB.Get();
 }
 
-FVector2D AFTHUD::TextSize(const FString& Str, float Height, bool bDisplay)
+FVector2D AFTHUD::TextSize(FStringView Str, float Height, bool bDisplay)
 {
 	Height = FMath::Max(Height, bDisplay ? 15.9f : 15.4f);
 	return MeasureF(bDisplay ? DisplayFace() : BodyFace(), Str, Height / (bDisplay ? BunHeight : RajHeight));
@@ -288,13 +288,19 @@ FVector2D AFTHUD::TextSize(const FString& Str, float Height, bool bDisplay)
 
 void AFTHUD::Print(const FString& Str, float X, float Y, const FLinearColor& Color, float Height, int32 Align, bool bDisplay, float MaxWidth)
 {
+	PrintText(Str, X, Y, Color, Height, Align, bDisplay, MaxWidth);
+}
+
+void AFTHUD::PrintText(FStringView Str, float X, float Y, const FLinearColor& Color, float Height, int32 Align, bool bDisplay, float MaxWidth, float Premeasured)
+{
 	if (Str.IsEmpty()) return;
 	// Bungee for titles, buttons, plaques and the big numerals (what the screens call "display"), Rajdhani Bold for
 	// body and labels. The ruling's floor: no text that carries information under 18 px at 1080.
 	UFont* Font = bDisplay ? DisplayFace() : BodyFace();
 	Height = FMath::Max(Height, bDisplay ? 15.9f : 15.4f);
 	float Scale = Height / (bDisplay ? BunHeight : RajHeight);
-	float Measured = Align != 0 || MaxWidth > 0.f ? MeasureF(Font, Str, Scale).X : 0.f;
+	// (Premeasured is this very product, taken by the caller through TextSize: the same face, string and scale)
+	float Measured = Align != 0 || MaxWidth > 0.f ? (Premeasured >= 0.f ? Premeasured : float(MeasureF(Font, Str, Scale).X)) : 0.f;
 	if (MaxWidth > 0.f && Measured > MaxWidth)
 	{
 		Scale *= MaxWidth / Measured;
@@ -308,7 +314,11 @@ void AFTHUD::Print(const FString& Str, float X, float Y, const FLinearColor& Col
 	// scale on the item only stretches that bitmap: big titles and numerals came out soft. Text larger than the asset's
 	// size is therefore drawn at its real size (a ladder of 4-point steps, so that an animated size does not fill the
 	// glyph atlas), with only the small remainder, always a reduction, left to the item's scale.
-	auto Sharp = [&](FCanvasTextItem& It)
+	// (15 Nov, the frame-cost pass.) The items are FCanvasTextStringViewItem: the engine's FCanvasTextItem only hands
+	// Text.ToString() to the very string drawer this one calls with Str, so an FText made from every string every
+	// frame bought nothing. Str outlives both DrawItem calls. The font, SlateFontInfo, scale, colour and blend mode
+	// are FCanvasSimpleTextItem's, set as they were.
+	auto Sharp = [&](FCanvasSimpleTextItem& It)
 	{
 		const float Total = Scale * S;
 		if (Font && Font->FontCacheType == EFontCacheType::Runtime && Total > 1.02f)
@@ -324,11 +334,11 @@ void AFTHUD::Print(const FString& Str, float X, float Y, const FLinearColor& Col
 	if (bDisplay && !bSticker && Height >= Heading - .5f && Use.A > .5f)
 	{
 		// a title is printed twice: the pink plate a little off register, under the ink or the chalk
-		FCanvasTextItem Under(FVector2D(X + 2.f * S, Y + 2.f * S), FText::FromString(Str), Font, Alpha(Pink, Use.A * Fade));
+		FCanvasTextStringViewItem Under(FVector2D(X + 2.f * S, Y + 2.f * S), Str, Font, Alpha(Pink, Use.A * Fade));
 		Sharp(Under);
 		Canvas->DrawItem(Under);
 	}
-	FCanvasTextItem Item(FVector2D(X, Y), FText::FromString(Str), Font, Fade < 1.f ? Alpha(Use, Fade) : Use);
+	FCanvasTextStringViewItem Item(FVector2D(X, Y), Str, Font, Fade < 1.f ? Alpha(Use, Fade) : Use);
 	Sharp(Item);
 	Canvas->DrawItem(Item);
 }
@@ -904,7 +914,7 @@ void AFTHUD::DrawPointer(AFTGameMode* G)
 	FTCursor::Draw(Canvas, At, S, State, T, bReducedMotion);
 }
 
-FVector2D AFTHUD::MeasureF(UFont* F, const FString& Str, float Scale)
+FVector2D AFTHUD::MeasureF(UFont* F, FStringView Str, float Scale)
 {
 	if (!F) F = FB;
 	float Xl = 0, Yl = 0;
@@ -1194,7 +1204,7 @@ void AFTHUD::DrawPickupMarkers(const AFTGameMode& Game)
 		Box(TopLeft.X, TopLeft.Y, Size.X, Size.Y, FLinearColor(0.014f, 0.009f, 0.032f, 0.94f * Alpha));
 		Frame(TopLeft.X, TopLeft.Y, Size.X, Size.Y, Accent, 1.5f);
 		Box(Screen.X - S, Screen.Y - Stem, 2.f * S, Stem, Accent);
-		Print(Label, Screen.X, TopLeft.Y + 3.5f * S, FLinearColor(White.R, White.G, White.B, Alpha), LabelHeight, 1);
+		PrintText(Label, Screen.X, TopLeft.Y + 3.5f * S, FLinearColor(White.R, White.G, White.B, Alpha), LabelHeight, 1, false, 0.f, float(MarkerTextSize.X));   // (the width measured above: not measured again)
 		Drawn.Add(Bounds);
 		if (Drawn.Num() == MaxMarkers) break;
 	}
@@ -1298,25 +1308,28 @@ namespace
 	constexpr int32 IcoSkull = static_cast<int32>(FTSkin::EIco::Skull), IcoArrow = static_cast<int32>(FTSkin::EIco::Arrow);
 }
 
-float AFTHUD::RaceTextW(const FString& Str, float Height, bool bDisplay)
+float AFTHUD::RaceTextW(FStringView Str, float Height, bool bDisplay)
 {
 	return float(TextSize(Str, Height, bDisplay).X);
 }
 
 /** Live text set by the MIDDLE OF ITS CAPITALS: a row's label, its figures and its key cap share one line whatever
  *  their sizes. A string that MaxWidth makes smaller stays on that line. */
-void AFTHUD::RacePrint(const FString& Str, float X, float MidY, const FLinearColor& Color, float Height, int32 Align, bool bDisplay, float MaxWidth)
+void AFTHUD::RacePrint(FStringView Str, float X, float MidY, const FLinearColor& Color, float Height, int32 Align, bool bDisplay, float MaxWidth, float Premeasured)
 {
 	if (Str.IsEmpty()) return;
 	float LineH = FMath::Max(Height, bDisplay ? 15.9f : 15.4f);
+	// The string's width at this height is measured once: by the caller (Premeasured), or here when the fit needs it,
+	// and Print is handed that number instead of measuring the same string at the same scale again.
+	float Measured = Premeasured;
 	if (MaxWidth > 0.f)
 	{
-		const float Measured = RaceTextW(Str, LineH, bDisplay);
+		if (Measured < 0.f) Measured = RaceTextW(Str, LineH, bDisplay);
 		if (Measured > MaxWidth) LineH *= MaxWidth / Measured;   // (Print scales the whole line down to fit)
 	}
 	// the capitals start .227 of the line's height under its top and are .545 of it high (Bungee; Rajdhani .225, .504)
 	const float MidOfCaps = bDisplay ? .227f + .545f * .5f : .225f + .504f * .5f;
-	Print(Str, X, MidY - MidOfCaps * LineH * S, Color, Height, Align, bDisplay, MaxWidth);
+	PrintText(Str, X, MidY - MidOfCaps * LineH * S, Color, Height, Align, bDisplay, MaxWidth, Measured);
 }
 
 /** Big numerals from the baked digit atlas (0-9 $ , . / % x + - : and space; never live text). X, CapTop: the top
@@ -1356,7 +1369,7 @@ void AFTHUD::RaceChip(float X, float Y, float Wd, float Ht, const FLinearColor& 
 }
 
 /** A plate's tab: a chip 30 kit px high with live text on it (KESTREL-88 / AGENT N. KANE, ORDNANCE). Returns its width. */
-float AFTHUD::RaceTab(const FString& Label, float X, float Y, const FLinearColor& Tint, const FLinearColor& TextColor)
+float AFTHUD::RaceTab(FStringView Label, float X, float Y, const FLinearColor& Tint, const FLinearColor& TextColor)
 {
 	const float Ht = 30.f * S / 1.5f;
 	const float Wd = RaceTextW(Label, 16.f, true) + Ht * .9f;
@@ -1376,10 +1389,11 @@ void AFTHUD::RaceIcon(int32 Cell, float X, float Y, float Size, const FLinearCol
 /** A key cap on a dark sticker with its key's name (Rajdhani at the floor size), the cap's face centred on the row's
  *  middle line. A name too long for its room (a rebound key can be RIGHT MOUSE BUTTON) is set smaller, as Print fits
  *  any string. Returns the cap's width. */
-float AFTHUD::RaceKey(const FString& Label, float X, float MidY, float Room, float HeightKit)
+float AFTHUD::RaceKey(FStringView Label, float X, float MidY, float Room, float HeightKit)
 {
 	const float Kit = S / 1.5f, Ht = HeightKit * Kit, Side = Ht * .62f;
-	float TextW = RaceTextW(Label, 16.f);
+	const float Natural = RaceTextW(Label, 16.f);   // (measured once; RacePrint and Print below take this number)
+	float TextW = Natural;
 	float MaxText = 0.f;
 	if (Room > 0.f && FMath::Max(Ht, TextW + Side) > Room)
 	{
@@ -1387,7 +1401,7 @@ float AFTHUD::RaceKey(const FString& Label, float X, float MidY, float Room, flo
 		TextW = FMath::Min(TextW, MaxText);
 	}
 	const float Wd = FTSkin::KeyCap(Canvas, S, X, MidY - (Ht - 4.f * Kit) * .5f, TextW, Ht, true, Fade);
-	RacePrint(Label, X + Wd * .5f, MidY, Ink, 16.f, 1, false, MaxText);
+	RacePrint(Label, X + Wd * .5f, MidY, Ink, 16.f, 1, false, MaxText, Natural);
 	return Wd;
 }
 
@@ -1554,6 +1568,11 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 	};
 	// the instruments come on from their own edges when the slate gives way to the race
 	const float PlayAge = bReducedMotion ? -1.f : T - PlaySince;
+	// (15 Nov, the frame-cost pass.) The figures below are written through an FKept: the same Printf as before, run
+	// only when a value it prints has changed. A float is keyed by its bits, so every value that prints differently
+	// is a different key.
+	const auto FloatKey = [](float Value) { return static_cast<uint64>(FMath::AsUInt(Value)); };
+	const auto IntKey = [](int64 Value) { return static_cast<uint64>(Value); };
 
 	// The camera's view: the viewfinder's corner brackets, at the true corners of the screen (red while the car burns).
 	{
@@ -1577,7 +1596,8 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 
 		// speed: the big numerals (capitals 60 kit px); MPH stands on their baseline
 		const float SpeedX = P.Lx(Y0 + 102 * K) + 12 * K;
-		const float SpeedW = RaceDigits(FString::FromInt(FMath::RoundToInt(G->SpeedMph)), SpeedX, Y0 + 42 * K, 60 * K, White);
+		const int32 SpeedShown = FMath::RoundToInt(G->SpeedMph);
+		const float SpeedW = RaceDigits(KeptSpeed.Get(IntKey(SpeedShown), 0, 0, [&] { return FString::FromInt(SpeedShown); }), SpeedX, Y0 + 42 * K, 60 * K, White);
 		RacePrint(TEXT("MPH"), SpeedX + SpeedW + 10 * K, Y0 + 95.5f * K, Cyan, 16.f, 0, true);
 		if (bArmorLow)
 		{
@@ -1628,10 +1648,13 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 		if (bArmorLow) RaceChip(RowL - 6 * K, Y0 + 114 * K, RowR - RowL + 12 * K, 54 * K, Danger);
 		RaceIcon(bArmorLow ? IcoWarning : IcoShield, RowL + 8 * K, Y0 + 117 * K, 30 * K, ArmorInk, static_cast<int32>(bArmorLow ? EIcon::Warning : EIcon::Repair));
 		RacePrint(TEXT("ARMOR"), RowL + 46 * K, Y0 + 132 * K, bArmorLow ? FLinearColor::White : White, 19.f, 0, true);
-		const FString Pool = FString::Printf(TEXT("%.0f / %.0f"), G->Hp, G->MaxHp());
-		const float PoolW = FMath::Min(RaceTextW(Pool, 16.f), 110 * K);
-		RacePrint(Pool, RowR - 12 * K, Y0 + 132 * K, bArmorLow ? FLinearColor::White : Grey, 16.f, 2, false, 110 * K);
-		RaceDigits(FString::Printf(TEXT("%d%%"), FMath::RoundToInt(Hp)), RowR - 24 * K - PoolW, Y0 + 118.5f * K, 27 * K, Emphasis(ArmorChanged, ArmorInk), 2);
+		const float ArmorNow = G->Hp, ArmorMax = G->MaxHp();
+		const FString& Pool = KeptPool.Get(FloatKey(ArmorNow), FloatKey(ArmorMax), 0, [&] { return FString::Printf(TEXT("%.0f / %.0f"), ArmorNow, ArmorMax); });
+		const float PoolNatural = RaceTextW(Pool, 16.f);
+		const float PoolW = FMath::Min(PoolNatural, 110 * K);
+		RacePrint(Pool, RowR - 12 * K, Y0 + 132 * K, bArmorLow ? FLinearColor::White : Grey, 16.f, 2, false, 110 * K, PoolNatural);
+		const int32 ArmorShown = FMath::RoundToInt(Hp);
+		RaceDigits(KeptArmorPct.Get(IntKey(ArmorShown), 0, 0, [&] { return FString::Printf(TEXT("%d%%"), ArmorShown); }), RowR - 24 * K - PoolW, Y0 + 118.5f * K, 27 * K, Emphasis(ArmorChanged, ArmorInk), 2);
 		{
 			const float Gain = Flash01(Now - ArmorGainAt, .35f);
 			const float BarH = 13 * K;
@@ -1654,9 +1677,12 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 		RaceIcon(IcoBolt, RowL, Y0 + 197 * K, 26 * K, Mix(TurboColor, White, Ready), static_cast<int32>(EIcon::Turbo));
 		RacePrint(TEXT("TURBO"), RowL + 32 * K, Y0 + 210 * K, White, 16.f, 0, true);
 		const float TurboKeyX = RowL + 32 * K + RaceTextW(TEXT("TURBO"), 16.f, true) + 10 * K;
-		const FString TurboState = G->bDraft ? FString(Turbo) + TEXT(" / DRAFT") : FString(Turbo);
-		RacePrint(TurboState, RowR, Y0 + 210 * K, Mix(TurboColor, White, Ready), 16.f, 2);
-		RaceKey(Hint(EFTAction::Turbo, TEXT("LB/RT")), TurboKeyX, Y0 + 210 * K, RowR - RaceTextW(TurboState, 16.f) - 12 * K - TurboKeyX);
+		// (the state is one of the words above as it stands; a string is put together only while drafting)
+		const FString TurboDraft = G->bDraft ? FString(Turbo) + TEXT(" / DRAFT") : FString();
+		const FStringView TurboState = G->bDraft ? FStringView(TurboDraft) : FStringView(Turbo);
+		const float TurboStateW = RaceTextW(TurboState, 16.f);
+		RacePrint(TurboState, RowR, Y0 + 210 * K, Mix(TurboColor, White, Ready), 16.f, 2, false, 0.f, TurboStateW);
+		RaceKey(Hint(EFTAction::Turbo, TEXT("LB/RT")), TurboKeyX, Y0 + 210 * K, RowR - TurboStateW - 12 * K - TurboKeyX);
 		RowL = P.Lx(Y0 + 238 * K) + 12 * K;
 		FTSkin::HudMeter(Canvas, S, RowL, Y0 + 227 * K, RowR - RowL - 9 * K * .35f, 9 * K, TurboFrac, 8, Mix(TurboColor, FLinearColor::White, .5f * Ready), Steel, Fade, 0.f);
 	}
@@ -1681,8 +1707,8 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 		float CountW = 0.f;
 		{
 			FPivot Kick(*this, FVector2D(RowR, Y0 + 60 * K), 1.f + .22f * Flash01(Now - MissileChanged, PunchTime));
-			CountW = RaceDigits(FString::Printf(TEXT("/%d"), Capacity), RowR, Y0 + 55 * K, 27 * K, Grey, 2);
-			CountW += RaceDigits(FString::FromInt(G->Missiles), RowR - CountW + K, Y0 + 36 * K, 46 * K, Emphasis(MissileChanged, G->Missiles > 0 ? Yellow : Grey), 2);
+			CountW = RaceDigits(KeptMissileCap.Get(IntKey(Capacity), 0, 0, [&] { return FString::Printf(TEXT("/%d"), Capacity); }), RowR, Y0 + 55 * K, 27 * K, Grey, 2);
+			CountW += RaceDigits(KeptMissiles.Get(IntKey(G->Missiles), 0, 0, [&] { return FString::FromInt(G->Missiles); }), RowR - CountW + K, Y0 + 36 * K, 46 * K, Emphasis(MissileChanged, G->Missiles > 0 ? Yellow : Grey), 2);
 		}
 		RaceKey(Hint(EFTAction::Missile, TEXT("B")), KeyX, Y0 + 58 * K, RowR - CountW - 12 * K - KeyX);
 		const int32 Racks = FMath::Clamp(Capacity, 1, 16);
@@ -1694,7 +1720,7 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 		RaceIcon(IcoBullets, RowL, Y0 + 120 * K, 28 * K, Cyan, static_cast<int32>(EIcon::Ammo));
 		RacePrint(TEXT("AMMO"), RowL + 38 * K, Y0 + 134 * K, White, 19.f, 0, true);
 		KeyX = RowL + 38 * K + RaceTextW(TEXT("AMMO"), 19.f, true) + 10 * K;
-		CountW = Load > 0 ? RaceDigits(Num(Rounds), RowR, Y0 + 120.5f * K, 27 * K, Emphasis(AmmoChanged, Cyan), 2) : 0.f;
+		CountW = Load > 0 ? RaceDigits(KeptRounds.Get(IntKey(Rounds), 0, 0, [&] { return Num(Rounds); }), RowR, Y0 + 120.5f * K, 27 * K, Emphasis(AmmoChanged, Cyan), 2) : 0.f;
 		RaceKey(Hint(EFTAction::Ammo, TEXT("Y")), KeyX, Y0 + 134 * K, RowR - CountW - 12 * K - KeyX);
 		static const TCHAR* LoadNames[] = { TEXT("STD"), TEXT("AP"), TEXT("HE") };
 		const float Switched = Flash01(Now - LoadSwitchAt, .25f);
@@ -1717,9 +1743,10 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 		RowL = P.Lx(Y0 + 226 * K) + 12 * K; RowR = P.Rx(Y0 + 226 * K) - 12 * K;
 		RacePrint(TEXT("DRIFT"), RowL, Y0 + 198 * K, White, 16.f, 0, true);
 		KeyX = RowL + RaceTextW(TEXT("DRIFT"), 16.f, true) + 10 * K;
-		const FString DriftState(Drift);
-		RacePrint(DriftState, RowR, Y0 + 198 * K, G->bDrifting || G->BoostT > 0.f ? Mix(DriftColor, White, Charged) : Grey, 16.f, 2);
-		RaceKey(Hint(EFTAction::Drift, TEXT("A/RB")), KeyX, Y0 + 198 * K, RowR - RaceTextW(DriftState, 16.f) - 12 * K - KeyX);
+		const FStringView DriftState(Drift);
+		const float DriftStateW = RaceTextW(DriftState, 16.f);
+		RacePrint(DriftState, RowR, Y0 + 198 * K, G->bDrifting || G->BoostT > 0.f ? Mix(DriftColor, White, Charged) : Grey, 16.f, 2, false, 0.f, DriftStateW);
+		RaceKey(Hint(EFTAction::Drift, TEXT("A/RB")), KeyX, Y0 + 198 * K, RowR - DriftStateW - 12 * K - KeyX);
 		FTSkin::HudMeter(Canvas, S, RowL, Y0 + 215 * K, RowR - RowL - 9 * K * .35f, 9 * K, G->DriftLevel / 3.f, 3, Mix(DriftColor, FLinearColor::White, .7f * Charged), Steel, Fade, 0.f);
 	}
 
@@ -1738,13 +1765,15 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 		}
 		const float RowL = P.Lx(Top + 14 * K) + 10 * K, RowR = P.Rx(Top + 66 * K) - 10 * K;
 		RaceIcon(IcoClapper, RowL, Top + 14 * K, 28 * K, White);
-		const FString SceneText = FString::Printf(TEXT("SCENE %d/%d"), G->Scene + 1, G->NumScenes());
+		const int32 SceneNo = G->Scene + 1, SceneCount = G->NumScenes();
+		const FString& SceneText = KeptScene.Get(IntKey(SceneNo), IntKey(SceneCount), 0, [&] { return FString::Printf(TEXT("SCENE %d/%d"), SceneNo, SceneCount); });
 		RacePrint(SceneText, RowL + 36 * K, Top + 29 * K, White, 19.f, 0, true);
 		const float TakeX = RowL + 36 * K + RaceTextW(SceneText, 19.f, true) + 14 * K;
-		const FString TakeText = FString::Printf(TEXT("TAKE %d"), G->Take);
-		const float TakeW = RaceTextW(TakeText, 16.f, true) + 28 * K;
+		const FString& TakeText = KeptTake.Get(IntKey(G->Take), 0, 0, [&] { return FString::Printf(TEXT("TAKE %d"), G->Take); });
+		const float TakeTextW = RaceTextW(TakeText, 16.f, true);
+		const float TakeW = TakeTextW + 28 * K;
 		RaceChip(TakeX, Top + 16 * K, TakeW, 26 * K, White);
-		RacePrint(TakeText, TakeX + TakeW * .5f, Top + 29 * K, Ink, 16.f, 1, true);
+		RacePrint(TakeText, TakeX + TakeW * .5f, Top + 29 * K, Ink, 16.f, 1, true, 0.f, TakeTextW);
 		RacePrint(TEXT("FINALE"), RowR, Top + 29 * K, Pink, 16.f, 2, true);
 		const float StripX = P.Lx(Top + 66 * K) + 8 * K, StripY = Top + 46 * K, StripH = 18 * K, StripW = RowR - StripX;
 		FTSkin::FilmMeter(Canvas, S, StripX, StripY, StripW, StripH, G->Progress, 1, Cyan, Steel, Fade);
@@ -1781,9 +1810,10 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 		if (G->bLastChance)
 		{
 			// LAST CHANCE!: white on a red chip, the same words of danger as the armour row
-			const float GapW = RaceTextW(GapLabel, 16.f, true) + 30 * K;
+			const float GapTextW = RaceTextW(GapLabel, 16.f, true);
+			const float GapW = GapTextW + 30 * K;
 			RaceChip(RowR + 8 * K - GapW, Y0 + 13 * K, GapW, 28 * K, Mix(Red, FLinearColor::White, .22f * Urgent));
-			RacePrint(GapLabel, RowR + 8 * K - GapW * .5f, Y0 + 27 * K, FLinearColor::White, 16.f, 1, true);
+			RacePrint(GapLabel, RowR + 8 * K - GapW * .5f, Y0 + 27 * K, FLinearColor::White, 16.f, 1, true, 0.f, GapTextW);
 		}
 		else RacePrint(GapLabel, RowR, Y0 + 27 * K, Yellow, 16.f, 2, true, 180 * K);
 		const float BarX = P.Lx(Y0 + 86 * K) + 10 * K, BarW = RowR - BarX, BarH = 17 * K;
@@ -1827,7 +1857,8 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 		// (a line of priority 2 or more is a warning of an attack: solid from its first frame; a remark fades in)
 		FBlock Speak(*this, FMath::Min(G->LinePri >= 2 ? 1.f : In01(Now - G->LineT, 0.f, .14f), Left01));
 		const float LineMax = 496 * K;
-		const float LineW = FMath::Min(RaceTextW(G->Line, 19.f), LineMax);
+		const float LineNatural = RaceTextW(G->Line, 19.f);
+		const float LineW = FMath::Min(LineNatural, LineMax);
 		const float ChipW = 40 * K + RaceTextW(TEXT("DIRECTOR"), 16.f, true);
 		const float GroupX = Center - (34 * K + ChipW + LineW + 64 * K) * .5f;
 		RaceChip(GroupX + 34 * K, Y0 + 11 * K, ChipW, 32 * K, Accent);
@@ -1835,7 +1866,7 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 		FTSkin::TexNat(Canvas, S, FTSkin::ETex::HudMegaphone, GroupX, Y0, FTSkin::White, Fade, .75f);
 		// (the balloon's rectangle starts 6 kit px under the Y it is given; today's lane is 54 kit px high)
 		const FBox2D Says = FTSkin::Balloon(Canvas, S, GroupX + 34 * K + ChipW - 6 * K, Y0 - 6 * K, LineW, Fade, false, 54 * K);
-		RacePrint(G->Line, float(Says.Min.X), float(Says.Min.Y + Says.Max.Y) * .5f, Ink, 19.f, 0, false, LineMax);
+		RacePrint(G->Line, float(Says.Min.X), float(Says.Min.Y + Says.Max.Y) * .5f, Ink, 19.f, 0, false, LineMax, LineNatural);
 		NoticeY += 43 * S;
 	}
 	const bool bAction = Now >= G->ActionT && Now - G->ActionT < 1.f;
@@ -1872,11 +1903,12 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 		}
 		const int32 Tc = FMath::FloorToInt(G->Timecode);
 		const int32 FrameNo = FMath::FloorToInt(FMath::Fmod(G->Timecode, 1.f) * 24.f);
-		RacePrint(FString::Printf(TEXT("%02d:%02d:%02d"), Tc / 60, Tc % 60, FrameNo), P.Rx(Top + 34 * K) - 12 * K, Top + 34 * K, Grey, 16.f, 2);
+		RacePrint(KeptClock.Get(IntKey(Tc), IntKey(FrameNo), 0, [&] { return FString::Printf(TEXT("%02d:%02d:%02d"), Tc / 60, Tc % 60, FrameNo); }), P.Rx(Top + 34 * K) - 12 * K, Top + 34 * K, Grey, 16.f, 2);
 		RacePrint(TEXT("BOX OFFICE"), P.Lx(Top + 60 * K) + 12 * K, Top + 56 * K, Yellow, 16.f, 0, true);
 		float RowL = P.Lx(Top + 108 * K) + 12 * K;
 		// the box office in big numerals; a long figure is drawn smaller to fit, and gives the combo's burst its room
-		RaceDigits(Money(FMath::RoundToInt64(ScoreShown)), RowL, Top + 72 * K, 36 * K, Mix(Yellow, FLinearColor::White, .7f * Flash01(Now - ScoreUpAt, .3f)), 0,
+		const int64 ScoreFigure = FMath::RoundToInt64(ScoreShown);
+		RaceDigits(KeptScore.Get(IntKey(ScoreFigure), 0, 0, [&] { return Money(ScoreFigure); }), RowL, Top + 72 * K, 36 * K, Mix(Yellow, FLinearColor::White, .7f * Flash01(Now - ScoreUpAt, .3f)), 0,
 			P.Rx(Top + 108 * K) - 12 * K - RowL - (G->Combo > 1 ? 112 * K : 0.f));
 		RowL = P.Lx(Top + 148 * K) + 12 * K;
 		if (G->Combo > 1)
@@ -1896,17 +1928,19 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 		else
 		{
 			// a kill or a near miss brightens the count
-			RacePrint(FString::Printf(TEXT("KILLS %d    NEAR MISSES %d"), G->Kills, G->NearMisses), RowL, Top + 136 * K,
+			RacePrint(KeptCounts.Get(IntKey(G->Kills), IntKey(G->NearMisses), 0, [&] { return FString::Printf(TEXT("KILLS %d    NEAR MISSES %d"), G->Kills, G->NearMisses); }), RowL, Top + 136 * K,
 				Mix(White, Cyan, Flash01(Now - CountsAt, .35f)), 19.f, 0, false, 320 * K);
 		}
-		RacePrint(FString::Printf(TEXT("STUNTS %d   /   COLLATERAL %d"), G->StuntCount, G->Collateral), P.Lx(Top + 166 * K) + 12 * K, Top + 166 * K, Grey, 16.f, 0, false, 320 * K);
+		RacePrint(KeptStunts.Get(IntKey(G->StuntCount), IntKey(G->Collateral), 0, [&] { return FString::Printf(TEXT("STUNTS %d   /   COLLATERAL %d"), G->StuntCount, G->Collateral); }), P.Lx(Top + 166 * K) + 12 * K, Top + 166 * K, Grey, 16.f, 0, false, 320 * K);
 		const int32 Time = FMath::FloorToInt(G->LevelClock), Par = ProgressData.Levels.IsValidIndex(G->Level) ? ProgressData.Levels[G->Level].Par : 0;
-		RacePrint(FString::Printf(TEXT("CARNAGE %d%%  /  %d:%02d  PAR %d:%02d"),
-			FMath::RoundToInt(100.f * G->Run.Wrecked / FMath::Max(1, G->ScriptTotal)), Time / 60, Time % 60, Par / 60, Par % 60),
+		const int32 CarnagePct = FMath::RoundToInt(100.f * G->Run.Wrecked / FMath::Max(1, G->ScriptTotal));
+		RacePrint(KeptCarnage.Get(IntKey(CarnagePct), IntKey(Time), IntKey(Par), [&] { return FString::Printf(TEXT("CARNAGE %d%%  /  %d:%02d  PAR %d:%02d"),
+			CarnagePct, Time / 60, Time % 60, Par / 60, Par % 60); }),
 			P.Lx(Top + 192 * K) + 12 * K, Top + 192 * K, Grey, 16.f, 0, false, 320 * K);
 		// the film left: FILM n/N and one reel pip a reel (up to ten), right aligned
 		RowL = P.Lx(Top + 224 * K) + 12 * K;
-		const FString Film = FString::Printf(TEXT("FILM  %d/%d"), FMath::Max(0, G->Stats.Reels - G->Retakes), G->Stats.Reels);
+		const int32 FilmLeft = FMath::Max(0, G->Stats.Reels - G->Retakes), FilmReels = G->Stats.Reels;
+		const FString& Film = KeptFilm.Get(IntKey(FilmLeft), IntKey(FilmReels), 0, [&] { return FString::Printf(TEXT("FILM  %d/%d"), FilmLeft, FilmReels); });
 		RacePrint(Film, RowL, Top + 224 * K, White, 16.f, 0, true);
 		const int32 Reels = FMath::Clamp(G->Stats.Reels, 1, 10);
 		const int32 ReelsLeft = FMath::Clamp(FMath::RoundToInt(float(G->Stats.Reels - G->Retakes) / FMath::Max(1, G->Stats.Reels) * Reels), 0, Reels);
@@ -1932,7 +1966,8 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 		const bool bIcon = bRepair || bMissile;
 		const float TextRoom = (bIcon ? 270 : 300) * K;
 		const float TextX = (bIcon ? 58 : 28) * K;
-		const float TagW = TextX + FMath::Min(RaceTextW(Popup.Text, 18.f, true), TextRoom) + 20 * K;
+		const float PopupNatural = RaceTextW(Popup.Text, 18.f, true);
+		const float TagW = TextX + FMath::Min(PopupNatural, TextRoom) + 20 * K;
 		const float TagX = R - TagW;
 		FPivot Land(*this, FVector2D(R, Py + 20 * K), bBig ? 1.f + .12f * Flash01(Popup.T, .16f) : 1.f);
 		const FLinearColor TagTint = Mix(TagColor, FLinearColor::White, (bBig ? .6f : .4f) * Landed);
@@ -1943,7 +1978,7 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 			Flat(TagX + 3 * K, Py + 3 * K, TagW - 6 * K, 32 * K, TagTint);
 		}
 		if (bIcon) RaceIcon(bRepair ? IcoWrench : IcoMissile, TagX + 26 * K, Py + 5 * K, 26 * K, Ink, static_cast<int32>(bRepair ? EIcon::Repair : EIcon::Missile));
-		RacePrint(Popup.Text, TagX + TextX, Py + 18 * K, Ink, 18.f, 0, true, TextRoom);
+		RacePrint(Popup.Text, TagX + TextX, Py + 18 * K, Ink, 18.f, 0, true, TextRoom, PopupNatural);
 	}
 	if (G->bShowKeys && GI)
 	{
@@ -1970,7 +2005,7 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 		for (int32 I = 0; I < UE_ARRAY_COUNT(KeyDoes); ++I)
 		{
 			Px += RaceKey(KeyNames[I], Px, MidY, Fit < 1.f ? CapW[I] * Fit : 0.f, 30.f) + 8 * K * Fit;
-			RacePrint(KeyDoes[I], Px, MidY, White, 16.f, 0, false, Fit < 1.f ? DoesW[I] * Fit : 0.f);
+			RacePrint(KeyDoes[I], Px, MidY, White, 16.f, 0, false, Fit < 1.f ? DoesW[I] * Fit : 0.f, DoesW[I]);
 			Px += (DoesW[I] + Between) * Fit;
 		}
 	}
