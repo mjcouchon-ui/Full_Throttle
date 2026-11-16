@@ -160,6 +160,9 @@ static TAutoConsoleVariable<int32> CVarFTPropWPODist(TEXT("ft.PropWPODist"), 180
 	TEXT("4.1: cm past which a roadside prop stops moving by its material (people, creatures, fronds, wheels: world position offset). The population pass was written for 180 m (M_People; M_PeopleFar always moves) but nothing set it, so every figure on the level ran its vertex animation every frame. 0 = never stop (4.0). Takes effect when a track is rebuilt."));
 static TAutoConsoleVariable<int32> CVarFTPropWPOVel(TEXT("ft.PropWPOVel"), 0,
 	TEXT("4.1: 0 = the people and roadside life (M_People, M_Life) draw no motion vectors of their own (velocity pass L1 0.43 -> 0.23 ms, L2 0.38 -> 0.11 ms; a waving arm is small next to the camera's own motion at speed); 1 = they do, as 4.0. Takes effect when a track is rebuilt."));
+static TAutoConsoleVariable<int32> CVarFTFarVel(TEXT("ft.FarVel"), 0,
+	TEXT("4.4: 0 = the far crowds (M_PeopleFar, M_LifeFar: always moving, placed far on purpose) draw no motion vectors of their own, like the near ones since 4.1 ")
+	TEXT("(they were 0.28 ms of Level 1's 0.57 ms velocity pass); they still move. 1 = they do, as 4.3. Takes effect when a track is rebuilt."));
 static TAutoConsoleVariable<int32> CVarFTPeopleCull(TEXT("ft.PeopleCull"), 25000,
 	TEXT("4.2: cm at which a roadside people piece (M_People: figures, groups, the film crew; not the always-moving M_PeopleFar crowds placed far on purpose) stops drawing, unless it is big enough to stay up to ~1/40 of the screen (radius x 40). They had the generic prop cull (radius x 120, at least 600 m), so a 2 m figure drew, and cast its shadow, out to 600 m where it is 2-3 pixels tall. 0 = the generic cull (4.1). Takes effect when a track is rebuilt."));
 static TAutoConsoleVariable<int32> CVarFTDressBank(TEXT("ft.DressBank"), 1,
@@ -1926,6 +1929,7 @@ void AFTTrack::BuildProps()
 
 	const TArray<FFTPropRule> Rules = Props.Num() ? Props : DefaultProps(LevelIndex);
 	int32 WpoCutComps = 0; // 4.1: components whose WPO stops at ft.PropWPODist
+	int32 FarVelComps = 0; // 4.4: far-crowd components without motion vectors (ft.FarVel)
 	TArray<UHierarchicalInstancedStaticMeshComponent*> PeopleComps; // 4.2: components on the ft.PeopleCull rule
 	TMap<FString, UHierarchicalInstancedStaticMeshComponent*> ByMesh;
 	auto Comp = [&](const FString& Path, float MaxScale) -> UHierarchicalInstancedStaticMeshComponent*
@@ -1975,6 +1979,15 @@ void AFTTrack::BuildProps()
 			C->WorldPositionOffsetDisableDistance = FMath::Max(0, CVarFTPropWPODist.GetValueOnGameThread());
 			if (CVarFTPropWPOVel.GetValueOnGameThread() == 0) C->bWorldPositionOffsetWritesVelocity = false;
 			++WpoCutComps;
+		}
+		else if (CVarFTFarVel.GetValueOnGameThread() == 0)
+		{
+			// 4.4: the far crowds (M_PeopleFar / M_LifeFar) keep moving at any distance but draw no motion vectors of their own
+			for (const FStaticMaterial& SMat : M->GetStaticMaterials())
+			{
+				const UMaterial* Base = SMat.MaterialInterface ? SMat.MaterialInterface->GetMaterial() : nullptr;
+				if (Base && (Base->GetFName() == TEXT("M_PeopleFar") || Base->GetFName() == TEXT("M_LifeFar"))) { C->bWorldPositionOffsetWritesVelocity = false; ++FarVelComps; break; }
+			}
 		}
 		C->RegisterComponent();
 		PropComps.Add(C);
@@ -2518,7 +2531,7 @@ void AFTTrack::BuildProps()
 		}
 	}
 	for (UHierarchicalInstancedStaticMeshComponent* C : PropComps) C->BuildTreeIfOutdated(false, true);
-	UE_LOG(LogFT, Display, TEXT("FTWPO level=%d life components=%d of %d stop moving past %d cm (velocity %d)"), LevelIndex, WpoCutComps, PropComps.Num(), CVarFTPropWPODist.GetValueOnGameThread(), CVarFTPropWPOVel.GetValueOnGameThread());
+	UE_LOG(LogFT, Display, TEXT("FTWPO level=%d life components=%d of %d stop moving past %d cm (velocity %d); far crowd components without motion vectors=%d (ft.FarVel %d)"), LevelIndex, WpoCutComps, PropComps.Num(), CVarFTPropWPODist.GetValueOnGameThread(), CVarFTPropWPOVel.GetValueOnGameThread(), FarVelComps, CVarFTFarVel.GetValueOnGameThread());
 	{
 		int32 PplInst = 0, AllInst = 0; float CullMin = 1.e9f, CullMax = 0.f;
 		for (UHierarchicalInstancedStaticMeshComponent* C : PropComps) if (C) AllInst += C->GetInstanceCount();
