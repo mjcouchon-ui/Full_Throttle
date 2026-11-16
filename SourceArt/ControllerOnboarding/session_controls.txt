@@ -221,19 +221,14 @@ wait 10
 ft.AssertControl phase 2
 ft.AssertControl tutorial 1
 ft.AssertControl bosslastchance 0
-# Defeating the boss must also leave the remaining lesson actionable.
+# Defeating the boss ends the level at once, lessons or not; the lessons end with it and count as done.
+# (Until 15 Nov 2026 the win waited for the lessons, and the level ran on with nothing to say why.)
 FTWrapNow
-waitfor FT TUTORIAL outcome=deferred escape=0|10
-ft.AssertControl phase 2
-ft.AssertControl tutorial 1
-ft.AssertControl tutorialwrappending 1
-ft.ControlState
-shot tutorial_deferred_finale
-# A real Skip input releases the deferred outcome and returns to ordinary result flow.
-ft.InputHold F2
 waitfor FT OUTCOME wrap|10
-ft.InputRelease F2
-ft.AssertControl tutorial 0
+ft.AssertControl tutorial 7
 ft.AssertControl tutorialwrappending 0
-ft.AssertControl tutorialSkipped 1
+ft.AssertControl tutorialcompleted 1
+ft.AssertControl tutorialskipped 0
+ft.ControlState
+shot tutorial_boss_beaten_finale
 quit

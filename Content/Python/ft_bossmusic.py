@@ -1,4 +1,4 @@
-"""3.8 boss music (owner's queue, 2026-11-15): imports the two boss tracks, saved looping.
+"""3.8 boss music (owner's queue, 2026-11-15): imports the race's boss track, saved looping (TRACKS holds that one).
 
   /Game/Audio/Music/M_BossVehicle  = SourceArt/Music/vehicle boss music.mp3
       AFTGameMode::SetBossMusic plays it from a race boss's arrival until the replay (FTGameMode.cpp).

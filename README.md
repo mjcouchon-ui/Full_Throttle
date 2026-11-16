@@ -1,4 +1,7 @@
-# FULL THROTTLE 3.3.0: the Unreal Engine 5.9 game
+# FULL THROTTLE 3.9: the Unreal Engine 5.9 game
+
+Version (checked 15 Nov 2026): `ProjectVersion=3.9.1` in `Config/DefaultGame.ini`; notes in the code run to 3.9.7. The dated
+version notes in this file stop at 3.7.0 and are history: they describe each version as it shipped.
 
 The 80s spy car chase (web app `full-throttle`, 1.7.2) rebuilt as a native Unreal Engine 5.9 game for Windows,
 C++ plus Blueprints. WispOS opens the packaged build as the native app `full-throttle-unreal`
@@ -25,7 +28,7 @@ Paths are under `full-throttle-unreal/`; a file in two sections' folders belongs
 | Environment: materials, sky & the cel look | Environment | Justin | `Content/Core/Materials`, `Content/Core/Palette`, `ft_mats.py`, `ft_cel.py`, `ft_art.py`, `ft_buildings.py` (Level 1 glass and neon) |
 | Effects: fire, smoke & explosions | Effects | Justin | `Content/FX`, `ft_fx.py`, `ft_v26.py` (2.6) |
 | UI & HUD | UI | Brad | `Content/UI`, `FTHUD.*` |
-| Skills, garage & money | Gameplay | Brad | `Content/Data`, `FTSkills.*`, `FTGameInstance.*`, `ft_skilltest.py`, `FTProgress.*` (2.6) |
+| Skills, garage & money | Gameplay | Brad | `Content/Data`, `FTProgress.*` (2.6, replaced `FTSkills.*`), `FTGameInstance.*`, `ft_skilltest.py` |
 | Game rules & director | Gameplay | Keenan | `Content/Core/BP_FTGameMode`, `Content/Characters/Pickups`, `FTGameMode.*`, `FTEntity.*`, `FTCore.h`, `FTFlow.cpp` (2.6) |
 | Audio | Audio | Keenan | `Content/Audio`, `Tools/sfx_synth.py` |
 | The nights (beat-em-up between the races) | Nights | | `Source/FullThrottle/Brawl`, `Content/Brawl`, `FTNightFlow.*`, `Content/Python/brawl_*.py` |
@@ -95,7 +98,10 @@ No file in the project is over 50 MB. `Binaries`, `Intermediate`, `Saved` and `D
   road section. Every ground prop (in practice palms, umbrellas and lifeguard towers) keeps out of a sign's footprint.
   `ft.Ads 0` / `-ftads=0` builds the track without them (before/after benches); the log line
   `FTADS level 0: N billboards ... layout <hash>` shows the layout is the same each build (Level 1: 58 billboards, 13 designs).
-- **Skill points and the garage (2.3):** `Content/Data/skills.json` (staged as a UFS file, `DirectoriesToAlwaysStageAsUFS=Data`)
+- **Skill points and the garage (2.3, history):** this bullet describes the 2.3 system, which 2.6.0 replaced (see the 2.6.0
+  notes). `FTSkills.cpp`, `EFTPhase::Garage`, `AFTGameMode::TickGarage`, `AFTHUD::DrawGarage` and the `FTSKILLS` log lines are
+  no longer in `Source`; `FTProgress.*` reads `skills.json` now. As written for 2.3:
+  `Content/Data/skills.json` (staged as a UFS file, `DirectoriesToAlwaysStageAsUFS=Data`)
   holds the points a level pays, the stats and the upgrades (ranks, costs, effects, `branch`/`tier`/`requires` for the coming
   skill tree). `FTSkills.cpp` reads it; `UFTGameInstance` keeps the bank and ranks in settings.json (`skills`) and answers
   `Stat(name)` (kind `mul` = max(0.2, 1 + sum), `add` = sum). The game applies `steer` (controller), `driftCharge`, `turboBurn`,
@@ -114,7 +120,7 @@ No file in the project is over 50 MB. `Binaries`, `Intermediate`, `Saved` and `D
   viewport), `ft.MouseAt row|btn|ov <n>`, `ft.MouseAt off`, with `ft.InputHold/InputRelease LeftMouseButton`, `ft.Press MouseScrollDown`.
 - **Test hooks (2.3):** `-ftwrap=N` wraps the level after N s of racing; console `ft.Press <Key>` and `ft.Click <x> <y> [Right]`
   feed keys, pad buttons and clicks through the player's input; `Content/Python/ft_skilltest.py` wraps them for PIE.
-  Logs: `FTFLOW` (reel, garage, buy/refund) and `FTSKILLS` (points, the stats at each race start).
+  Logs: `FTFLOW` (the reel; 2.3 also logged the garage and buy/refund there). The 2.3 `FTSKILLS` lines are gone.
 
 - **2.4 (owner's queue): glued to the road, cel fire, day/moonlight skies.**
   - *Road glue* (`AFTPlayerCar::ApplyArcade`, `ft.Arcade` bit 64; tuning `Downforce` 0.8 g, `GlueK` 150, `GlueDamp` 24.5):
@@ -147,9 +153,11 @@ L1 BAYSHORE -> N1 THE RUSTY ANCHOR -> L2 CHEMICAL WORKS -> N2 THE VELVET ROOM ->
 The night is the side-scrolling 2.5D brawl, merged as-is: code `Source/FullThrottle/Brawl/` (classes `FTBrawl*`, cvars `ftb.*`,
 log `FTBRAWL`), content `Content/Brawl/` (maps `Maps/L_RustyAnchor`, `Maps/L_VelvetRoom`, `Maps/L_Lucky7`; their World Settings name
 `/Script/FullThrottleBrawl.FTBrawlGameMode`, which `[CoreRedirects]` in DefaultEngine.ini points at this module).
-The brawl project `../beat-em-up-unreal` stays the place to build nights; copy `Brawl/` and `Content/Brawl/` over again as
-they are (since 15 Nov, run 32365, the files are identical in both projects: `FTBrawlGameMode.cpp` compiles the career hand-off
-in when `FTNightFlow.h` is there, `#if __has_include`). New night maps also go in `DefaultGame.ini` `MapsToCook`.
+The brawl project `../beat-em-up-unreal` is where the nights were built. The two copies of `Brawl/` are no longer identical
+(checked 15 Nov 2026 evening: 9 of the 22 code files here differ from `../beat-em-up-unreal/Source/FullThrottleBrawl/Brawl`, and
+`FTBrawlMenus.cpp` is only here), so do not copy the folder over as it is: compare file by file first. `FTBrawlGameMode.cpp`
+compiles the career hand-off in when `FTNightFlow.h` is there (`#if __has_include`). New night maps also go in `DefaultGame.ini`
+`MapsToCook`.
 
 - **Hand-off (`FTNightFlow.h/.cpp`, a game-instance subsystem).** The races are untouched. After a wrapped level, ENTER on
   the PAYCHECK calls `UFTNightFlow::GoToNight` (one line in `TickPaycheck`): it saves the career's pending level (as
@@ -161,8 +169,11 @@ in when `FTNightFlow.h` is there, `#if __has_include`). New night maps also go i
   N4-N7 by their story names). A night whose map is not in the project is skipped, so a new night only needs its map
   and brawl code merged. All seven are in (run 32365): N1 THE RUSTY ANCHOR, N2 THE VELVET ROOM, N3 THE LUCKY 7, N4 THE TIKI
   TORCH (after L4 VOLCANO), N5 STRIKE CITY (L5), N6 THE FROSTBITE LODGE (L6), N7 THE SEA BISCUIT (L7), each with its
-  THAT NIGHT and LAST CALL cutscenes (see `../beat-em-up-unreal/README.md`). L8 has no night. `L_Day1Set` (day 1's BEFORE THE
-  DRIVE scene) came along with the brawl content but is not in the flow: the owner's rule was nights only, between the races.
+  THAT NIGHT and LAST CALL cutscenes (see `../beat-em-up-unreal/README.md`). L8 has no night. `L_Day1Set` (the BEFORE THE
+  DRIVE and THE WRAP scenes on the Route 9 set) came along with the brawl content and is in the flow since runs 34723 / 77694:
+  starting level 1 from the title opens it first (`UFTNightFlow::GoToDay1`, `FTGameMode.cpp`), a wrapped level goes to its THE
+  WRAP there (`FTFlow.cpp`, `GoToDayCut`), and it is in `MapsToCook`. `-ftnoday1`, `-ftnodays` or `-ftnonights` turn the days
+  off; autopilot and script runs skip the later days unless `-ftdays` is given. Logs: `FT DAY1`, `FT DAY`.
 - **Grab and throw (every night, run 42137):** L / C / pad B lifts the foe in front over Nova's head, L / J / K hurls him the way
   you steer; the thrown body knocks down every foe it hits. Same code as `../beat-em-up-unreal` (its README, "Grab and throw").
 - **Sounds, rumble, weapon reach (run 38222, every night, both projects):** the fights have their own sounds (punches, kicks,
@@ -179,7 +190,11 @@ in when `FTNightFlow.h` is there, `#if __has_include`). New night maps also go i
 
 ## Build and test
 
-- Engine: Unreal Engine 5.9.0 (`EngineAssociation` "5.9", `C:\Program Files\Epic Games\UE_5.9`). Since 2.1 nothing here uses 5.8.
+- Engine: Unreal Engine 5.9.0 (`EngineAssociation` "5.9"; on the build PC it is at `K:\UE_5.9`, there is no
+  `C:\Program Files\Epic Games\UE_5.9` there). Since 2.1 nothing here uses 5.8.
+- The `../full-throttle-tests/...` scripts named in the version notes are not in this repo and not beside this checkout (checked
+  15 Nov 2026); treat those lines as a record of how each version was tested. The current build and check scripts are
+  `SourceArt/Jam/unreal/jam_*.ps1` and `jam_ubt.bat`.
 - C++ needs Visual Studio with "Game development with C++". UE 5.9 wants MSVC 14.44.35211+ or 14.50.35723+ (14.51 is banned
   by Epic for a miscompile) and Windows SDK 10.0.22621 or newer.
 - What 2.1 takes from 5.9: Chaos Vehicles' wheel fixes (zero radius, NaN torque curves, divide-by-zero in the wheel force,

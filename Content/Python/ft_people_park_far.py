@@ -39,6 +39,7 @@ LIME, VIOLET, WATER, PINE = '#b8ff5a', '#8f6bff', '#2a5fd0', '#2f8a5a'
 DUCK_HEAD, DUCK_BODY, DUCK_WING, DUCK_HEN = '#22c27a', '#f1e4c8', '#57c7ff', '#d9a070'
 BRIGHT = (MAG, CYAN, AMBER, RED, ORANGE, VIOLET, LIME, WHITE)
 LAMP = '#ffe28a'
+FOOT = 1500.0      # how far a piece's foot goes down under z = 0 (cm as built): the land falls away in the lagoon
 
 
 # ------------------------------------------------------------------------------------------ helpers
@@ -117,7 +118,7 @@ def viaduct(sc, L=6400.0, top=700.0, deep=520.0, cols=(MAG, CREAM)):
         g.box(cols[k % 2], (-L / 2.0 + (k + 0.5) * w, -deep / 2.0 - 4, top - 70), (w, 10, 150))
     for k in range(5):
         x = -L / 2.0 + (k + 0.5) * L / 5.0
-        g.box(NAVY, (x, 0, (top - 60) / 2.0), (260, deep - 80, top - 60))
+        g.box(NAVY, (x, 0, (top - 60 - FOOT) / 2.0), (260, deep - 80, top - 60 + FOOT))      # the piers go FOOT down
         g.box(PURPLE, (x, -deep / 2.0 + 34, (top - 60) / 2.0), (300, 12, top - 60))
     bulbs(g, (-L / 2.0, -deep / 2.0 - 12, top - 160), (L / 2.0, -deep / 2.0 - 12, top - 160), 20)
     return top
@@ -198,33 +199,38 @@ def march_b(sc):
 
 
 # ------------------------------------------------------------------------------------------ ducks
-def duck(sc, x, y, z, heading=0.0, span=320.0, phase=0.0, rate=2.6, travel=None, orbit=None, hen=False, flap=30.0, bob=0.0):
-    """A mallard in the air: P.bird with a long neck, a green head (a hen: brown) and a white collar."""
-    P.bird(sc, x, y, z, heading=heading, span=span, body=(DUCK_HEN if hen else DUCK_BODY), wing=(CREAM if hen else DUCK_WING), beak=ORANGE,
-           phase=phase, rate=rate, flap=flap, travel=travel, orbit=orbit, bob=bob)
+def duck(sc, x, y, z, heading=0.0, span=320.0, phase=0.0, rate=2.6, travel=None, orbit=None, hen=False, flap=28.0, bob=0.0, glow=0.45):
+    """A mallard in the air, drawn in six fat boxes (the cel pass inks every edge: a bird of thin parts is a black
+    scribble at 150 m): a pale body, a green head (a hen: brown), a white collar, an orange bill, two thick wings
+    that beat. It carries its own steady glow so that it reads against the park's night sky."""
     tv, base = (0.0, 0.0), (x, y)
     if travel:
         tv = tv_of(travel)
     elif orbit:
         base, tv = (orbit[0], orbit[1]), (-1.0, float(orbit[2]))
-    m = sc.part(P.motion(pivot=(x, y, z), phase=phase, rate=rate, bob=bob, base=base, travel=tv))
-    m.base = None
     hd = math.radians(heading)
     tx, ty = math.cos(hd), math.sin(hd)
-    Lb = span * 0.42
-    a = (x + tx * Lb * 0.45, y + ty * Lb * 0.45, z + Lb * 0.05)
-    b = (x + tx * Lb * 1.0, y + ty * Lb * 1.0, z + Lb * 0.16)
-    tilt_box(m, WHITE, a, b, Lb * 0.17, Lb * 0.17)
-    m.box(WOOD if hen else DUCK_HEAD, (x + tx * Lb * 1.08, y + ty * Lb * 1.08, z + Lb * 0.2), (Lb * 0.36, Lb * 0.3, Lb * 0.3), rot=(0, heading, 0))
-    m.box(ORANGE, (x + tx * Lb * 1.36, y + ty * Lb * 1.36, z + Lb * 0.16), (Lb * 0.26, Lb * 0.2, Lb * 0.09), rot=(0, heading, 0))
+    L = span * 0.5
+    rot = (0, heading, 0)
+    m = sc.part(P.motion(pivot=(x, y, z), phase=phase, rate=rate, bob=bob, base=base, travel=tv))
+    m.base = None
+    m.box(DUCK_HEN if hen else DUCK_BODY, (x, y, z), (L, L * 0.56, L * 0.6), rot=rot, glow=glow)
+    m.box(WHITE, (x + tx * L * 0.56, y + ty * L * 0.56, z + L * 0.1), (L * 0.14, L * 0.44, L * 0.46), rot=rot, glow=glow)
+    m.box(WOOD if hen else DUCK_HEAD, (x + tx * L * 0.8, y + ty * L * 0.8, z + L * 0.16), (L * 0.42, L * 0.46, L * 0.5), rot=rot, glow=glow)
+    m.box(ORANGE, (x + tx * L * 1.1, y + ty * L * 1.1, z + L * 0.08), (L * 0.3, L * 0.3, L * 0.2), rot=rot, glow=glow)
+    for side in (-1, 1):
+        w = sc.part(P.motion(swing=side * flap, pivot=(x, y, z + L * 0.1), axis=heading, phase=phase, rate=rate, bob=bob, base=base, travel=tv))
+        w.base = None
+        w.box(CREAM if hen else DUCK_WING, (x - ty * side * span * 0.3, y + tx * side * span * 0.3, z + L * 0.12), (L * 0.6, span * 0.44, L * 0.3),
+              rot=rot, glow=glow)
 
 
 def ducks(sc):
-    """A skein of nine great mallards in a V (each 3.4 m across, so that they read from the road), 15 to 19 m up,
+    """A skein of eleven great mallards in a V (each 3.4 m across, so that they read from the road), 15 to 19 m up,
     flying the length of four slots along the road and round again. The always-moving master."""
     r = random.Random(419)
     L, V = 18000.0, 1300.0
-    for k in range(9):
+    for k in range(11):
         rank = (k + 1) // 2
         sy = -1 if k % 2 else 1
         x = 1300.0 - rank * 360.0
@@ -268,7 +274,7 @@ def duck_pond(sc):
     low over the water as if coming in to land."""
     r = random.Random(431)
     g = sc.still()
-    g.cyl(CREAM, (0, 0, -260), 1050, 290, steps=14)
+    g.cyl(CREAM, (0, 0, -FOOT), 1050, FOOT + 30, steps=14)
     g.cyl(WATER, (0, 0, -250), 980, 292, steps=14, glow=0.5)
     g.cyl('#57c7ff', (0, 0, 40), 640, 3, steps=12, glow=0.6)
     g.cyl(PINE, (0, 0, 0), 230, 90, steps=8, top_r=180)
@@ -301,12 +307,12 @@ def pigeon(sc, x, y, z, heading, span, phase, orbit=None, flap=40.0, rate=3.4):
     base, tv = ((orbit[0], orbit[1]), (-1.0, float(orbit[2]))) if orbit else ((x, y), (0.0, 0.0))
     b = sc.part(P.motion(pivot=(x, y, z), phase=phase, rate=rate, base=base, travel=tv))
     b.base = None
-    b.box(LAV, (x, y, z), (span * 0.5, span * 0.2, span * 0.16), rot=(0, heading, 0))
-    b.box(MAG, (x + tx * span * 0.22, y + ty * span * 0.22, z + span * 0.02), (span * 0.14, span * 0.21, span * 0.17), rot=(0, heading, 0))
+    b.box(LAV, (x, y, z), (span * 0.5, span * 0.24, span * 0.2), rot=(0, heading, 0), glow=0.3)
+    b.box(MAG, (x + tx * span * 0.22, y + ty * span * 0.22, z + span * 0.02), (span * 0.14, span * 0.25, span * 0.21), rot=(0, heading, 0), glow=0.3)
     for side in (-1, 1):
         w = sc.part(P.motion(swing=side * flap, pivot=(x, y, z), axis=heading, phase=phase, rate=rate, base=base, travel=tv))
         w.base = None
-        w.box(WHITE, (x - ty * side * span * 0.28, y + tx * side * span * 0.28, z + span * 0.03), (span * 0.26, span * 0.5, span * 0.04), rot=(0, heading, 0))
+        w.box(WHITE, (x - ty * side * span * 0.28, y + tx * side * span * 0.28, z + span * 0.03), (span * 0.26, span * 0.5, span * 0.08), rot=(0, heading, 0), glow=0.3)
 
 
 def queue_tower(sc):
@@ -320,7 +326,7 @@ def queue_tower(sc):
     for k in range(n):      # the tower: bands of two colours, narrowing
         r0 = 520.0 - k * 36.0
         g.cyl(MAG if k % 2 else CREAM, (0, 0, k * H / n), r0, H / n, steps=8, top_r=r0 - 36.0)
-    g.cyl(NAVY, (0, 0, -200), 560, 200, steps=10)
+    g.cyl(NAVY, (0, 0, -FOOT), 560, FOOT, steps=8)
     levels = (260.0, 800.0, 1340.0)
     for i, z in enumerate(levels):
         rr = 520.0 - (z / H) * 220.0 + 330.0
@@ -371,6 +377,7 @@ def balloons(sc):
     r = random.Random(457)
     g = sc.still()
     g.cyl(PINE, (0, 0, -300), 760, 560, steps=10, top_r=520)
+    g.cyl(PINE, (0, 0, -FOOT), 760, FOOT - 300, steps=10)
     T = 260.0
     g.cyl(CREAM, (0, 0, T - 6), 520, 10, steps=10)
     for k in range(6):      # the cart

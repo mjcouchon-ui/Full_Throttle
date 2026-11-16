@@ -3,9 +3,11 @@
 Writes 16-bit mono WAVs to Saved/SFXWav; the editor imports them to /Game/Audio/SFX.
 Usage: python sfx_synth.py <out_dir>          (needs numpy: Blender's Python has it, the PC's own does not)
 
-The overhaul of 15 Nov 2026 (the block at the end) adds the menus' and results' cues and puts weight into the blasts,
-the missile, hits, rams, landings and the bosses' cues. It writes <out_dir>/overhaul.txt, the names it made;
-`import ft_audio; ft_audio.build(<out_dir>)` in the editor (Content/Python/ft_audio.py) imports exactly those.
+The overhaul of 15 Nov 2026 (the block at the end) adds the menus' and results' cues and the net-new takes. It writes
+<out_dir>/overhaul.txt, the NEW names it made; `import ft_audio; ft_audio.build(<out_dir>)` in the editor
+(Content/Python/ft_audio.py) imports exactly those. A sound the game already has never changes (owner's rule, the
+revert of 15 Nov, commit ff773438): the block's heavier versions of ten 2.x sounds are OFFERS, written to
+<out_dir>/offered/ and to no list, so <out_dir>/S_Explode.wav and the other nine stay the 2.x files.
 """
 import os, sys, wave
 import numpy as np
@@ -165,17 +167,25 @@ write('Skid', skid, 0.5, loop=True)
 # made heavier (the missile, blasts, hits, rams, landings, the bosses' cues) get weight. Rules of this block:
 #   - each sound has its own noise, seeded by its name (gen): adding or changing one never changes another, and none of
 #     the 2.x sounds above changes (they still draw from the one generator, in their old order);
-#   - a sound that replaces a 2.x one keeps the 2.x layers, to the same recipe, and adds to them: the game keeps its
+#   - a heavier version of a 2.x sound keeps the 2.x layers, to the same recipe, and adds to them: the game keeps its
 #     voice and gains body. The weight is put between 80 and 250 Hz and in the tail, where small speakers still speak
 #     (the 2.x blast was a 105-to-29 Hz sine under quiet noise: all but silent on a laptop);
 #   - peaks are rounded off (soft) rather than left sharp: louder for the same peak, and nothing is ever over the line;
-#   - a few of the busiest cues have takes (S_Explode, S_Explode_B, S_Explode_C): AFTGameMode::Sfx picks one at random.
-# The names written here are listed in <out_dir>/overhaul.txt; Content/Python/ft_audio.py imports exactly that list.
+#   - a few of the busiest cues have takes (S_Explode_B, S_Explode_C, S_Hit_B, S_Hit_C). They are in the project, but
+#     the game plays exactly S_<Name> (AFTGameMode::Sfx): the code that picked a take went with the revert of 15 Nov;
+#   - A SOUND THE GAME ALREADY HAS NEVER CHANGES (owner's rule; the ten that this block once replaced were put back
+#     by commit ff773438). So a net-new sound goes through over(): <out_dir>/S_<name>.wav and overhaul.txt. A heavier
+#     version of an existing one (EXISTING) goes through offer(): <out_dir>/offered/S_<name>.wav and no list, so the
+#     2.x file of that name survives the run and the default import cannot reach the offer. over() refuses those names.
+# The names over() wrote are listed in <out_dir>/overhaul.txt; Content/Python/ft_audio.py imports exactly that list.
 # (Same vocabulary as the nights' cues, beat-em-up-unreal/ArtSource/tools/brawl_combat_sources.py: noise bursts,
 # sines that fall in pitch, short exponential tails.)
 import zlib
 
 OVERHAUL = []
+# the 2.x sounds this block has a heavier version of: offered, never written over the 2.x file, never listed
+EXISTING = ('Explode', 'Wreck', 'HeliDown', 'Missile', 'Hit', 'PlayerHit', 'Bump', 'Land', 'BossIntro', 'BossPhase')
+OFFERED = os.path.join(OUT, 'offered')
 
 
 def gen(name):
@@ -246,9 +256,25 @@ def soft(x, drive=1.5):
 
 
 def over(name, x, gain):
+    """A net-new sound: <out_dir>/S_<name>.wav, and its name into overhaul.txt (what ft_audio.build imports)."""
+    if name in EXISTING:
+        raise ValueError('S_%s is a sound the game already has: offer() it, never over() it' % name)
     x = np.asarray(x, dtype=np.float64)
     write(name, x - np.mean(x), gain)
     OVERHAUL.append('S_' + name)
+
+
+def offer(name, x, gain):
+    """A heavier version of a sound the game already has: <out_dir>/offered/S_<name>.wav only. Not over the 2.x file
+    of that name and not in overhaul.txt; it goes into the game only if the owner takes the offer, by hand."""
+    global OUT
+    x = np.asarray(x, dtype=np.float64)
+    os.makedirs(OFFERED, exist_ok=True)
+    keep, OUT = OUT, OFFERED      # write() takes its folder from OUT; the 2.x block and write() are left as they are
+    try:
+        write(name, x - np.mean(x), gain)
+    finally:
+        OUT = keep
 
 
 # ---- menus: a tick for a move, two notes up for a choice, two down for going back, a buzz for a refusal
@@ -440,11 +466,11 @@ def heli_down():
     return seq([fall * 0.3, explode('HeliDown', 1.8, 800.0, 44.0, 1.4)])
 
 
-over('Explode', explode('Explode'), 0.9)
+offer('Explode', explode('Explode'), 0.9)
 over('Explode_B', explode('Explode_B', 1.8, 800.0, 44.0, 1.3), 0.9)
 over('Explode_C', explode('Explode_C', 2.0, 1000.0, 52.0, 0.8), 0.9)
-over('Wreck', wreck(), 0.92)
-over('HeliDown', heli_down(), 0.92)
+offer('Wreck', wreck(), 0.92)
+offer('HeliDown', heli_down(), 0.92)
 
 
 # ---- weight: the missile, hits, rams, landings
@@ -510,14 +536,14 @@ def land():
     return soft(at(d, (0, old, 1.0), (0.085, second, 0.6), (0.01, rattle, 0.35)), 1.3)
 
 
-over('Missile', missile(), 0.75)
-over('Hit', hit('Hit', 2100.0), 0.5)
+offer('Missile', missile(), 0.75)
+offer('Hit', hit('Hit', 2100.0), 0.5)
 over('Hit_B', hit('Hit_B', 2480.0), 0.5)
 over('Hit_C', hit('Hit_C', 1850.0), 0.5)
 over('ArmorHit', armor_hit(), 0.5)
-over('PlayerHit', player_hit(), 0.85)
-over('Bump', bump(), 0.85)
-over('Land', land(), 0.88)
+offer('PlayerHit', player_hit(), 0.85)
+offer('Bump', bump(), 0.85)
+offer('Land', land(), 0.88)
 
 
 # ---- weight: the bosses' cues (the 2.x chords and sweep, with a drum under each and a sub an octave down)
@@ -545,9 +571,10 @@ def boss_phase():
     return soft(at(d, (0, old, 1.0), (0, drum(g), 0.9), (0, clang, 0.25)), 1.3)
 
 
-over('BossIntro', boss_intro(), 0.8)
-over('BossPhase', boss_phase(), 0.7)
+offer('BossIntro', boss_intro(), 0.8)
+offer('BossPhase', boss_phase(), 0.7)
 
 with open(os.path.join(OUT, 'overhaul.txt'), 'wb') as f:
     f.write(('\n'.join(OVERHAUL) + '\n').encode('ascii'))
 print('wrote', len(os.listdir(OUT)), 'files to', OUT)
+print('offered (not listed, not imported):', len(os.listdir(OFFERED)), 'files in', OFFERED)

@@ -19,9 +19,16 @@ from a road with a metre of barrier at 120 mph:
                     wheeling over the stalls.
     far             an open-air theatre's stand full of people (a band of colour that hops), doves.
 
+    over the lagoon a look-out tower 25 m high (SM_ParkSkyDeck): guests, staff and the giraffe at the height of the
+                    coaster's rails, because from the rails the valley floor is too far down for a person to read.
+    the shoot       the camera tower, and the shared film crew kit's own scenes (ft_people_crew, wardrobe 'Park') built
+                    again here on a low rostrum and under stage light (SM_ParkCrew...): the shared meshes are unlit and
+                    stand at the barrier, where no light is allowed, and at night they read as black shapes.
+
 No clown anywhere in this kit, and no balloons: the level's boss is MR. CHUCKLES, a clown who flies under a bunch of
-balloons and bombs the road with them (the one inflatable here is a whale the size of a bus). It is a night level: every piece carries a small steady glow
-(lift(), and rows of steady lamps), all of it 24 m or more from the centre line; nothing blinks. No words, no marks.
+balloons and bombs the road with them (the one inflatable here is a whale the size of a bus). It is a night level:
+every piece carries a steady glow (lift(): 0.05 to 0.1; the doves 0.3) and rows of steady lamps, all of it 24 m
+or more from the centre line; nothing blinks. No words, no marks.
 
 Run in the editor:  import ft_people_park; ft_people_park.run()       (or run(['SM_ParkHighWire']))
 The placing rules are Source/FullThrottle/FTPeopleL4.inl.
@@ -77,8 +84,9 @@ def together(sc, base, fn):
 
 def lift(sc, g):
     """The park is a NIGHT level and everything round these pieces is lit: a figure in plain colours standing in a
-    stall's shadow reads as a dark shape. Every colour of a piece gets a small steady glow of its own (g: 0.04 is about
-    two fifths of the colour), like a figure under stage light. Every piece of this kit stands 24 m or more from the
+    stall's shadow reads as a dark shape. Every colour of a piece gets a steady glow of its own (g: 0.09 is about the
+    colour itself, as flat as the cel pass draws a lit thing; at 0.04 the figures' legs still read as black beside the
+    dressing's lit stalls), like a figure under stage light. Every piece of this kit stands 24 m or more from the
     road's centre line, where a steady light is allowed; nothing blinks."""
     for key in sc.order:
         model = sc.parts[key][0]
@@ -91,7 +99,7 @@ def lift(sc, g):
         model.meshes = out
 
 
-def lit(fn, g=0.04):
+def lit(fn, g=0.09):
     def build(sc):
         fn(sc)
         lift(sc, g)
@@ -384,8 +392,8 @@ def high_wire(sc):
 
 
 def stage_a(sc):
-    """The show stage: a deck 1.6 m up under a sunburst arch, a kick line of four, a trampolinist going up 2.6 m, and
-    the frog as compere."""
+    """The show stage: a deck 1.6 m up under a sunburst arch, a kick line of four, a trampolinist going up 4 m, and
+    the frog as compere. The cast is 1.5 times life size so that it reads from the road."""
     r = random.Random(59)
     g = sc.still()
     g.box(CREAM, (0, 0, 78), (1040, 520, 156))
@@ -403,14 +411,17 @@ def stage_a(sc):
         g.box(PLUM, (sx * 500, 100, 430), (40, 320, 560))
         g.box(DARK, (sx * 440, -200, 196), (70, 60, 80))
         g.sphere(GOLD, (sx * 500, 100, 740), 26, steps=(3, 6))
+    # the cast is built half as big again as life: a 1.7 m dancer 30 m and more away is a few pixels
     for k in range(4):
-        d = guest(r, wear='skirt', top=(CYAN, MAG)[k % 2], bottom=(MAG, CYAN)[k % 2], sleeves='none', hair=('pony', 'bun', 'long', 'afro')[k], s=1.0)
-        P.figure(sc, -330 + k * 130, -120, z=156, stride=38, arm_l='out', arm_r='out', bob=7, rate=1.4, phase=0.5 * (k % 2), detail=1, **d)
-    g.cyl(DARK, (330, 60, 156), 120, 46, steps=10)
-    g.cyl(CYAN, (330, 60, 200), 104, 5, steps=10)
-    P.figure(sc, 330, 60, z=204, arm_l='vee', arm_r='vee', swing_l=20, swing_r=-20, bob=260, rate=0.36, phase=0.1,
-             **guest(r, top=AMBER, bottom=RED, wear='swim', sleeves='long', build='slim', hair='short'))
-    mascot(sc, 'frog', -440, -170, z=156, yaw=20, s=1.1, phase=0.6, rate=1.2, bob=7)
+        d = guest(r, wear='skirt', top=(CYAN, MAG)[k % 2], bottom=(MAG, CYAN)[k % 2], sleeves='none', hair=('pony', 'bun', 'long', 'afro')[k])
+        d['s'] = 1.5
+        P.figure(sc, -400 + k * 175, -130, z=156, stride=40, arm_l='out', arm_r='out', bob=10, rate=1.4, phase=0.5 * (k % 2), detail=1, **d)
+    g.cyl(DARK, (360, 40, 156), 150, 46, steps=10)
+    g.cyl(CYAN, (360, 40, 200), 132, 5, steps=10)
+    d = guest(r, top=AMBER, bottom=RED, wear='swim', sleeves='long', build='slim', hair='short')
+    d['s'] = 1.5
+    P.figure(sc, 360, 40, z=204, arm_l='vee', arm_r='vee', swing_l=20, swing_r=-20, bob=400, rate=0.3, phase=0.1, **d)
+    mascot(sc, 'frog', 130, 120, z=156, yaw=10, s=1.5, phase=0.6, rate=1.2, bob=9, arm_l='wave', swing_l=-24)
 
 
 def stage_b(sc):
@@ -427,16 +438,21 @@ def stage_b(sc):
     g.box(MAG, (0, 190, 500), (1000, 30, 60))
     bunting(g, (-480, 190, 460), (480, 190, 460), n=12, drop=48)
     for k, px in enumerate((-250, 20, 290)):
-        g.box(WHITE, (px, 0, 190), (8, 8, 100))
-        for a in range(10):
-            a0, a1 = a * math.pi / 5.0, (a + 1) * math.pi / 5.0
-            tilt_box(g, (RED, AMBER, MAG)[k], (px, math.cos(a0) * 62, 300 + math.sin(a0) * 62), (px, math.cos(a1) * 62, 300 + math.sin(a1) * 62), 9, 9)
-        P.quadruped(sc, px, 0, z=140, yaw=90, length=74, height=52, girth=22, neck=16, neck_up=35, head=20, tail=24, wag=34, stride=26,
-                    rate=0.8, phase=0.33 * k, bob=150, body=('#e8c26a', WHITE, '#8e5a3a')[k], ears=('#8e5a3a', '#22202a', '#5e3b28')[k])
-    P.figure(sc, -420, -120, z=140, yaw=-50, arm_r='point', swing_r=14, axis_r='x', arm_l='hip', rate=0.8,
-             **guest(r, top=RED, bottom=NAVY, hat='cowboy', hat_col=AMBER, sleeves='long'))
-    P.figure(sc, 430, -130, z=140, yaw=40, arm_l='hold', arm_r='hold', swing_l=13, swing_r=-13, axis_l='z', axis_r='z', rate=2.4, **staff(r))
-    P.figure(sc, 150, -160, z=140, yaw=170, arm_l='up', arm_r='up', bob=10, rate=1.6, phase=0.4, **kid(r))
+        g.box(WHITE, (px, 0, 200), (10, 10, 120))
+        for a in range(12):                                     # hoops 2 m across
+            a0, a1 = a * math.pi / 6.0, (a + 1) * math.pi / 6.0
+            tilt_box(g, (RED, AMBER, MAG)[k], (px, math.cos(a0) * 100, 360 + math.sin(a0) * 100), (px, math.cos(a1) * 100, 360 + math.sin(a1) * 100), 13, 13)
+        P.quadruped(sc, px, 0, z=140, yaw=90, s=1.7, length=74, height=52, girth=22, neck=16, neck_up=35, head=20, tail=24, wag=34, stride=26,
+                    rate=0.7, phase=0.33 * k, bob=230, body=('#e8c26a', WHITE, '#8e5a3a')[k], ears=('#8e5a3a', '#22202a', '#5e3b28')[k])
+    d = guest(r, top=RED, bottom=NAVY, hat='cowboy', hat_col=AMBER, sleeves='long')
+    d['s'] = 1.5
+    P.figure(sc, -430, -110, z=140, yaw=-50, arm_r='point', swing_r=14, axis_r='x', arm_l='hip', rate=0.7, **d)
+    d = staff(r)
+    d['s'] = 1.5
+    P.figure(sc, 440, -120, z=140, yaw=40, arm_l='hold', arm_r='hold', swing_l=13, swing_r=-13, axis_l='z', axis_r='z', rate=2.4, **d)
+    d = kid(r)
+    d['s'] = 1.0
+    P.figure(sc, 150, -160, z=140, yaw=170, arm_l='up', arm_r='up', bob=14, rate=1.6, phase=0.4, **d)
 
 
 def _meet(kind, seed):
@@ -676,15 +692,62 @@ def pony_ring(sc):
 
 
 def doves(sc):
-    """A flock of white doves wheeling over the park: ten birds, each 2.6 m across so that they read from the road,
-    9 to 16 m up, going round at their own speeds. Saved with the always-moving master."""
+    """A flock of white doves wheeling over the park: nine birds, each 3.5 to 4 m across and one flat near-white all
+    over (with shaded wings and the cel pass's ink they read as crows at their size), 9 to 16 m up, going round at their
+    own speeds. Saved with the always-moving master; lifted to a steady glow of 0.3 (they fly 46 m and more out)."""
     r = random.Random(103)
-    for k in range(10):
+    for k in range(9):
         a = r.uniform(0, math.pi * 2.0)
         rad = r.uniform(500, 1300)
         z = r.uniform(900, 1600)
-        P.bird(sc, math.cos(a) * rad, math.sin(a) * rad, z, heading=math.degrees(a) + 90.0, span=r.uniform(230, 290), body='#fff6ea', wing='#e8e0f0',
-               beak=AMBER, phase=r.random(), rate=r.uniform(1.6, 2.2), flap=34, orbit=(0, 0, r.uniform(0.05, 0.08)))
+        P.bird(sc, math.cos(a) * rad, math.sin(a) * rad, z, heading=math.degrees(a) + 90.0, span=r.uniform(350, 400), body=WHITE, wing=WHITE,
+               beak=WHITE, phase=r.random(), rate=r.uniform(1.4, 1.9), flap=34, orbit=(0, 0, r.uniform(0.05, 0.08)))
+
+
+def sky_deck(sc):
+    """The look-out over the lagoon: a tower 25 m high on four banded legs, built to stand on the valley floor beside the
+    coaster so that its deck is at the height of the rails. On the deck, 1.5 times life size: ten guests in two rows
+    waving and hopping at the chase, the giraffe waving in the middle, one of the staff; a striped awning with a row of
+    steady lamps, two flags. The legs go 6 m under z = 0 so that it stands in a hollow as well as on a hump."""
+    r = random.Random(109)
+    g = sc.still()
+    H = 2500.0
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            g.box(PLUM, (sx * 600, sy * 190, (H - 600) / 2.0), (56, 56, H + 600))
+            for k in range(4):
+                g.box(MAG if k % 2 == 0 else CREAM, (sx * 600, sy * 190, 500 + k * 560), (64, 64, 150))
+    for k in range(4):
+        z0, z1 = 150 + k * 580, 150 + (k + 1) * 580
+        tilt_box(g, GREY_L, (-600 if k % 2 == 0 else 600, -190, z0), (600 if k % 2 == 0 else -600, -190, z1), 18, 18)
+    g.box(CREAM, (0, 0, H - 10), (1460, 520, 20))
+    stripes(g, -730, 730, -262, H - 110, H - 20, (MAG, CREAM, CYAN, CREAM), 12)
+    g.box(GOLD, (0, -262, H - 4), (1470, 8, 12))
+    bulbs(g, (-700, -270, H - 60), (700, -270, H - 60), 12, size=16.0)
+    g.box(CREAM, (0, 130, H + 40), (1400, 240, 80))                      # the back row's step
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            g.box(PLUM, (sx * 715, sy * 245, H + 300), (14, 14, 600))
+        g.box(PLUM, (sx * 715, 0, H + 760), (10, 10, 340))
+        g.box((CYAN, AMBER)[sx > 0], (sx * 715 + 70, 0, H + 880), (140, 5, 90))
+    for k in range(10):
+        tilt_box(g, MAG if k % 2 else CREAM, (-730 + (k + 0.5) * 146, 260, H + 640), (-730 + (k + 0.5) * 146, -280, H + 560), 146, 8)
+    bulbs(g, (-715, -284, H + 545), (715, -284, H + 545), 12, size=16.0)
+    acts = (dict(arm_l='up', arm_r='up', swing_l=14, swing_r=-14, bob=14, rate=1.6), dict(arm_r='wave', swing_r=28, bob=5, rate=1.3),
+            dict(arm_l='vee', arm_r='vee', swing_l=10, swing_r=-10, bob=16, rate=1.4), dict(arm_r='point', arm_l='hip', swing_r=10, axis_r='x', rate=0.7),
+            dict(arm_l='hold', arm_r='hold', swing_l=13, swing_r=-13, axis_l='z', axis_r='z', rate=2.4, bob=3))
+    k = 0
+    for row, (y, z, xs) in enumerate(((-150, H, (-600, -420, -240, 240, 420, 600)), (130, H + 80, (-510, -330, 330, 510)))):
+        for x in xs:
+            d = guest(r)
+            d.update(acts[(k * 3 + row) % len(acts)])
+            d['s'] = 1.5
+            P.figure(sc, x + r.uniform(-14, 14), y, z=z, yaw=r.uniform(-14, 14), phase=r.random(), react=True, detail=0, **d)
+            k += 1
+    mascot(sc, 'giraffe', 0, -120, z=H, s=1.6, phase=0.1, rate=1.0, bob=8, arm_l='wave', swing_l=-24, react=True)
+    d = staff(r)
+    d['s'] = 1.5
+    P.figure(sc, 0, 130, z=H + 80, arm_r='wave', swing_r=26, arm_l='hip', rate=1.1, bob=4, detail=0, **d)
 
 
 # ------------------------------------------------------------------------------------------ the film crew's own piece here
@@ -726,6 +789,28 @@ def crew_tower(sc):
     C.case(g, 330, 150)
 
 
+def raised(fn, dz, L, W, cy=0.0):
+    """A scene of the shared crew kit (built by its own function, untouched) stood on a rostrum dz high: everything it
+    drew goes up by dz, its movements' pivots with it, and a pink-and-white deck is put under it. The crew then stands
+    24 m out, over the verge's hoarding, where it may be lit (lift())."""
+    def build(sc):
+        fn(sc)
+        xf = unreal.Transform(location=unreal.Vector(0.0, 0.0, float(dz)))
+        for key in sc.order:
+            model, mo = sc.parts[key]
+            for pm in model.meshes.values():
+                unreal.GeometryScript_MeshTransforms.transform_mesh(pm, xf)
+            pv = mo['pivot']
+            mo['pivot'] = (pv[0], pv[1], pv[2] + dz)
+        g = sc.still()
+        g.box(C.GREY, (0, cy, (dz - 10) / 2.0), (L - 20, W - 20, dz - 10))
+        g.box(C.WOOD, (0, cy, dz - 5), (L, W, 10))
+        stripes(g, -L / 2.0, L / 2.0, cy - W / 2.0, 6, dz - 10, (C.PINK, C.WHITE), max(int(L / 100.0), 4))
+    build.__doc__ = fn.__doc__
+    return build
+
+
+CW = C.WARDROBES['Park']
 PAR = dict(grow=(520.0, 20.0, 60.0), grow_down=(520.0, 20.0, 0.0))
 JOBS = [
     ('SM_ParkParade_A', lit(parade_a), PAR),
@@ -733,17 +818,27 @@ JOBS = [
     ('SM_ParkParade_C', lit(parade_c), PAR),
     ('SM_ParkParade_D', lit(parade_d), PAR),
     ('SM_ParkHighWire', lit(high_wire), dict(grow=(340.0, 20.0, 60.0), grow_down=(340.0, 20.0, 0.0))),
-    ('SM_ParkStage_A', lit(stage_a), dict(grow=(60.0, 60.0, 300.0))),
-    ('SM_ParkStage_B', lit(stage_b), dict(grow=(60.0, 60.0, 190.0))),
+    ('SM_ParkStage_A', lit(stage_a), dict(grow=(60.0, 60.0, 460.0))),
+    ('SM_ParkStage_B', lit(stage_b), dict(grow=(60.0, 60.0, 280.0))),
     ('SM_ParkMeet_A', lit(_meet('giraffe', 67))),
     ('SM_ParkMeet_B', lit(_meet('hippo', 71))),
     ('SM_ParkQueueTower', lit(queue_tower), dict(grow=(300.0, 60.0, 60.0), grow_down=(300.0, 60.0, 0.0))),
-    ('SM_ParkGrandstand', lit(grandstand, 0.05)),
+    ('SM_ParkGrandstand', lit(grandstand, 0.1)),
     ('SM_ParkCherryPicker', lit(cherry_picker)),
     ('SM_ParkPonyRing', lit(pony_ring)),
-    ('SM_ParkFarCrowd', lit(far_crowd, 0.03), dict(far=True)),
-    ('SM_ParkDoves', lit(doves, 0.06), dict(far=True, grow=(400.0, 400.0, 100.0), grow_down=(400.0, 400.0, 0.0))),
+    ('SM_ParkFarCrowd', lit(far_crowd, 0.05), dict(far=True)),
+    ('SM_ParkDoves', lit(doves, 0.3), dict(far=True, grow=(400.0, 400.0, 100.0), grow_down=(400.0, 400.0, 0.0))),
     ('SM_ParkCrewTower', lit(crew_tower)),
+    ('SM_ParkSkyDeck', lit(sky_deck, 0.1)),
+    # the shared crew kit's scenes, wardrobe 'Park', on a rostrum 0.9 m high and lit (stand them 26.4 m out)
+    ('SM_ParkCrewApplause', lit(raised(C.applause(CW), 90.0, 840.0, 260.0, 10.0))),
+    ('SM_ParkCrewCamera', lit(raised(C.camera(CW), 90.0, 700.0, 320.0, -30.0))),
+    ('SM_ParkCrewStunt', lit(raised(C.stunt(CW), 90.0, 900.0, 440.0, 0.0))),
+    ('SM_ParkCrewVillage', lit(raised(C.village(CW), 90.0, 640.0, 340.0, -30.0))),
+    # and its tall scenes as they are, lit
+    ('SM_ParkCrewCrane', lit(C.crane(CW)), dict(grow=(60.0, 60.0, 120.0))),
+    ('SM_ParkCrewLights', lit(C.lights(CW))),
+    ('SM_ParkCrewCatering', lit(C.catering(CW))),
 ]
 
 

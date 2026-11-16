@@ -1,12 +1,12 @@
 """FULL THROTTLE (Unreal) the population of Ice Mountain: THE WATCHERS (an extra worker's kit, 15 Nov 2026).
 
-The people who watch the chase from 28 to 60 m: a race-finish stand under a chequered gantry, crowds on ploughed
+The people who watch the chase from 30 to 56 m: a race-finish stand under a chequered gantry, crowds on ploughed
 snow banks behind an orange net, a scaffold tower of flag wavers, a snow groomer with people on its roof, a lift
 platform with a queue of skiers. Raised, massed, in hot ski-suit colours, with big flags (stripes and blocks,
 never words). Every figure hops or waves out of step and livens up as the chase comes by (react).
 
 Looks only: no collision, no glow, nothing that blinks. Every piece is TALL (24 m or more from the road; the
-table writes none nearer than 28 m). The hill falls 7 in 100 along the road and a piece stands level, so every
+table writes none nearer than 30 m). The hill falls 7 in 100 along the road and a piece stands level, so every
 piece has a foot that goes 1.2 m into the ground.
 
 Meshes: /Game/People/IceMountain/SM_Watch*   (that prefix is this kit's alone on this level)

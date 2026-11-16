@@ -22,7 +22,7 @@ sight. The main cast stands on trestles 28 m out. So the watchers stand
                              line of pennants overhead, their bundles at the rail.
     SM_WatchFire       TALL  a fire crew resting on its raised stand (no vehicle, nothing red: ENGINE 13 is a red fire
                              engine): four sit on the edge with their legs hanging, one waves a helmet, one drinks,
-                             under a striped canopy beside a water tank.
+                             beside a water tank under its striped canopy.
     SM_WatchTower      TALL  a survey tower, its deck 11.5 m up: seven watchers nearly twice life size, big flags, a spinning
                              anemometer and a windsock. Stands behind a lava channel, over the basalt wall.
     SM_WatchTerrace_A  TALL  a terrace of basalt, four steps, twenty-four villagers hopping out of step under a long
@@ -234,18 +234,18 @@ def fire_stand(sc):
     for k in range(4):
         g.box(WHITE, (-L / 2.0 + 10 + k * (L - 20) / 3.0, W / 2.0 - 8, DECK + 52), (8, 8, 104))
     g.box(WHITE, (0, W / 2.0 - 8, DECK + 100), (L, 7, 9))
-    # the water tank at one end, the canopy over the middle, hose coils and cans
+    # the water tank at one end under the canopy, hose coils and cans at the other
     g.cyl('#9fd8f0', (-345, 40, DECK), 78, 170, steps=10)
     g.cyl(WHITE, (-345, 40, DECK + 170), 82, 12, steps=10)
     g.box(STEEL, (-345, -44, DECK + 40), (16, 20, 16))
-    for sx, sy in ((-190, -120), (-190, 130), (330, -120), (330, 130)):
+    for sx, sy in ((-436, -120), (-436, 130), (-70, -120), (-70, 130)):     # the canopy shades the tank's end only: the crew sit in the light
         g.box(STEEL, (sx, sy, DECK + 150), (8, 8, 300))
-    n = 7
+    n = 5
     for k in range(n):
-        g.box((LIME, WHITE)[k % 2], (-190 + (k + 0.5) * 520.0 / n, 5, DECK + 306), (520.0 / n, 290, 10))
-    cv = sc.part(P.motion(swing=5.0, pivot=(70.0, -140.0, DECK + 300.0), axis=0.0, rate=0.7))      # the canopy's valance stirs
+        g.box((LIME, WHITE)[k % 2], (-440 + (k + 0.5) * 376.0 / n, 5, DECK + 306), (376.0 / n, 290, 10))
+    cv = sc.part(P.motion(swing=5.0, pivot=(-252.0, -140.0, DECK + 300.0), axis=0.0, rate=0.7))      # the canopy's valance stirs
     for k in range(n):
-        cv.box((WHITE, LIME)[k % 2], (-190 + (k + 0.5) * 520.0 / n, -142, DECK + 280), (520.0 / n, 4, 42))
+        cv.box((WHITE, LIME)[k % 2], (-440 + (k + 0.5) * 376.0 / n, -142, DECK + 280), (376.0 / n, 4, 42))
     for i, x in enumerate((240, 300)):
         g.cyl(LIME, (x, 95, DECK + i * 0), 34, 26, steps=8)
         g.cyl(DARK, (x, 95, DECK + 26), 16, 3, steps=6)

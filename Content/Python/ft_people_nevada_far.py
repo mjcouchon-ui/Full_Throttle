@@ -13,6 +13,9 @@ and one big gesture each.
     SM_FarPronghorns    a band of pronghorn bounding across the flat, out of step, white rumps flashing
     SM_FarRunners       (middle distance, 38 m and out) a rock ledge: roadrunners sprinting its length, jackrabbits bounding
 
+What the game's frames taught (15 Nov): at 150 m and beyond the haze turns everything pink and the ink eats thin dark
+shapes, so coats are white, gold, cream and black, bodies are deep, and the ridge riders are DARK against the sky.
+
 All but the last are saved far=True (M_PeopleFar: they keep moving past 180 m). Everything moves through the vertex
 shader; no light, no words, no marks. The placing rules are the "far" block of Source/FullThrottle/FTPeopleL2.inl.
 Run in the editor:  import ft_people_nevada_far; ft_people_nevada_far.run()
@@ -25,7 +28,7 @@ from ft_desert import rod, tilt_box
 DIR = '/Game/People/Nevada'
 
 SAND, SANDST, SANDST_D, SANDST_L, ROCK_R, TALUS = '#f2c58a', '#e0784a', '#b8553a', '#f59a62', '#c9603e', '#a04a34'
-PALE, DUST = '#ffdcae', '#fff1dc'          # the trail a herd runs on, and what it kicks up
+PALE, DUST = '#f7cf98', '#fff1dc'          # the trail a herd runs on, and what it kicks up
 SAGE, SAGE_D, WOOD, BARK_D = '#8fb86a', '#5f8f4a', '#9a6a44', '#6a4c36'
 INK, NAVY, TEAL, RED, MAG, CYAN = '#22202a', '#2b2350', '#2fc6c0', '#ff2d3c', '#ff4fb8', '#2ee6ff'
 CREAM, WHITE, GOLD, YEL, DENIM = '#f4efe6', '#fff6ea', '#ffc93c', '#ffe14d', '#3a5fa8'
@@ -33,7 +36,7 @@ ROCK_TONES = (TALUS, SANDST_D, ROCK_R, SANDST, SANDST_L)
 
 
 # ------------------------------------------------------------------------------------------ the ground a piece brings
-def swell(g, r, L, D, H, tones=(SANDST_D, SANDST, PALE), foot=-150.0, top=0.5, rough=0.12, n=7):
+def swell(g, r, L, D, H, tones=(SANDST_D, SANDST, PALE), foot=-150.0, top=0.5, rough=0.12, n=7, step=500.0):
     """A long low rise along X, `n` points a side, each bed stepping in: the top bed is the pale strip life runs on.
     Returns the half depth of the flat top."""
     beds = len(tones)
@@ -47,11 +50,11 @@ def swell(g, r, L, D, H, tones=(SANDST_D, SANDST, PALE), foot=-150.0, top=0.5, r
         for i in range(n):          # the road's side, left to right
             u = i / (n - 1.0)
             taper = 0.35 + 0.65 * math.sin(math.pi * (0.08 + 0.84 * u))
-            pts.append(((u - 0.5) * (L + 500.0 * (beds - k)), -half * f * taper * edge[i]))
+            pts.append(((u - 0.5) * (L + step * (beds - k)), -half * f * taper * edge[i]))
         for i in range(n):          # the far side, right to left
             u = 1.0 - i / (n - 1.0)
             taper = 0.35 + 0.65 * math.sin(math.pi * (0.08 + 0.84 * u))
-            pts.append(((u - 0.5) * (L + 500.0 * (beds - k)), half * f * taper * edge[n + i]))
+            pts.append(((u - 0.5) * (L + step * (beds - k)), half * f * taper * edge[n + i]))
         g.plan(col, pts, z0, z1)
     return half * top * 0.35
 
@@ -193,12 +196,12 @@ def wagon_train(sc):
         rod(m, cover, (-150, 0, 180), (150, 0, 180), 86, steps=8)                 # the canvas, flared at both ends
         for sx in (-1, 1):
             rod(m, cover, (sx * 150, 0, 182), (sx * 176, 0, 184), 100, steps=8)
-            rod(m, trim, (sx * 62 - 9, 0, 180), (sx * 62 + 9, 0, 180), 89, steps=8)   # two bands of the outfit's colour
+            rod(m, trim, (sx * 62 - 9, 0, 180), (sx * 62 + 9, 0, 180), 89, steps=7)   # two bands of the outfit's colour
         m.box(BARK_D, (178, 0, 186), (6, 120, 120))                               # the dark mouth of the cover
         for wx, wr in ((-104, 80), (112, 62)):
             for side in (-1, 1):
-                rod(m, trim, (wx, side * 66, wr), (wx, side * 86, wr), wr, steps=8)
-                rod(m, GOLD, (wx, side * 85, wr), (wx, side * 90, wr), wr * 0.4, steps=6)
+                rod(m, trim, (wx, side * 66, wr), (wx, side * 86, wr), wr, steps=7)
+                m.box(GOLD, (wx, side * 88, wr), (wr * 0.6, 5, wr * 0.6))
         m.box(RIDER_TOPS[(i + 2) % 6], (206, -24, 196), (30, 44, 66))             # the driver
         m.box(r.choice(P.SKINS), (208, -24, 244), (28, 30, 32))
         m.box(INK if i == 1 else GOLD, (208, -24, 262), (70, 70, 7))
@@ -222,21 +225,21 @@ def wagon_train(sc):
 
 
 def ridge_riders(sc):
-    """A ridge of the canyon's rock with a pale crest, and five riders in single file along it against the sky: the
-    leader carries a pennant, two wave their hats at the chase below."""
+    """A ridge of the canyon's rock, and five riders in single file along its crest against the sky: dark horses, bright
+    shirts, the leader carrying a pennant, two waving their hats at the chase below. Five times life size: they stand
+    a quarter of a kilometre off."""
     r = random.Random(311)
     g = sc.still()
-    L, H, S = 9000.0, 1300.0, 3.8
-    swell(g, r, L, 3000, H, tones=(TALUS, SANDST_D, ROCK_R, SANDST, PALE), top=0.3, foot=-300.0, rough=0.16, n=8)
-    for k in range(6):
-        bush(g, r, -L / 2.0 + 900 + k * 1450 + r.uniform(-200, 200), r.choice((-1, 1)) * r.uniform(150, 210), H - 130, 1.6)
-    TL, sp, rate = 7800.0, 420.0, 1.5
+    L, H, S = 9000.0, 1100.0, 5.0
+    swell(g, r, L, 3000, H, tones=(TALUS, SANDST_D, ROCK_R, SANDST, SAND), top=0.3, foot=-300.0, rough=0.16, n=8, step=400.0)
+    TL, sp, rate = 8000.0, 480.0, 1.4
+    coats = ((INK, INK), ('#5e3b28', INK), (INK, WHITE), ('#3b2a22', INK), (INK, INK))
     for i in range(5):
-        coat, mane = HORSE_COATS[(i * 3 + 1) % len(HORSE_COATS)]
+        coat, mane = coats[i]
         act = ('flag', 'hat', None, 'hat', None)[i]
-        d = hand_look(r, i, act, flag=(RED if i == 0 else MAG), stripe=WHITE, swing=(12 if act == 'flag' else 30))
-        beast(sc, 2400.0 - i * 1250.0 + r.uniform(-90, 90), r.uniform(-50, 50), H, s=S * r.uniform(0.94, 1.06), coat=coat, mane=mane, tail=62, tail_w=14,
-              neck_up=48, phase=i * 0.23, rate=rate, bob=12, stride=24, pitch=3, travel=(TL, sp), rider=d)
+        d = hand_look(r, i, act, flag=RED, stripe=WHITE, swing=(12 if act == 'flag' else 30), hat=(WHITE if i % 2 else GOLD), bottom=NAVY)
+        beast(sc, 3000.0 - i * 1550.0 + r.uniform(-90, 90), r.uniform(-40, 40), H, s=S * r.uniform(0.95, 1.05), coat=coat, mane=mane, tail=62, tail_w=18,
+              neck_up=48, phase=i * 0.23, rate=rate, bob=16, stride=24, pitch=3, travel=(TL, sp), rider=d)
 
 
 def mustangs(sc):
@@ -314,7 +317,7 @@ def pronghorns(sc):
               stride=36, pitch=9, travel=(L, sp))
 
 
-def _roadrunner(sc, x, y, z, s, phase, travel, rate=4.2):
+def _roadrunner(sc, x, y, z, s, phase, travel, rate=4.2, body=DENIM):
     """A roadrunner at full stretch, heading +X: neck and tail level, crest back, long legs a blur."""
     tv = (float(travel[0]), float(travel[1]) / float(travel[0]))
     common = dict(phase=phase, rate=rate, bob=5.0, base=(x, y), travel=tv)
@@ -323,22 +326,22 @@ def _roadrunner(sc, x, y, z, s, phase, travel, rate=4.2):
         return (x + s * p[0], y + s * p[1], z + s * p[2])
 
     b = sc.part(P.motion(swing=5.0, pivot=W((0, 0, 60)), axis=90.0, **common), (x, y, z), 0.0, s)
-    tilt_box(b, NAVY, (-26, 0, 60), (26, 0, 68), 26, 26)
-    b.box(CREAM, (0, 0, 52), (44, 27, 9))
-    tilt_box(b, NAVY, (22, 0, 66), (52, 0, 84), 14, 14)                    # the neck, stretched
-    b.box(NAVY, (58, 0, 88), (26, 16, 16))
-    b.box(RED, (56, 0, 88), (10, 17, 7))                                   # the patch behind the eye
-    tilt_box(b, INK, (50, 0, 96), (30, 0, 108), 8, 9)                      # the crest
-    tilt_box(b, GOLD, (70, 0, 87), (98, 0, 85), 6, 6)                      # the beak
-    tilt_box(b, NAVY, (-24, 0, 62), (-86, 0, 80), 12, 7)                   # the long tail
-    b.box(WHITE, (-84, 0, 82), (14, 13, 6))
+    tilt_box(b, body, (-26, 0, 62), (26, 0, 70), 28, 24)
+    b.box(WHITE, (0, 0, 53), (50, 29, 14))
+    tilt_box(b, WHITE, (22, 0, 66), (52, 0, 84), 15, 15)                   # the neck, stretched
+    b.box(body, (58, 0, 90), (28, 18, 18))
+    b.box(RED, (55, 0, 89), (12, 19, 9))                                   # the patch behind the eye
+    tilt_box(b, INK, (52, 0, 99), (28, 0, 114), 9, 10)                     # the crest
+    tilt_box(b, GOLD, (70, 0, 89), (102, 0, 87), 8, 8)                     # the beak
+    tilt_box(b, body, (-24, 0, 64), (-90, 0, 84), 14, 9)                   # the long tail
+    b.box(WHITE, (-90, 0, 86), (18, 15, 8))
     for side, sgn in ((-1, 1), (1, -1)):
         m = sc.part(P.motion(swing=sgn * 42.0, pivot=W((0, side * 7, 52)), axis=90.0, **common), (x, y, z), 0.0, s)
-        m.box(GOLD, (0, side * 7, 26), (6, 6, 54))
-        m.box(GOLD, (7, side * 7, 3), (18, 7, 5))
+        m.box(GOLD, (0, side * 7, 26), (7, 7, 54))
+        m.box(GOLD, (8, side * 7, 3), (20, 8, 6))
 
 
-def _jackrabbit(sc, x, y, z, s, phase, travel, rate=1.5, hop=60.0, coat='#d9a070'):
+def _jackrabbit(sc, x, y, z, s, phase, travel, rate=1.5, hop=60.0, coat='#eebf98'):
     """A jackrabbit in mid bound, heading +X: all hind leg and ear, the ears black at the tips."""
     tv = (float(travel[0]), float(travel[1]) / float(travel[0]))
     common = dict(phase=phase, rate=rate, bob=hop, base=(x, y), travel=tv)
@@ -360,28 +363,28 @@ def _jackrabbit(sc, x, y, z, s, phase, travel, rate=1.5, hop=60.0, coat='#d9a070
 
 
 def runners(sc):
-    """A long ledge of red rock, sage and a barrel cactus on it: three roadrunners sprint its length nose to tail, and
-    four jackrabbits bound the other way, ears up. They come round again."""
+    """A ledge of red rock, sage and a barrel cactus on it: three roadrunners sprint its length nose to tail, and four
+    jackrabbits bound along behind them, ears up. They come round again."""
     r = random.Random(351)
     g = sc.still()
-    L, H = 2100.0, 240.0
-    hy = swell(g, r, L, 620, H, tones=(TALUS, SANDST_D, ROCK_R, PALE), top=0.62, rough=0.14)
+    L, H = 2300.0, 240.0
+    swell(g, r, L, 640, H, tones=(TALUS, SANDST_D, ROCK_R, SAND), top=0.62, rough=0.14, step=110.0)
     for k in range(4):
-        bush(g, r, -L / 2.0 + 300 + k * 520 + r.uniform(-80, 80), 150 + r.uniform(-20, 20), H - 30, 0.55)
-    for cx in (-520, 610):
+        bush(g, r, -L / 2.0 + 300 + k * 560 + r.uniform(-80, 80), 150 + r.uniform(-20, 20), H - 30, 0.55)
+    for cx in (-560, 660):
         g.cyl(SAGE_D, (cx, 120, H - 10), 34, 96, steps=7, top_r=28)
         g.box(MAG, (cx, 120, H + 92), (20, 20, 12))
-    TL = 1900.0
+    TL = 2100.0
     for i in range(3):
-        _roadrunner(sc, 300.0 - i * 330.0, -70.0 + i * 12.0, H, 2.1, i * 0.37, (TL, 760.0))
+        _roadrunner(sc, 500.0 - i * 400.0, -80.0 + i * 12.0, H, 2.6, i * 0.37, (TL, 760.0), body=(DENIM, TEAL, DENIM)[i])
     for i in range(4):
-        _jackrabbit(sc, -700.0 + i * 420.0 + r.uniform(-40, 40), 30.0 + (i % 2) * 40.0, H, 2.0, r.random(), (TL, 300.0), rate=r.uniform(1.3, 1.7),
-                    hop=r.uniform(60, 95), coat=('#d9a070', '#b87a50')[i % 2])
+        _jackrabbit(sc, -820.0 + i * 480.0 + r.uniform(-40, 40), 40.0 + (i % 2) * 40.0, H, 2.4, r.random(), (TL, 300.0), rate=r.uniform(1.3, 1.7),
+                    hop=r.uniform(70, 110), coat=('#eebf98', '#f6d3b4')[i % 2])
 
 
 JOBS = [
     ('SM_FarWagonTrain', wagon_train, dict(far=True, grow=(200.0, 120.0, 120.0), grow_down=(200.0, 120.0, 0.0))),
-    ('SM_FarRidgeRiders', ridge_riders, dict(far=True, grow=(200.0, 120.0, 160.0), grow_down=(200.0, 120.0, 0.0))),
+    ('SM_FarRidgeRiders', ridge_riders, dict(far=True, grow=(200.0, 120.0, 200.0), grow_down=(200.0, 120.0, 0.0))),
     ('SM_FarMustangs', mustangs, dict(far=True, grow=(200.0, 120.0, 160.0), grow_down=(200.0, 120.0, 0.0))),
     ('SM_FarCattleDrive', cattle_drive, dict(far=True, grow=(200.0, 120.0, 120.0), grow_down=(200.0, 120.0, 0.0))),
     ('SM_FarPronghorns', pronghorns, dict(far=True, grow=(200.0, 120.0, 500.0), grow_down=(200.0, 120.0, 0.0))),

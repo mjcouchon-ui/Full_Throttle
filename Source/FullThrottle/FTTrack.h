@@ -154,6 +154,10 @@ public:
 	FTransform TransformAt(float D, float X, float H, float YawOffsetDeg = 0.f) const;
 	/** Nearest road distance to a world point, searching around HintD first. Also returns x and h. */
 	float Locate(const FVector& P, float HintD, float& OutX, float& OutH) const;
+#if !UE_BUILD_SHIPPING
+	/** -ftlocatecheck: logs how far Locate reads a point from where ToWorld put it (FTLOCATE). */
+	void LocateCheck() const;
+#endif
 	uint16 FlagsAt(float D) const { return Frames.Num() ? FrameAt(FMath::RoundToInt(D / Step)).Flags : 0; }
 	float StartDOfSection(int32 Section) const;
 	/** Distance where the next set piece of this kind starts, or -1. */

@@ -24,17 +24,18 @@
 #include "Math/TranslationMatrix.h"
 #include "Sound/SoundBase.h"
 
-// THE STUDIO LOT, INKED (the style ruling of 15 Nov 2026). The palette lives here and not in FTHUDStyle.h: the
-// brawl's HUD shares that header and this pass may not change it. The screens still ask for the names they always
+// THE STUDIO LOT, INKED (the style ruling of 15 Nov 2026). The palette lives here and not in FTHUDStyle.h: that
+// header is not this pass's to change, and the brawl's HUD keeps its own copy of its values (it does not include
+// it: Brawl/FTBrawlHUD.cpp, "the races' palette, value for value"). The screens still ask for the names they always
 // asked for (Ink, Steel, Active, Rule, White, Grey, the five signals); what each name IS has changed, and Box, Frame,
 // Plate, Control, Print and Meter decide what it becomes on a slate panel, on paper, on the wall and in the race.
 namespace FTLot
 {
 	// (the layout and easing tokens of FTHUDStyle.h, exactly as they are)
-	using FTHUDStyle::CanvasHeight; using FTHUDStyle::Safe; using FTHUDStyle::Inset; using FTHUDStyle::Gap; using FTHUDStyle::Corner;
-	using FTHUDStyle::IconSize; using FTHUDStyle::LabelSize; using FTHUDStyle::Body; using FTHUDStyle::Strong; using FTHUDStyle::Heading;
+	using FTHUDStyle::CanvasHeight; using FTHUDStyle::Safe; using FTHUDStyle::Inset; using FTHUDStyle::Gap;
+	using FTHUDStyle::LabelSize; using FTHUDStyle::Body; using FTHUDStyle::Strong; using FTHUDStyle::Heading;
 	using FTHUDStyle::Readout; using FTHUDStyle::Enter; using FTHUDStyle::Feedback; using FTHUDStyle::MenuEntrance; using FTHUDStyle::FocusSweep;
-	using FTHUDStyle::RowStagger; using FTHUDStyle::ClapperClose; using FTHUDStyle::ClapperTravel; using FTHUDStyle::Alpha; using FTHUDStyle::EaseOut;
+	using FTHUDStyle::ClapperClose; using FTHUDStyle::ClapperTravel; using FTHUDStyle::Alpha; using FTHUDStyle::EaseOut;
 
 	inline FLinearColor LotHex(uint32 Rgb) { return FLinearColor(FColor(uint8(Rgb >> 16), uint8(Rgb >> 8), uint8(Rgb))); }
 	const FLinearColor Ink = LotHex(0x16121E);          // outlines, hard shadows, the race's stickers, text on paper
@@ -59,8 +60,6 @@ namespace FTLot
 	const FLinearColor Red = LotHex(0xEE3C3E);          // danger
 	const FLinearColor Pink = LotHex(0xFF4FA3);         // focus, combo, finale
 	const FLinearColor Green = LotHex(0x76EAA0);        // armour nominal
-	const FLinearColor Lilac = LotHex(0xB7A6D9);        // the menus' wall, top
-	const FLinearColor Peach = LotHex(0xF6CBA6);        // ... and bottom
 	const FLinearColor Ledger = LotHex(0xE4EEDA);       // a ledger's stock
 	const FLinearColor LedgerBand = LotHex(0xC9E2C6);   // ... and its green bands
 }
@@ -305,15 +304,32 @@ void AFTHUD::Print(const FString& Str, float X, float Y, const FLinearColor& Col
 	// a colour chosen for a dark panel is ink on paper and on the wall
 	const bool bOnLight = ToneAt(X + (Measured > 0.f ? Measured * .5f : 6.f * S), Y + Height * S * .5f) == ETone::Light;
 	const FLinearColor Use = bOnLight ? InkFor(Color) : Color;
+	// (15 Nov, the owner: "some text is blurry".) A runtime font's glyphs are drawn at the font asset's own size and a
+	// scale on the item only stretches that bitmap: big titles and numerals came out soft. Text larger than the asset's
+	// size is therefore drawn at its real size (a ladder of 4-point steps, so that an animated size does not fill the
+	// glyph atlas), with only the small remainder, always a reduction, left to the item's scale.
+	auto Sharp = [&](FCanvasTextItem& It)
+	{
+		const float Total = Scale * S;
+		if (Font && Font->FontCacheType == EFontCacheType::Runtime && Total > 1.02f)
+		{
+			FSlateFontInfo Info = Font->GetLegacySlateFontInfo();
+			const float Want = Info.Size * Total, Drawn = FMath::CeilToFloat(Want / 4.f) * 4.f;
+			Info.Size = Drawn;
+			It.SlateFontInfo = Info;
+			It.Scale = FVector2D(Want / Drawn);
+		}
+		else It.Scale = FVector2D(Total);
+	};
 	if (bDisplay && !bSticker && Height >= Heading - .5f && Use.A > .5f)
 	{
 		// a title is printed twice: the pink plate a little off register, under the ink or the chalk
 		FCanvasTextItem Under(FVector2D(X + 2.f * S, Y + 2.f * S), FText::FromString(Str), Font, Alpha(Pink, Use.A * Fade));
-		Under.Scale = FVector2D(Scale * S);
+		Sharp(Under);
 		Canvas->DrawItem(Under);
 	}
 	FCanvasTextItem Item(FVector2D(X, Y), FText::FromString(Str), Font, Fade < 1.f ? Alpha(Use, Fade) : Use);
-	Item.Scale = FVector2D(Scale * S);
+	Sharp(Item);
 	Canvas->DrawItem(Item);
 }
 
@@ -813,7 +829,6 @@ void AFTHUD::DrawHUD()
 			UE_LOG(LogFT, Display, TEXT("FT TITLE logo compiling=%d size after=%dx%d"), bWas ? 1 : 0, TLogo->GetSizeX(), TLogo->GetSizeY());
 		}
 #endif
-		OrbitHeight = FMath::Max(1.f, float(MeasureF(FOrb ? FOrb.Get() : FD.Get(), TEXT("Hg"), 1.f).Y / S));
 		RajHeight = FMath::Max(1.f, float(MeasureF(FRaj ? FRaj.Get() : FB.Get(), TEXT("Hg"), 1.f).Y / S));
 		BunHeight = FMath::Max(1.f, float(MeasureF(DisplayFace(), TEXT("Hg"), 1.f).Y / S));
 		UE_LOG(LogFT, Display, TEXT("FT SKIN kit textures=%d"), FTSkin::Preload());   // all of the kit now, so nothing loads mid-race

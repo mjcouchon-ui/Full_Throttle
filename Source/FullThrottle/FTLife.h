@@ -38,7 +38,7 @@ protected:
 	/** The air itself: 600 cards in one mesh (SM_AirField), placed by its material (ft_life.py, M_Air). */
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> Field;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInstanceDynamic> FieldMat;
-	/** Optional extra: /Game/FX/Ambient/NS_Ambient_L<level>, if a level ever needs a real emitter as well. */
+	/** For a real emitter as well, if a level ever needs one. None has one, and nothing is loaded into it (Setup). */
 	UPROPERTY(Transient) TObjectPtr<UNiagaraComponent> Air;
 	int32 Level = -1;
 	float FullDensity = 1.f;

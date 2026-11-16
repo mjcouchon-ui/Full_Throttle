@@ -457,6 +457,9 @@ FTransform AFTTrack::ToolFrame(float D) const
 	return Frames.Num() > 1 ? TransformAt(D, 0.f, 0.f) : GetActorTransform();
 }
 
+static TAutoConsoleVariable<int32> CVarFTLocateNearest(TEXT("ft.LocateNearest"), 0,
+	TEXT("1 = Locate reads across and height in the nearest stored frame, as it did until 15 Nov 2026 (for before/after checks)."));
+
 float AFTTrack::Locate(const FVector& WorldP, float HintD, float& OutX, float& OutH) const
 {
 	OutX = OutH = 0.f;
@@ -481,10 +484,54 @@ float AFTTrack::Locate(const FVector& WorldP, float HintD, float& OutX, float& O
 	const FFTFrame& F = Frames[Best];
 	const FVector Dv = P - F.Pos;
 	const float Along = FMath::Clamp(FVector::DotProduct(Dv, F.Fwd), -Step, Step);
-	OutX = FVector::DotProduct(Dv, F.Right);
-	OutH = FVector::DotProduct(Dv, F.Up);
-	return FMath::Clamp(Best * Step + Along, 0.f, Length());
+	const float OutD = FMath::Clamp(Best * Step + Along, 0.f, Length());
+	// 15 Nov 2026: across and height are read in the frame AT that distance (the one Sample, ToWorld and TransformAt place
+	// things with), not in the nearest stored one. Stored frames are 2 m apart, so the point is up to 1 m of road from
+	// its nearest one; where the road rolls (corkscrews, the tubes, a banked wall unwinding) that frame is turned by up
+	// to 0.06 rad against the road under the point, and 11 m out from the centre line the height came out up to 70 cm
+	// wrong, swinging from too high to too low every 2 m of road. The car's glue, its stick and its put-back all act
+	// on that height: a car at the road's edge was pressed into the deck, or read as "under the deck" one frame after
+	// being put back on it (the owner: "the car seems to clip into the road sometimes"; 915 such put-backs in the
+	// logs of 15 Nov). The distance along is as before.
+	if (CVarFTLocateNearest.GetValueOnAnyThread() != 0)
+	{
+		OutX = FVector::DotProduct(Dv, F.Right);
+		OutH = FVector::DotProduct(Dv, F.Up);
+		return OutD;
+	}
+	const FFTFrame Fi = Sample(OutD);
+	const FVector Di = P - Fi.Pos;
+	OutX = FVector::DotProduct(Di, Fi.Right);
+	OutH = FVector::DotProduct(Di, Fi.Up);
+	return OutD;
 }
+
+#if !UE_BUILD_SHIPPING
+void AFTTrack::LocateCheck() const
+{
+	// -ftlocatecheck: a point put on the road with ToWorld must be read back by Locate where it was put. Tried half
+	// way between every two stored frames, 11 m out on both sides, at the car's ride height. "nearest" is what the
+	// reading in the nearest stored frame gave (Locate until 15 Nov 2026), for comparison.
+	float NewX = 0.f, NewH = 0.f, OldX = 0.f, OldH = 0.f, WorstD = 0.f;
+	const FTransform Inv = GetActorTransform().Inverse();
+	for (int32 i = 0; i + 1 < Frames.Num(); ++i)
+		for (int32 s = -1; s <= 1; s += 2)
+		{
+			const float D = (i + 0.5f) * Step, X = s * 1100.f, H = 94.f;
+			const FVector W = ToWorld(D, X, H);
+			float Lx = 0.f, Lh = 0.f;
+			const float Ld = Locate(W, D, Lx, Lh);
+			NewX = FMath::Max(NewX, FMath::Abs(Lx - X)); NewH = FMath::Max(NewH, FMath::Abs(Lh - H));
+			const FFTFrame& Fn = FrameAt(FMath::RoundToInt(Ld / Step));
+			const FVector Dn = Inv.TransformPosition(W) - Fn.Pos;
+			OldX = FMath::Max(OldX, FMath::Abs(FVector::DotProduct(Dn, Fn.Right) - X));
+			const float Eh = FMath::Abs(FVector::DotProduct(Dn, Fn.Up) - H);
+			if (Eh > OldH) { OldH = Eh; WorstD = D; }
+		}
+	UE_LOG(LogFT, Display, TEXT("FTLOCATE level=%d points=%d worst across/height off, cm: now %.1f/%.1f nearest-frame %.1f/%.1f (at D=%.0f)"),
+		LevelIndex, (Frames.Num() - 1) * 2, NewX, NewH, OldX, OldH, WorstD);
+}
+#endif
 
 float AFTTrack::StartDOfSection(int32 Section) const
 {
@@ -1467,6 +1514,9 @@ void AFTTrack::BuildMeshes()
 		Chunks.Add(PM);
 		UE_LOG(LogFT, Display, TEXT("FTBED level=%d bed=%d triangles floor z=%.0f (lowest land %.0f) %s"), LevelIndex, BedTris, FloorZ, MinZ, bSea ? TEXT("sea") : TEXT("land colour"));
 		UE_LOG(LogFT, Display, TEXT("FTTRACK level=%d frames=%d route=%08x solid=%08x solidTriangles=%d"), LevelIndex, Frames.Num(), RouteCrc, SolidCrc, SolidTris);
+#if !UE_BUILD_SHIPPING
+		if (FParse::Param(FCommandLine::Get(), TEXT("ftlocatecheck"))) LocateCheck();
+#endif
 		// The two CRCs are of the raw numbers, so they differ between the editor's binary and a packaged game: the same
 		// code compiled another way rounds its last bits differently (seen 15 Nov: every level's CRC differed in the
 		// packaged build while frames and triangles matched). This line is the one to compare across them: the route's

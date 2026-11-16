@@ -39,8 +39,6 @@ public:
 	/** From the title, level 1 picked: opens L_Day1Set and returns true, or false (no map, a bench, turned off). */
 	static bool GoToDay1(const UObject* Ctx);
 	static bool InDay1(const UObject* Ctx);
-	/** From the cutscene's last card: L1 BAYSHORE opens and its race starts, as the title's start did. False if not from the title. */
-	static bool Day1Over(const UObject* Ctx);
 
 	// Every day (run 77694): BEFORE THE DRIVE before its race (PRE-PRODUCTION's READY) and THE WRAP after it (the paycheck,
 	// before the night), on the same map; FTBrawlCutscene.cpp cuts 10 / 11. bDay1 = a day's cutscene runs for the career.

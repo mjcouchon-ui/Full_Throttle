@@ -194,110 +194,101 @@ for (const FPplRow& R : PplRows)
 
 {
 // ---- BEGIN far (ft_people_nevada_far.py) ----
-// The far band (150 m to the land's edge) and the running creatures. Every piece is a long one laid along the road
-// (yaw jitter 5 degrees), each herd on the pale swell it brings; a side at a time, so that the two sides never show
-// the same thing at once. SM_FarRunners is the one middle-distance piece (38 to 48 m, TALL: a 2.4 m rock ledge).
-Zone(TEXT("People far: state line"), 0.10f, 1.17f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 170.f, 215.f, 8, 2, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarPronghorns"), 160.f, 205.f, 8, 6, 1.00f, 1.00f, 0.08f, 1, 5.f);
+// The far band and the running creatures, on the OPEN stretches only (inside the rock cuts of the dry wash, Red Rock
+// Pass and the red rock return nothing beyond 45 m can be seen). Every piece is a long one laid along the road (yaw
+// jitter 5 degrees), each herd on the pale swell it brings. Herds: 140 to 195 m at their own size (3.3 to 3.8 times
+// life), or 215 to 275 m at 1.4 times that. Riders on their ridge: 255 to 285 m. SM_FarRunners is the one middle-
+// distance piece (38 to 48 m, TALL: a 2.4 m rock ledge). A side at a time, so the two sides never show the same thing.
+Zone(TEXT("People far: state line"), 0.10f, 1.15f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 140.f, 195.f, 8, 2, 1.00f, 1.00f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarPronghorns"), 140.f, 195.f, 8, 6, 1.00f, 1.00f, 0.08f, 1, 5.f);
 	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 255.f, 285.f, 12, 4, 1.00f, 1.00f, 0.08f, -1, 5.f);
 	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 255.f, 285.f, 12, 10, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 38.f, 46.f, 12, 3, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 38.f, 46.f, 12, 9, 1.00f, 1.00f, 0.08f, 1, 5.f);
-Zone(TEXT("People far: dry wash"), 1.17f, 2.43f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarCattleDrive"), 185.f, 235.f, 9, 1, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 180.f, 235.f, 9, 5, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 255.f, 285.f, 10, 3, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 255.f, 285.f, 10, 8, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 39.f, 46.f, 12, 7, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 39.f, 46.f, 12, 1, 1.00f, 1.00f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 38.f, 46.f, 14, 3, 1.00f, 1.00f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 38.f, 46.f, 14, 10, 1.00f, 1.00f, 0.08f, 1, 5.f);
+Zone(TEXT("People far: the wash, between its cuts"), 1.34f, 1.60f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarCattleDrive"), 140.f, 195.f, 6, 1, 1.00f, 1.00f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 255.f, 285.f, 6, 4, 1.00f, 1.00f, 0.08f, -1, 5.f);
+Zone(TEXT("People far: the wash, its east end"), 2.07f, 2.43f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 140.f, 195.f, 8, 3, 1.00f, 1.00f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarPronghorns"), 140.f, 195.f, 8, 6, 1.00f, 1.00f, 0.08f, -1, 5.f);
 Zone(TEXT("People far: snake eyes"), 2.43f, 3.83f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarCattleDrive"), 195.f, 240.f, 9, 0, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarWagonTrain"), 195.f, 240.f, 9, 4, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarPronghorns"), 205.f, 255.f, 11, 7, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 205.f, 255.f, 11, 9, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 38.f, 46.f, 12, 2, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 38.f, 46.f, 12, 8, 1.00f, 1.00f, 0.08f, 1, 5.f);
-Zone(TEXT("People far: joshua flats"), 3.83f, 5.14f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 165.f, 230.f, 7, 1, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarPronghorns"), 150.f, 180.f, 7, 4, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarWagonTrain"), 225.f, 275.f, 9, 8, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 258.f, 285.f, 9, 6, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 38.f, 46.f, 14, 5, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 38.f, 46.f, 14, 12, 1.00f, 1.00f, 0.08f, 1, 5.f);
-Zone(TEXT("People far: red rock pass"), 5.14f, 6.31f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 40.f, 47.f, 6, 1, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 40.f, 47.f, 6, 4, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 262.f, 288.f, 7, 3, 1.00f, 1.15f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 262.f, 288.f, 7, 6, 1.00f, 1.15f, 0.08f, 1, 5.f);
-Zone(TEXT("People far: last chance gas"), 6.31f, 7.75f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarWagonTrain"), 190.f, 235.f, 9, 2, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarCattleDrive"), 190.f, 245.f, 9, 6, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 235.f, 280.f, 14, 9, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 235.f, 280.f, 14, 2, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 38.f, 46.f, 12, 4, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 38.f, 46.f, 12, 10, 1.00f, 1.00f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarCattleDrive"), 215.f, 272.f, 10, 0, 1.00f, 1.40f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarWagonTrain"), 215.f, 272.f, 10, 4, 1.00f, 1.40f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarPronghorns"), 185.f, 215.f, 12, 7, 1.00f, 1.00f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 185.f, 215.f, 12, 9, 1.00f, 1.00f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 38.f, 46.f, 20, 2, 1.00f, 1.00f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 38.f, 46.f, 20, 12, 1.00f, 1.00f, 0.08f, 1, 5.f);
+Zone(TEXT("People far: joshua flats"), 3.83f, 5.12f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 140.f, 195.f, 8, 1, 1.00f, 1.00f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarPronghorns"), 140.f, 180.f, 8, 4, 1.00f, 1.00f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarWagonTrain"), 215.f, 272.f, 10, 8, 1.00f, 1.40f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 258.f, 285.f, 10, 6, 1.00f, 1.00f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 38.f, 46.f, 20, 5, 1.00f, 1.00f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 38.f, 46.f, 20, 15, 1.00f, 1.00f, 0.08f, 1, 5.f);
+Zone(TEXT("People far: last chance gas"), 6.32f, 7.75f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarWagonTrain"), 195.f, 235.f, 10, 2, 1.00f, 1.20f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarCattleDrive"), 195.f, 245.f, 10, 6, 1.00f, 1.20f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 235.f, 275.f, 16, 9, 1.00f, 1.40f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 235.f, 275.f, 16, 1, 1.00f, 1.40f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 38.f, 46.f, 20, 4, 1.00f, 1.00f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 38.f, 46.f, 20, 14, 1.00f, 1.00f, 0.08f, 1, 5.f);
 Zone(TEXT("People far: jackpot junction"), 7.75f, 9.05f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 262.f, 288.f, 9, 2, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 262.f, 288.f, 9, 6, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarPronghorns"), 255.f, 285.f, 12, 6, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarPronghorns"), 255.f, 285.f, 12, 0, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 38.f, 46.f, 14, 9, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 38.f, 46.f, 14, 2, 1.00f, 1.00f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 262.f, 288.f, 12, 2, 1.00f, 1.00f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 262.f, 288.f, 12, 8, 1.00f, 1.00f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarPronghorns"), 250.f, 280.f, 16, 6, 1.00f, 1.40f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarPronghorns"), 250.f, 280.f, 16, 14, 1.00f, 1.40f, 0.08f, 1, 5.f);
 Zone(TEXT("People far: city lights"), 9.05f, 10.69f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarWagonTrain"), 255.f, 285.f, 12, 3, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarWagonTrain"), 255.f, 285.f, 12, 9, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 255.f, 288.f, 14, 8, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 255.f, 288.f, 14, 1, 1.00f, 1.00f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarWagonTrain"), 250.f, 280.f, 16, 3, 1.00f, 1.40f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarWagonTrain"), 250.f, 280.f, 16, 11, 1.00f, 1.40f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 250.f, 280.f, 18, 8, 1.00f, 1.40f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 250.f, 280.f, 18, 17, 1.00f, 1.40f, 0.08f, 1, 5.f);
 Zone(TEXT("People far: salt flats"), 10.69f, 14.50f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 170.f, 240.f, 9, 1, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 170.f, 240.f, 9, 5, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarPronghorns"), 150.f, 215.f, 10, 4, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarPronghorns"), 150.f, 215.f, 10, 8, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarWagonTrain"), 215.f, 270.f, 16, 3, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarWagonTrain"), 215.f, 270.f, 16, 11, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarCattleDrive"), 195.f, 255.f, 14, 6, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarCattleDrive"), 195.f, 255.f, 14, 13, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 262.f, 288.f, 12, 10, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 262.f, 288.f, 12, 4, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 38.f, 46.f, 14, 2, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 38.f, 46.f, 14, 9, 1.00f, 1.00f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 140.f, 195.f, 12, 1, 1.00f, 1.00f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 140.f, 195.f, 12, 7, 1.00f, 1.00f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarPronghorns"), 140.f, 195.f, 14, 4, 1.00f, 1.00f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarPronghorns"), 140.f, 195.f, 14, 11, 1.00f, 1.00f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarWagonTrain"), 215.f, 272.f, 22, 3, 1.00f, 1.40f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarWagonTrain"), 215.f, 272.f, 22, 14, 1.00f, 1.40f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarCattleDrive"), 215.f, 272.f, 20, 9, 1.00f, 1.40f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarCattleDrive"), 215.f, 272.f, 20, 19, 1.00f, 1.40f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 262.f, 288.f, 16, 13, 1.00f, 1.00f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 262.f, 288.f, 16, 5, 1.00f, 1.00f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 38.f, 46.f, 26, 2, 1.00f, 1.00f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 38.f, 46.f, 26, 15, 1.00f, 1.00f, 0.08f, 1, 5.f);
 Zone(TEXT("People far: syndicate range"), 14.50f, 18.50f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarCattleDrive"), 185.f, 235.f, 12, 2, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarCattleDrive"), 185.f, 235.f, 12, 8, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 255.f, 288.f, 10, 4, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 255.f, 288.f, 10, 9, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 205.f, 265.f, 14, 5, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 205.f, 265.f, 14, 12, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarPronghorns"), 160.f, 200.f, 16, 9, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarPronghorns"), 160.f, 200.f, 16, 1, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 44.f, 52.f, 14, 7, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 44.f, 52.f, 14, 0, 1.00f, 1.00f, 0.08f, 1, 5.f);
-Zone(TEXT("People far: red rock return"), 18.50f, 22.00f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 262.f, 288.f, 8, 1, 1.00f, 1.15f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 262.f, 288.f, 8, 5, 1.00f, 1.15f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 40.f, 47.f, 9, 4, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 40.f, 47.f, 9, 8, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarPronghorns"), 135.f, 170.f, 14, 6, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarPronghorns"), 135.f, 170.f, 14, 13, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarWagonTrain"), 140.f, 172.f, 16, 11, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarWagonTrain"), 140.f, 172.f, 16, 3, 1.00f, 1.00f, 0.08f, 1, 5.f);
-Zone(TEXT("People far: vegas approach"), 22.00f, 25.60f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarWagonTrain"), 255.f, 285.f, 11, 2, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarWagonTrain"), 255.f, 285.f, 11, 7, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 255.f, 288.f, 13, 7, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 255.f, 288.f, 13, 0, 1.00f, 1.00f, 0.08f, 1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarCattleDrive"), 255.f, 285.f, 16, 11, 1.00f, 1.00f, 0.08f, -1, 5.f);
-	Scatter(TEXT("/Game/People/Nevada/SM_FarCattleDrive"), 255.f, 285.f, 16, 3, 1.00f, 1.00f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarCattleDrive"), 185.f, 235.f, 18, 2, 1.00f, 1.20f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarCattleDrive"), 185.f, 235.f, 18, 11, 1.00f, 1.20f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 255.f, 288.f, 14, 4, 1.00f, 1.00f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 255.f, 288.f, 14, 11, 1.00f, 1.00f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 205.f, 265.f, 20, 5, 1.00f, 1.40f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 205.f, 265.f, 20, 15, 1.00f, 1.40f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarPronghorns"), 160.f, 200.f, 22, 9, 1.00f, 1.00f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarPronghorns"), 160.f, 200.f, 22, 20, 1.00f, 1.00f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 44.f, 52.f, 26, 7, 1.00f, 1.00f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarRunners"), 44.f, 52.f, 26, 20, 1.00f, 1.00f, 0.08f, 1, 5.f);
+Zone(TEXT("People far: red rock return, the first gap"), 19.36f, 19.92f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 258.f, 286.f, 5, 1, 1.00f, 1.00f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarPronghorns"), 140.f, 195.f, 5, 3, 1.00f, 1.00f, 0.08f, 1, 5.f);
+Zone(TEXT("People far: red rock return, the second gap"), 20.72f, 21.32f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarRidgeRiders"), 258.f, 286.f, 5, 2, 1.00f, 1.00f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarWagonTrain"), 140.f, 195.f, 5, 4, 1.00f, 1.00f, 0.08f, -1, 5.f);
+Zone(TEXT("People far: vegas approach"), 22.03f, 25.60f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarWagonTrain"), 250.f, 280.f, 16, 2, 1.00f, 1.40f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarWagonTrain"), 250.f, 280.f, 16, 10, 1.00f, 1.40f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 250.f, 280.f, 18, 7, 1.00f, 1.40f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarMustangs"), 250.f, 280.f, 18, 16, 1.00f, 1.40f, 0.08f, 1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarCattleDrive"), 250.f, 280.f, 22, 11, 1.00f, 1.40f, 0.08f, -1, 5.f);
+	Scatter(TEXT("/Game/People/Nevada/SM_FarCattleDrive"), 250.f, 280.f, 22, 0, 1.00f, 1.40f, 0.08f, 1, 5.f);
 // ---- END far ----
 }
 
 {
 // ---- BEGIN watch (ft_people_nevada_watch.py) ----
 // THE WATCHERS: crowds that came out to see the chase, raised and massed, 44 to 56 m out (behind the main cast and the
-// film crew, clear of the dressing's own pieces), and a far crowd on a bluff 190 to 250 m out. WRITTEN BY
+// film crew, clear of the dressing's own pieces), and a far crowd on a bluff 130 to 170 m out. WRITTEN BY
 // Content/Python/ft_people_nevada_watch.py (python ft_people_nevada_watch.py prints this block): change that file.
-// Slot by slot, like the main cast: one Site rule a row, in a zone of its own. 200 rows.
+// Slot by slot, like the main cast: one Site rule a row, in a zone of its own. 255 rows.
 Set(TEXT("PplWatchBleachA"), { { TEXT("/Game/People/Nevada/SM_WatchBleachers_A"), 0, 0, 0, 0, 1.f } });
 Set(TEXT("PplWatchBleachB"), { { TEXT("/Game/People/Nevada/SM_WatchBleachers_B"), 0, 0, 0, 0, 1.f } });
 Set(TEXT("PplWatchTrucks"), { { TEXT("/Game/People/Nevada/SM_WatchTrucks"), 0, 0, 0, 0, 1.f } });
@@ -309,15 +300,17 @@ Set(TEXT("PplWatchTrucksQ"), { { TEXT("/Game/People/Nevada/SM_WatchTrucks"), 18.
 	static const TCHAR* const PplWatchSets[] = { TEXT("PplWatchBleachA"), TEXT("PplWatchBleachB"), TEXT("PplWatchTrucks"), TEXT("PplWatchPorch"), TEXT("PplWatchBalcony"), TEXT("PplWatchBluff"), TEXT("PplWatchTrucksQ") };
 	struct FPplWatchRow { int16 Slot; int8 Side; uint8 Set; float X, Scale; };
 	static const FPplWatchRow PplWatchRows[] = {
-	{4,-1,0,48.0f,1.30f}, {5,1,2,46.0f,1.30f}, {6,-1,5,211.5f,1.50f}, {8,1,0,46.0f,1.30f}, {12,-1,2,46.0f,1.30f}, {14,-1,5,217.7f,1.50f},
-	{16,1,0,46.0f,1.30f}, {20,-1,2,46.0f,1.30f}, {22,-1,5,191.2f,1.50f}, {24,1,0,46.0f,1.30f}, {31,1,5,207.7f,1.50f}, {34,1,5,220.0f,1.50f},
-	{46,1,5,209.5f,1.50f}, {49,-1,5,245.2f,1.50f}, {52,-1,5,207.9f,1.50f}, {54,-1,3,52.0f,1.30f}, {56,-1,6,48.0f,1.30f}, {57,-1,0,46.0f,1.30f},
-	{58,1,3,52.0f,1.30f}, {59,1,0,46.0f,1.30f}, {60,1,6,48.0f,1.30f}, {62,-1,3,52.0f,1.30f}, {64,-1,6,48.0f,1.30f}, {65,-1,0,46.0f,1.30f},
-	{66,1,3,52.0f,1.30f}, {67,1,0,46.0f,1.30f}, {68,1,6,48.0f,1.30f}, {70,-1,3,52.0f,1.30f}, {72,-1,6,48.0f,1.30f}, {73,-1,0,46.0f,1.30f},
-	{74,1,3,52.0f,1.30f}, {75,1,0,46.0f,1.30f}, {76,1,6,48.0f,1.30f}, {78,-1,3,52.0f,1.30f}, {80,-1,6,48.0f,1.30f}, {81,-1,0,46.0f,1.30f},
-	{82,1,3,52.0f,1.30f}, {83,1,0,46.0f,1.30f}, {84,1,6,48.0f,1.30f}, {86,1,5,216.4f,1.50f}, {87,-1,2,46.0f,1.30f}, {90,-1,0,46.0f,1.30f},
-	{92,-1,5,221.4f,1.50f}, {93,1,2,46.0f,1.30f}, {96,1,0,46.0f,1.30f}, {98,1,5,219.0f,1.50f}, {99,-1,2,46.0f,1.30f}, {102,-1,0,46.0f,1.30f},
-	{104,-1,5,207.8f,1.50f}, {105,1,2,46.0f,1.30f}, {108,1,0,46.0f,1.30f}, {110,1,5,232.8f,1.50f}, {111,-1,2,46.0f,1.30f}, {140,-1,0,46.0f,1.30f},
+	{4,-1,0,48.0f,1.30f}, {5,1,2,46.0f,1.30f}, {6,-1,5,142.9f,2.20f}, {8,-1,2,48.0f,1.30f}, {8,1,0,46.0f,1.30f}, {12,-1,2,46.0f,1.30f},
+	{12,1,0,48.0f,1.30f}, {14,-1,5,146.6f,2.20f}, {16,-1,2,48.0f,1.30f}, {16,1,0,46.0f,1.30f}, {17,-1,2,46.0f,1.30f}, {20,-1,2,46.0f,1.30f},
+	{20,1,0,48.0f,1.30f}, {22,-1,5,130.7f,2.20f}, {24,-1,2,48.0f,1.30f}, {24,1,0,46.0f,1.30f}, {25,-1,2,46.0f,1.30f}, {31,1,5,135.4f,2.20f},
+	{34,1,5,144.0f,2.20f}, {46,1,5,136.6f,2.20f}, {49,-1,5,161.7f,2.20f}, {52,-1,5,135.5f,2.20f}, {54,-1,3,52.0f,1.30f}, {56,-1,6,48.0f,1.30f},
+	{57,-1,0,46.0f,1.30f}, {58,1,3,52.0f,1.30f}, {59,1,0,46.0f,1.30f}, {60,1,6,48.0f,1.30f}, {62,-1,3,52.0f,1.30f}, {64,-1,6,48.0f,1.30f},
+	{65,-1,0,46.0f,1.30f}, {66,1,3,52.0f,1.30f}, {67,1,0,46.0f,1.30f}, {68,1,6,48.0f,1.30f}, {70,-1,3,52.0f,1.30f}, {72,-1,6,48.0f,1.30f},
+	{73,-1,0,46.0f,1.30f}, {74,1,3,52.0f,1.30f}, {75,1,0,46.0f,1.30f}, {76,1,6,48.0f,1.30f}, {78,-1,3,52.0f,1.30f}, {80,-1,6,48.0f,1.30f},
+	{81,-1,0,46.0f,1.30f}, {82,1,3,52.0f,1.30f}, {83,1,0,46.0f,1.30f}, {84,1,6,48.0f,1.30f}, {86,1,5,147.3f,2.20f}, {87,-1,2,46.0f,1.30f},
+	{88,1,0,48.0f,1.30f}, {90,-1,0,46.0f,1.30f}, {92,-1,5,151.1f,2.20f}, {93,1,2,46.0f,1.30f}, {94,-1,0,48.0f,1.30f}, {96,1,0,46.0f,1.30f},
+	{98,1,5,149.3f,2.20f}, {99,-1,2,46.0f,1.30f}, {100,1,0,48.0f,1.30f}, {102,-1,0,46.0f,1.30f}, {104,-1,5,140.9f,2.20f}, {105,1,2,46.0f,1.30f},
+	{106,-1,0,48.0f,1.30f}, {108,1,0,46.0f,1.30f}, {110,1,5,159.6f,2.20f}, {111,-1,2,46.0f,1.30f}, {112,1,0,48.0f,1.30f}, {140,-1,0,46.0f,1.30f},
 	{144,1,0,46.0f,1.30f}, {145,-1,2,48.0f,1.30f}, {145,1,3,52.0f,1.30f}, {148,-1,0,46.0f,1.30f}, {152,1,0,46.0f,1.30f}, {153,-1,2,48.0f,1.30f},
 	{153,1,3,52.0f,1.30f}, {156,-1,0,46.0f,1.30f}, {160,1,0,46.0f,1.30f}, {161,-1,2,48.0f,1.30f}, {161,1,3,52.0f,1.30f}, {164,-1,0,46.0f,1.30f},
 	{168,1,0,46.0f,1.30f}, {169,-1,2,48.0f,1.30f}, {169,1,3,52.0f,1.30f}, {172,-1,4,52.0f,1.30f}, {172,1,1,50.0f,1.30f}, {174,1,1,46.0f,1.30f},
@@ -327,22 +320,29 @@ Set(TEXT("PplWatchTrucksQ"), { { TEXT("/Game/People/Nevada/SM_WatchTrucks"), 18.
 	{211,1,4,56.0f,1.30f}, {214,1,4,56.0f,1.30f}, {216,-1,4,56.0f,1.30f}, {216,1,1,54.0f,1.30f}, {219,-1,4,56.0f,1.30f}, {219,1,1,54.0f,1.30f},
 	{221,-1,4,56.0f,1.30f}, {221,1,1,54.0f,1.30f}, {224,1,4,56.0f,1.30f}, {226,-1,1,54.0f,1.30f}, {226,1,4,56.0f,1.30f}, {229,-1,1,54.0f,1.30f},
 	{229,1,4,56.0f,1.30f}, {231,-1,1,54.0f,1.30f}, {231,1,4,56.0f,1.30f}, {234,1,4,56.0f,1.30f}, {236,-1,4,56.0f,1.30f}, {236,1,1,54.0f,1.30f},
-	{238,1,5,214.4f,1.50f}, {240,1,0,46.0f,1.30f}, {245,1,2,46.0f,1.30f}, {246,1,5,240.5f,1.50f}, {247,1,3,52.0f,1.30f}, {250,-1,0,46.0f,1.30f},
-	{252,1,0,46.0f,1.30f}, {254,1,5,225.4f,1.50f}, {255,-1,2,46.0f,1.30f}, {260,1,0,46.0f,1.30f}, {262,-1,2,46.0f,1.30f}, {262,-1,5,233.8f,1.50f},
-	{265,1,2,46.0f,1.30f}, {267,1,3,52.0f,1.30f}, {270,-1,5,227.3f,1.50f}, {272,1,0,46.0f,1.30f}, {275,-1,2,46.0f,1.30f}, {278,-1,5,238.4f,1.50f},
-	{280,1,0,46.0f,1.30f}, {282,-1,2,46.0f,1.30f}, {285,1,2,46.0f,1.30f}, {286,-1,5,238.1f,1.50f}, {287,1,3,52.0f,1.30f}, {290,-1,0,46.0f,1.30f},
-	{292,1,0,46.0f,1.30f}, {294,-1,5,200.5f,1.50f}, {295,-1,2,46.0f,1.30f}, {300,1,0,46.0f,1.30f}, {302,-1,2,46.0f,1.30f}, {302,-1,5,244.4f,1.50f},
-	{307,1,3,52.0f,1.30f}, {310,-1,0,46.0f,1.30f}, {310,-1,5,237.3f,1.50f}, {315,-1,2,46.0f,1.30f}, {318,-1,5,215.6f,1.50f}, {320,1,0,46.0f,1.30f},
-	{323,-1,5,246.7f,1.50f}, {323,1,2,50.0f,1.30f}, {329,-1,0,50.0f,1.30f}, {331,-1,5,249.5f,1.50f}, {335,1,2,50.0f,1.30f}, {339,-1,5,235.2f,1.50f},
-	{341,-1,0,50.0f,1.30f}, {347,-1,5,237.7f,1.50f}, {347,1,2,50.0f,1.30f}, {353,-1,0,50.0f,1.30f}, {355,-1,5,230.6f,1.50f}, {359,1,2,50.0f,1.30f},
-	{363,-1,5,227.3f,1.50f}, {365,-1,0,50.0f,1.30f}, {371,-1,5,222.8f,1.50f}, {371,1,2,50.0f,1.30f}, {377,-1,0,50.0f,1.30f}, {379,-1,5,244.8f,1.50f},
-	{383,1,2,50.0f,1.30f}, {387,-1,5,227.3f,1.50f}, {389,-1,0,50.0f,1.30f}, {395,-1,5,229.6f,1.50f}, {395,1,2,50.0f,1.30f}, {401,-1,0,50.0f,1.30f},
-	{403,-1,5,239.2f,1.50f}, {407,1,2,50.0f,1.30f}, {489,1,4,52.0f,1.30f}, {491,-1,1,50.0f,1.30f}, {491,1,4,52.0f,1.30f}, {499,-1,1,50.0f,1.30f},
-	{499,1,4,52.0f,1.30f}, {503,-1,1,50.0f,1.30f}, {503,1,4,52.0f,1.30f}, {511,-1,1,50.0f,1.30f}, {511,1,4,52.0f,1.30f}, {513,1,4,52.0f,1.30f},
-	{519,-1,1,50.0f,1.30f}, {519,1,4,52.0f,1.30f}, {521,1,4,52.0f,1.30f}, {523,-1,1,50.0f,1.30f}, {523,1,4,52.0f,1.30f}, {529,1,4,52.0f,1.30f},
-	{531,-1,1,50.0f,1.30f}, {531,1,4,52.0f,1.30f}, {539,-1,1,50.0f,1.30f}, {539,1,4,52.0f,1.30f}, {543,-1,1,50.0f,1.30f}, {543,1,4,52.0f,1.30f},
-	{551,-1,1,50.0f,1.30f}, {551,1,4,52.0f,1.30f}, {553,1,4,52.0f,1.30f}, {559,-1,1,50.0f,1.30f}, {559,1,4,52.0f,1.30f}, {561,1,4,52.0f,1.30f},
-	{563,-1,1,50.0f,1.30f}, {563,1,4,52.0f,1.30f},
+	{238,1,5,145.1f,2.20f}, {240,1,0,46.0f,1.30f}, {241,1,0,48.0f,1.30f}, {245,1,2,46.0f,1.30f}, {246,-1,2,48.0f,1.30f}, {246,1,5,163.4f,2.20f},
+	{247,1,3,52.0f,1.30f}, {250,-1,0,46.0f,1.30f}, {251,-1,0,48.0f,1.30f}, {252,1,0,46.0f,1.30f}, {254,1,5,152.8f,2.20f}, {255,-1,2,46.0f,1.30f},
+	{260,1,0,46.0f,1.30f}, {261,1,0,48.0f,1.30f}, {262,-1,2,46.0f,1.30f}, {262,-1,5,158.6f,2.20f}, {265,1,2,46.0f,1.30f}, {266,-1,2,48.0f,1.30f},
+	{267,1,3,52.0f,1.30f}, {270,-1,5,154.1f,2.20f}, {271,-1,0,48.0f,1.30f}, {272,1,0,46.0f,1.30f}, {275,-1,2,46.0f,1.30f}, {276,1,2,48.0f,1.30f},
+	{278,-1,5,161.9f,2.20f}, {280,1,0,46.0f,1.30f}, {281,1,0,48.0f,1.30f}, {282,-1,2,46.0f,1.30f}, {285,1,2,46.0f,1.30f}, {286,-1,2,48.0f,1.30f},
+	{286,-1,5,161.7f,2.20f}, {287,1,3,52.0f,1.30f}, {290,-1,0,46.0f,1.30f}, {292,1,0,46.0f,1.30f}, {294,-1,5,135.4f,2.20f}, {295,-1,2,46.0f,1.30f},
+	{296,1,2,48.0f,1.30f}, {300,1,0,46.0f,1.30f}, {301,1,0,48.0f,1.30f}, {302,-1,2,46.0f,1.30f}, {302,-1,5,166.0f,2.20f}, {306,-1,2,48.0f,1.30f},
+	{307,1,3,52.0f,1.30f}, {310,-1,0,46.0f,1.30f}, {310,-1,5,161.1f,2.20f}, {311,-1,0,48.0f,1.30f}, {315,-1,2,46.0f,1.30f}, {316,1,2,48.0f,1.30f},
+	{318,-1,5,145.9f,2.20f}, {320,1,0,46.0f,1.30f}, {321,-1,2,50.0f,1.30f}, {323,-1,5,167.2f,2.20f}, {323,1,2,50.0f,1.30f}, {325,1,2,50.0f,1.30f},
+	{327,1,0,50.0f,1.30f}, {329,-1,0,50.0f,1.30f}, {331,-1,0,50.0f,1.30f}, {331,-1,5,169.6f,2.20f}, {333,-1,2,50.0f,1.30f}, {335,1,2,50.0f,1.30f},
+	{337,1,2,50.0f,1.30f}, {339,-1,5,157.3f,2.20f}, {339,1,0,50.0f,1.30f}, {341,-1,0,50.0f,1.30f}, {343,-1,0,50.0f,1.30f}, {345,-1,2,50.0f,1.30f},
+	{347,-1,5,159.4f,2.20f}, {347,1,2,50.0f,1.30f}, {349,1,2,50.0f,1.30f}, {351,1,0,50.0f,1.30f}, {353,-1,0,50.0f,1.30f}, {355,-1,0,50.0f,1.30f},
+	{355,-1,5,153.4f,2.20f}, {357,-1,2,50.0f,1.30f}, {359,1,2,50.0f,1.30f}, {361,1,2,50.0f,1.30f}, {363,-1,5,150.5f,2.20f}, {363,1,0,50.0f,1.30f},
+	{365,-1,0,50.0f,1.30f}, {367,-1,0,50.0f,1.30f}, {369,-1,2,50.0f,1.30f}, {371,-1,5,146.7f,2.20f}, {371,1,2,50.0f,1.30f}, {373,1,2,50.0f,1.30f},
+	{375,1,0,50.0f,1.30f}, {377,-1,0,50.0f,1.30f}, {379,-1,0,50.0f,1.30f}, {379,-1,5,165.5f,2.20f}, {381,-1,2,50.0f,1.30f}, {383,1,2,50.0f,1.30f},
+	{385,1,2,50.0f,1.30f}, {387,-1,5,150.5f,2.20f}, {387,1,0,50.0f,1.30f}, {389,-1,0,50.0f,1.30f}, {391,-1,0,50.0f,1.30f}, {393,-1,2,50.0f,1.30f},
+	{395,-1,5,152.5f,2.20f}, {395,1,2,50.0f,1.30f}, {397,1,2,50.0f,1.30f}, {399,1,0,50.0f,1.30f}, {401,-1,0,50.0f,1.30f}, {403,-1,0,50.0f,1.30f},
+	{403,-1,5,160.8f,2.20f}, {405,-1,2,50.0f,1.30f}, {407,1,2,50.0f,1.30f}, {489,1,4,52.0f,1.30f}, {491,-1,1,50.0f,1.30f}, {491,1,4,52.0f,1.30f},
+	{499,-1,1,50.0f,1.30f}, {499,1,4,52.0f,1.30f}, {503,-1,1,50.0f,1.30f}, {503,1,4,52.0f,1.30f}, {511,-1,1,50.0f,1.30f}, {511,1,4,52.0f,1.30f},
+	{513,1,4,52.0f,1.30f}, {519,-1,1,50.0f,1.30f}, {519,1,4,52.0f,1.30f}, {521,1,4,52.0f,1.30f}, {523,-1,1,50.0f,1.30f}, {523,1,4,52.0f,1.30f},
+	{529,1,4,52.0f,1.30f}, {531,-1,1,50.0f,1.30f}, {531,1,4,52.0f,1.30f}, {539,-1,1,50.0f,1.30f}, {539,1,4,52.0f,1.30f}, {543,-1,1,50.0f,1.30f},
+	{543,1,4,52.0f,1.30f}, {551,-1,1,50.0f,1.30f}, {551,1,4,52.0f,1.30f}, {553,1,4,52.0f,1.30f}, {559,-1,1,50.0f,1.30f}, {559,1,4,52.0f,1.30f},
+	{561,1,4,52.0f,1.30f}, {563,-1,1,50.0f,1.30f}, {563,1,4,52.0f,1.30f},
 	};
 	for (const FPplWatchRow& R : PplWatchRows)
 	{

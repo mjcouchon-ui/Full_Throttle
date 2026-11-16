@@ -257,7 +257,6 @@ public:
 	// extras
 	EFTTile FilmState(FString* Needs = nullptr) const;
 	bool BuyFilm();
-	EFTTile SequelState(FString* Needs = nullptr) const;
 	bool BuySequel();
 	bool ToggleSequel();
 

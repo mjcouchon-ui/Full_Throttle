@@ -10,7 +10,8 @@ navy sky, a violet glow along the skyline. So nothing here is small or dark on d
   - people are three times life size, blocks of lit hi-vis on a lit footbridge or a pale tank top (at two and a
     third times life size and a glow of 0.08 the first test showed black dots on a white band);
   - dogs and rats stand on something pale and raised (a container stack, a fat lagged pipe), twice life size.
-Every piece is saved with far=True (the always-moving master): they stand 40 to 300 m out.
+Everything stands HIGH: a pipe rack 7.6 m tall at 26.5 m hides whatever is under 15 m at 75 m, and a tank row (11 m
+at 28.5 m) more. Every piece is saved with far=True (the always-moving master): they stand 44 to 260 m out.
 
 Placed by the "far" block of Source/FullThrottle/FTPeopleL1.inl. Run in the editor:
     import ft_people_chem_far; ft_people_chem_far.run()
@@ -37,10 +38,13 @@ CROW, CROW_W, GULL, GULL_W = '#2a2230', '#3d2c7a', '#fff6ea', '#cfd8ff'
 
 # ------------------------------------------------------------------------------------------ the far kit's own builders
 def fowl(sc, x, y, z, heading=0.0, span=400.0, body=GULL, wing=GULL_W, beak=YEL, glow=0.0, phase=0.0, rate=1.2, flap=38.0, bob=0.0,
-         orbit=None, travel=None):
+         orbit=None, travel=None, bank=0.0, dihedral=0.0):
     """A far bird, cheap (48 triangles; P.bird is 110): a body, a head in the beak's colour, two wings that beat about
     its line of flight. span: tip to tip, cm (3 to 9 m: these are seen from 60 to 300 m). orbit: (cx, cy, rounds a
-    second), travel: (length cm, cm a second) as P.figure's. bob < 0: it rises and sinks as it beats; > 0: it hops."""
+    second), travel: (length cm, cm a second) as P.figure's. bob < 0: it rises and sinks as it beats; > 0: it hops.
+    bank: degrees it is rolled about its line of flight (its left wing up); dihedral: degrees both wings are raised.
+    From the road a far bird is seen from the side: flying level, its wings are two edges and the cel pass inks
+    them black (the second test drive). Banked or with its wings raised it shows its wing's own colour."""
     hd = math.radians(heading)
     tx, ty = math.cos(hd), math.sin(hd)
     rx, ry = -ty, tx
@@ -59,11 +63,12 @@ def fowl(sc, x, y, z, heading=0.0, span=400.0, body=GULL, wing=GULL_W, beak=YEL,
     for side in (-1, 1):
         w = sc.part(P.motion(swing=side * flap, pivot=(x, y, z + L * 0.08), axis=heading, **common))
         w.base = None
+        th = math.radians(dihedral + side * bank)
         a = (x + side * rx * L * 0.1, y + side * ry * L * 0.1, z + L * 0.1)
-        tip = (x + side * rx * half - tx * L * 0.25, y + side * ry * half - ty * L * 0.25, z + L * 0.2)
+        tip = (x + side * rx * half * math.cos(th) - tx * L * 0.25, y + side * ry * half * math.cos(th) - ty * L * 0.25, z + L * 0.1 + half * math.sin(th))
         dx, dy, dz = tip[0] - a[0], tip[1] - a[1], tip[2] - a[2]
         ln = math.sqrt(dx * dx + dy * dy + dz * dz)
-        w.box(wing, ((a[0] + tip[0]) / 2.0, (a[1] + tip[1]) / 2.0, (a[2] + tip[2]) / 2.0), (ln, L * 0.62, max(L * 0.07, 6.0)),
+        w.box(wing, ((a[0] + tip[0]) / 2.0, (a[1] + tip[1]) / 2.0, (a[2] + tip[2]) / 2.0), (ln, L * 0.8, max(L * 0.09, 8.0)),
               rot=(math.degrees(math.atan2(dz, math.hypot(dx, dy))), math.degrees(math.atan2(dy, dx)), 0), glow=glow)
 
 
@@ -123,9 +128,10 @@ def lit(fn, glow=0.25):
 
 
 # ------------------------------------------------------------------------------------------ the pieces
-def flock(seed=1, n=30, r0=900.0, r1=4600.0, z0=2000.0, z1=6200.0, span=700.0):
+def flock(seed=1, n=30, r0=1200.0, r1=5200.0, z0=3000.0, z1=8000.0, span=900.0):
     """GULLS OVER THE WORKS: thirty floodlit gulls wheeling in three layers that turn at their own speeds (one of them
-    the other way), each rising and sinking as it beats. Wings 6 to 9 m across. TALL, always moving."""
+    the other way), each banked into its turn and rising and sinking as it beats. Wings 8 to 12 m across, 30 to 80 m up
+    (what stands 25 to 40 m from the road hides everything lower at this distance). TALL, always moving."""
     def build(sc):
         r = random.Random(seed)
         for i in range(n):
@@ -133,31 +139,31 @@ def flock(seed=1, n=30, r0=900.0, r1=4600.0, z0=2000.0, z1=6200.0, span=700.0):
             rad = r.uniform(r0, r1)
             rps = (0.045, -0.03, 0.06)[i % 3]
             fowl(sc, math.cos(a) * rad, math.sin(a) * rad, r.uniform(z0, z1), heading=math.degrees(a) + (90.0 if rps > 0 else -90.0),
-                 span=span * r.uniform(0.85, 1.3), body=GULL, wing=GULL_W, beak=YEL, glow=0.35, phase=r.random(), rate=r.uniform(0.8, 1.3), flap=40,
-                 bob=-r.uniform(60, 160), orbit=(0.0, 0.0, rps))
+                 span=span * r.uniform(0.85, 1.3), body=GULL, wing=GULL, beak=YEL, glow=0.6, phase=r.random(), rate=r.uniform(0.8, 1.3), flap=30,
+                 bob=-r.uniform(60, 160), orbit=(0.0, 0.0, rps), bank=(-48.0 if rps > 0 else 48.0), dihedral=8.0)
         sc.still().box(NAVY, (0, 0, 2), (40, 40, 4))
     return build
 
 
-def skein(seed=3, run=30000.0, speed=2300.0, span=800.0):
-    """THE SKEIN: two V formations of great white birds crossing the works along the road, 30 to 45 m up, one after
+def skein(seed=3, run=30000.0, speed=2300.0, span=950.0):
+    """THE SKEIN: two V formations of great white birds crossing the works along the road, 36 to 52 m up, wings raised, one after
     the other over 300 m and round again. TALL, always moving."""
     def build(sc):
         r = random.Random(seed)
-        for x0, z0, cnt in ((0.0, 3000.0, 13), (run / 2.0, 3900.0, 9)):
+        for x0, z0, cnt in ((0.0, 3600.0, 13), (run / 2.0, 4600.0, 9)):
             for i in range(cnt):
                 k = (i + 1) // 2
                 side = 1 if i % 2 else -1
-                x = x0 - run / 4.0 - k * 780.0 + r.uniform(-90, 90)
-                y = side * k * 640.0 + r.uniform(-60, 60)
-                fowl(sc, x, y, z0 + k * 60.0 + r.uniform(-80, 80), heading=0.0, span=span * r.uniform(0.9, 1.15), body=GULL, wing=GULL_W, beak=ORANGE,
-                     glow=0.35, phase=0.13 * k + r.uniform(0, 0.1), rate=0.9, flap=36, bob=-70.0, travel=(run, speed))
+                x = x0 - run / 4.0 - k * 900.0 + r.uniform(-90, 90)
+                y = side * k * 700.0 + r.uniform(-60, 60)
+                fowl(sc, x, y, z0 + k * 60.0 + r.uniform(-80, 80), heading=0.0, span=span * r.uniform(0.9, 1.15), body=GULL, wing=GULL, beak=ORANGE,
+                     glow=0.6, phase=0.13 * k + r.uniform(0, 0.1), rate=0.9, flap=34, bob=-70.0, travel=(run, speed), dihedral=32.0)
         sc.still().box(NAVY, (0, 0, 2), (40, 40, 4))
     return build
 
 
-def shift_change(seed=2, L=6400.0, H=1000.0, n=(7, 6), s=3.0):
-    """SHIFT CHANGE: a lit footbridge 64 m long and 10 m up between two stair huts, and the two shifts filing across
+def shift_change(seed=2, L=6400.0, H=1600.0, n=(7, 6), s=3.0):
+    """SHIFT CHANGE: a lit footbridge 64 m long and 16 m up between two stair huts, and the two shifts filing across
     it in opposite directions, out of one hut and into the other, for ever. Figures three times life size in lit
     hi-vis against a lit white sheet. TALL, always moving."""
     def build(sc):
@@ -182,8 +188,8 @@ def shift_change(seed=2, L=6400.0, H=1000.0, n=(7, 6), s=3.0):
     return build
 
 
-def tank_crew(seed=4, R=800.0, H=1500.0, n=11, s=3.0):
-    """THE TANK-TOP CREW: a pale storage tank 15 m tall and the gang on its roof, three times life size, in lit hi-vis,
+def tank_crew(seed=4, R=800.0, H=2200.0, n=11, s=3.0):
+    """THE TANK-TOP CREW: a pale storage tank 22 m tall and the gang on its roof, three times life size, in lit hi-vis,
     arms over their heads, hopping out of step and waving at the chase. An amber lamp on a mast. TALL, always moving."""
     def build(sc):
         r = random.Random(seed)
@@ -206,11 +212,12 @@ def tank_crew(seed=4, R=800.0, H=1500.0, n=11, s=3.0):
 
 
 def crow(sc, r, x, y, z, heading=-90.0, span=300.0, bob=0.0, flap=8.0, rate=1.2):
-    fowl(sc, x, y, z, heading=heading, span=span, body=CROW, wing=CROW_W, beak=YEL, glow=0.0, phase=r.random(), rate=rate, flap=flap, bob=bob)
+    fowl(sc, x, y, z, heading=heading, span=span, body=CROW, wing=CROW_W, beak=YEL, glow=0.0, phase=r.random(), rate=rate, flap=flap, bob=bob,
+         dihedral=24.0)
 
 
-def crows_rail(seed=5, L=3200.0, Z=700.0, SH=760.0):
-    """THE CROWS' HOARDING: a lit white hoarding 32 m long with its top 15 m up, and the works' crows against it like a
+def crows_rail(seed=5, L=3200.0, Z=1300.0, SH=760.0):
+    """THE CROWS' HOARDING: a lit white hoarding 32 m long, 13 to 21 m up on its posts, and the works' crows against it like a
     shadow play: a row hopping and shuffling on its top edge, a row on the fat pipe in front of it, and five that
     flutter up off the pipe and settle again. Crows 3 m across, near black with a violet wing and a yellow beak.
     TALL, always moving."""
@@ -251,26 +258,28 @@ def rat(sc, r, x, y, z, s=2.0, travel=None, col='#d8d0f0', glow=0.3):
 
 
 def yard_dogs(seed=6):
-    """THE STRAYS OF THE YARD: two containers stacked beside a fat lagged pipe. On the stack a pack of five dogs, twice
+    """THE STRAYS OF THE YARD: two containers stacked on an old tank's plinth, a fat lagged pipe behind. On the stack a pack of five dogs, twice
     life size: three bark at the chase (they hop, their heads go, their tails go) and two trot the length of the
     roof and come round again. Along the pipe behind and above them the rats of the works run in a stream, both
     ways. TALL, always moving."""
     def build(sc):
         r = random.Random(seed)
         g = sc.still()
-        L, D, CH = 1220.0, 260.0, 260.0
+        L, D, CH, BASE = 1220.0, 260.0, 260.0, 520.0
+        g.box(PAVE_D, (20, 60, BASE / 2.0), (L + 260, D + 420, BASE))          # an old tank's plinth: the stack stands 5 m up
+        g.box(HAZ, (20, -D / 2.0 - 152, BASE - 30), (L + 260, 6, 40))
         for k, (col, band) in enumerate(((TEAL, WHITE), ('#dfe6ff', ORANGE))):
-            z = k * CH
+            z = BASE + k * CH
             g.box(col, (40 * k, 0, z + CH / 2.0), (L, D, CH - 6), glow=0.05)
             g.box(band, (40 * k, -D / 2.0 - 2, z + CH * 0.5), (L * 0.9, 4, 46), glow=0.1)
             for i in range(6):
                 g.box(STEELB_D, (-L / 2.0 + 110 + i * 200 + 40 * k, -D / 2.0 - 2, z + CH / 2.0), (10, 4, CH - 30))
-        top = 2 * CH
+        top = BASE + 2 * CH
         g.box(PAVE, (40, 0, top + 4), (L + 20, D + 20, 10), glow=0.05)
-        PZ = 840.0      # the pipe behind: on three trestles, 8.4 m up
+        PZ = BASE + 840.0      # the pipe behind: on three trestles, 13.6 m up
         for sx in (-1, 0, 1):
             g.box(PAVE_D, (sx * 700, 300, PZ / 2.0), (60, 60, PZ))
-        g.cyl(PALE, (-900, 300, PZ), 70, 1800, rot=(-90, 0, 0), steps=8, glow=0.08)
+        g.cyl(STEELB, (-900, 300, PZ), 70, 1800, rot=(-90, 0, 0), steps=8)      # dark, so that the pale rats show on it (pale on a pale pipe: lost)
         for x in (-520, 180, 700):
             g.cyl(MAG, (x, 300, PZ), 78, 40, rot=(-90, 0, 0), steps=8, glow=0.25)
         dog = dict(length=70, height=48, girth=20, neck=16, neck_up=35, head=18, tail=24)
@@ -283,14 +292,14 @@ def yard_dogs(seed=6):
             body, ears = coats[3 + i]
             P.quadruped(sc, x + 40, 70, top + 9, yaw=90.0 if v > 0 else -90.0, s=2.1, body=body, ears=ears, snout=ears, tail_col=ears, phase=r.random(),
                         rate=2.4, bob=8.0, stride=30.0, wag=24.0, travel=(L - 240.0, v), **dog)
-        for i in range(12):
+        for i in range(10):
             v = 520.0 if i % 3 else -430.0
-            rat(sc, r, -800 + i * 145 + r.uniform(-40, 40), 300 + (-18 if v > 0 else 18), PZ + 68, s=r.uniform(1.8, 2.4), travel=(1660.0, v))
+            rat(sc, r, -800 + i * 172 + r.uniform(-40, 40), 300 + (-18 if v > 0 else 18), PZ + 68, s=r.uniform(1.8, 2.4), travel=(1660.0, v))
     return build
 
 
 JOBS = [
-    ('SM_FarFlock_A', flock(1), dict(far=True, grow=(4800.0, 4800.0, 300.0), grow_down=(4800.0, 4800.0, 0.0))),
+    ('SM_FarFlock_A', flock(1), dict(far=True, grow=(5600.0, 5600.0, 300.0), grow_down=(5600.0, 5600.0, 0.0))),
     ('SM_FarFlock_B', skein(3), dict(far=True, grow=(16000.0, 200.0, 200.0), grow_down=(16000.0, 200.0, 0.0))),
     ('SM_FarShift_A', shift_change(2), dict(far=True, grow=(60.0, 60.0, 80.0))),
     ('SM_FarTankCrew', tank_crew(4), dict(far=True, grow=(60.0, 60.0, 160.0))),

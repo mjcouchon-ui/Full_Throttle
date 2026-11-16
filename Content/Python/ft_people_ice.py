@@ -156,43 +156,54 @@ def ski_hill(d=1, seed=1):
 def piste_run(seed=2, L=12000.0, slope=0.12, n=7):
     """A slalom course on the mountain's own slope, for 150 to 230 m out: racers come straight down the fall line
     between red and blue gates, out of a start gate, and stop by a little crowd at the finish. Laid with its +X DOWN
-    the slope (the table places it by a set, turned -90), and always moving (far=True). Big: the racers are 3 m tall."""
+    the slope (the table places it by a set, turned -90), and always moving (far=True).
+    It is seen from 110 to 230 m, so everything is drawn for that distance (second round: nothing of the first
+    version could be made out from the road): racers 5.8 m tall in one hot colour head to foot, gate panels 4 m
+    wide, orange netting down both edges of the piste (a line 100 m long on the white slope is what says "a piste"),
+    a striped start house and a striped finish band 14 m wide."""
     def build(sc):
         r = random.Random(seed)
         S, A = 0.15 * L, slope * 0.4 * L
         zb = -slope * 0.15 * L
-        v = 1500.0
+        v = 1700.0
         g = sc.still()
 
         def land(x):
             return -slope * x
 
         xt, xe = -0.25 * L, 0.55 * L
-        # the gates, a pair each: a flag panel on two poles, red and blue by turns
-        for k in range(9):
-            x = xt + 300 + k * (xe - xt - 600) / 8.0
-            y = (-1 if k % 2 else 1) * 260
+        # the piste's edges: netting, orange and pink by turns, 1.6 m high
+        for k in range(8):
+            xa, xb = xt + k * (xe - xt) / 8.0, xt + (k + 1) * (xe - xt) / 8.0
+            for sy in (-1, 1):
+                tilt_box(g, (ORANGE, PINK)[k % 2], (xa, sy * 700, land(xa) + 80), (xb, sy * 700, land(xb) + 80), 14, 160)
+        # the gates: a flag panel 4 m wide on two poles, red and blue by turns
+        for k in range(7):
+            x = xt + 700 + k * (xe - xt - 1400) / 6.0
+            y = (-1 if k % 2 else 1) * 330
             col = RED if k % 2 else BLUE
-            for dy in (-70, 70):
-                g.box(col, (x, y + dy, land(x) + 110), (10, 10, 240))
-            g.box(col, (x, y, land(x) + 190), (10, 140, 90))
-        # the start: an arch
+            for dy in (-200, 200):
+                g.box(col, (x, y + dy, land(x) + 200), (16, 16, 420))
+            g.box(col, (x, y, land(x) + 330), (16, 400, 180))
+        # the start: a house in stripes on a snow mound, an arch over the gate
+        g.sphere(SNOW, (xt - 520, 0, land(xt) + 60), 520, scale=(1.0, 1.5, 0.75), steps=(4, 8))
+        for k in range(6):
+            g.box((TEAL, WHITE)[k % 2], (xt - 300, -625 + k * 250, land(xt) + 420), (300, 250, 520))
+        g.box(PINK, (xt - 300, 0, land(xt) + 720), (360, 1560, 90))
+        # the finish: a striped band 14 m wide on two posts, and the people waiting under it
         for sy in (-1, 1):
-            g.box(TEAL, (xt - 60, sy * 420, land(xt) + 200), (60, 60, 460))
-        g.box(PINK, (xt - 60, 0, land(xt) + 440), (60, 900, 90))
-        g.sphere(SNOW, (xt - 420, 0, land(xt) + 60), 420, scale=(1.0, 1.3, 0.75), steps=(4, 8))
-        # the finish: a banner and the people waiting
-        for sy in (-1, 1):
-            g.box(YEL, (xe + 120, sy * 520, land(xe) + 180), (50, 50, 420))
-        g.box(RED, (xe + 120, 0, land(xe) + 400), (50, 1040, 80))
+            g.box(YEL, (xe + 160, sy * 720, land(xe) + 300), (70, 70, 700))
+        for k in range(7):
+            g.box((RED, WHITE)[k % 2], (xe + 160, -600 + k * 200, land(xe) + 580), (60, 200, 200))
         for i in range(6):
             sy = -1 if i % 2 else 1
-            P.figure(sc, xe - 200 + (i // 2) * 170, sy * (600 + 60 * (i % 3)), land(xe) - 10, yaw=90 if sy < 0 else -90, detail=0, arm_l='up', arm_r='up',
-                     swing_l=14, swing_r=-14, bob=22, rate=1.3, phase=r.random(), **dict(coat(r), s=2.2))
+            P.figure(sc, xe - 300 + (i // 2) * 260, sy * (860 + 90 * (i % 3)), land(xe) - 10, yaw=90 if sy < 0 else -90, detail=0, arm_l='up', arm_r='up',
+                     swing_l=14, swing_r=-14, bob=40, rate=1.3, phase=r.random(), **dict(coat(r), s=3.2))
         for i in range(n):
             bx = -L / 2.0 + (i + 0.5) * L / n
-            slider(sc, r, bx, (-140, 120, 0, -60, 160, 40, -180)[i % 7], zb, L, v, S, A, d=1, pz=60000.0, detail=0, s=2.3,
-                   kind='board' if i % 4 == 2 else 'ski')
+            c = SUITS[(i * 3 + 1) % len(SUITS)]
+            slider(sc, r, bx, (-220, 180, 0, -90, 250, 60, -280)[i % 7], zb, L, v, S, A, d=1, pz=60000.0, detail=0, s=3.4,
+                   kind='board' if i % 4 == 2 else 'ski', top=c, bottom=c, shoes=c, hat_col=c)
     return build
 
 
@@ -377,6 +388,39 @@ def ice_climb(seed=7):
     return build
 
 
+def ice_climb_b(seed=27):
+    """The climb's second face (second round: the one face came by four times in 25 s): a frozen fall in three steps
+    with a free-standing ice pillar beside it, a pair of climbers on the pillar on orange ropes, one abseiling the
+    fall, a party of three at the foot round a flag. 9 m wide, 12 m: TALL."""
+    def build(sc):
+        r = random.Random(seed)
+        g = sc.still()
+        for k, (w, h, y, col) in enumerate(((560, 1180, 200, ICE), (500, 860, 110, ICE_D), (440, 520, 20, ICE))):      # the fall, stepping down to the road
+            g.box(col, (160, y, h / 2.0 - 20), (w, 300, h + 40), rot=(0, (4, -6, 5)[k], 0))
+            g.sphere(SNOW, (160, y - 20, h), 100, scale=(w / 190.0, 1.9, 0.5), steps=(4, 8))
+        for k in range(5):                                                                                     # icicles down the top step
+            g.cyl(ICE_DEEP, (-40 + k * 100, 40, 860), 26, 300, steps=5, top_r=44)
+        g.cyl(ICE_DEEP, (-300, 40, -30), 150, 1080, steps=6, top_r=95)                                           # the pillar
+        g.cyl(ICE, (-300, 40, 1040), 120, 60, steps=6, top_r=60)
+        g.sphere(SNOW, (0, -140, -10), 100, scale=(5.4, 2.4, 0.6), steps=(4, 8))
+        for i, (x, y, z, rope) in enumerate(((-300, -170, 560, ORANGE), (-290, -150, 230, ORANGE), (190, -150, 600, YEL))):
+            g.box(rope, (x + 22, y + 24, (z + 1100) / 2.0 + 60), (7, 7, 1100 - z))
+            d = suit(r, s=1.45, pack=r.choice(SUITS))
+            if i < 2:
+                P.figure(sc, x, y, z, yaw=180, detail=1, arm_l='vee', arm_r='up', swing_r=-16, swing_l=12, axis_r='x', axis_l='x', legs='wide',
+                         bob=-30, rate=0.2 + 0.05 * i, phase=r.random(), hold_r=P.hold_tool(col=STEEL, grip=PINK, length=30.0), **d)
+            else:                                                                                              # abseiling: a long slow float down and up
+                P.figure(sc, x, y, z, yaw=180, detail=1, arm_l='hold', arm_r='hold', legs='wide', bob=-150, rate=0.11, phase=r.random(), **d)
+        fx = 380.0
+        g.box(STEEL_D, (fx, -300, 190), (8, 8, 380))
+        fl = sc.part(P.motion(swing=16.0, pivot=(fx, -300, 330), axis=P.UP, rate=0.9, phase=0.4))
+        fl.box(PINK, (fx + 70, -300, 330), (140, 5, 80))
+        P.figure(sc, 250, -340, 30, yaw=150, detail=1, arm_l='up', arm_r='up', swing_l=14, swing_r=-14, bob=10, rate=1.4, react=True, phase=r.random(), **coat(r))
+        P.figure(sc, 60, -350, 30, yaw=175, detail=1, arm_l='hold', arm_r='up', swing_r=8, axis_r='x', rate=0.4, bob=-2, **suit(r))
+        P.figure(sc, -120, -330, 30, yaw=-10, detail=1, arm_r='wave', swing_r=24, rate=1.1, bob=5, react=True, phase=r.random(), **coat(r))
+    return build
+
+
 # ------------------------------------------------------------------------------------------ creatures and far life
 def _berm(sc, length, h, w=520.0, col=SNOW):
     """A snow ridge along X with a level crest, footed 3 m into the ground (the hill falls 7 in 100 along the road)."""
@@ -483,6 +527,37 @@ def eagles(seed=12):
     return build
 
 
+def paragliders(seed=14):
+    """Three paragliders circling over the slopes: a pilot in a hot ski suit, 1.7 times life size, sitting in the lines
+    under a striped canopy 10 m across, 26 to 38 m up, floating up and down as they wheel. Always moving (far=True).
+    Second round: they are what shows over a banked bend's high side and over a half pipe's wall, where the land and
+    everybody on it are below the road's edge. Placed 70 m out and more (the widest circle is 15 m, a canopy half 5)."""
+    def build(sc):
+        r = random.Random(seed)
+        cols = ((RED, YEL), (TEAL, PINK), (ORANGE, WHITE))
+        for i, (R, z, w) in enumerate(((1000, 2600, 0.035), (1500, 3800, -0.028), (600, 3200, 0.045))):
+            a = i * 2.3
+            x, y = R * math.cos(a), R * math.sin(a)
+            hdeg = math.degrees(a) + (90 if w > 0 else -90)
+            ph, rate, bob = i * 0.31, 0.12, -110.0
+            mo = P.motion(phase=ph, rate=rate, bob=bob, base=(0, 0), travel=(-1.0, w))
+            m = sc.part(mo, (x, y, z), hdeg + 90.0, 1.0)
+            pts = []
+            for k in range(-4, 5):                    # the canopy: an arc of eight panels
+                th = math.radians(k * 13.0)
+                pts.append((math.sin(th) * 620.0, 760.0 - (1.0 - math.cos(th)) * 620.0))
+            for k in range(8):
+                (x1, z1), (x2, z2) = pts[k], pts[k + 1]
+                tilt_box(m, cols[i][k % 2], (x1, 0, z1), (x2, 0, z2), 300, 36)
+            for k in (0, 2, 6, 8):                    # the lines
+                tilt_box(m, DARK, (pts[k][0] * 0.96, 0, pts[k][1] - 10), ((-1 if k < 4 else 1) * 26, 0, 230), 6, 6)
+            m.box(cols[i][0], (0, 20, 120), (70, 70, 110))        # the harness
+            c = SUITS[(i * 4 + seed) % len(SUITS)]
+            P.figure(sc, x, y, z, yaw=hdeg + 90.0, legs='sit', seat=46, arm_l='up', arm_r='up', detail=0, phase=ph, rate=rate, bob=bob,
+                     orbit=(0, 0, w), **suit(r, s=1.7, top=c, bottom=c, hat='helmet', hat_col=WHITE))
+    return build
+
+
 def crew_skidoo(seed=13):
     """The shoot's snow camera: a snowmobile behind the crew's tape, its driver, the camera on a post at its back and
     the operator panning it after the chase, the assistant pointing. LOW."""
@@ -512,18 +587,20 @@ def crew_skidoo(seed=13):
 JOBS = [
     ('SM_SkiHill_A', ski_hill(-1, 1)),      # for the right of the road: the slope faces the car coming down the road
     ('SM_SkiHillL_A', ski_hill(1, 11)),     # its twin for the left
-    ('SM_PisteRun_A', piste_run(2), dict(far=True, grow=(6500.0, 300.0, 1200.0), grow_down=(6500.0, 300.0, 1200.0))),
+    ('SM_PisteRun_A', piste_run(2), dict(far=True, grow=(6500.0, 400.0, 1400.0), grow_down=(6500.0, 400.0, 1400.0))),
     ('SM_BoardPipe_A', board_pipe(3), dict(grow=(60.0, 60.0, 250.0))),
     ('SM_SnowStand_A', stand(4)),
     ('SM_SnowStand_B', stand(24, flags=(TEAL, PINK), skirt=(YEL, RED, WHITE, BLUE))),
     ('SM_LodgeDeck_A', lodge_deck(5)),
     ('SM_Snowmen_A', snowmen(6)),
     ('SM_IceClimb_A', ice_climb(7)),
+    ('SM_IceClimb_B', ice_climb_b(27)),
     ('SM_DogSled_A', dog_sled(8)),
     ('SM_Ibex_A', ibex(9)),
     ('SM_WolfRidge_A', wolf_ridge(10), dict(far=True)),
     ('SM_RopeTeam_A', rope_team(11), dict(far=True)),
     ('SM_Eagles_A', eagles(12), dict(far=True, grow=(1800.0, 1800.0, 200.0), grow_down=(1800.0, 1800.0, 200.0))),
+    ('SM_Paragliders_A', paragliders(14), dict(far=True, grow=(2100.0, 2100.0, 300.0), grow_down=(2100.0, 2100.0, 300.0))),
     ('SM_CrewSkidoo', crew_skidoo(13)),
 ]
 

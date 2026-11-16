@@ -28,7 +28,7 @@ namespace
 	TAutoConsoleVariable<float> CVarPickupLight(TEXT("ft.PickupLight"), 2.f, TEXT("Existing unshadowed pickup light intensity in candelas; 0 disables it. Off at Low effects quality."));
 	float PickupLightIntensity()
 	{
-		const IConsoleVariable* Quality = IConsoleManager::Get().FindConsoleVariable(TEXT("sg.EffectsQuality"));
+		static const IConsoleVariable* Quality = IConsoleManager::Get().FindConsoleVariable(TEXT("sg.EffectsQuality"));   // found once (as FTFx::IsLow), read every call
 		return Quality && Quality->GetInt() == 0 ? 0.f : FMath::Max(0.f, CVarPickupLight.GetValueOnGameThread());
 	}
 	template <typename T> T* Load(const FString& Path)
@@ -149,7 +149,7 @@ void AFTEntityActor::WarmPickups(AActor* Owner)
 void AFTEntityActor::PickupBurst(UWorld* World, EFTKind Kind, const FTransform& At)
 {
 	if (!World || (Kind != EFTKind::Crate && Kind != EFTKind::Wrench) || CVarPickupBurst.GetValueOnGameThread() == 0) return;
-	const IConsoleVariable* Quality = IConsoleManager::Get().FindConsoleVariable(TEXT("sg.EffectsQuality"));
+	static const IConsoleVariable* Quality = IConsoleManager::Get().FindConsoleVariable(TEXT("sg.EffectsQuality"));
 	if (Quality && Quality->GetInt() == 0) return;
 	if (UNiagaraSystem* System = PickupSystem(Kind))
 		UNiagaraFunctionLibrary::SpawnSystemAtLocation(World, System, At.TransformPosition(FVector(0, 0, 70)),

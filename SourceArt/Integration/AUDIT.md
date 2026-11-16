@@ -118,6 +118,9 @@ Not checked: Low settings, a packaged build, frame time (about 1,000 more flat, 
 
 ## Open: confirmed in code, not changed
 
+15 Nov 2026 evening: audit pass. Two items under "HUD, menus, input" were found closed in the tree and are marked
+FIXED below (the rotor loop, the Options text). The other items in this file are left as written.
+
 Progression and saves
 - An out-of-film run marks Director's Notes done and gives their XP, but the pay function returns before the notes'
   line (`FTFlow.cpp` CommitLevel, `FTProgress.cpp` Commit). Skip notes when out of film.
@@ -137,8 +140,10 @@ HUD, menus, input
   `settings.json` (`bRaceInput` is cleared only on pause and attract).
 - FIXED on `main` by 3.4's loop cycle 5: HUD timers ran on through a pause, so the scene name, the intro line and
   LAST CHANCE! expired unread.
-- The chopper's rotor loop plays through pause and the results screens.
-- Options says Low/Medium use TSR and High enables Lumen; the code selects TAA, and Lumen is Epic only.
+- FIXED on `main` by 3.4's loop cycle 4 (`a9f42805`): the chopper's rotor loop played through pause and the results
+  screens (`FTGameMode.cpp` pauses `Rotor` with the race audio; log `FT AUDIO loops paused=`).
+- FIXED on `main` (`cafef2f4`): Options said Low/Medium use TSR and High enables Lumen. The text in `FTHUD.cpp` now
+  reads "Low and Medium use TAA with Lumen off. High uses TSR. Epic adds Lumen lighting and reflections."
 - FIXED on `main` by 3.4's loop cycle 6: mute was lost at every map load. Still LIKELY: the title song leaks at
   attract cuts.
 

@@ -543,11 +543,6 @@ void FTFx::Trail(const UObject* Ctx, int32 Key, const FVector& Now, const FVecto
 	}
 }
 
-void FTFx::TrailEnd(int32 Key)
-{
-	FxRaw().Trails.Remove(Key);
-}
-
 void FTFx::Tick(const UObject* Ctx, float Dt)
 {
 	UWorld* W = Ctx ? Ctx->GetWorld() : nullptr;

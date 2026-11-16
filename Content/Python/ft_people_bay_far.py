@@ -4,7 +4,8 @@ Everything living from 150 m to the horizon on the bay side, and the level's big
 far=True (the always-moving master): they stand past the 180 m line where roadside pieces stop moving.
 The road is raised and the beach falls away from it (2 m under the road at 110 m, 8 m at 220 m, the sea 340 m out),
 so the whole beach and the sea are in the chase camera's view: what stands there is small. So everything here is
-drawn BIG (people at 1.6 to 2.3 times life size, gulls 3 to 4.6 m across, dolphins 6 m long), massed, in hot colours
+drawn BIG (people at 1.6 to 2.3 times life size, gulls 3.3 to 5 m across, dolphins 8 to 10 m long, kites 6 m) and
+placed larger still by the rules' scale (1 m at 200 m is 5 pixels of a 1920 frame), massed, in hot colours
 against sand and water, and every piece moves with a big, slow gesture.
 
   SM_FarFlock      a wheeling flock of 22 gulls in two rings that turn against each other      (Scatter, the beach)
@@ -12,8 +13,8 @@ against sand and water, and every piece moves with a big, slow gesture.
   SM_FarDolphins   a school of 6 dolphins leaping along the shore, foam where each comes down      (Afloat)
   SM_FarSurf       surfers riding, paddle-boarders, swimmers waving, a line of buoys             (Afloat, the surf line)
   SM_FarKites      four kite flyers on the sand, their kites 18 to 34 m up, two dogs running rings  (Scatter, the beach)
-  SM_FarCrowd      a beach crowd as a band of colour: 24 people hopping out of step under big parasols, a ball
-                   thrown up, three dogs running along the band                                (Scatter, the lower beach)
+  SM_FarCrowd      a beach crowd as a band of colour: 24 people hopping out of step under big parasols, before striped
+                   windbreaks and feather banners, a ball thrown up, three dogs running along the band                                (Scatter, the lower beach)
 
 The placing rules: the block "far" of Source/FullThrottle/FTPeopleL0.inl.
 Run in the editor:  import ft_people_bay_far as K; K.run()
@@ -76,7 +77,7 @@ def far_person(sc, x, y, mo, s=1.6, top=HOTPINK, bottom=NAVY, skin='#d9a070', ha
             tilt_box(m, skin, (side * 28, 0, 118), (side * 36, 0, 64), 13, 13)
 
 
-def parasol(g, x, y, col, col2, r=320.0, h=380.0):
+def parasol(g, x, y, col, col2, r=450.0, h=430.0):
     g.box(WHITE, (x, y, h / 2.0), (9, 9, h))
     g.cyl(col, (x, y, h - 50), r, 60, steps=8, top_r=r * 0.45)
     g.cyl(col2, (x, y, h + 10), r * 0.45, 46, steps=8, top_r=8)
@@ -284,6 +285,12 @@ def crowd(seed=251):
         pc = ((RED, WHITE), (YEL, HOTPINK), (SKY, WHITE), (ORANGE, YEL), (VIOLET, MINT), (HOTPINK, WHITE))
         for k in range(6):
             parasol(g, -1900.0 + k * 760.0 + r.uniform(-80, 80), 250.0 + r.uniform(-60, 120), pc[k][0], pc[k][1])
+        for k in range(4):                                                   # windbreaks behind them: big flat slabs of colour, a white stripe
+            wx = -1650.0 + k * 1100.0
+            g.box(HOT[(k * 3 + 2) % 8], (wx, 560.0, 130), (820, 10, 260))
+            g.box(WHITE, (wx, 553.0, 130), (820, 6, 60))
+            for e in (-1, 1):
+                g.box(WHITE, (wx + e * 410, 560.0, 150), (12, 12, 300))
         for k in range(5):                                                   # towels: slabs of colour on the sand
             g.box(HOT[(k * 3) % 8], (-1700.0 + k * 850.0, -330.0, 5), (300, 150, 10))
         groups = [P.motion(phase=j / 8.0 + r.uniform(-0.04, 0.04), rate=r.uniform(0.9, 1.25), bob=r.uniform(26, 44)) for j in range(8)]

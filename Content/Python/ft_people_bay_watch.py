@@ -11,8 +11,8 @@ Placed by the "watch" block of Source/FullThrottle/FTPeopleL0.inl.
     SM_WatchTower_A / _B    a scaffold platform 4.3 m up under a striped canopy: a knot of people at its rail, a big
                             flag. Small footprint: stands on slopes, beside the villas, between the beach clubs.
     SM_WatchDeck            a beach bar's deck on stilts, parasols on it, its customers all at the road-side rail.
-    SM_WatchTerrace         a hotel's sun terrace across the mouth of a side street: two floors of guests at the
-                            rails over a striped valance. The town side.
+    SM_WatchTerrace         a hotel's sun terrace across the mouth of a side street, behind the promenade: two
+                            stepped floors of guests at the rails, each over a striped valance. The town side.
 
 Half of every crowd livens up as the chase comes by (react), half never rests, so a stand is in motion from far off.
 Run in the editor:  import ft_people_bay_watch as K; K.run()        (or K.run(['SM_WatchStand_A']))
@@ -223,35 +223,40 @@ def deck(seed=301):
 
 # ------------------------------------------------------------------------------------------ the hotel's terrace
 def terrace(seed=401):
-    """A hotel's sun terrace bridging the mouth of a side street, 14 m long: an open colonnade below (the street goes
-    under it), two floors of guests at the rails, a striped valance under each floor, a striped canopy on top."""
+    """A hotel's sun terrace bridging the mouth of a side street, 14 m long: it stands on four corner piers only (the
+    street, 10 m with its kerbs, runs between them), the lower floor 6 m up (over the promenade's clipped trees, which
+    stand between it and the road) and stepped 1.7 m out in front of the upper one, so that both rows of guests stand
+    in the open at their rails; a striped valance under each floor, a striped canopy over the doors at the back."""
     def build(sc):
         r = random.Random(seed)
         g = sc.still()
-        Lg, D, F1, F2, TOP = 1400.0, 440.0, 380.0, 720.0, 1060.0
-        for k in range(5):                                                   # the colonnade
-            x = -Lg / 2.0 + 40 + k * (Lg - 80) / 4.0
-            g.box(WHITE, (x, -D / 2.0 + 30, (F1 - FOOT) / 2.0), (44, 44, F1 + FOOT))
-            g.box(WHITE, (x, D / 2.0 - 30, (TOP - FOOT) / 2.0), (44, 44, TOP + FOOT))
-        for z in (F1, F2):                                                   # the floors, a valance under each, a rail on each
-            g.box(PEACH, (0, 0, z - 14), (Lg, D, 28))
-            stripes(g, -Lg / 2.0, Lg / 2.0, -D / 2.0 - 4, z - 96, z - 2, (HOTPINK, WHITE) if z == F1 else (TEAL, WHITE), 14)
-            g.box(WHITE, (0, -D / 2.0 - 2, z + 100), (Lg, 8, 8))
+        Lg, D, F1, F2, TOP, OUT = 1400.0, 440.0, 600.0, 940.0, 1250.0, 170.0
+        for sx in (-1, 1):                                                   # the piers: none in the street
+            x = sx * (Lg / 2.0 - 40)
+            g.box(WHITE, (x, -D / 2.0 + 30, (F1 - FOOT) / 2.0), (56, 56, F1 + FOOT))
+            g.box(WHITE, (x, D / 2.0 - 30, (TOP - FOOT) / 2.0), (56, 56, TOP + FOOT))
+            tilt_box(g, WHITE, (x, -D / 2.0 + 30, F1 - 190), (x, -D / 2.0 - OUT + 20, F1 - 30), 30, 30)   # a bracket under the lower balcony
+        g.box(WHITE, (0, -D / 2.0 + 30, F1 - 62), (Lg, 50, 70))             # the beams that span the street
+        g.box(WHITE, (0, D / 2.0 - 30, F1 - 62), (Lg, 50, 70))
+        for z, out, cols in ((F1, OUT, (HOTPINK, WHITE)), (F2, 0.0, (TEAL, WHITE))):   # the floors, a valance under each, a rail on each
+            yf = -D / 2.0 - out
+            g.box(PEACH, (0, -out / 2.0, z - 14), (Lg, D + out, 28))
+            stripes(g, -Lg / 2.0, Lg / 2.0, yf - 4, z - 96, z - 2, cols, 14)
+            g.box(WHITE, (0, yf - 2, z + 100), (Lg, 8, 8))
             for k in range(8):
-                g.box(WHITE, (-Lg / 2.0 + 10 + k * (Lg - 20) / 7.0, -D / 2.0 - 2, z + 50), (8, 8, 100))
+                g.box(WHITE, (-Lg / 2.0 + 10 + k * (Lg - 20) / 7.0, yf - 2, z + 50), (8, 8, 100))
         g.box(PEACH, (0, D / 2.0 - 12, (F1 + TOP) / 2.0), (Lg, 24, TOP - F1))    # the back wall, doors in it
         for z in (F1, F2):
             for k in range(4):
                 g.box(NAVY, (-Lg / 2.0 + 200 + k * (Lg - 400) / 3.0, D / 2.0 - 26, z + 115), (130, 6, 230))
-        for k in range(10):                                                  # the canopy
+        for k in range(10):                                                  # the canopy, over the doors only
             w = Lg / 10.0
-            g.box((YEL, WHITE)[k % 2], (-Lg / 2.0 + (k + 0.5) * w, D / 4.0, TOP + 6), (w, D / 2.0 + 40, 10), rot=(0, 0, -7))
-        g.box(HOTPINK, (0, -24, TOP - 14), (Lg, 6, 30))
+            g.box((YEL, WHITE)[k % 2], (-Lg / 2.0 + (k + 0.5) * w, D / 4.0 + 20, TOP + 6), (w, D / 2.0, 10), rot=(0, 0, -7))
+        g.box(HOTPINK, (0, 18, TOP - 14), (Lg, 6, 30))
         for k, x in enumerate((-Lg / 2.0 + 20, 0.0, Lg / 2.0 - 20)):
             pennant(sc, g, x, D / 2.0 - 30, TOP, TOP + 260, (HOTPINK, TEAL, YEL)[k], phase=0.3 * k, w=140.0, h=76.0)
-        crowd_row(sc, r, 7, -Lg / 2.0 + 40, Lg / 2.0 - 40, -D / 2.0 + 66, F1, s=1.25, detail=1, start=0, flags=(2,), cols=(HOTPINK, WHITE))
-        crowd_row(sc, r, 7, -Lg / 2.0 + 40, Lg / 2.0 - 40, -D / 2.0 + 66, F2, s=1.25, detail=0, start=3, flags=(5,), cols=(TEAL, YEL))
-        crowd_row(sc, r, 4, -Lg / 2.0 + 200, Lg / 2.0 - 200, 60, F2, s=1.2, detail=0, start=5, kid_every=0)
+        crowd_row(sc, r, 8, -Lg / 2.0 + 40, Lg / 2.0 - 40, -D / 2.0 - OUT + 66, F1, s=1.25, detail=1, start=0, flags=(2,), cols=(HOTPINK, WHITE))
+        crowd_row(sc, r, 8, -Lg / 2.0 + 40, Lg / 2.0 - 40, -D / 2.0 + 66, F2, s=1.25, detail=0, start=3, flags=(5,), cols=(TEAL, YEL))
     return build
 
 

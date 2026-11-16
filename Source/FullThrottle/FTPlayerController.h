@@ -66,7 +66,6 @@ public:
 	bool Clicked(const FBox2D& R) const { return Hit(EKeys::LeftMouseButton) && MouseIn(R); }
 	/** Set when a menu is closed by a button that is also FIRE: no shot until that button is released. */
 	bool bSwallowFire = false;
-	bool RightClicked(const FBox2D& R) const { return Hit(EKeys::RightMouseButton) && MouseIn(R); }
 	/** A right click anywhere on a pause / options / controls / dialog screen is BACK. */
 	bool RightBack() const { return bMenuMouse && Hit(EKeys::RightMouseButton); }
 	/** The drawn pointer (FTCursor) is on screen: a screen takes the mouse and the mouse was the last thing used. */

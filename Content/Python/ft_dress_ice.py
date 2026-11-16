@@ -485,16 +485,6 @@ def far_peak(m, seed=11, H=24000):
     _mount(m, r, H * 0.1, -2600, H * 0.26, H * 0.3, ROCK_D, 0.6, 5)
 
 
-def far_range(m, seed=12, length=60000, h=13000):
-    """A long range of lesser peaks, paler with distance: the second depth of the skyline."""
-    r = random.Random(seed)
-    n = 8
-    for k in range(n):
-        x = -length / 2.0 + (k + 0.5) * length / n + r.uniform(-1500, 1500)
-        hh = h * r.uniform(0.55, 1.0)
-        _mount(m, r, x, r.uniform(-1200, 1200), length / n * r.uniform(0.62, 0.86), hh, ROCK_FAR, r.uniform(0.34, 0.5), 5 + k % 2)
-
-
 def glacier_tongue(m, seed=13, W=22000, H=11000):
     """A glacier tongue coming down between two rock walls towards the road: stepped blue ice, crevasses across it,
     an ice cliff where it ends."""
@@ -808,20 +798,6 @@ def far_horn(m, H=26000.0):
     _spire(m, -H * 0.34, -600, H * 0.24, H * 0.34, (4, 50, 0), FAR_ROCK_D, 0.45, 4)
     m.box(ICE_D, (H * 0.17, 300, H * 0.26), (H * 0.2, H * 0.1, H * 0.04), rot=(-16, 0, 6))
     m.box(SNOW, (H * 0.17, 250, H * 0.285), (H * 0.19, H * 0.09, H * 0.02), rot=(-16, 0, 6))
-
-
-def far_twin(m, H=22000.0):
-    """A twin summit: two unequal horns leaning apart, a glacier coming down in steps between them, snow domes on its
-    shoulders."""
-    _spire(m, -H * 0.24, 2000, H * 0.33, H, (7, 0, 0), FAR_ROCK, 0.34, 5)
-    _spire(m, H * 0.26, 2600, H * 0.30, H * 0.82, (-8, 0, 0), FAR_ROCK, 0.36, 6)
-    for k in range(4):
-        z = H * (0.40 - 0.085 * k)
-        m.box(ICE if k % 2 else ICE_D, (0, 1500 - k * 1500, z / 2.0 - 1500), (H * (0.30 - 0.03 * k), 1700, z + 3000))
-        m.box(SNOW, (0, 1700 - k * 1500, z + 40), (H * (0.27 - 0.03 * k), 1100, 80))
-    m.box(ICE_DEEP, (0, -4000, H * 0.05 - 1500), (H * 0.2, 300, H * 0.1 + 3000))
-    m.sphere(SNOW, (-H * 0.62, 600, 0), H * 0.26, scale=(1.2, 0.6, 0.3), steps=(5, 9))       # low domes (taller, they read as boulders)
-    m.sphere(SNOW, (H * 0.6, 0, 0), H * 0.2, scale=(1.1, 0.6, 0.26), steps=(5, 9))
 
 
 def saw_ridge(m, seed=53, L=52000.0, H=9000.0):
@@ -1528,7 +1504,7 @@ JOBS = [
     ('SM_SnowFenceL', lambda m: snow_fence(m, -1)),
     ('SM_PadRun', pad_run), ('SM_CablePylon', cable_pylon), ('SM_CableTower', cable_tower), ('SM_ChaletRow', chalet_row),
     ('SM_ShedGroomer', groomer_shed), ('SM_Hotel', hotel), ('SM_AvalancheDam', avalanche_dam), ('SM_PoleFeather', feather_banners),
-    ('SM_PeakHorn', far_horn), ('SM_PeakTwin', far_twin), ('SM_RidgeSaw', saw_ridge),
+    ('SM_PeakHorn', far_horn), ('SM_RidgeSaw', saw_ridge),
     ('SM_SnowFence', snow_fence), ('SM_SnowRockBank', snow_bank), ('SM_SnowRockBank2', lambda m: snow_bank(m, seed=21)),
     ('SM_PoleMarker', piste_marker), ('SM_PoleMarker2', lambda m: piste_marker(m, RED)), ('SM_SnowRockIce', ice_blocks),
     ('SM_SnowCannon', snow_cannon), ('SM_Sled', sled),
@@ -1537,8 +1513,7 @@ JOBS = [
     ('SM_WeatherStation', weather_station), ('SM_PoleSignal', signal_mast), ('SM_PipeStands', pipe_stands), ('SM_Lodge', lodge),
     ('SM_RockSeracB', seracs), ('SM_RockSeracH', lambda m: seracs(m, seed=25)), ('SM_RockCutting', rock_cut),
     ('SM_RockIceFalls', frozen_fall), ('SM_SnowRockCrevasse', crevasse_field), ('SM_SnowRockDrift', snow_drift),
-    ('SM_PeakGreat', far_peak), ('SM_PeakLesser', lambda m: far_peak(m, seed=31, H=18000)), ('SM_RidgeRange', far_range),
-    ('SM_RidgeGlacier', glacier_tongue), ('SM_PeakObservatory', summit_observatory),
+    ('SM_PeakGreat', far_peak), ('SM_RidgeGlacier', glacier_tongue), ('SM_PeakObservatory', summit_observatory),
 ]
 
 

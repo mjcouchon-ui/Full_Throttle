@@ -39,26 +39,29 @@ BRIGHT = (MAG, CYAN, AMBER, RED, ORANGE, VIOLET, LIME, WHITE)
 
 
 # ------------------------------------------------------------------------------------------ helpers
-def lift(sc, g):
+def lift(sc, g, gp):
     """A steady glow on every colour of the piece, like a figure under stage light: the level is lit by night, and in
-    the game's frames a figure in plain colours 40 m out was a dark speck. g for the people, the flags and the striped
-    parapets (0.14: the colour again and a little more), a third of it for the dark structure. Only for pieces that stand 24 m
-    or more from the road; nothing blinks."""
+    the game's frames a figure in plain colours 40 m out was a dark speck beside the stalls' lamps. gp for everything
+    that moves (the people, what they hold, the flags, the parasols), g for the structure they stand on (a third of
+    it on its dark colours), so that the crowd is the brightest thing of its piece and not its parapet. Only for
+    pieces that stand 24 m or more from the road (these stand 37 m out and more); steady, nothing blinks."""
     for key in sc.order:
-        model = sc.parts[key][0]
+        model, mo = sc.parts[key]
+        moving = mo['rate'] != 0.0
         out = {}
         for (col, glow), pm in model.meshes.items():
-            k2 = (col, max(glow, g / 3.0 if col in (NAVY, PURPLE, PLUM, DARK) else g))
+            want = gp if moving else (g / 3.0 if col in (NAVY, PURPLE, PLUM, DARK) else g)
+            k2 = (col, max(glow, want))
             while k2 in out:
                 k2 = (col, k2[1] + 0.0002)
             out[k2] = pm
         model.meshes = out
 
 
-def lit(fn, g=0.14):
+def lit(fn, g=0.12, gp=0.34):
     def build(sc):
         fn(sc)
-        lift(sc, g)
+        lift(sc, g, gp)
     build.__doc__ = fn.__doc__
     return build
 
@@ -129,10 +132,14 @@ def act(r, k):
     return dict(arm_l='up', arm_r='up', hold_r=P.hold_sign(WHITE, c, w=92, h2=58), bob=8, rate=1.1)
 
 
-def watcher(sc, r, x, y, z, k, yaw=0.0, child=False, detail=0, **kw):
+BIG = 1.3     # the watchers are drawn a third over life size: at 37 m and more a life-size figure was a speck in the frames
+
+
+def watcher(sc, r, x, y, z, k, yaw=0.0, child=False, detail=0, big=BIG, **kw):
     d = kid(r) if child else guest(r)
     d.update(act(r, k))
     d.update(kw)
+    d['s'] = d.get('s', 1.0) * big
     return P.figure(sc, x, y, z=z, yaw=yaw + r.uniform(-12, 12), phase=r.random(), react=True, detail=detail, **d)
 
 
@@ -173,7 +180,7 @@ def bridge_a(sc):
     stair(g, L / 2.0, L / 2.0 + 430, 0, Z, D - 60)
     stair(g, -L / 2.0, -L / 2.0 - 430, 0, Z, D - 60)
     parapet(g, -L / 2.0, L / 2.0, -D / 2.0 + 6, Z, (MAG, CREAM), 10)
-    g.box(PLUM, (0, 50, Z + 25), (L - 160, 90, 50))
+    g.box(PLUM, (0, 50, Z + 30), (L - 160, 90, 60))
     g.box(PLUM, (0, D / 2.0 - 6, Z + 92), (L, 8, 8))
     for k in range(4):
         x = -690 + k * 460
@@ -188,7 +195,7 @@ def bridge_a(sc):
         else:
             watcher(sc, r, x, -D / 2.0 + 56, Z, k)
     for i in range(7):
-        fan(sc, r, -570 + i * 190 + r.uniform(-20, 20), 50, Z + 116, r.random(), rate=0.7, bob=16.0, wave=(i % 3 == 1), legs=True)
+        fan(sc, r, -570 + i * 190 + r.uniform(-20, 20), 50, Z + 60 + 83, r.random(), rate=0.7, bob=16.0, wave=(i % 3 == 1), legs=True, size=1.25)
 
 
 def bridge_b(sc):
@@ -217,9 +224,9 @@ def bridge_b(sc):
     # the banner pair: both hop together, the banner with them
     ph = r.random()
     for sx in (-1, 1):
-        P.figure(sc, sx * 150, y, z=Z, arm_l='up', arm_r='up', bob=10, rate=1.2, phase=ph, react=True, detail=0, **guest(r, s=1.0))
+        P.figure(sc, sx * 195, y, z=Z, arm_l='up', arm_r='up', bob=10, rate=1.2, phase=ph, react=True, detail=0, **guest(r, s=BIG))
     bn = sc.part(P.motion(phase=ph, rate=1.2, bob=10.0, react=True))
-    stripes(bn, -190, 190, y - 4, Z + 196, Z + 262, (RED, WHITE, AMBER, WHITE), 8, depth=5)
+    stripes(bn, -240, 240, y - 4, Z + 250, Z + 334, (RED, WHITE, AMBER, WHITE), 8, depth=5)
     order = (1, 6, 2, 0, 3, 4, 5, 2)
     xs = (-680, -540, -400, -280, 290, 420, 550, 680)
     for i, (x, k) in enumerate(zip(xs, order)):
@@ -268,7 +275,7 @@ def terrace(sc):
     for i, k in enumerate(order):
         x = -640 + i * 160 + r.uniform(-12, 12)
         if k == 'd':
-            P.figure(sc, x, -D / 2.0 + 58, z=Z, yaw=r.uniform(-12, 12), phase=r.random(), react=True, detail=0, **dict(guest(r), **drink))
+            P.figure(sc, x, -D / 2.0 + 58, z=Z, yaw=r.uniform(-12, 12), phase=r.random(), react=True, detail=0, **dict(guest(r, s=BIG), **drink))
         else:
             watcher(sc, r, x, -D / 2.0 + 58, Z, k)
 
@@ -341,24 +348,28 @@ def tower(sc):
             g.box(cols[j][0], (sx * (W / 2.0 - 5), -20, Z + 29), (10, D, 58))
         for i in range(4):
             x = -204 + i * 136 + r.uniform(-10, 10)
-            watcher(sc, r, x, -20 - D / 2.0 + 58, Z, (0, 3, 2, 6, 4, 1, 7, 0, 2, 5, 0, 3)[k])
+            watcher(sc, r, x, -20 - D / 2.0 + 58, Z, (0, 1, 2, 4, 4, 1, 5, 0, 2, 5, 0, 1)[k], big=1.2)   # no flags or foam hands here: the next balcony is 2.9 m overhead
             k += 1
     g.cyl(MAG, (0, -20, 1380), 400, 190, steps=8, top_r=12)
     g.cyl(CREAM, (0, -20, 1370), 410, 12, steps=8)
     g.box(CREAM, (0, -20, 1680), (8, 8, 240))
     m = sc.part(P.motion(phase=0.3, rate=0.7, swing=26.0, pivot=(0.0, -20.0, 1700.0), axis=P.UP))
     m.box(AMBER, (80, -20, 1760), (160, 5, 70))
-    # the stair up the side, as two flights
-    tilt_box(g, CREAM, (W / 2.0 + 60, 150, 0), (W / 2.0 + 60, -190, 438), 100, 16)
-    tilt_box(g, CREAM, (-W / 2.0 - 60, -190, 450), (-W / 2.0 - 60, 150, 748), 100, 16)
+    # the stair up the side, as two flights with a landing each and rails in the balconies' colours
+    for sx, y0, y1, z0, z1, c in ((1, 150, -190, 0.0, 438.0, MAG), (-1, -190, 150, 450.0, 748.0, CYAN)):
+        x = sx * (W / 2.0 + 60)
+        tilt_box(g, CREAM, (x, y0, z0), (x, y1, z1), 100, 16)
+        for e in (-1, 1):
+            tilt_box(g, c, (x + e * 46, y0, z0 + 62), (x + e * 46, y1, z1 + 62), 8, 60)
+        g.box(CREAM, (x, y1 + (-40 if y1 < y0 else 40), z1 + 4), (100, 90, 16))
 
 
 # ------------------------------------------------------------------------------------------ the bleachers
-def fan(sc, r, x, y, z, phase, rate=0.5, bob=26.0, card=None, wave=False, legs=False):
+def fan(sc, r, x, y, z, phase, rate=0.5, bob=26.0, card=None, wave=False, legs=False, size=1.0):
     """A light member of a big crowd, seen from the waist up behind the row in front (about 70 triangles): a shirt, a
     head and its hair, both arms up; card: a coloured card held over the head; wave: the right arm swings."""
     top, skin, hair = r.choice(BRIGHT), r.choice(P.SKINS), r.choice(P.HAIRS)
-    s = r.uniform(0.92, 1.06)
+    s = r.uniform(0.92, 1.06) * size
     mo = dict(phase=phase, rate=rate, bob=bob, react=True)
     m = sc.part(P.motion(**mo), (x, y, z), r.uniform(-10, 10), s)
     m.box(top, (0, 0, 36), (48, 28, 72))
@@ -410,7 +421,7 @@ JOBS = [
     ('SM_WatchTerrace', lit(terrace)),
     ('SM_WatchPlatform', lit(platform)),
     ('SM_WatchTower', lit(tower)),
-    ('SM_WatchBleachers', lit(bleachers, 0.14)),
+    ('SM_WatchBleachers', lit(bleachers)),
 ]
 
 

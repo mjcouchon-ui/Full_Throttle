@@ -206,17 +206,64 @@ PplSet(57, 57); PplSet(62, 65); PplSet(71, 76); PplSet(122, 123); PplSet(128, 13
 
 {
 // ---- BEGIN far (ft_people_sea_far.py) ----
-Zone(TEXT("People far: test"), 0.f, 99.f);
-	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarSquid"), 150.f, 190.f, 12, 2, 1.f, 2.2f, 0.f, -1, 20.f);
-	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarDomeWorks"), 170.f, 220.f, 12, 0, 1.f, 1.5f, 0.f, 1, 10.f);
-	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarNautilus"), 150.f, 200.f, 12, 4, 1.f, 2.f, 0.f, -1, 20.f);
-	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarCrabMarch"), 200.f, 270.f, 12, 3, 1.f, 2.5f, 0.f, 1, 6.f);
-	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarSeaDragon"), 150.f, 200.f, 12, 8, 1.f, 1.8f, 0.f, -1, 10.f);
-	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarScooterWing"), 150.f, 200.f, 12, 6, 1.f, 1.8f, 0.f, 1, 10.f);
-	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarSquid"), 150.f, 190.f, 12, 9, 1.f, 2.2f, 0.f, 1, 20.f);
-	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarNautilus"), 150.f, 200.f, 12, 11, 1.f, 2.f, 0.f, 1, 20.f);
-	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarCrabMarch"), 200.f, 270.f, 12, 10, 1.f, 2.5f, 0.f, -1, 6.f);
-	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarDomeWorks"), 170.f, 220.f, 12, 6, 1.f, 1.5f, 0.f, -1, 10.f);
+// Far life and creatures (the extra worker, focus "far"): what lives from 150 m out to the trench walls. Six meshes,
+// /Game/People/UnderTheSea/SM_Far*, all saved with the always-moving master. Learned in frames: the chase camera looks
+// ahead, so a piece 180 m to the side is seen from 300 m and more, through the haze: every piece is placed at about
+// twice the size it was built (the scale below), carries a little steady light of its own colour, and swims 20 to
+// 60 m over the sand, against the water. The travelling ones go at most 80 m either way along the road and are turned
+// 6 degrees at most, so none comes nearer than about 150 m. Every rule has a chance of 1 and its own step (see the
+// dressing's note on chances), one side to a rule, so the two sides are never the same.
+// Scale: squid 2.2 (75 m of animal), dome works 1.5, nautilus 2 (shells 10 to 16 m), crabs 2 (225 m and more out, on the trench wall,
+// which stands 8 to 13 m over the road there), sea dragon 1.8 (a ribbon of 110 m), scooter wing 1.8.
+Zone(TEXT("People far: the reef"), 0.0f, 1.7f);                  // nautilus shoals over the reef, the first squid, a sea dragon
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarNautilus"), 150.f, 200.f, 7, 1, 1.f, 2.0f, 0.f, -1, 20.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarNautilus"), 150.f, 200.f, 7, 4, 1.f, 2.0f, 0.f, 1, 20.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarSquid"), 175.f, 215.f, 13, 3, 1.f, 2.2f, 0.f, -1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarSquid"), 175.f, 215.f, 13, 9, 1.f, 2.2f, 0.f, 1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarSeaDragon"), 170.f, 210.f, 15, 6, 1.f, 1.8f, 0.f, 1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarSeaDragon"), 170.f, 210.f, 15, 13, 1.f, 1.8f, 0.f, -1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarCrabMarch"), 225.f, 280.f, 11, 8, 1.f, 2.0f, 0.f, -1, 6.f);
+Zone(TEXT("People far: the kelp forest"), 1.7f, 3.4f);           // crabs on the march along the walls, dragons over the weed
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarCrabMarch"), 225.f, 280.f, 7, 0, 1.f, 2.0f, 0.f, 1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarCrabMarch"), 225.f, 280.f, 7, 3, 1.f, 2.0f, 0.f, -1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarSeaDragon"), 170.f, 210.f, 9, 2, 1.f, 1.8f, 0.f, -1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarSeaDragon"), 170.f, 210.f, 9, 6, 1.f, 1.8f, 0.f, 1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarSquid"), 175.f, 215.f, 17, 5, 1.f, 2.2f, 0.f, 1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarNautilus"), 150.f, 200.f, 13, 9, 1.f, 2.0f, 0.f, -1, 20.f);
+Zone(TEXT("People far: the research station"), 3.4f, 5.0f);     // Nereida builds: domes going up, flights of scooters
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarDomeWorks"), 170.f, 225.f, 8, 0, 1.f, 1.5f, 0.f, -1, 10.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarDomeWorks"), 170.f, 225.f, 8, 4, 1.f, 1.5f, 0.f, 1, 10.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarScooterWing"), 170.f, 210.f, 7, 2, 1.f, 1.8f, 0.f, 1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarScooterWing"), 170.f, 210.f, 7, 5, 1.f, 1.8f, 0.f, -1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarNautilus"), 150.f, 200.f, 13, 6, 1.f, 2.0f, 0.f, 1, 20.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarSeaDragon"), 170.f, 210.f, 17, 11, 1.f, 1.8f, 0.f, -1, 6.f);
+Zone(TEXT("People far: the salvage field"), 5.0f, 6.6f);        // the squid hunts over the dead ships; crabs pick the wrecks
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarSquid"), 175.f, 215.f, 9, 1, 1.f, 2.2f, 0.f, -1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarSquid"), 175.f, 215.f, 9, 5, 1.f, 2.2f, 0.f, 1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarCrabMarch"), 225.f, 280.f, 8, 3, 1.f, 2.0f, 0.f, 1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarCrabMarch"), 225.f, 280.f, 8, 7, 1.f, 2.0f, 0.f, -1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarNautilus"), 150.f, 200.f, 11, 2, 1.f, 2.0f, 0.f, -1, 20.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarScooterWing"), 170.f, 210.f, 13, 8, 1.f, 1.8f, 0.f, 1, 6.f);
+Zone(TEXT("People far: the approach"), 6.6f, 7.94f);            // the city's traffic: scooter wings, a dome, a dragon
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarScooterWing"), 170.f, 210.f, 7, 0, 1.f, 1.8f, 0.f, -1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarScooterWing"), 170.f, 210.f, 7, 3, 1.f, 1.8f, 0.f, 1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarDomeWorks"), 170.f, 225.f, 9, 2, 1.f, 1.5f, 0.f, 1, 10.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarDomeWorks"), 170.f, 225.f, 9, 6, 1.f, 1.5f, 0.f, -1, 10.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarSeaDragon"), 170.f, 210.f, 11, 5, 1.f, 1.8f, 0.f, 1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarSquid"), 175.f, 215.f, 15, 8, 1.f, 2.2f, 0.f, -1, 6.f);
+Zone(TEXT("People far: Nereida"), 7.94f, 99.f);                // 17 km of outworks: everything, in turn, thinly
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarDomeWorks"), 170.f, 225.f, 26, 3, 1.f, 1.5f, 0.f, -1, 10.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarDomeWorks"), 170.f, 225.f, 26, 16, 1.f, 1.5f, 0.f, 1, 10.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarScooterWing"), 170.f, 210.f, 23, 7, 1.f, 1.8f, 0.f, 1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarScooterWing"), 170.f, 210.f, 23, 18, 1.f, 1.8f, 0.f, -1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarCrabMarch"), 225.f, 280.f, 29, 11, 1.f, 2.0f, 0.f, -1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarCrabMarch"), 225.f, 280.f, 29, 25, 1.f, 2.0f, 0.f, 1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarSquid"), 175.f, 215.f, 41, 14, 1.f, 2.2f, 0.f, 1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarSquid"), 175.f, 215.f, 41, 34, 1.f, 2.2f, 0.f, -1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarNautilus"), 150.f, 200.f, 31, 9, 1.f, 2.0f, 0.f, 1, 20.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarNautilus"), 150.f, 200.f, 31, 24, 1.f, 2.0f, 0.f, -1, 20.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarSeaDragon"), 170.f, 210.f, 37, 5, 1.f, 1.8f, 0.f, -1, 6.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_FarSeaDragon"), 170.f, 210.f, 37, 23, 1.f, 1.8f, 0.f, 1, 6.f);
 // ---- END far ----
 }
 
@@ -230,7 +277,8 @@ Zone(TEXT("People far: test"), 0.f, 99.f);
 // All are TALL: their middles stand 33 m out or more, so that nothing of them over 2 m is nearer than 24 m (a balcony
 // is 5.4 m in radius, the dome's rim 7 m) and the 17 to 27 m band stays free for the street cast and the film crew.
 // The one exception is the wall of divers (2.6 m deep): 26 to 28 m in the kelp forest, in front of the weed, and on
-// the travel tube's side of Nereida, in front of the tube (which stands at 33 m, 5 m up).
+// the travel tube's side of the station and of Nereida, in front of the tube (which stands at 33 m, 5 m up, and hides
+// a deck behind it to 8 m up: seen in frames, so nothing of this block stands behind the tube).
 // Phases are chosen against the dressing's own rules (the pressure habitats at 33 to 38 m, the vents at 40 to 44 m,
 // the habitats' airlock tubes): see ft_people_sea_watch.py's header for what each piece is.
 Zone(TEXT("People watch: the reef"), 0.0f, 1.7f);
@@ -250,8 +298,7 @@ Zone(TEXT("People watch: the kelp forest"), 1.7f, 3.4f);     // the weed stands 
 Zone(TEXT("People watch: the research station"), 3.4f, 5.0f); // left: behind the pipeline, between the pressure habitats (odd slots); right: behind the tube
 	Scatter(TEXT("/Game/People/UnderTheSea/SM_WatchBalcony_A"), 33.f, 36.f, 8, 2, 1.f, 1.05f, 0.08f, -1, 8.f);
 	Scatter(TEXT("/Game/People/UnderTheSea/SM_WatchDome"), 34.f, 37.f, 8, 6, 1.f, 1.f, 0.08f, -1, 8.f);
-	Scatter(TEXT("/Game/People/UnderTheSea/SM_WatchWall"), 43.f, 46.f, 6, 1, 1.f, 1.25f, 0.05f, 1, 5.f);
-	Scatter(TEXT("/Game/People/UnderTheSea/SM_WatchAirlock"), 46.f, 49.f, 12, 4, 1.f, 1.4f, 0.05f, 1, 5.f);
+	Scatter(TEXT("/Game/People/UnderTheSea/SM_WatchWall"), 26.f, 27.5f, 6, 1, 1.f, 1.f, 0.f, 1, 4.f);      // in front of the tube (behind it a deck is hidden to 8 m up)
 	Scatter(TEXT("/Game/People/UnderTheSea/SM_WatchFarGallery"), 130.f, 180.f, 10, 2, 1.f, 1.f, 0.1f, -1, 10.f);
 	Scatter(TEXT("/Game/People/UnderTheSea/SM_WatchFarGallery"), 130.f, 180.f, 10, 7, 1.f, 1.f, 0.1f, 1, 10.f);
 Zone(TEXT("People watch: the salvage field"), 5.0f, 6.6f);
@@ -276,7 +323,6 @@ Zone(TEXT("People watch: Nereida"), 7.94f, 99.f);            // right: the pipel
 	Scatter(TEXT("/Game/People/UnderTheSea/SM_WatchBalcony_B"), 33.f, 37.f, 16, 12, 1.f, 1.05f, 0.08f, 1, 8.f);
 	Scatter(TEXT("/Game/People/UnderTheSea/SM_WatchWall"), 42.f, 47.f, 12, 2, 1.f, 1.2f, 0.1f, 1, 6.f);
 	Scatter(TEXT("/Game/People/UnderTheSea/SM_WatchWall"), 26.f, 27.5f, 8, 1, 1.f, 1.f, 0.f, -1, 4.f);
-	Scatter(TEXT("/Game/People/UnderTheSea/SM_WatchAirlock"), 47.f, 50.f, 12, 3, 1.f, 1.5f, 0.05f, -1, 5.f);
 	Scatter(TEXT("/Game/People/UnderTheSea/SM_WatchFarGallery"), 125.f, 190.f, 14, 6, 1.f, 1.f, 0.1f, -1, 10.f);
 	Scatter(TEXT("/Game/People/UnderTheSea/SM_WatchFarGallery"), 125.f, 190.f, 14, 13, 1.f, 1.f, 0.1f, 1, 10.f);
 // ---- END watch ----

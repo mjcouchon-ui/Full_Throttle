@@ -522,8 +522,10 @@ Zone(TEXT("People: the last ash, beyond: the right"), 22.3f, 99.f);
 //  - SM_FarLedgeGoats and SM_FarRimSurvey on the slopes 162 to 174 m out, between the main table's herd (128 to 138 m)
 //    and its caravan (196 to 204 m); the drop is the land's own there (0.75 m under the road out to 90 m, then rising
 //    4.6 cm a metre on the left, 6 cm on the right), and both are rooted 4 to 5 m into it.
-//  - SM_FarRidgeLine at 282 to 290 m, the land's last rise, past the dressing's crag terraces (245 to 270 m): it brings
-//    its own causeway 8 m tall, so the line walks the skyline.
+//  - SM_FarRidgeLine at 180 to 188 m (at 286 m, the land's last rise, the cinder cones and the mine hid most of it):
+//    it brings its own causeway 8 m tall, so the line walks above the slope's huts and haulers; the main table's
+//    caravan (196 to 204 m, half the size) passes behind it. The goats' crag in the same districts is written half a
+//    cycle away from it, so the two never stand in one slot.
 //  - SM_FarSkein_A / _B (their height is in the mesh: 40 to 125 m up) 210 to 300 m out; SM_FarKettle (36 to 86 m up)
 //    150 to 260 m out, turned any way round.
 //  - Nothing on the right between 2.4 and 3.9 km (the eruption is watched over that side: FTDressL3.inl).
@@ -533,13 +535,13 @@ Zone(TEXT("People: the last ash, beyond: the right"), 22.3f, 99.f);
 // Written by a script (the worker's scratch: jobs/L3f/table.py).
 #define VF(Name) TEXT("/Game/People/Volcano/" Name)
 Zone(TEXT("People far: the ash road, the left"), 0.f, 1.17f);
-	Far(VF("SM_FarRidgeLine"), 282.f, 290.f, 22, 3, 1.f, 1.f, 0.f, -1, -8.266f, 3.f);
+	Far(VF("SM_FarRidgeLine"), 180.f, 188.f, 22, 3, 1.f, 1.f, 0.f, -1, -3.574f, 3.f);
 	Far(VF("SM_FarSkein_A"), 210.f, 300.f, 14, 1, 1.f, 1.f, 0.f, -1, 0.f, 6.f);
-	Far(VF("SM_FarLedgeGoats"), 162.f, 174.f, 18, 8, 1.f, 1.f, 0.f, -1, -2.838f, 22.f);
+	Far(VF("SM_FarLedgeGoats"), 162.f, 174.f, 22, 14, 1.f, 1.f, 0.f, -1, -2.838f, 22.f);
 Zone(TEXT("People far: the ash road, the right"), 0.f, 1.17f);
-	Far(VF("SM_FarRidgeLine"), 282.f, 290.f, 22, 14, 1.f, 1.f, 0.f, 1, -11.01f, 3.f);
+	Far(VF("SM_FarRidgeLine"), 180.f, 188.f, 22, 14, 1.f, 1.f, 0.f, 1, -4.89f, 3.f);
 	Far(VF("SM_FarSkein_A"), 210.f, 300.f, 14, 8, 1.f, 1.f, 0.f, 1, 0.f, 6.f);
-	Far(VF("SM_FarLedgeGoats"), 162.f, 174.f, 18, 17, 1.f, 1.f, 0.f, 1, -3.93f, 22.f);
+	Far(VF("SM_FarLedgeGoats"), 162.f, 174.f, 22, 3, 1.f, 1.f, 0.f, 1, -3.93f, 22.f);
 Zone(TEXT("People far: lava jumps, the left"), 1.17f, 2.5f);
 	Far(VF("SM_FarSkein_B"), 210.f, 300.f, 12, 7, 1.f, 1.f, 0.f, -1, 0.f, 6.f);
 	Far(VF("SM_FarKettle"), 150.f, 260.f, 16, 8, 1.f, 1.f, 0.f, -1, 0.f, 180.f);
@@ -553,13 +555,13 @@ Zone(TEXT("People far: the caldera, the left"), 2.5f, 3.76f);
 	Far(VF("SM_FarKettle"), 150.f, 260.f, 14, 12, 1.f, 1.f, 0.f, -1, 0.f, 180.f);
 	Far(VF("SM_FarSkein_A"), 210.f, 300.f, 16, 3, 1.f, 1.f, 0.f, -1, 0.f, 6.f);
 Zone(TEXT("People far: fire and brimstone, the left"), 3.76f, 5.18f);
-	Far(VF("SM_FarRidgeLine"), 282.f, 290.f, 22, 18, 1.f, 1.f, 0.f, -1, -8.266f, 3.f);
+	Far(VF("SM_FarRidgeLine"), 180.f, 188.f, 22, 18, 1.f, 1.f, 0.f, -1, -3.574f, 3.f);
 	Far(VF("SM_FarSkein_A"), 210.f, 300.f, 14, 10, 1.f, 1.f, 0.f, -1, 0.f, 6.f);
-	Far(VF("SM_FarLedgeGoats"), 162.f, 174.f, 18, 2, 1.f, 1.f, 0.f, -1, -2.838f, 22.f);
+	Far(VF("SM_FarLedgeGoats"), 162.f, 174.f, 22, 7, 1.f, 1.f, 0.f, -1, -2.838f, 22.f);
 Zone(TEXT("People far: fire and brimstone, the right"), 3.9f, 5.18f);
-	Far(VF("SM_FarRidgeLine"), 282.f, 290.f, 22, 7, 1.f, 1.f, 0.f, 1, -11.01f, 3.f);
+	Far(VF("SM_FarRidgeLine"), 180.f, 188.f, 22, 7, 1.f, 1.f, 0.f, 1, -4.89f, 3.f);
 	Far(VF("SM_FarSkein_A"), 210.f, 300.f, 14, 3, 1.f, 1.f, 0.f, 1, 0.f, 6.f);
-	Far(VF("SM_FarLedgeGoats"), 162.f, 174.f, 18, 11, 1.f, 1.f, 0.f, 1, -3.93f, 22.f);
+	Far(VF("SM_FarLedgeGoats"), 162.f, 174.f, 22, 18, 1.f, 1.f, 0.f, 1, -3.93f, 22.f);
 Zone(TEXT("People far: the magma run, the left"), 5.18f, 6.73f);
 	Far(VF("SM_FarSkein_B"), 210.f, 300.f, 12, 10, 1.f, 1.f, 0.f, -1, 0.f, 6.f);
 	Far(VF("SM_FarKettle"), 150.f, 260.f, 16, 1, 1.f, 1.f, 0.f, -1, 0.f, 180.f);
@@ -577,13 +579,13 @@ Zone(TEXT("People far: obsidian pass, the right"), 6.73f, 8.34f);
 	Far(VF("SM_FarKettle"), 150.f, 260.f, 14, 0, 1.f, 1.f, 0.f, 1, 0.f, 180.f);
 	Far(VF("SM_FarSkein_A"), 210.f, 300.f, 16, 10, 1.f, 1.f, 0.f, 1, 0.f, 6.f);
 Zone(TEXT("People far: Engine 13's road, the left"), 8.34f, 11.1f);
-	Far(VF("SM_FarRidgeLine"), 282.f, 290.f, 22, 11, 1.f, 1.f, 0.f, -1, -8.266f, 3.f);
+	Far(VF("SM_FarRidgeLine"), 180.f, 188.f, 22, 11, 1.f, 1.f, 0.f, -1, -3.574f, 3.f);
 	Far(VF("SM_FarSkein_A"), 210.f, 300.f, 14, 5, 1.f, 1.f, 0.f, -1, 0.f, 6.f);
-	Far(VF("SM_FarLedgeGoats"), 162.f, 174.f, 18, 14, 1.f, 1.f, 0.f, -1, -2.838f, 22.f);
+	Far(VF("SM_FarLedgeGoats"), 162.f, 174.f, 22, 0, 1.f, 1.f, 0.f, -1, -2.838f, 22.f);
 Zone(TEXT("People far: Engine 13's road, the right"), 8.34f, 11.1f);
-	Far(VF("SM_FarRidgeLine"), 282.f, 290.f, 22, 0, 1.f, 1.f, 0.f, 1, -11.01f, 3.f);
+	Far(VF("SM_FarRidgeLine"), 180.f, 188.f, 22, 0, 1.f, 1.f, 0.f, 1, -4.89f, 3.f);
 	Far(VF("SM_FarSkein_A"), 210.f, 300.f, 14, 12, 1.f, 1.f, 0.f, 1, 0.f, 6.f);
-	Far(VF("SM_FarLedgeGoats"), 162.f, 174.f, 18, 5, 1.f, 1.f, 0.f, 1, -3.93f, 22.f);
+	Far(VF("SM_FarLedgeGoats"), 162.f, 174.f, 22, 11, 1.f, 1.f, 0.f, 1, -3.93f, 22.f);
 Zone(TEXT("People far: the burning slopes, the left"), 11.1f, 13.9f);
 	Far(VF("SM_FarSkein_B"), 210.f, 300.f, 12, 1, 1.f, 1.f, 0.f, -1, 0.f, 6.f);
 	Far(VF("SM_FarKettle"), 150.f, 260.f, 16, 10, 1.f, 1.f, 0.f, -1, 0.f, 180.f);
@@ -593,13 +595,13 @@ Zone(TEXT("People far: the burning slopes, the right"), 11.1f, 13.9f);
 	Far(VF("SM_FarKettle"), 150.f, 260.f, 16, 2, 1.f, 1.f, 0.f, 1, 0.f, 180.f);
 	Far(VF("SM_FarLedgeGoats"), 162.f, 174.f, 18, 12, 1.f, 1.f, 0.f, 1, -3.93f, 22.f);
 Zone(TEXT("People far: the ash fields, the left"), 13.9f, 16.7f);
-	Far(VF("SM_FarRidgeLine"), 282.f, 290.f, 22, 21, 1.f, 1.f, 0.f, -1, -8.266f, 3.f);
+	Far(VF("SM_FarRidgeLine"), 180.f, 188.f, 22, 21, 1.f, 1.f, 0.f, -1, -3.574f, 3.f);
 	Far(VF("SM_FarSkein_A"), 210.f, 300.f, 14, 11, 1.f, 1.f, 0.f, -1, 0.f, 6.f);
-	Far(VF("SM_FarLedgeGoats"), 162.f, 174.f, 18, 4, 1.f, 1.f, 0.f, -1, -2.838f, 22.f);
+	Far(VF("SM_FarLedgeGoats"), 162.f, 174.f, 22, 10, 1.f, 1.f, 0.f, -1, -2.838f, 22.f);
 Zone(TEXT("People far: the ash fields, the right"), 13.9f, 16.7f);
-	Far(VF("SM_FarRidgeLine"), 282.f, 290.f, 22, 10, 1.f, 1.f, 0.f, 1, -11.01f, 3.f);
+	Far(VF("SM_FarRidgeLine"), 180.f, 188.f, 22, 10, 1.f, 1.f, 0.f, 1, -4.89f, 3.f);
 	Far(VF("SM_FarSkein_A"), 210.f, 300.f, 14, 4, 1.f, 1.f, 0.f, 1, 0.f, 6.f);
-	Far(VF("SM_FarLedgeGoats"), 162.f, 174.f, 18, 13, 1.f, 1.f, 0.f, 1, -3.93f, 22.f);
+	Far(VF("SM_FarLedgeGoats"), 162.f, 174.f, 22, 21, 1.f, 1.f, 0.f, 1, -3.93f, 22.f);
 Zone(TEXT("People far: the far works, the left"), 16.7f, 19.5f);
 	Far(VF("SM_FarRimSurvey"), 164.f, 172.f, 10, 9, 1.f, 1.f, 0.f, -1, -2.838f, 14.f);
 	Far(VF("SM_FarKettle"), 150.f, 260.f, 14, 5, 1.f, 1.f, 0.f, -1, 0.f, 180.f);
@@ -617,13 +619,13 @@ Zone(TEXT("People far: the inner wall, the right"), 19.5f, 22.3f);
 	Far(VF("SM_FarKettle"), 150.f, 260.f, 16, 11, 1.f, 1.f, 0.f, 1, 0.f, 180.f);
 	Far(VF("SM_FarLedgeGoats"), 162.f, 174.f, 18, 6, 1.f, 1.f, 0.f, 1, -3.93f, 22.f);
 Zone(TEXT("People far: the last ash, the left"), 22.3f, 99.f);
-	Far(VF("SM_FarRidgeLine"), 282.f, 290.f, 22, 14, 1.f, 1.f, 0.f, -1, -8.266f, 3.f);
+	Far(VF("SM_FarRidgeLine"), 180.f, 188.f, 22, 14, 1.f, 1.f, 0.f, -1, -3.574f, 3.f);
 	Far(VF("SM_FarSkein_A"), 210.f, 300.f, 14, 6, 1.f, 1.f, 0.f, -1, 0.f, 6.f);
-	Far(VF("SM_FarLedgeGoats"), 162.f, 174.f, 18, 16, 1.f, 1.f, 0.f, -1, -2.838f, 22.f);
+	Far(VF("SM_FarLedgeGoats"), 162.f, 174.f, 22, 3, 1.f, 1.f, 0.f, -1, -2.838f, 22.f);
 Zone(TEXT("People far: the last ash, the right"), 22.3f, 99.f);
-	Far(VF("SM_FarRidgeLine"), 282.f, 290.f, 22, 3, 1.f, 1.f, 0.f, 1, -11.01f, 3.f);
+	Far(VF("SM_FarRidgeLine"), 180.f, 188.f, 22, 3, 1.f, 1.f, 0.f, 1, -4.89f, 3.f);
 	Far(VF("SM_FarSkein_A"), 210.f, 300.f, 14, 13, 1.f, 1.f, 0.f, 1, 0.f, 6.f);
-	Far(VF("SM_FarLedgeGoats"), 162.f, 174.f, 18, 7, 1.f, 1.f, 0.f, 1, -3.93f, 22.f);
+	Far(VF("SM_FarLedgeGoats"), 162.f, 174.f, 22, 14, 1.f, 1.f, 0.f, 1, -3.93f, 22.f);
 #undef VF
 // ---- END far ----
 }
@@ -751,30 +753,30 @@ Zone(TEXT("People watch: the ash fields, the decks (3)"), 16.23f, 16.7f);
 	Scatter(VW("SM_WatchDeck_B"), 41.8f, 42.4f, 10, 0, 1.f, 1.f, 0.f, 1, 0.f);
 	Scatter(VW("SM_WatchDeck_A"), 41.8f, 42.4f, 10, 5, 1.f, 1.f, 0.f, 1, 0.f);
 Zone(TEXT("People watch: the far works, the decks (1)"), 16.7f, 18.1f);
-	Scatter(VW("SM_WatchDeck_B"), 35.8f, 36.4f, 12, 3, 1.f, 1.f, 0.f, -1, 0.f);
-	Scatter(VW("SM_WatchDeck_A"), 35.8f, 36.4f, 12, 9, 1.f, 1.f, 0.f, -1, 0.f);
-	Scatter(VW("SM_WatchDeck_A"), 41.8f, 42.4f, 12, 0, 1.f, 1.f, 0.f, 1, 0.f);
-	Scatter(VW("SM_WatchDeck_B"), 41.8f, 42.4f, 12, 6, 1.f, 1.f, 0.f, 1, 0.f);
+	Scatter(VW("SM_WatchDeck_B"), 35.8f, 36.4f, 16, 3, 1.f, 1.f, 0.f, -1, 0.f);
+	Scatter(VW("SM_WatchDeck_A"), 35.8f, 36.4f, 16, 11, 1.f, 1.f, 0.f, -1, 0.f);
+	Scatter(VW("SM_WatchDeck_A"), 41.8f, 42.4f, 16, 0, 1.f, 1.f, 0.f, 1, 0.f);
+	Scatter(VW("SM_WatchDeck_B"), 41.8f, 42.4f, 16, 8, 1.f, 1.f, 0.f, 1, 0.f);
 Zone(TEXT("People watch: the far works, the decks (2)"), 18.23f, 19.5f);
-	Scatter(VW("SM_WatchDeck_B"), 35.8f, 36.4f, 12, 3, 1.f, 1.f, 0.f, -1, 0.f);
-	Scatter(VW("SM_WatchDeck_A"), 35.8f, 36.4f, 12, 9, 1.f, 1.f, 0.f, -1, 0.f);
-	Scatter(VW("SM_WatchDeck_A"), 41.8f, 42.4f, 12, 0, 1.f, 1.f, 0.f, 1, 0.f);
-	Scatter(VW("SM_WatchDeck_B"), 41.8f, 42.4f, 12, 6, 1.f, 1.f, 0.f, 1, 0.f);
+	Scatter(VW("SM_WatchDeck_B"), 35.8f, 36.4f, 16, 3, 1.f, 1.f, 0.f, -1, 0.f);
+	Scatter(VW("SM_WatchDeck_A"), 35.8f, 36.4f, 16, 11, 1.f, 1.f, 0.f, -1, 0.f);
+	Scatter(VW("SM_WatchDeck_A"), 41.8f, 42.4f, 16, 0, 1.f, 1.f, 0.f, 1, 0.f);
+	Scatter(VW("SM_WatchDeck_B"), 41.8f, 42.4f, 16, 8, 1.f, 1.f, 0.f, 1, 0.f);
 Zone(TEXT("People watch: the inner wall, the decks (1)"), 19.5f, 20.11f);
-	Scatter(VW("SM_WatchDeck_A"), 35.8f, 36.4f, 12, 3, 1.f, 1.f, 0.f, -1, 0.f);
-	Scatter(VW("SM_WatchDeck_B"), 35.8f, 36.4f, 12, 9, 1.f, 1.f, 0.f, -1, 0.f);
-	Scatter(VW("SM_WatchDeck_B"), 41.8f, 42.4f, 12, 0, 1.f, 1.f, 0.f, 1, 0.f);
-	Scatter(VW("SM_WatchDeck_A"), 41.8f, 42.4f, 12, 6, 1.f, 1.f, 0.f, 1, 0.f);
+	Scatter(VW("SM_WatchDeck_A"), 35.8f, 36.4f, 16, 3, 1.f, 1.f, 0.f, -1, 0.f);
+	Scatter(VW("SM_WatchDeck_B"), 35.8f, 36.4f, 16, 11, 1.f, 1.f, 0.f, -1, 0.f);
+	Scatter(VW("SM_WatchDeck_B"), 41.8f, 42.4f, 16, 0, 1.f, 1.f, 0.f, 1, 0.f);
+	Scatter(VW("SM_WatchDeck_A"), 41.8f, 42.4f, 16, 8, 1.f, 1.f, 0.f, 1, 0.f);
 Zone(TEXT("People watch: the inner wall, the decks (2)"), 20.24f, 22.11f);
-	Scatter(VW("SM_WatchDeck_A"), 35.8f, 36.4f, 12, 3, 1.f, 1.f, 0.f, -1, 0.f);
-	Scatter(VW("SM_WatchDeck_B"), 35.8f, 36.4f, 12, 9, 1.f, 1.f, 0.f, -1, 0.f);
-	Scatter(VW("SM_WatchDeck_B"), 41.8f, 42.4f, 12, 0, 1.f, 1.f, 0.f, 1, 0.f);
-	Scatter(VW("SM_WatchDeck_A"), 41.8f, 42.4f, 12, 6, 1.f, 1.f, 0.f, 1, 0.f);
+	Scatter(VW("SM_WatchDeck_A"), 35.8f, 36.4f, 16, 3, 1.f, 1.f, 0.f, -1, 0.f);
+	Scatter(VW("SM_WatchDeck_B"), 35.8f, 36.4f, 16, 11, 1.f, 1.f, 0.f, -1, 0.f);
+	Scatter(VW("SM_WatchDeck_B"), 41.8f, 42.4f, 16, 0, 1.f, 1.f, 0.f, 1, 0.f);
+	Scatter(VW("SM_WatchDeck_A"), 41.8f, 42.4f, 16, 8, 1.f, 1.f, 0.f, 1, 0.f);
 Zone(TEXT("People watch: the last ash, the decks (1)"), 22.3f, 99.f);
-	Scatter(VW("SM_WatchDeck_B"), 35.8f, 36.4f, 12, 3, 1.f, 1.f, 0.f, -1, 0.f);
-	Scatter(VW("SM_WatchDeck_A"), 35.8f, 36.4f, 12, 9, 1.f, 1.f, 0.f, -1, 0.f);
-	Scatter(VW("SM_WatchDeck_A"), 41.8f, 42.4f, 12, 0, 1.f, 1.f, 0.f, 1, 0.f);
-	Scatter(VW("SM_WatchDeck_B"), 41.8f, 42.4f, 12, 6, 1.f, 1.f, 0.f, 1, 0.f);
+	Scatter(VW("SM_WatchDeck_B"), 35.8f, 36.4f, 16, 3, 1.f, 1.f, 0.f, -1, 0.f);
+	Scatter(VW("SM_WatchDeck_A"), 35.8f, 36.4f, 16, 11, 1.f, 1.f, 0.f, -1, 0.f);
+	Scatter(VW("SM_WatchDeck_A"), 41.8f, 42.4f, 16, 0, 1.f, 1.f, 0.f, 1, 0.f);
+	Scatter(VW("SM_WatchDeck_B"), 41.8f, 42.4f, 16, 8, 1.f, 1.f, 0.f, 1, 0.f);
 Zone(TEXT("People watch: the start, behind the lava"), 0.05f, 0.3f);
 	Scatter(VW("SM_WatchTerrace_A"), 62.3f, 62.9f, 8, 5, 1.f, 1.f, 0.f, -1, 3.f);
 	Scatter(VW("SM_WatchTower"), 64.f, 64.6f, 8, 3, 1.f, 1.f, 0.f, -1, 3.f);
@@ -825,20 +827,20 @@ Zone(TEXT("People watch: the ash fields, behind the lava"), 13.9f, 16.7f);
 	Scatter(VW("SM_WatchTerrace_A"), 73.2f, 73.8f, 9, 0, 1.f, 1.f, 0.f, 1, 3.f);
 	Scatter(VW("SM_WatchTower"), 73.2f, 73.8f, 9, 3, 1.f, 1.f, 0.f, 1, 3.f);
 Zone(TEXT("People watch: the far works, behind the lava"), 16.7f, 19.5f);
-	Scatter(VW("SM_WatchTerrace_A"), 62.3f, 62.9f, 12, 0, 1.f, 1.f, 0.f, -1, 3.f);
-	Scatter(VW("SM_WatchTower"), 64.f, 64.6f, 12, 4, 1.f, 1.f, 0.f, -1, 3.f);
-	Scatter(VW("SM_WatchTerrace_B"), 73.2f, 73.8f, 10, 0, 1.f, 1.f, 0.f, 1, 3.f);
-	Scatter(VW("SM_WatchTower"), 73.2f, 73.8f, 10, 5, 1.f, 1.f, 0.f, 1, 3.f);
+	Scatter(VW("SM_WatchTerrace_A"), 62.3f, 62.9f, 16, 0, 1.f, 1.f, 0.f, -1, 3.f);
+	Scatter(VW("SM_WatchTower"), 64.f, 64.6f, 16, 8, 1.f, 1.f, 0.f, -1, 3.f);
+	Scatter(VW("SM_WatchTerrace_B"), 73.2f, 73.8f, 16, 4, 1.f, 1.f, 0.f, 1, 3.f);
+	Scatter(VW("SM_WatchTower"), 73.2f, 73.8f, 16, 12, 1.f, 1.f, 0.f, 1, 3.f);
 Zone(TEXT("People watch: the inner wall, behind the lava"), 19.5f, 22.3f);
-	Scatter(VW("SM_WatchTerrace_B"), 62.3f, 62.9f, 10, 2, 1.f, 1.f, 0.f, -1, 3.f);
-	Scatter(VW("SM_WatchTower"), 64.f, 64.6f, 10, 7, 1.f, 1.f, 0.f, -1, 3.f);
-	Scatter(VW("SM_WatchTerrace_A"), 73.2f, 73.8f, 10, 0, 1.f, 1.f, 0.f, 1, 3.f);
-	Scatter(VW("SM_WatchTower"), 73.2f, 73.8f, 10, 5, 1.f, 1.f, 0.f, 1, 3.f);
+	Scatter(VW("SM_WatchTerrace_B"), 62.3f, 62.9f, 15, 2, 1.f, 1.f, 0.f, -1, 3.f);
+	Scatter(VW("SM_WatchTower"), 64.f, 64.6f, 15, 7, 1.f, 1.f, 0.f, -1, 3.f);
+	Scatter(VW("SM_WatchTerrace_A"), 73.2f, 73.8f, 15, 0, 1.f, 1.f, 0.f, 1, 3.f);
+	Scatter(VW("SM_WatchTower"), 73.2f, 73.8f, 15, 5, 1.f, 1.f, 0.f, 1, 3.f);
 Zone(TEXT("People watch: the last ash, behind the lava"), 22.3f, 99.f);
-	Scatter(VW("SM_WatchTerrace_A"), 62.3f, 62.9f, 10, 2, 1.f, 1.f, 0.f, -1, 3.f);
-	Scatter(VW("SM_WatchTower"), 64.f, 64.6f, 10, 7, 1.f, 1.f, 0.f, -1, 3.f);
-	Scatter(VW("SM_WatchTerrace_B"), 73.2f, 73.8f, 10, 0, 1.f, 1.f, 0.f, 1, 3.f);
-	Scatter(VW("SM_WatchTower"), 73.2f, 73.8f, 10, 5, 1.f, 1.f, 0.f, 1, 3.f);
+	Scatter(VW("SM_WatchTerrace_A"), 62.3f, 62.9f, 16, 2, 1.f, 1.f, 0.f, -1, 3.f);
+	Scatter(VW("SM_WatchTower"), 64.f, 64.6f, 16, 10, 1.f, 1.f, 0.f, -1, 3.f);
+	Scatter(VW("SM_WatchTerrace_B"), 73.2f, 73.8f, 16, 6, 1.f, 1.f, 0.f, 1, 3.f);
+	Scatter(VW("SM_WatchTower"), 73.2f, 73.8f, 16, 14, 1.f, 1.f, 0.f, 1, 3.f);
 #undef VW
 // ---- END watch ----
 }

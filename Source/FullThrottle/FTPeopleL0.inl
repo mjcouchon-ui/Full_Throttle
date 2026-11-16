@@ -655,7 +655,7 @@ Zone(TEXT("People, balconies"), 24.72530f, 24.77054f);
 #define FARP(n) TEXT("/Game/People/Bayshore/SM_Far" #n)
 Zone(TEXT("People far: the Strip"), 0.f, 3.2f);
 	Scatter(FARP(Flock),    65, 160, 11, 1, 1.f, 1.4f,  0.15f, -1, 180.f);
-	Scatter(FARP(Crowd),   110, 180,  9, 3, 1.f, 1.25f,  0.1f,  -1, 8.f);
+	Scatter(FARP(Crowd),   110, 180,  9, 3, 1.f, 1.4f,  0.1f,  -1, 8.f);
 	Scatter(FARP(Kites),    70, 180, 16, 6, 1.f, 1.3f,  0.1f,  -1, 10.f);
 	Afloat(FARP(Surf),     380, 390, 16, 2, 1.f, 1.5f,  0.f,   -1, 6.f);
 	Afloat(FARP(Dolphins), 400, 460, 30, 8, 1.f, 1.3f,  0.1f,  -1, 8.f);
@@ -664,10 +664,10 @@ Zone(TEXT("People far: the Marina"), 3.2f, 6.4f);          // quieter sand: bird
 	Scatter(FARP(Flock),    65, 160,  9, 2, 1.f, 1.4f,  0.15f, -1, 180.f);
 	Afloat(FARP(Pelicans), 350, 430, 16, 5, 1.f, 1.5f,  0.1f,  -1, 8.f);
 	Afloat(FARP(Dolphins), 400, 470, 15, 9, 1.f, 1.3f,  0.1f,  -1, 8.f);
-	Scatter(FARP(Crowd),   110, 180, 26, 12, 1.f, 1.25f, 0.1f,  -1, 8.f);
+	Scatter(FARP(Crowd),   110, 180, 26, 12, 1.f, 1.4f, 0.1f,  -1, 8.f);
 	Scatter(FARP(Kites),    70, 180, 34, 20, 1.f, 1.3f, 0.1f,  -1, 10.f);
 Zone(TEXT("People far: Pleasure Beach"), 6.4f, 9.8f);      // the beach at its busiest
-	Scatter(FARP(Crowd),   110, 180,  7, 1, 1.f, 1.25f,  0.1f,  -1, 8.f);
+	Scatter(FARP(Crowd),   110, 180,  7, 1, 1.f, 1.4f,  0.1f,  -1, 8.f);
 	Scatter(FARP(Kites),    70, 180, 11, 4, 1.f, 1.3f,  0.1f,  -1, 10.f);
 	Afloat(FARP(Surf),     380, 390, 13, 6, 1.f, 1.5f,  0.f,   -1, 6.f);
 	Scatter(FARP(Flock),    65, 160, 17, 9, 1.f, 1.4f,  0.15f, -1, 180.f);
@@ -675,7 +675,7 @@ Zone(TEXT("People far: Pleasure Beach"), 6.4f, 9.8f);      // the beach at its b
 	Afloat(FARP(Pelicans), 350, 420, 38, 30, 1.f, 1.5f, 0.1f,  -1, 8.f);
 Zone(TEXT("People far: Hotel Row"), 9.8f, 13.2f);          // surfers; gulls over the hotels' roofs
 	Afloat(FARP(Surf),     380, 390, 11, 3, 1.f, 1.5f,  0.f,   -1, 6.f);
-	Scatter(FARP(Crowd),   110, 180, 15, 7, 1.f, 1.25f,  0.1f,  -1, 8.f);
+	Scatter(FARP(Crowd),   110, 180, 15, 7, 1.f, 1.4f,  0.1f,  -1, 8.f);
 	Scatter(FARP(Flock),    65, 160, 15, 11, 1.f, 1.4f, 0.15f, -1, 180.f);
 	Scatter(FARP(Kites),    70, 180, 22, 14, 1.f, 1.3f, 0.1f,  -1, 10.f);
 	Afloat(FARP(Pelicans), 350, 420, 28, 9, 1.f, 1.5f,  0.1f,  -1, 8.f);
@@ -687,9 +687,9 @@ Zone(TEXT("People far: the Point"), 13.2f, 16.8f);         // the town thins out
 	Afloat(FARP(Pelicans), 350, 430, 13, 7, 1.f, 1.5f,  0.1f,  -1, 8.f);
 	Afloat(FARP(Surf),     380, 390, 19, 10, 1.f, 1.5f, 0.f,   -1, 6.f);
 	Scatter(FARP(Kites),    70, 180, 30, 16, 1.f, 1.3f, 0.1f,  -1, 10.f);
-	Scatter(FARP(Crowd),   110, 180, 36, 25, 1.f, 1.25f, 0.1f,  -1, 8.f);
+	Scatter(FARP(Crowd),   110, 180, 36, 25, 1.f, 1.4f, 0.1f,  -1, 8.f);
 Zone(TEXT("People far: Downtown waterfront"), 16.8f, 99.f); // everything at once
-	Scatter(FARP(Crowd),   110, 180, 11, 2, 1.f, 1.25f,  0.1f,  -1, 8.f);
+	Scatter(FARP(Crowd),   110, 180, 11, 2, 1.f, 1.4f,  0.1f,  -1, 8.f);
 	Scatter(FARP(Flock),    65, 160, 13, 5, 1.f, 1.4f,  0.15f, -1, 180.f);
 	Scatter(FARP(Kites),    70, 180, 19, 8, 1.f, 1.3f,  0.1f,  -1, 10.f);
 	Afloat(FARP(Surf),     380, 390, 17, 11, 1.f, 1.5f, 0.f,   -1, 6.f);
@@ -707,7 +707,9 @@ Zone(TEXT("People far: Downtown waterfront"), 16.8f, 99.f); // everything at onc
 // Bay side: a grandstand stands 30 m out, right behind the boardwalk, 15 m along from the slot's middle (the boardwalk's own
 // canopy covers the middle 14 m), in slots that have no arcade (33.5 m) and no boardwalk shops (32 m); a scaffold platform
 // stands 19 m along, at the end of an arcade's slot. Town side: the hotel terrace bridges the mouth of the side street
-// (s % 4 == 0, no shop row there), 34 m out, behind where the film crew sets up; a platform in the other side streets.
+// (s % 4 == 0, no shop row there), 38 m out: behind the promenade (26 to 34 m, its clipped trees at 32.9 m; at 34 m the
+// trees stood inside the terrace) and behind where the film crew sets up; a platform beside the other side streets, on
+// the promenade's paving, 19 m along from the slot's middle (clear of the street and of the trees at 6.2 and 11.8 m).
 Set(TEXT("PplWatchStandA"), { { TEXT("/Game/People/Bayshore/SM_WatchStand_A"), 15, 0, 0, 0, 1 } });
 Set(TEXT("PplWatchStandB"), { { TEXT("/Game/People/Bayshore/SM_WatchStand_B"), 15, 0, 0, 0, 1 } });
 Set(TEXT("PplWatchDeck"), { { TEXT("/Game/People/Bayshore/SM_WatchDeck"), -16, 0, 0, 0, 1 } });
@@ -719,27 +721,27 @@ Zone(TEXT("People watch: the Strip"), 0.f, 3.2f);
 	Site(TEXT("PplWatchStandB"), -1, 30.f, 8, 3, 1.f);   // s % 8 == 5
 	Site(TEXT("PplWatchDeck"), -1, 30.5f, 16, 13, 1.f);   // s % 16 == 3: bay, before a beach club
 	Site(TEXT("PplWatchTowerB"), -1, 28.f, 16, 10, 1.f);   // s % 16 == 6: bay, the end of an arcade's slot
-	Site(TEXT("PplWatchTerrace"), 1, 34.f, 8, 0, 1.f);   // s % 8 == 0: town, a side street's mouth
+	Site(TEXT("PplWatchTerrace"), 1, 38.f, 8, 0, 1.f);   // s % 8 == 0: town, over a side street, behind the promenade
 	Site(TEXT("PplWatchTowerA"), 1, 31.f, 8, 4, 1.f);   // s % 8 == 4: town, the other side streets
 Zone(TEXT("People watch: the Marina"), 3.2f, 6.4f);
 	Site(TEXT("PplWatchStandA"), -1, 30.f, 8, 0, 1.f);   // s % 8 == 0: bay (arcade s%4==2, shops s%6==3)
 	Site(TEXT("PplWatchStandB"), -1, 30.f, 8, 4, 1.f);   // s % 8 == 4
 	Site(TEXT("PplWatchTowerB"), -1, 28.f, 16, 10, 1.f);   // s % 16 == 6
-	Site(TEXT("PplWatchTerrace"), 1, 34.f, 8, 0, 1.f);   // s % 8 == 0: town, a side street's mouth
+	Site(TEXT("PplWatchTerrace"), 1, 38.f, 8, 0, 1.f);   // s % 8 == 0: town, over a side street, behind the promenade
 	Site(TEXT("PplWatchTowerA"), 1, 31.f, 8, 4, 1.f);   // s % 8 == 4: town, the other side streets
 Zone(TEXT("People watch: Pleasure Beach"), 6.4f, 9.8f);
 	Site(TEXT("PplWatchStandA"), -1, 30.f, 8, 6, 1.f);   // s % 8 == 2: bay (arcades and shops in odd slots, the main cast's sun deck s%8==0)
 	Site(TEXT("PplWatchStandB"), -1, 30.f, 8, 2, 1.f);   // s % 8 == 6
 	Site(TEXT("PplWatchDeck"), -1, 30.5f, 16, 12, 1.f);   // s % 16 == 4
 	Site(TEXT("PplWatchTowerA"), -1, 28.f, 16, 4, 1.f);   // s % 16 == 12
-	Site(TEXT("PplWatchTerrace"), 1, 34.f, 8, 0, 1.f);   // s % 8 == 0: town, a side street's mouth
+	Site(TEXT("PplWatchTerrace"), 1, 38.f, 8, 0, 1.f);   // s % 8 == 0: town, over a side street, behind the promenade
 	Site(TEXT("PplWatchTowerA"), 1, 31.f, 8, 4, 1.f);   // s % 8 == 4: town, the other side streets
 Zone(TEXT("People watch: Hotel Row"), 9.8f, 13.2f);
 	Site(TEXT("PplWatchStandA"), -1, 30.f, 8, 6, 1.f);   // s % 8 == 2: bay (arcades and shops in odd slots, the main cast's sun deck s%8==0)
 	Site(TEXT("PplWatchStandB"), -1, 30.f, 8, 2, 1.f);   // s % 8 == 6
 	Site(TEXT("PplWatchDeck"), -1, 30.5f, 16, 12, 1.f);   // s % 16 == 4
 	Site(TEXT("PplWatchTowerA"), -1, 28.f, 16, 4, 1.f);   // s % 16 == 12
-	Site(TEXT("PplWatchTerrace"), 1, 34.f, 8, 0, 1.f);   // s % 8 == 0: town, a side street's mouth
+	Site(TEXT("PplWatchTerrace"), 1, 38.f, 8, 0, 1.f);   // s % 8 == 0: town, over a side street, behind the promenade
 	Site(TEXT("PplWatchTowerA"), 1, 31.f, 8, 4, 1.f);   // s % 8 == 4: town, the other side streets
 Zone(TEXT("People watch: the Point"), 13.2f, 16.8f);     // quiet: a stand now and then, platforms by the villas
 	Site(TEXT("PplWatchStandA"), -1, 30.f, 16, 14, 1.f);   // s % 16 == 2
@@ -750,7 +752,7 @@ Zone(TEXT("People watch: Downtown waterfront"), 16.8f, 99.f);
 	Site(TEXT("PplWatchStandB"), -1, 30.f, 8, 3, 1.f);   // s % 8 == 5
 	Site(TEXT("PplWatchDeck"), -1, 30.5f, 16, 13, 1.f);   // s % 16 == 3: bay, before a beach club
 	Site(TEXT("PplWatchTowerB"), -1, 28.f, 16, 10, 1.f);   // s % 16 == 6: bay, the end of an arcade's slot
-	Site(TEXT("PplWatchTerrace"), 1, 34.f, 8, 0, 1.f);   // s % 8 == 0: town, a side street's mouth
+	Site(TEXT("PplWatchTerrace"), 1, 38.f, 8, 0, 1.f);   // s % 8 == 0: town, over a side street, behind the promenade
 	Site(TEXT("PplWatchTowerA"), 1, 31.f, 8, 4, 1.f);   // s % 8 == 4: town, the other side streets
 // ---- END watch ----
 }

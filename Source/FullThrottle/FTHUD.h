@@ -26,7 +26,7 @@ public:
 private:
 	float S = 1.f, W = 1280.f, H = 720.f, T = 0.f;
 	float Left = 0.f, Right = 1280.f;
-	float OrbitHeight = 1.f, RajHeight = 1.f, BunHeight = 1.f;
+	float RajHeight = 1.f, BunHeight = 1.f;
 	bool bReducedMotion = false;
 	enum class EMenuView : uint8 { None, Title, Department, Pause, Controls, Reel, Options, Skills };
 	EMenuView MotionView = EMenuView::None;

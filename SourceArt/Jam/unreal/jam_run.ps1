@@ -1,5 +1,5 @@
 # Runs a game-jam script in a checkout's editor (off-screen), through the sky pass's ue_run.ps1 and its Unreal lock.
-#   powershell -File jam_run.ps1 -Script 20_sky_clip_sweep.py [-Commandlet] [-TimeoutSec 1800] [-Env "A=1;B=2"]
+#   powershell -File jam_run.ps1 -Script 24_bay_sky.py [-Commandlet] [-TimeoutSec 1800] [-Env "A=1;B=2"]
 #       [-Checkout "K:\Full Throttle\VisualAssetsWorktree\full-throttle-unreal"]
 # -Checkout: the project folder to run in (default: env JAM_PORT, else the UE checkout). Each checkout has its own lock,
 # and on top of that every job takes the machine-wide lock (jam_global.ps1): one Unreal job at a time on this PC.

@@ -484,13 +484,51 @@ Zone(TEXT("People: Syndicate Territory, the circuit"), 13.56f, 99.0f);
 
 {
 // ---- BEGIN far (ft_people_city_far.py) ----
-Zone(TEXT("People far: test"), 0.f, 99.f);
-	Far(TEXT("/Game/People/CityCenter/SM_FarGeese"), 38.f, 44.f, 5, 0, 1.f, 1.f, 0.f, 0, -105.f, 6.f);
-	Far(TEXT("/Game/People/CityCenter/SM_FarGliders"), 34.f, 42.f, 5, 2, 1.f, 1.5f, 0.f, 0, -95.f, 6.f);
-	Far(TEXT("/Game/People/CityCenter/SM_FarTowerParty"), 110.f, 150.f, 4, 1, 1.f, 2.2f, 0.f, 0, 0.7f, 10.f);
-	Far(TEXT("/Game/People/CityCenter/SM_FarTowerLoft"), 62.f, 84.f, 4, 3, 1.f, 2.0f, 0.f, 0, 0.7f, 10.f);
-	Far(TEXT("/Game/People/CityCenter/SM_FarConcert"), 66.f, 90.f, 6, 2, 1.f, 1.6f, 0.f, 0, 0.7f, 8.f);
-	Far(TEXT("/Game/People/CityCenter/SM_FarSkyRun_A"), 80.f, 110.f, 6, 4, 1.f, 1.6f, 0.f, 0, 0.7f, 8.f);
+// FAR LIFE AND CREATURES (the extra worker, focus "far"). Six meshes, /Game/People/CityCenter/SM_Far*, all saved with
+// the always-moving master. What the test drives showed, and so why the numbers are what they are:
+//   - the avenue is a canyon: a 46 to 82 m tower stands 36 to 46 m out in EVERY slot on both sides, 70 to 98 m ones
+//     behind them. From the street nothing living beyond the first row is seen at any size. It IS seen wherever the
+//     road climbs (the banked walls, the roofs, the corkscrews, the jumps, the loops: the road goes up to 72 m), and
+//     this road climbs in every scene. So far life here stands on stands of its own (a dark shaft with lit windows,
+//     brought by the piece), 100 m and more out, at 2 to 2.4 times its built size: a crown 110 to 130 m up, dancers
+//     10 m tall. Far rules, so they stay through the loops, corkscrews and jumps, where they read best;
+//   - 100 m and more also keeps every lit, tall thing of ours outside the loops' own rule (66 m from the loop's ground
+//     line; the loop comes down 33 m to the right of where it went up);
+//   - the sky over the first row of towers is the other place that is seen: a skein of geese (drop -105: they fly 105
+//     to 111 m up, 33 m over the top of the highest loop) and a flight of hang-gliders (95 to 107 m up). Both fly the
+//     road's own line where they stand, 130 to 150 m each way, and come round again. The gliders are kept OUT of the
+//     loops, corkscrews and jumps and 200 m either side of them (on the test drive a glider hung close beside the
+//     top of the plaza loop, 18 m of bright wing: nothing of that size may hang where the player is looking for the
+//     road), and out of Syndicate Territory (nothing new moves in the sky the Chairman's shots fly through).
+// Steady light only; nothing blinks. Nothing here is nearer than 36 m to a centre line, and that only 95 m up.
+// About 240 pieces (the count from the game's FTDRESS line is in SourceArt/Integration/people/L7_city_far.md).
+Zone(TEXT("People far: the six districts"), 0.f, 7.66f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarTowerParty"), 110.0f, 150.0f, 8, 1, 1.f, 2.20f, 0.06f, -1, 0.7f, 10.0f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarTowerParty"), 110.0f, 150.0f, 8, 5, 1.f, 2.20f, 0.06f, 1, 0.7f, 10.0f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarTowerLoft"), 100.0f, 125.0f, 8, 5, 1.f, 2.30f, 0.06f, -1, 0.7f, 10.0f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarTowerLoft"), 100.0f, 125.0f, 8, 1, 1.f, 2.30f, 0.06f, 1, 0.7f, 10.0f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarConcert"), 100.0f, 130.0f, 16, 3, 1.f, 2.40f, 0.06f, -1, 0.7f, 8.0f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarConcert"), 100.0f, 130.0f, 16, 11, 1.f, 2.40f, 0.06f, 1, 0.7f, 8.0f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarSkyRun_A"), 100.0f, 140.0f, 16, 11, 1.f, 2.00f, 0.06f, -1, 0.7f, 8.0f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarSkyRun_A"), 100.0f, 140.0f, 16, 3, 1.f, 2.00f, 0.06f, 1, 0.7f, 8.0f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarGeese"), 40.0f, 46.0f, 12, 7, 1.f, 1.00f, 0.00f, 0, -105.0f, 6.0f);
+Zone(TEXT("People far: Syndicate Territory"), 7.66f, 99.f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarTowerParty"), 110.0f, 150.0f, 48, 9, 1.f, 2.20f, 0.06f, 0, 0.7f, 10.0f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarTowerLoft"), 100.0f, 125.0f, 48, 33, 1.f, 2.30f, 0.06f, 0, 0.7f, 10.0f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarGeese"), 40.0f, 46.0f, 48, 21, 1.f, 1.00f, 0.00f, 0, -105.0f, 6.0f);
+// the hang-gliders: only the level stretches between the corkscrews, jumps and loops
+Zone(TEXT("People far: gliders 0.05"), 0.05f, 1.24f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarGliders"), 36.0f, 44.0f, 5, 2, 1.f, 1.20f, 0.00f, 0, -95.0f, 6.0f);
+Zone(TEXT("People far: gliders 1.79"), 1.79f, 2.46f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarGliders"), 36.0f, 44.0f, 5, 2, 1.f, 1.20f, 0.00f, 0, -95.0f, 6.0f);
+Zone(TEXT("People far: gliders 3.69"), 3.69f, 4.50f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarGliders"), 36.0f, 44.0f, 5, 2, 1.f, 1.20f, 0.00f, 0, -95.0f, 6.0f);
+Zone(TEXT("People far: gliders 5.05"), 5.05f, 5.49f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarGliders"), 36.0f, 44.0f, 5, 2, 1.f, 1.20f, 0.00f, 0, -95.0f, 6.0f);
+Zone(TEXT("People far: gliders 6.05"), 6.05f, 6.53f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarGliders"), 36.0f, 44.0f, 5, 2, 1.f, 1.20f, 0.00f, 0, -95.0f, 6.0f);
+Zone(TEXT("People far: gliders 7.18"), 7.18f, 7.60f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarGliders"), 36.0f, 44.0f, 5, 2, 1.f, 1.20f, 0.00f, 0, -95.0f, 6.0f);
 // ---- END far ----
 }
 
@@ -544,10 +582,12 @@ Zone(TEXT("People watch: The Plaza"), 3.13f, 4.62f);
 	Site(TEXT("PplWatchRoof"), -1, 29.f, 4, 2, 1.f);
 	Site(TEXT("PplWatchRoof"), 1, 29.f, 4, 3, 1.f);
 Zone(TEXT("People watch: Wall Street"), 4.62f, 6.29f);
-// alleys: every other slot, side by side in turn (G_Alley 0, 2, 0); side streets: left (4,1), right (4,3); the dear
-// doors: left (4,1), right (4,2)
-	Site(TEXT("PplWatchGap"), 0, 29.f, 4, 0, 1.f);
-	Site(TEXT("PplWatchSteps"), 0, 29.f, 4, 2, 0.7f);
+// alleys: every other slot, side by side in turn (G_Alley 0, 2, 0): a side-0 Site takes its side from (slot / every),
+// so the alleys are LEFT on the slots (4,0) and RIGHT on (4,2), and a rule with another "every" must name its side (a
+// side-0 rule every 4 put half of these into the glass infills across the street: fixed in review). Side streets: left
+// (4,1), right (4,3); the dear doors: left (4,1), right (4,2)
+	Site(TEXT("PplWatchGap"), -1, 29.f, 4, 0, 1.f);
+	Site(TEXT("PplWatchSteps"), 1, 29.f, 4, 2, 0.7f);
 	Site(TEXT("PplWatchBridgeA"), -1, 29.f, 4, 1, 1.f);
 	Site(TEXT("PplWatchBridgeB"), 1, 29.f, 4, 3, 1.f);
 	Site(TEXT("PplWatchRoof"), -1, 29.f, 8, 1, 1.f);

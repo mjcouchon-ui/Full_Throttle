@@ -3,6 +3,8 @@
 # Unreal build output and caches
 /Binaries/
 /Intermediate/
+/Binaries_hdd/
+/Intermediate_hdd/
 /Saved/
 /DerivedDataCache/
 Plugins/*/Binaries/
@@ -41,6 +43,7 @@ Plugins/*/Intermediate/
 *.dll
 *.lib
 *.obj
+!/SourceArt/**/*.obj
 *.o
 *.so
 *.dylib

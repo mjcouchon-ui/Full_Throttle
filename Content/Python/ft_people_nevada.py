@@ -244,8 +244,8 @@ def roadhouse_deck(sc):
     g.box(BARK_D, (0, 200, H / 2.0), (1000, 12, H))                                          # a plank back under the deck
     for (x, col) in ((-430, TEAL), (-372, RUST), (440, RUST)):                             # drums for tables
         g.cyl(col, (x, 80, H), 29, 88, steps=7)
-    flag(sc, -486, 150, H, 520, PURP, patch=WHITE, phase=0.3, w=260, h=170)
-    flag(sc, 486, 150, H, 440, MAG, phase=0.7, w=210, h=130)
+    flag(sc, -486, 150, H, 400, PURP, patch=WHITE, phase=0.3, w=240, h=150)
+    flag(sc, 486, 150, H, 380, MAG, phase=0.7, w=200, h=120)
     bunting(g, -480, 480, 158, H + 250, n=14)
     for sx in (-1, 1):
         g.box(CREAM, (sx * 480, 158, H + 180), (7, 7, 150))

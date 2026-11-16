@@ -93,7 +93,7 @@ def ski_face(seed=1):
         base = 500.0
         zb1 = base + A1                    # the lower leg's middle (front, y -900 .. 500)
         zb2 = base + 2.0 * A1 - 250.0 + A2    # the upper leg's (behind it, y 500 .. 1900)
-        legs = ((zb1, A1, -1, -900.0, 500.0, SNOW), (zb2, A2, 1, 500.0, 1900.0, '#e9f0ff'))
+        legs = ((zb1, A1, -1, -900.0, 500.0, ROCK_D), (zb2, A2, 1, 500.0, 1900.0, ROCK_DD))
         for zb, A, d, y0, y1, col in legs:
             pts = [(x, z + zb) for x, z in run_curve(L, S, A, d=d)]
             top = pts[0]
@@ -103,7 +103,8 @@ def ski_face(seed=1):
             # the piste's lower edge: netting in two colours, so that the line of the run reads from far off
             for k in range(len(pts) - 1):
                 a, b = pts[k], pts[k + 1]
-                tilt_box(g, (ORANGE, PINK)[k % 2], (a[0], y0 - 14, a[1] - 60), (b[0], y0 - 14, b[1] - 60), 30, 150)
+                tilt_box(g, SNOW, (a[0], y0 - 14, a[1] - 230), (b[0], y0 - 14, b[1] - 230), 30, 460)
+                tilt_box(g, (ORANGE, PINK)[k % 2], (a[0], y0 - 30, a[1] - 500), (b[0], y0 - 30, b[1] - 500), 30, 110)
             # gates: tall panels, red and blue by turns, on the uphill side of the lanes
             for k in range(2, len(pts) - 2, 2):
                 x, z = pts[k]
@@ -116,15 +117,13 @@ def ski_face(seed=1):
                 g.box(TEAL, (top[0], sy, top[1] + 420), (110, 110, 900))
             g.box(YEL, (top[0], (y0 + y1) / 2.0, top[1] + 900), (110, y1 - y0 - 200, 200))
             n = 6
-            lanes = (0.2, 0.6, 0.35, 0.75, 0.25, 0.55)
+            lanes = (0.42, 0.6, 0.48, 0.7, 0.45, 0.55)      # well back from the road face: a slider climbing back inside the hill must not show an arm through it
             for i in range(n):
                 bx = -L / 2.0 + (i + 0.5) * L / n
                 slider(sc, r, bx, y0 + (y1 - y0) * lanes[i], zb, L, 1700.0, S, A, s, d=d, kind='board' if i % 3 == 1 else 'ski')
         # the mountain behind the piste: a shaded shoulder and a peak, rock showing through
-        g.side(SNOW_SH, [(-9800, -300), (-5200, 4300), (-2400, 5600), (600, 7600), (2600, 6500), (5600, 4700), (9800, -300)], 1900, 2600)
-        g.side(ROCK, [(-1700, 4200), (-300, 5900), (500, 7000), (1500, 5800), (2600, 4300)], 1880, 1900)
-        g.side(ROCK_D, [(-6600, 900), (-5200, 3300), (-4300, 2400), (-3600, 900)], 1880, 1900)
-        g.side(SNOW, [(-200, 6500), (600, 7600), (1500, 6600), (700, 6900)], 1860, 1900)
+        g.side(ROCK, [(-9800, -300), (-5200, 4300), (-2400, 5600), (600, 7600), (2600, 6500), (5600, 4700), (9800, -300)], 1900, 2600)
+        g.side(SNOW, [(-1700, 5400), (-900, 6600), (600, 7600), (1900, 6900), (2900, 5300), (1500, 5900), (500, 5300), (-600, 6000)], 1880, 1900)
     return build
 
 
@@ -203,9 +202,9 @@ def climb_wall(seed=3):
 def crest(sc, L, H, w=900.0, rock=False):
     """A crest to run along: a level top H up, L long, and a shaded step in front of it (the road's side)."""
     g = sc.still()
-    top = ROCK_D if rock else SNOW
+    top = ROCK if rock else SNOW
     g.side(top, [(-L / 2.0 - 900, -300), (-L / 2.0 - 250, H * 0.72), (-L / 2.0, H), (L / 2.0, H), (L / 2.0 + 250, H * 0.72), (L / 2.0 + 900, -300)], -w / 2.0, w / 2.0)
-    g.side(ROCK if rock else SNOW_SH, [(-L / 2.0 - 1500, -300), (-L / 2.0 - 500, H * 0.5), (L / 2.0 + 500, H * 0.5), (L / 2.0 + 1500, -300)], -w / 2.0 - 420, -w / 2.0)
+    g.side(ROCK_DD if rock else ROCK_D, [(-L / 2.0 - 1500, -300), (-L / 2.0 - 500, H * 0.5), (L / 2.0 + 500, H * 0.5), (L / 2.0 + 1500, -300)], -w / 2.0 - 420, -w / 2.0)
     return g
 
 
@@ -214,7 +213,7 @@ def ibex_arete(seed=4):
     cream bellies and great horns, on dark rock with spires behind. 100 m long, 24 m to the spires."""
     def build(sc):
         r = random.Random(seed)
-        L, H, v = 9000.0, 900.0, 950.0
+        L, H, v = 9000.0, 1700.0, 950.0
         g = crest(sc, L, H, w=800.0, rock=True)
         for k in range(7):                                   # spires behind the ledge, snow on their tops
             x = -L / 2.0 + (k + 0.5) * L / 7.0 + r.uniform(-300, 300)
@@ -223,10 +222,10 @@ def ibex_arete(seed=4):
             g.cyl(SNOW, (x, 700, H + h - 10), 215, 90, steps=5, top_r=120)
         for k in range(5):                                   # snow lying on the lip of the ledge
             g.box(SNOW, (-L / 2.0 + (k + 0.5) * L / 5.0 + r.uniform(-400, 400), -330, H - 40), (r.uniform(600, 1100), 160, 110))
-        coats = ('#d9924a', '#b87a50', '#e8a85a')
+        coats = ('#8e5a3a', '#6a4428', '#b87a50')
         for i in range(9):
             bx = -L / 2.0 + (i + 0.5) * L / 9.0 + r.uniform(-150, 150)
-            P.quadruped(sc, bx, r.uniform(-140, 60), H, yaw=90, s=5.0, length=84, height=64, girth=28, neck=26, neck_up=48, head=24, tail=12, stride=30,
+            P.quadruped(sc, bx, r.uniform(-140, 60), H, yaw=90, s=6.0, length=84, height=64, girth=28, neck=26, neck_up=48, head=24, tail=12, stride=30,
                         body=coats[i % 3], belly='#f1e4c8', horns='#f1e4c8', ears=coats[i % 3], rate=0.9, bob=230, phase=r.random(), travel=(L, v))
     return build
 
@@ -236,17 +235,17 @@ def wolf_crest(seed=5):
     running the skyline. Five to six times life size. 80 m long."""
     def build(sc):
         r = random.Random(seed)
-        L, H, v = 7600.0, 800.0, 1100.0
+        L, H, v = 7600.0, 1600.0, 1100.0
         g = crest(sc, L, H, w=1000.0)
         g.cyl(ROCK_D, (0, 250, H - 200), 900, 760, steps=6, top_r=560)
         g.cyl(ROCK, (-950, 300, H - 200), 520, 480, steps=5, top_r=300)
         darks = ('#2a2230', '#3b3f52', '#22202a')
-        for i, (x, y, z, yaw) in enumerate(((0, 180, H + 560, 70), (-950, 260, H + 280, 110), (520, 380, H + 560, 60))):
-            P.quadruped(sc, x, y, z, yaw=yaw, s=6.0, length=92, height=58, girth=24, neck=24, neck_up=74, head=28, tail=40, graze=14, wag=18,
+        for i, (x, y, z, yaw) in enumerate(((-150, 180, H + 560, 70), (-1050, 260, H + 280, 110), (560, 380, H + 560, 60))):
+            P.quadruped(sc, x, y, z, yaw=yaw, s=7.0, length=92, height=58, girth=24, neck=24, neck_up=74, head=28, tail=40, graze=14, wag=18,
                         body=darks[i], belly='#7a8fb8', ears=DARK, rate=0.35, phase=i * 0.3)
         for i in range(5):
-            bx = -L / 2.0 + (i + 0.5) * 760 + r.uniform(-80, 80)
-            P.quadruped(sc, bx, r.uniform(-380, -180), H, yaw=90, s=5.0, length=92, height=58, girth=24, neck=22, neck_up=18, head=26, tail=40, stride=36,
+            bx = -L / 2.0 + (i + 0.5) * 900 + r.uniform(-80, 80)
+            P.quadruped(sc, bx, r.uniform(-380, -180), H, yaw=90, s=6.5, length=92, height=58, girth=24, neck=22, neck_up=18, head=26, tail=40, stride=36,
                         body=darks[i % 3], belly='#7a8fb8', ears=DARK, rate=2.0, bob=40, phase=r.random(), travel=(L, v))
     return build
 
@@ -256,7 +255,7 @@ def sled_race(seed=6):
     handle, a pennant on the sled. Four to five times life size. 110 m long, flags at both ends."""
     def build(sc):
         r = random.Random(seed)
-        L, H, v = 10000.0, 700.0, 1300.0
+        L, H, v = 10000.0, 1500.0, 1300.0
         g = crest(sc, L, H, w=1100.0)
         tv = (L, v / L)
         for sx in (-1, 1):                                    # the turn flags
@@ -267,7 +266,7 @@ def sled_race(seed=6):
         dogs = ('#3b3f52', '#5a6478', '#8e5a3a', '#2a2230')
         for t, (x0, y0, col) in enumerate(((-3300, -300, RED), (0, 60, TEAL), (3300, -180, YEL))):
             for k in range(4):
-                P.quadruped(sc, x0 + 620 + (k // 2) * 520, y0 + (-90 if k % 2 else 90), H, yaw=90, s=4.0, length=70, height=48, girth=20, neck=16, neck_up=35,
+                P.quadruped(sc, x0 + 620 + (k // 2) * 520, y0 + (-90 if k % 2 else 90), H, yaw=90, s=5.5, length=70, height=48, girth=20, neck=16, neck_up=35,
                             head=18, tail=22, wag=30, stride=36, body=dogs[(k + t) % 4], belly='#cdd6f1', ears=DARK, rate=2.4, bob=24, phase=r.random(), travel=(L, v))
             sl = sc.part(P.motion(base=(x0, y0), travel=tv, pivot=(x0, y0, H)))
             sl.box(col, (x0 + 760, y0, H + 150), (1100, 30, 30))                  # the gang line

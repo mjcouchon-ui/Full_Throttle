@@ -69,8 +69,6 @@ namespace FTFx
 	 *  a key of its own (its entity id). The smoke stays where it was put; lengths the viewer (ViewFrom, moving at
 	 *  ViewSpeed cm/s) is about to reach get a short life, so the road it is driving into is clear. */
 	void Trail(const UObject* Ctx, int32 Key, const FVector& Now, const FVector& Up, const FVector& ViewFrom, float ViewSpeed);
-	/** That thing is gone: forget its trail (what it laid stays and fades by itself). */
-	void TrailEnd(int32 Key);
 
 	/** Once a frame (the player's car calls it): moves what is being carried and fires the delayed layers. */
 	void Tick(const UObject* Ctx, float Dt);

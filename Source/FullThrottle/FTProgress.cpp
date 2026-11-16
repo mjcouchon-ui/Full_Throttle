@@ -1212,7 +1212,6 @@ bool UFTCareerSubsystem::BuyFilm()
 	C.Film++;
 	return SaveMutation(Before, TEXT("Purchase"));
 }
-EFTTile UFTCareerSubsystem::SequelState(FString* Needs) const { return C.bSequel ? EFTTile::Owned : EFTTile::Available; }
 bool UFTCareerSubsystem::BuySequel()
 {
 	const FFTCareer Before = C;

@@ -59,12 +59,8 @@ void AFTAmbient::Setup(AFTTrack* InTrack, int32 InLevel)
 		Field->SetVisibility(true);
 		ApplyQuality();
 	}
-	const FString Path = FString::Printf(TEXT("/Game/FX/Ambient/NS_Ambient_L%d.NS_Ambient_L%d"), Level, Level);
-	if (UNiagaraSystem* Sys = Cast<UNiagaraSystem>(StaticLoadObject(UNiagaraSystem::StaticClass(), nullptr, *Path, nullptr, LOAD_NoWarn | LOAD_Quiet)))
-	{
-		Air->SetAsset(Sys);
-		Air->Activate(true);
-	}
+	// No level has an emitter of its own (Air stays empty, emitter=0 below): the load of /Game/FX/Ambient/NS_Ambient_L<level>
+	// that stood here asked the packaged game for a package that has never existed, once a level.
 	UE_LOG(LogFT, Display, TEXT("FTLIFE air level=%d field=%d density=%.2f emitter=%d"), Level, FieldMat ? 1 : 0, FullDensity, Air->GetAsset() ? 1 : 0);
 }
 

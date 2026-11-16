@@ -70,7 +70,6 @@ public:
 	/** -ftgo=<spec> is taken once, from the first title. */
 	bool bGoArgDone = false;
 	int32 RunCounter = 0;
-	int32 TitleLevel = 0;
 
 	// 3.0 attract mode: behind the title the game plays itself and cuts from level to level. A cut loads the next
 	// level's map with its track built light around the shot (AttractD0, cm along the road; -1 = a full build), and

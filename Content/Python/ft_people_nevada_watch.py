@@ -15,7 +15,7 @@ big things in its hands (hats, striped cards, flags, foam fingers), livelier as 
                           roof's edge, a flag on the ridge
     SM_WatchBalcony       the strip: a casino's terraces, gowns and dinner jackets on two balconies, valets on the
                           carpeted steps, chips thrown in the air
-    SM_WatchBluff         FAR (far=True): a tailgate on a red rock bluff, giants so that they read at 200 m: a crowd
+    SM_WatchBluff         FAR (far=True): a tailgate on a red rock bluff, giants so that they read at 150 m: a crowd
                           against the sky, a 20 m banner, two campers
 
 Everything moves through M_People (ft_people.py). No words, no marks, no light on any piece. The placing rules are the
@@ -490,7 +490,7 @@ DIST = [('state', 0.0, 1.17), ('wash', 1.17, 2.43), ('snake', 2.43, 3.83), ('jos
         ('jackpot', 7.75, 9.05), ('city', 9.05, 10.69), ('salt', 10.69, 14.5), ('range', 14.5, 18.5), ('return', 18.5, 22.0), ('vegas', 22.0, 25.6)]
 CUT_ZONES = [(1.154, 1.335), (1.606, 1.742), (1.787, 2.059)]
 LAST = int(25.55 / SLOT)
-NEAR_SCALE, FAR_SCALE = 1.3, 1.5
+NEAR_SCALE, FAR_SCALE = 1.3, 2.2
 
 
 def district(s):
@@ -528,12 +528,16 @@ def rows():
             elif s == 5:
                 put(s, 1, 'PplWatchTrucks', 46.0)
             elif s % 4 == 0:
-                put(s, -1 if (s // 4) % 2 else 1, ('PplWatchBleachA', 'PplWatchTrucks')[(s // 4) % 2], 46.0)
+                sd = -1 if (s // 4) % 2 else 1
+                put(s, sd, ('PplWatchBleachA', 'PplWatchTrucks')[(s // 4) % 2], 46.0)
+                put(s, -sd, ('PplWatchTrucks', 'PplWatchBleachA')[(s // 4) % 2], 48.0)
+            elif s % 4 == 1 and not stop and s % 6 != 3:
+                put(s, a, 'PplWatchTrucks', 46.0)
             if s % 8 == 6:
-                put(s, -a, 'PplWatchBluff', r.uniform(190, 240), FAR_SCALE)
+                put(s, -a, 'PplWatchBluff', r.uniform(130, 160), FAR_SCALE)
         elif d == 'wash':
             if s not in cut and s % 3 == 1:
-                put(s, a, 'PplWatchBluff', r.uniform(200, 250), FAR_SCALE)
+                put(s, a, 'PplWatchBluff', r.uniform(130, 165), FAR_SCALE)
         elif d == 'snake':
             if s % 4 == 0:
                 put(s, site_side(s, 4), 'PplWatchTrucksQ', 48.0)           # on the roadhouse's own lot
@@ -548,8 +552,10 @@ def rows():
                 put(s, -a, 'PplWatchBleachA', 46.0)
             elif s % 6 == 3:
                 put(s, -a, 'PplWatchTrucks', 46.0)
+            elif s % 6 == 4:
+                put(s, -a, 'PplWatchBleachA', 48.0)
             if s % 6 == 2:
-                put(s, a, 'PplWatchBluff', r.uniform(200, 240), FAR_SCALE)
+                put(s, a, 'PplWatchBluff', r.uniform(135, 165), FAR_SCALE)
         elif d == 'gas':
             if s % 8 == 1:
                 put(s, a, 'PplWatchTrucks', 48.0)
@@ -579,15 +585,21 @@ def rows():
                 put(s, -a, ('PplWatchBleachA', 'PplWatchTrucks')[(s // 5) % 2], 46.0)
             elif s % 10 == 2:
                 put(s, -a, ('PplWatchTrucks', 'PplWatchBleachA')[(s // 10) % 2], 46.0)
+            elif s % 5 == 1:
+                put(s, -a, ('PplWatchBleachA', 'PplWatchTrucks')[(s // 5) % 2], 48.0)
             elif s % 20 == 7:
                 put(s, a, 'PplWatchPorch', 52.0)
             if s % 8 == 6:
-                put(s, 1 if s * SLOT < 11.7 else -a, 'PplWatchBluff', r.uniform(200, 250), FAR_SCALE)
+                put(s, 1 if s * SLOT < 11.7 else -a, 'PplWatchBluff', r.uniform(135, 170), FAR_SCALE)
         elif d == 'range':
             if s % 6 == 5:
                 put(s, a, ('PplWatchBleachA', 'PplWatchTrucks')[(s // 6) % 2], 50.0)
+            elif s % 6 == 1:                                               # the main cast's rim pieces: side a, 62 to 70 m
+                put(s, -a, ('PplWatchTrucks', 'PplWatchBleachA')[(s // 6) % 2], 50.0)
+            elif s % 6 == 3:
+                put(s, a, ('PplWatchBleachA', 'PplWatchTrucks')[(s // 6) % 2], 50.0)
             if s % 8 == 3:
-                put(s, -a, 'PplWatchBluff', r.uniform(215, 250), FAR_SCALE)
+                put(s, -a, 'PplWatchBluff', r.uniform(140, 170), FAR_SCALE)
         elif d == 'vegas':
             if s % 2 == 1 and s % 5 not in (0, 2) and not stop:
                 if s % 4 == 3:
@@ -603,7 +615,7 @@ def table_text():
     rr = rows()
     L = ['// ---- BEGIN watch (ft_people_nevada_watch.py) ----',
          '// THE WATCHERS: crowds that came out to see the chase, raised and massed, 44 to 56 m out (behind the main cast and the',
-         "// film crew, clear of the dressing's own pieces), and a far crowd on a bluff 190 to 250 m out. WRITTEN BY",
+         "// film crew, clear of the dressing's own pieces), and a far crowd on a bluff 130 to 170 m out. WRITTEN BY",
          '// Content/Python/ft_people_nevada_watch.py (python ft_people_nevada_watch.py prints this block): change that file.',
          '// Slot by slot, like the main cast: one Site rule a row, in a zone of its own. %d rows.' % len(rr)]
     for n, m, along in SETS:

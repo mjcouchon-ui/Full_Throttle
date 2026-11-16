@@ -186,11 +186,6 @@ bool UFTNightFlow::DayCutNow(const UObject* Ctx, int32& Day, bool& bWrap)
 	return true;
 }
 
-bool UFTNightFlow::Day1Over(const UObject* Ctx)
-{
-	return DayCutOver(Ctx);
-}
-
 bool UFTNightFlow::DayCutOver(const UObject* Ctx)
 {
 	UFTNightFlow* NF = Get(Ctx);

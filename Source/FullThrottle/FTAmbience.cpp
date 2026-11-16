@@ -37,14 +37,14 @@
 // Passes share ONE voice: keep two marks' ranges apart, or the later one waits for the earlier one's end.
 
 static TAutoConsoleVariable<int32> CVarFTAmbience(TEXT("ft.Ambience"), 1, TEXT("FULL THROTTLE: 1 = the world's sound (ambience beds by district, passes at landmarks); 0 = off"));
-static TAutoConsoleVariable<float> CVarFTAmbienceDb(TEXT("ft.AmbienceDb"), -3.f, TEXT("FULL THROTTLE: the world's sound louder or quieter, in dB on top of what the tables say. The default, -3, is on the quiet side; 0 = as the tables are written; -6 = half as loud again; +6 = double"));
+static TAutoConsoleVariable<float> CVarFTAmbienceDb(TEXT("ft.AmbienceDb"), -9.f, TEXT("FULL THROTTLE: the world's sound louder or quieter, in dB on top of what the tables say. The default, -9 (15 Nov, the owner: with the ambience at -3 the music seemed too quiet), is on the quiet side; 0 = as the tables are written; -6 = half as loud again; +6 = double"));
 static TAutoConsoleVariable<int32> CVarFTAmbienceLog(TEXT("ft.AmbienceLog"), 0, TEXT("FULL THROTTLE tests: 1 = log what the ambience plays every two seconds (FT AMB state); district changes and passes are logged always"));
 static TAutoConsoleVariable<float> CVarFTAmbienceProbe(TEXT("ft.AmbienceProbe"), -1.f, TEXT("FULL THROTTLE tests: the ambience plays as if the car were at this kilometre (-1 = where the car is). Sound only: nothing in the game moves"));
 
 namespace
 {
 	// AFTGameMode::MusicVol, which is protected there: the level the music plays at when nothing ducks it
-	const float GameMusicVol = 0.5f;
+	const float GameMusicVol = 0.63f;
 
 	inline float DbToLin(float Db) { return FMath::Pow(10.f, Db / 20.f); }
 

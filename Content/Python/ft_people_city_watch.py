@@ -130,6 +130,17 @@ def big_flag(col=PINK, bar=WHITE, pole=WHITE, w=120.0, h=76.0, L=230.0):
     return f
 
 
+def lean_flag(col=PINK, bar=WHITE, pole=WHITE, w=120.0, h=70.0, out=150.0, up=95.0):
+    """A flag on a pole held OUT over a parapet (towards the road and up): for a deck with a slab close overhead, where an
+    upright flag would stand inside the slab. It waves side to side with the arm."""
+    def f(m, h0, side):
+        tip = (h0[0], h0[1] - out, h0[2] + up)
+        tilt_box(m, pole, (h0[0], h0[1] + 12, h0[2] - 8), tip, 5, 5)
+        m.box(col, (tip[0] + w / 2.0, tip[1] + 6, tip[2] - h / 2.0), (w, 3, h), glow=G_CLOTH)
+        m.box(bar, (tip[0] + w / 2.0, tip[1] + 3.8, tip[2] - h / 2.0), (w * 0.9, 1.5, h * 0.3), glow=G_CLOTH)
+    return f
+
+
 def placard(col=CREAM, bar=PINK, w=84.0, h=58.0):
     def f(m, h0, side):
         m.box(WOOD, (h0[0], h0[1], h0[2] + 45), (5, 5, 110))
@@ -322,11 +333,13 @@ def deck(seed=7):
             for j, dx in enumerate((-270.0, -90.0, 90.0, 270.0)):
                 hold, act = None, None
                 if (b * 4 + j) % 7 == 3:
-                    hold, act = big_flag(col=(PINK, CYAN, YEL)[b % 3], bar=WHITE, L=170.0, w=110.0, h=64.0), ('down', 'wave', 0, 20, 3, 0.9)
-                mini(sc, r, cx + dx + r.uniform(-14, 14), -408, z=z3, s=S, yaw=r.uniform(-12, 12), hold=hold, act=act)
+                    # held out over the parapet: the roof slab is 2.66 m over this deck (an upright flag stood inside it)
+                    hold, act = lean_flag(col=(PINK, CYAN, YEL)[b % 3], bar=WHITE), ('down', 'wave', 0, 20, 3, 0.9)
+                # the garage's PARK blade stands before x = 1385 to 1515: nobody behind it
+                mini(sc, r, min(cx + dx + r.uniform(-14, 14), 1335.0), -408, z=z3, s=S, yaw=r.uniform(-12, 12), hold=hold, act=act)
             bars, base = SETS[(seed + b) % len(SETS)]
             if b in (0, 3):
-                drop(sc, r, cx, -456, z3 - 6, 460.0, 250.0, base, bars, (0, 2)[b % 2])
+                drop(sc, r, cx + (45.0 if b == 0 else -45.0), -456, z3 - 6, 420.0, 250.0, base, bars, (0, 2)[b % 2])   # clear of the PARK blade
             else:
                 cloth(g, cx - 300, cx + 300, -453, z3 + 4, z3 + 84, base=base, bars=bars, kind=1)
                 for dx in (-270.0, -90.0, 90.0, 270.0):
@@ -338,7 +351,7 @@ def deck(seed=7):
 # ------------------------------------------------------------------------------------------ a roof's edge
 def roof(seed=9, L=900.0):
     """TALL: stands on a podium's roof (the set's "up" is the roof; y = 0 is the podium's middle, the roof's edge
-    y = -350): nine people behind a striped cloth at the edge and six behind them on a step, four tall flags, three
+    y = -350): nine people behind a striped cloth at the edge and seven behind them on a step, four tall flags, three
     banners down the front, a string of lights."""
     def build(sc):
         r = random.Random(seed)
@@ -351,7 +364,8 @@ def roof(seed=9, L=900.0):
             g.box(STEEL, (sx * h, -338, 160), (7, 7, 320))
         g.box(DARK, (0, -338, 318), (L, 4, 4))
         bulbs(g, (-h, -338, 306), (h, -338, 306), 8, sag=0)
-        for k, x in enumerate((-h + 150, 0.0, h - 150)):
+        # the outer two 3.3 m from the middle: the door's raking flag pole comes through the facade's line 2 m along
+        for k, x in enumerate((-h + 120, 0.0, h - 120)):
             b2, base2 = SETS[(seed + k + 1) % len(SETS)]
             drop(sc, r, x, -380, -6, 220.0, 330.0, base2, b2, (0, 2, 3)[k])
         for i in range(9):
@@ -360,8 +374,9 @@ def roof(seed=9, L=900.0):
             if i in (1, 3, 5, 7):
                 hold, act = big_flag(col=(PINK, CYAN, YEL, MINT)[i // 2], bar=WHITE, L=300.0, w=150.0, h=92.0), ('down', 'wave', 0, 20, 4, 0.8 + 0.1 * (i // 2))
             mini(sc, r, x, -306, z=0, s=1.1, yaw=r.uniform(-12, 12), hold=hold, act=act)
-        for i in range(6):
-            mini(sc, r, -h + 110 + i * (L - 220) / 5.0 + r.uniform(-10, 10), -262, z=36, s=1.1, yaw=r.uniform(-12, 12))
+        # the back row stands either side of the terrace's parasol (its rim, 1.5 m round x = -95, reaches this row from x = -143 to -47)
+        for x in (-340.0, -262.0, -186.0, 10.0, 120.0, 230.0, 340.0):
+            mini(sc, r, x + r.uniform(-8, 8), -262, z=36, s=1.1, yaw=r.uniform(-12, 12))
         lit(sc)
     return build
 

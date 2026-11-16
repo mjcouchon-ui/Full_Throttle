@@ -130,7 +130,7 @@ def hold_canister(col=VIOLET, glow=0.0):
 BIG = 1.35    # people on raised steel 24 m and more from the road are drawn a third over life size: they must read at 120 mph
 
 
-def sheet(g, x, y, z, L, H, col=WHITE, stripe=ORANGE, glow=0.18):
+def sheet(g, x, y, z, L, H, col=WHITE, stripe=ORANGE, glow=0.1):
     """Scaffold sheeting behind a deck, lit by the work lamps: the pale ground a crew's colours read against."""
     g.box(col, (x, y, z + H / 2.0), (L, 5, H), glow=glow)
     g.box(stripe, (x, y - 3.5, z + H - 22), (L, 2, 16))
@@ -258,7 +258,7 @@ def dock_crowd(seed=3, L=1200.0, n=14, suits=False):
             g.box(POLE, (sx * (L / 2.0 - 20), D / 2.0 - 14, H + 200), (10, 10, 400))
             g.box(LAMP, (sx * (L / 2.0 - 20), D / 2.0 - 50, H + 392), (40, 70, 8), glow=0.9)
         sheet(g, 0, D / 2.0 - 4, H, L - 60, 270, col=(WHITE if not suits else '#3a2a7a'), stripe=(ORANGE if not suits else VIOLET),
-              glow=(0.18 if not suits else 0.0))
+              glow=(0.1 if not suits else 0.0))
         for i in range(n):
             x = -L / 2.0 + 130 + (i + 0.5) * (L - 260) / n + r.uniform(-12, 12)
             back = i % 2

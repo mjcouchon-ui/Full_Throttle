@@ -33,7 +33,8 @@ ORANGE, LIME, YEL, RED, PINK, CYAN = '#ff7a3c', '#b8ff5a', '#ffc93c', '#ff2d3c',
 LAMP = '#fff1c0'
 HIVIS = (ORANGE, ORANGE, LIME, YEL, '#fff6ea', PINK)
 HATS = (YEL, '#fff6ea', ORANGE, CYAN, RED)
-GLOW = 0.07          # the little light of its own that hi-vis has under the work lamps (steady; these pieces stand 39 m out)
+GLOW = 0.25          # the light of its own that hi-vis has under the work lamps (steady; these pieces stand 40 m out). At 0.07 the
+                     # shift read as dark teeth in a white strip from 100 m and as a black mass from the side (review, 15 Nov)
 
 CHEER = (
     dict(arm_l='up', arm_r='up', swing_l=18, swing_r=-18, bob=9, rate=1.5),
@@ -54,22 +55,24 @@ def worker(r, **fixed):
 
 
 def fan(sc, r, x, y, z, s, react=True, arms=None, tops=HIVIS, hats=HATS, rate=None, bob=None):
-    """One of a mass: a block of hi-vis, dark legs, a head and a hard hat (48 triangles), hopping on its own beat.
+    """One of a mass: a broad block of hi-vis, short dark legs, a head and a hard hat (48 triangles), hopping on its own
+    beat. The block is the widest and tallest part on purpose: the cel pass inks every edge, and from 100 m a narrow
+    figure is all ink.
     arms: None, 'up' (both arms over the head, hopping with it) or 'wave' (both arms swing side to side)."""
     mo = dict(phase=r.random(), rate=rate or r.uniform(1.1, 1.7), bob=bob if bob is not None else r.uniform(8, 16) * s, react=react)
     m = sc.part(P.motion(**mo), (x, y, z), 0.0, s)
     top = r.choice(tops)
-    m.box('#2b2350', (0, 0, 33), (36, 24, 66), glow=GLOW)
-    m.box(top, (0, 0, 95), (50, 28, 58), glow=GLOW)
-    m.box(r.choice(P.SKINS), (0, 0, 141), (36, 34, 36), glow=GLOW)
-    m.box(r.choice(hats), (0, 0, 165), (44, 42, 14), glow=GLOW)
+    m.box('#3a5fa8', (0, 0, 27), (42, 24, 54), glow=GLOW)
+    m.box(top, (0, 0, 91), (64, 30, 74), glow=GLOW)
+    m.box(r.choice(P.SKINS), (0, 0, 145), (38, 34, 34), glow=GLOW)
+    m.box(r.choice(hats), (0, 0, 168), (46, 42, 14), glow=GLOW)
     if arms == 'up':
         for sx in (-1, 1):
-            tilt_box(m, top, (sx * 30, 0, 116), (sx * 44, 0, 186), 13, 13)
+            tilt_box(m, top, (sx * 36, 0, 116), (sx * 52, 0, 190), 16, 16)
     elif arms == 'wave':
         for sx in (-1, 1):
-            a = sc.part(P.motion(swing=sx * 26.0, pivot=(x + sx * 30 * s, y, z + 116 * s), axis=90.0, **mo), (x, y, z), 0.0, s)
-            a.box(top, (sx * 34, 0, 152), (13, 13, 76), glow=GLOW)
+            a = sc.part(P.motion(swing=sx * 26.0, pivot=(x + sx * 36 * s, y, z + 118 * s), axis=90.0, **mo), (x, y, z), 0.0, s)
+            a.box(top, (sx * 40, 0, 156), (16, 16, 78), glow=GLOW)
     return top
 
 
@@ -120,7 +123,7 @@ def stand(seed=1, L=1400.0, tiers=(700.0, 900.0, 1100.0, 1300.0), per=6, s=1.5, 
         # the standards: a row at every step, as tall as the deck it carries and its rail
         for k in range(bays + 1):
             x = -L / 2.0 + L * k / bays
-            for j in range(n + 1):
+            for j in (0, n):             # the front and the back row: the rows between are hidden by the sheeting
                 top = (tiers[min(j, n - 1)] + (110 if j < n else 330))
                 g.box(POLE, (x, y0 + j * TD, top / 2.0), (11, 11, top))
             g.box(NAVY, (x, 0, 4), (40, D + 40, 8))
@@ -275,13 +278,17 @@ def tank_far(seed=5, R=800.0, H=2200.0, s=2.4):
         g.cyl(HAZ, (0, 0, H - 60), R + 6, 60, steps=16)
         g.cyl(PAVE_D, (0, 0, 0), R + 60, 70, steps=16)
         # the stair up the front: two flights and two landings
-        for k, (xa, za, xb, zb) in enumerate(((-620, 0, -60, H * 0.36), (160, H * 0.36, 640, H * 0.7))):
+        for k, (xa, za, xb, zb) in enumerate(((-640, 0, -190, H * 0.42), (130, H * 0.42, 420, H * 0.72))):
+            xl = xb + 160                                                    # the landing's middle
+            wall = -math.sqrt(R * R - xl * xl)                               # the tank's wall behind the landing's middle
             tilt_box(g, HAZ, (xa, -R - 60, za + 20), (xb, -R - 60, zb), 26, 110)
-            g.box(BOARD, (xb + 150, -R - 80, zb - 8), (300, 190, 16))
-            g.box(HAZ, (xb + 150, -R - 172, zb + 110), (300, 9, 9))
-            g.box(POLE, (xb + 150, -R - 80, zb / 2.0), (14, 14, zb))
+            g.box(BOARD, (xl, (-R - 175 + wall) / 2.0, zb - 8), (320, wall + R + 175, 16))   # the deck runs back to the wall
+            g.box(HAZ, (xl, -R - 172, zb + 110), (320, 9, 9))
+            for sx in (-1, 1):
+                g.box(HAZ, (xl + sx * 156, -R - 172, zb + 55), (9, 9, 110))
+                tilt_box(g, POLE, (xl + sx * 150, -R - 160, zb - 10), (xl + sx * 150, wall, zb - 260), 12, 12)   # a bracket to the wall
             for i in range(2):
-                fan(sc, r, xb + 80 + i * 130, -R - 90, zb, 1.9, react=False, arms=('up', 'wave')[i])
+                fan(sc, r, xl - 70 + i * 140, -R - 90, zb, 1.9, react=False, arms=('up', 'wave')[i])
         g.box(WHITE, (0, 140, H + 300), (R * 1.5, 8, 600), glow=0.25)
         g.box(ORANGE, (0, 134, H + 575), (R * 1.5, 3, 40), glow=0.3)
         for sx in (-1, 1):

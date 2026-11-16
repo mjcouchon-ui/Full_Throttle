@@ -20,6 +20,13 @@ void FFTTutorialState::Skip()
 	bSkipped = true;
 }
 
+void FFTTutorialState::Finish()
+{
+	if (!IsActive()) return;
+	Step = EFTTutorialStep::Complete;
+	bActionObserved = false;
+}
+
 void FFTTutorialState::Signal(EFTTutorialStep Action)
 {
 	if (IsActive() && Action == Step) bActionObserved = true;

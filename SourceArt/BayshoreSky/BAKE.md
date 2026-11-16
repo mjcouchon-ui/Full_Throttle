@@ -1,5 +1,7 @@
 # BAKE.md: how the Bayshore sky is baked
 
+**State in the game (15 Nov 2026).** The baked cloud layers and cumulus cards described here are not drawn in the game since the game-jam restyle of 14 Nov (late): `CloudLayers` 0 and `CloudCardsShown` 0 in `unreal/bsky_params.py`. Level 1's clouds are eight stylized meshes in `L_Bayshore`. The current state is in `WORLD.md` at the checkout root ("Sky" and "Clouds"); check there before re-baking or tuning the layers or cards for the game. The commands below use paths in the scratch project `K:\Full Throttle\SkyScratch`, not in this repo.
+
 The sky's expensive parts are rendered offline and shipped only as textures: the atmosphere, the cloud layers, the cumulus and the distant shore. Nothing in the packaged game simulates atmosphere or clouds. The bakes store **continuous, physically based lighting data**: sun and sky light separately, optical depth and opacity. The runtime lights them live (phase function, tints, exposure). There are no cel bands on the sky: `MF_SemiCelRamp` is inactive (`BandGradient` 1).
 
 Tools: Blender 5.2 LTS (Cycles on the GPU, OptiX), with its bundled Python 3.13, NumPy, OpenImageIO and OpenVDB. Every bake is a script, so a preset is re-baked by running commands, never by hand.
@@ -13,6 +15,7 @@ Tools: Blender 5.2 LTS (Cycles on the GPU, OptiX), with its bundled Python 3.13,
 - Textures ready to import, plus their metadata (`layers_meta.json`, `cumulus3_meta.json`, `bake_meta.json`): `bakes/<Preset>/`.
 - Raw renders, VDBs and maps: `bakes/<Preset>/raw/`, with the cloud layers' in `raw/layers/` (the shipped round is tag `_r2f`). They are never copied into the game project.
 - Reference renders (not shipped): `reference/<Preset>/`.
+- Not kept in the repository since 15 Nov 2026, because the bake writes them again: `bakes/<Preset>/Master_<Preset>_Atmosphere_Equirect.exr` and, in `reference/<Preset>/`, the `Ref_*`, `Data_*` and `cumulus3_look` images. `preview_bake.py` and `compare_bake_runtime.py` read `Ref_<Preset>_PhotorealStrip.png` and `Ref_<Preset>_CloudCards.png`, so run `bake_sky.py --stages compose` first (it needs the raw renders in `bakes/<Preset>/raw/`).
 - Conventions (axes, channel meanings, mesh list): `SPEC.md`.
 
 **Coordinates:** Unreal azimuth is measured from +X toward +Y. Blender's sky node and camera use a compass azimuth (0 = +Y, +90 = +X), and Blender's Y is Unreal's −Y, so **Blender azimuth = 90° + Unreal azimuth**. The scripts do this conversion; give them Unreal angles.

@@ -62,12 +62,14 @@ def _tv(travel):
 
 # ------------------------------------------------------------------------------------------ a far aquanaut
 def diver(sc, x, y, z, heading=0.0, pitch=0.0, s=3.0, suit=SUITS[0], fins=FINS[0], phase=0.0, rate=0.5, bob=-30.0, kick=16.0,
-          base=None, travel=(0.0, 0.0), scooter=None, streamer=None, spark=False, arms='fwd'):
+          base=None, travel=(0.0, 0.0), scooter=None, streamer=None, spark=False, arms='fwd', chunk=1.0, ribbons=4):
     """An aquanaut of Nereida for the far water, belly down, the hips at (x, y, z), the head towards `heading` (degrees,
     0 = +X) and raised by `pitch` (90: upright in the water). s = 3: three times life (5 m), which is what reads at
     200 m. travel: the motion's own (length, rounds a second); base: the group's base (so that a flight keeps its
     shape) or an orbit's centre. scooter: a colour (a scooter in the hands); streamer: a colour (a ribbon behind the
-    fins); spark: a steady welding light at the hands. About 120 triangles."""
+    fins); spark: a steady welding light at the hands. chunk: how much deeper than life the body, the helmet, the
+    limbs and the scooter are drawn (seen side-on from the road a swimmer of true proportions is a thin line: the review);
+    ribbons: the streamer's pieces. About 120 triangles."""
     h, p = math.radians(heading), math.radians(pitch)
     f = (math.cos(h) * math.cos(p), math.sin(h) * math.cos(p), math.sin(p))
     rt = (-math.sin(h), math.cos(h), 0.0)
@@ -80,34 +82,38 @@ def diver(sc, x, y, z, heading=0.0, pitch=0.0, s=3.0, suit=SUITS[0], fins=FINS[0
     common = dict(phase=phase, rate=rate, bob=bob, base=base or (x, y), travel=travel)
     piv = (x, y, z)
     b = sc.part(P.motion(pivot=piv, **common))
-    tilt_box(b, suit, W(-6), W(62), 48 * s, 28 * s)
-    tilt_box(b, STEEL, W(4, 0, 22), W(52, 0, 22), 22 * s, 18 * s)
-    cone(b, HELM, W(62, 0, 4), W(112, 0, 4), 27 * s, 22 * s, steps=6)
-    tilt_box(b, VISOR, W(98, 0, -12), W(116, 0, -4), 36 * s, 18 * s)
+    c = chunk
+    tilt_box(b, suit, W(-6), W(62), 48 * s, 28 * s * c)
+    tilt_box(b, STEEL if c == 1.0 else YEL, W(4, 0, 14 + 8 * c), W(52, 0, 14 + 8 * c), 22 * s, 18 * s * c)
+    cone(b, HELM, W(62, 0, 4), W(112, 0, 4), 27 * s * c, 22 * s * c, steps=6)
+    tilt_box(b, VISOR, W(98, 0, -12 * c), W(116, 0, -4 * c), 36 * s * c, 18 * s * c)
     for sd in (-1, 1):
         hand = W(120, sd * 20, -4) if arms == 'fwd' else W(96, sd * 26, -52)
-        tilt_box(b, suit, W(52, sd * 28, 0), hand, 14 * s, 14 * s)
+        if c != 1.0:
+            hand = W(120, sd * 20, -30 * c)
+        tilt_box(b, suit, W(52, sd * 28, 0), hand, 14 * s, 14 * s * c)
     if scooter:
-        cone(b, scooter, W(104, 0, -34), W(196, 0, -34), 20 * s, 14 * s, steps=6)
-        cone(b, DARK, W(88, 0, -34), W(104, 0, -34), 27 * s, 27 * s, steps=6)
+        cone(b, scooter, W(104, 0, -34 * c), W(196, 0, -34 * c), 20 * s * c, 14 * s * c, steps=6)
+        cone(b, DARK, W(88, 0, -34 * c), W(104, 0, -34 * c), 27 * s * c, 27 * s * c, steps=6)
     if spark:
         b.sphere(SPARK, W(104, 0, -64), 20 * s, steps=(3, 5), glow=1.0)
     for sd in (-1, 1):
         hip = W(-4, sd * 12, 0)
         m = sc.part(P.motion(swing=sd * kick, pivot=hip, axis=heading + 90.0, **common)) if kick else b
-        tilt_box(m, suit, hip, W(-80, sd * 13, 0), 18 * s, 18 * s)
-        tilt_box(m, fins, W(-76, sd * 14, 0), W(-136, sd * 16, -4), 34 * s, 7 * s)
+        tilt_box(m, suit, hip, W(-80, sd * 13, 0), 18 * s, 18 * s * c)
+        tilt_box(m, fins, W(-76, sd * 14, 0), W(-136, sd * 16, -4), 34 * s, 7 * s * c * c)
     if streamer:
-        for k in range(4):
-            st = sc.part(P.motion(swing=10.0 + 4.0 * k, pivot=W(-140), axis=P.UP, **common))
-            tilt_box(st, streamer if k % 2 == 0 else WHITE, W(-140 - k * 90, 0, 6), W(-232 - k * 90, 0, 6), 6 * s, 30 * s)
+        for k in range(ribbons):
+            st = sc.part(P.motion(swing=10.0 + 4.0 * k, pivot=W(-140), axis=(P.UP if c == 1.0 else heading + 90.0), **common))
+            tilt_box(st, streamer if k % 2 == 0 else WHITE, W(-140 - k * 90, 0, 6), W(-232 - k * 90, 0, 6), 6 * s, 30 * s * c)
     return W
 
 
 # ------------------------------------------------------------------------------------------ the giant squid
-def squid(seed=1, body='#ff5a4a', pale='#ffd2c4', spot='#ffc93c', sign=1, length=14000.0, speed=420.0, z0=2400.0):
+def squid(seed=1, body='#ff5a4a', pale='#ffd2c4', spot='#ffc93c', sign=1, length=6000.0, speed=300.0, z0=2400.0):
     """One giant squid, 34 m from the tip of the mantle to the clubs of the long arms, jetting mantle-first along the
-    trench (it travels the mesh's X and comes round again), eight arms and two long tentacles writhing behind it.
+    trench (it travels 60 m of the mesh's X and comes round again: short, so that at
+    twice its size it stays well clear of the road), eight arms and two long tentacles writhing behind it.
     One great animal: coral red with a pale belly, yellow spots, an eye a metre and a half across."""
     def build(sc):
         r = random.Random(seed)
@@ -231,7 +237,7 @@ def dome_works(seed=1):
             a = math.radians(a_deg)
             diver(sc, math.cos(a) * rad, math.sin(a) * rad, zz, heading=a_deg + 90.0, pitch=0.0, s=3.0, suit=SUITS[(k * 3 + seed) % len(SUITS)],
                   fins=FINS[(k + 1) % len(FINS)], phase=r.random(), rate=0.8, bob=0.0, kick=0.0, base=(0.0, 0.0), travel=(-1.0, 0.035),
-                  scooter=YEL, streamer=(PINK, LIME, ORANGE)[k])
+                  scooter=YEL, streamer=(PINK, LIME, ORANGE)[k], chunk=1.8, ribbons=2)
         # bubbles from the works
         for k in range(6):
             bb = sc.part(P.motion(phase=k * 0.17, rate=0.25, bob=-160.0, pivot=(-400 + k * 260, -900, 2000)))
@@ -247,11 +253,17 @@ def _nautilus(sc, x, y, z, R, sign, shell, stripe, flesh, phase, rate, bob):
     b = sc.part(P.motion(swing=9.0, **mo))
     T = R * 0.5
     rod(b, shell, (x, y - T / 2.0, z), (x, y + T / 2.0, z), R, steps=10)
-    rod(b, stripe, (x - sign * R * 0.3, y - T * 0.62, z - R * 0.1), (x - sign * R * 0.3, y + T * 0.62, z - R * 0.1), R * 0.42, steps=8)   # the coil's eye
-    for k in range(5):                                                               # the stripes: wedges from the middle to the rim, over the back
-        a = math.radians(30 + k * 38) if sign > 0 else math.radians(150 - k * 38)
-        a2 = a + math.radians(10 * sign)
-        tilt_box(b, stripe, (x + math.cos(a) * R * 0.5, y, z + math.sin(a) * R * 0.5), (x + math.cos(a2) * R * 1.02, y, z + math.sin(a2) * R * 1.02), R * 0.2, T * 1.1)
+    # the coil: one thick band in the stripe's colour, wound a turn and a half from the middle out to the mouth of the
+    # shell, standing proud of both faces (the review: a plain disc with a dot in it read as a fried egg from the road)
+    n = 11
+    pts = []
+    for k in range(n + 1):
+        t = k / float(n)
+        rr = R * 0.15 * math.exp(1.74 * t)
+        a = math.radians(-25.0 + (1.0 - t) * 540.0)
+        pts.append((x + sign * math.cos(a) * rr, y, z + math.sin(a) * rr, rr))
+    for k in range(n):
+        tilt_box(b, stripe, pts[k][:3], pts[k + 1][:3], T * 1.16, max(R * 0.09, (pts[k][3] + pts[k + 1][3]) * 0.16))
     hx = x + sign * R * 0.86
     b.box(stripe, (hx, y, z - R * 0.12), (R * 0.62, T * 1.06, R * 0.36), rot=(20 * sign, 0, 0))         # the hood
     b.box(flesh, (hx + sign * R * 0.1, y, z - R * 0.46), (R * 0.56, T * 0.9, R * 0.4))
@@ -259,22 +271,22 @@ def _nautilus(sc, x, y, z, R, sign, shell, stripe, flesh, phase, rate, bob):
         b.sphere(WHITE, (hx + sign * R * 0.05, y + sd * T * 0.5, z - R * 0.42), R * 0.17, steps=(3, 6))
         b.sphere(DARK, (hx + sign * R * 0.07, y + sd * T * 0.6, z - R * 0.42), R * 0.09, steps=(3, 5))
     t = sc.part(P.motion(swing=17.0, **mo))
-    for k in range(4):
-        a = math.radians(-8 - k * 20)
-        tilt_box(t, flesh if k % 2 else WHITE, (hx + sign * R * 0.3, y + (k - 1.5) * T * 0.22, z - R * 0.5),
-                 (hx + sign * (R * 0.3 + math.cos(a) * R * 0.8), y + (k - 1.5) * T * 0.3, z - R * 0.5 + math.sin(a) * R * 0.8), R * 0.11, R * 0.11)
+    for k in range(5):
+        a = math.radians(4 - k * 17)
+        tilt_box(t, flesh if k % 2 else WHITE, (hx + sign * R * 0.3, y + (k - 2.0) * T * 0.2, z - R * 0.5),
+                 (hx + sign * (R * 0.3 + math.cos(a) * R * 1.15), y + (k - 2.0) * T * 0.3, z - R * 0.5 + math.sin(a) * R * 1.15), R * 0.13, R * 0.13)
 
 
 def nautilus_shoal(seed=1):
-    """A shoal of giant nautiluses over the far sand: striped shells 5 to 8 m across, 9 to 34 m up, each rising and
+    """A shoal of five giant nautiluses over the far sand: coiled shells 6 to 9 m across, 9 to 34 m up, each rising and
     sinking and rocking in its own time."""
     def build(sc):
         r = random.Random(seed)
         cols = (('#fff1dc', '#ff7a3c', '#ffb48a'), ('#fff6ea', '#ff2d3c', '#ff9aa0'), ('#ffe9b0', '#c8683a', '#ffc93c'), ('#fff1dc', '#ff5fa2', '#ffc0dc'))
-        for k in range(6):
+        for k in range(5):
             shell, stripe, flesh = cols[(k + seed) % len(cols)]
-            R = r.uniform(260, 400)
-            _nautilus(sc, (k - 2.5) * 1050 + r.uniform(-250, 250), r.uniform(-500, 500), 1100 + ((k * 3) % 6) * 420 + r.uniform(-120, 120), R,
+            R = r.uniform(300, 430)
+            _nautilus(sc, (k - 2.0) * 1250 + r.uniform(-250, 250), r.uniform(-500, 500), 1100 + ((k * 3) % 5) * 480 + r.uniform(-120, 120), R,
                       1 if (k + seed) % 3 else -1, shell, stripe, flesh, r.random(), r.uniform(0.09, 0.15), -r.uniform(220, 340))
     return build
 
@@ -317,7 +329,7 @@ def _spider_crab(sc, x, y, s, shell, leg, pale, phase, rate, tv):
         tilt_box(m, WHITE, hand, (hand[0] - sd * 70 * s, hand[1] - 20 * s, hand[2] + 170 * s), 40 * s, 40 * s)
 
 
-def crab_march(seed=1, sign=1, length=9000.0, speed=170.0):
+def crab_march(seed=1, sign=1, length=8400.0, speed=170.0):
     """Giant spider crabs on the march along the trench wall: four of them, one behind the other, walking sideways
     along the road with their claws up. They travel the mesh's X and come round again."""
     def build(sc):
@@ -359,7 +371,7 @@ def _oarfish(sc, x0, y, z, n, seg, tall, sign, body, crest, phase, rate, amp, tv
     m.box(crest, (cx, y, z), (seg * 0.9, 14, tall * 0.6))
 
 
-def sea_dragon(seed=1, sign=1, length=16000.0, speed=520.0):
+def sea_dragon(seed=1, sign=1, length=9000.0, speed=420.0):
     """The oarfish, the sailors' sea dragon: a silver ribbon 60 m long with a red crest, a wave running down it, and a
     younger one 35 m long higher up behind it. They travel the mesh's X and come round again."""
     def build(sc):
@@ -370,7 +382,7 @@ def sea_dragon(seed=1, sign=1, length=16000.0, speed=520.0):
 
 
 # ------------------------------------------------------------------------------------------ the scooter wing
-def scooter_wing(seed=1, sign=1, length=15000.0, speed=700.0):
+def scooter_wing(seed=1, sign=1, length=9000.0, speed=520.0):
     """A far flight of Nereida's aquanauts on scooters: seven in a vee, four times life size, a striped streamer
     behind each, travelling the mesh's X and coming round again."""
     def build(sc):
@@ -380,11 +392,12 @@ def scooter_wing(seed=1, sign=1, length=15000.0, speed=700.0):
         for k in range(7):
             rank = (k + 1) // 2
             side = 1 if k % 2 else -1
-            x = -sign * rank * 950.0
+            x = -sign * rank * 1500.0
             y = side * rank * 420.0 if k else 0.0
-            z = 2300.0 + rank * 330.0 * (1 if k % 2 else -0.4)
+            z = 1600.0 + rank * 300.0 * (1 if k % 2 else -0.6)     # under the squid's height (the review: a wing flew through a squid)
             diver(sc, x, y, z, heading=head, pitch=4.0, s=4.0, suit=SUITS[(k + seed) % len(SUITS)], fins=FINS[(k * 2 + seed) % len(FINS)], phase=r.random(),
-                  rate=0.45, bob=-50.0, kick=7.0, base=(0.0, 0.0), travel=tv, scooter=(YEL, ORANGE, WHITE)[k % 3], streamer=(PINK, RED, LIME, ORANGE)[k % 4])
+                  rate=0.45, bob=-50.0, kick=12.0, base=(0.0, 0.0), travel=tv, scooter=(YEL, ORANGE, WHITE)[k % 3], streamer=(PINK, RED, LIME, ORANGE)[k % 4],
+                  chunk=2.0, ribbons=2)
     return build
 
 
@@ -411,14 +424,14 @@ def lit(build, glow=0.15):
 
 
 JOBS = [
-    ('SM_FarSquid', lit(squid(1)), dict(far=True, grow=(7400.0, 400.0, 300.0), grow_down=(7400.0, 400.0, 0.0))),
+    ('SM_FarSquid', lit(squid(1), 0.1), dict(far=True, grow=(3400.0, 400.0, 300.0), grow_down=(3400.0, 400.0, 0.0))),
     ('SM_FarDomeWorks', lit(dome_works(1)), dict(far=True, grow=(1500.0, 3200.0, 300.0), grow_down=(1500.0, 3200.0, 0.0))),
 ]
 REST = [
     ('SM_FarNautilus', lit(nautilus_shoal(1)), dict(far=True, grow=(150.0, 150.0, 400.0), grow_down=(150.0, 150.0, 400.0))),
     ('SM_FarCrabMarch', lit(crab_march(1)), dict(far=True, grow=(4700.0, 150.0, 150.0), grow_down=(4700.0, 150.0, 0.0))),
-    ('SM_FarSeaDragon', lit(sea_dragon(1)), dict(far=True, grow=(8400.0, 100.0, 400.0), grow_down=(8400.0, 100.0, 400.0))),
-    ('SM_FarScooterWing', lit(scooter_wing(1)), dict(far=True, grow=(7800.0, 100.0, 200.0), grow_down=(7800.0, 100.0, 200.0))),
+    ('SM_FarSeaDragon', lit(sea_dragon(1)), dict(far=True, grow=(4900.0, 100.0, 400.0), grow_down=(4900.0, 100.0, 400.0))),
+    ('SM_FarScooterWing', lit(scooter_wing(1)), dict(far=True, grow=(4900.0, 100.0, 200.0), grow_down=(4900.0, 100.0, 200.0))),
 ]
 
 

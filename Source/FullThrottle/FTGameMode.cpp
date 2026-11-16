@@ -560,10 +560,29 @@ void AFTGameMode::Wrap(bool bEscape)
 	if (bAttract) return; // 3.0: the attract mode never ends a level
 	if (IsTutorialActive())
 	{
-		// Even a boss beaten during practice must not remove the remaining lessons.
-		if (!bTutorialWrapPending) UE_LOG(LogFT, Display, TEXT("FT TUTORIAL outcome=deferred escape=%d"), bEscape ? 1 : 0);
-		bTutorialWrapPending = true; bTutorialWrapEscape = bEscape;
-		return;
+		if (bEscape)
+		{
+			// The opening lessons have no failure deadline: a lost boss waits until they are done or skipped.
+			if (!bTutorialWrapPending) UE_LOG(LogFT, Display, TEXT("FT TUTORIAL outcome=deferred escape=1"));
+			bTutorialWrapPending = true; bTutorialWrapEscape = true;
+			return;
+		}
+		// A beaten boss ends the level, lessons or not. (Until 15 Nov 2026 a win waited for the lessons too, and they
+		// only end when all six actions have been done: the owner beat the Juggernaut on lesson 3 of 6 and "the level
+		// just kept going", with nothing on screen to say why.) Whoever beats the boss has learned to drive: the
+		// lessons end with the level and count as done.
+		const int32 AtStep = Tutorial.StepIndex();
+		Tutorial.Finish();
+		ClearTutorialPickup();
+		bTutorialWrapPending = bTutorialWrapEscape = false;
+		if (UFTGameInstance* G = GI())
+		{
+			G->bTutorialCompleted = true;
+			G->bTutorialSkipped = false;
+			G->bReplayTutorialRequested = false;
+			G->SaveSettings();
+		}
+		UE_LOG(LogFT, Display, TEXT("FT TUTORIAL state=completed reason=boss_beaten step=%d seconds=%.1f"), AtStep, Tutorial.TotalElapsed);
 	}
 	Phase = EFTPhase::Wrap; PhaseT = 0.f;
 	bEscaped = bEscape;

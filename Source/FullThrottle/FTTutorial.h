@@ -19,6 +19,8 @@ struct FULLTHROTTLE_API FFTTutorialState
 	float Progress() const;
 	void Begin();
 	void Skip();
+	/** The level was won before the last lesson: the lessons end as done. */
+	void Finish();
 	void Signal(EFTTutorialStep Action);
 	/** Call only while gameplay is running. Returns true when a step changes. */
 	bool Tick(float GameplaySeconds);
