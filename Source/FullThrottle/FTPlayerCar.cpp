@@ -336,8 +336,8 @@ void AFTPlayerCar::BeginPlay()
 	if (SkidAudio->Sound) { SkidAudio->SetVolumeMultiplier(0.f); SkidAudio->Play(); }
 }
 
-static TAutoConsoleVariable<float> CVarFTHeadDay(TEXT("ft.HeadDay"), 0.1f,
-	TEXT("4.1: the headlights' strength on a level lit by a sun (the brightest directional light >= ft.HeadDayLux), as a share of the night strength. Their pool lands 1-2 m ahead of the nose, so from the chase camera it sat behind the spoiler as a pale smudge in broad daylight. 1 = 4.0."));
+static TAutoConsoleVariable<float> CVarFTHeadDay(TEXT("ft.HeadDay"), 0.f,
+	TEXT("4.1: the headlights' strength on a level lit by a sun (the brightest directional light >= ft.HeadDayLux), as a share of the night strength. Their pool lands 1-2 m ahead of the nose, so from the chase camera it sat behind the spoiler as a pale smudge in broad daylight. 4.2: 0 = off in daylight (at 4.1's 0.1 a faint smudge stayed); at 0 the two spot lights are hidden, so they cost nothing. 1 = 4.0."));
 static TAutoConsoleVariable<float> CVarFTHeadDayLux(TEXT("ft.HeadDayLux"), 6.5f,
 	TEXT("4.1: a directional light this bright (lux) or brighter makes a level a day level for the headlights (the suns are 7-10 lux, Bayshore's low sun 7; the moons 4-5.5)."));
 
@@ -350,6 +350,9 @@ void AFTPlayerCar::ApplyHeadlights()
 		if (It->GetWorld() == W && It->IsRegistered() && It->IsVisible()) { Sun = FMath::Max(Sun, It->Intensity); ++NumSun; }
 	const bool bDay = Sun >= CVarFTHeadDayLux.GetValueOnGameThread();
 	const float I = 2600.f * (bDay ? FMath::Clamp(CVarFTHeadDay.GetValueOnGameThread(), 0.f, 1.f) : 1.f);
+	// 4.2: off = hidden (out of the light pass), unless the car is wrecked (Wreck() hides them, PlaceOnTrack shows them)
+	const bool bShow = I > 0.f && (!Underglow || Underglow->IsVisible());
+	if (HeadL->IsVisible() != bShow) { HeadL->SetVisibility(bShow); HeadR->SetVisibility(bShow); }
 	if (!FMath::IsNearlyEqual(HeadL->Intensity, I))
 	{
 		HeadL->SetIntensity(I); HeadR->SetIntensity(I);
@@ -442,10 +445,10 @@ void AFTPlayerCar::PlaceOnTrack(float InD, float InX, float InSpeed)
 	Half = EFTHalf::None;
 	bPrevVel = false;
 	bWrecked = false;
-	ApplyHeadlights(); // 4.1: a level instance's sun may stream in after the car was set up for the level
 	// FX overhaul: Wreck() puts the underglow and the headlights out and nothing put them back, so every take after
 	// the first wreck drove on without them. And the effects' counters start again with the car
 	if (!Underglow->IsVisible()) { Underglow->SetVisibility(true); HeadL->SetVisibility(true); HeadR->SetVisibility(true); }
+	ApplyHeadlights(); // 4.1: a level instance's sun may stream in after the car was set up for the level (4.2: after the show above, so day levels hide them again)
 	FxAirT = 0.f;
 	ShedQuietT = GetWorld() ? GetWorld()->GetTimeSeconds() + 0.5f : -1.f;
 	bMarkOn[0] = bMarkOn[1] = false;   // FX round 3: no tyre mark is drawn from where the car was to where it has been put
