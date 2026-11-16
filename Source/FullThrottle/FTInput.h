@@ -37,6 +37,17 @@ public:
 	bool ConsumeDisconnect();
 	void DismissDisconnect() { bDisconnected = false; bDisconnectPending = false; }
 	FInputDeviceId ActiveDevice() const { return ActivePad; }
+	// ---- the mouse pointer (drawn by the HUDs, FTCursor): it shows once the mouse moves, clicks or scrolls on a
+	// screen that takes the mouse, and goes away again at the next deliberate key or controller input
+	bool PointerActive() const { return bPointer; }
+	/** Where the pointer is, in viewport pixels; false when there is none. The one place the menus read it. */
+	bool PointerPosition(const class APlayerController* PC, FVector2D& Out) const;
+	/** Once a frame, from the player controller: the pointer moving wakes it. */
+	void ObservePointer(const class APlayerController* PC);
+	/** A screen opened or closed, or the input mode changed: the next position is not a movement. */
+	void ResyncPointer() { bPointerSeen = false; }
+	/** Development: put the pointer at a fraction of the viewport (a test run has no real mouse); negative clears it. */
+	void SetPointerOverride(const FVector2D& Fraction) { PointerOverride = Fraction; }
 	/** Pure helpers shared with automation tests. */
 	static EFTControllerFamily ClassifyDevice(const FString& InterfaceName, const FString& HardwareName);
 	static FString FamilyKeyLabel(EFTControllerFamily ControllerFamily, const FKey& Key);
@@ -46,6 +57,9 @@ public:
 
 private:
 	void ResolveDevice(FInputDeviceId Device);
+	bool bPointer = false, bPointerSeen = false;
+	FVector2D PointerLast = FVector2D::ZeroVector;
+	FVector2D PointerOverride = FVector2D(-1.f, -1.f);
 	bool bGamepad = false;
 	bool bDisconnected = false;
 	bool bDisconnectPending = false;

@@ -17,6 +17,8 @@
 #include "NiagaraSystem.h"
 #include "GameFramework/PlayerController.h"
 #include "Camera/PlayerCameraManager.h"
+#include "Materials/MaterialInterface.h"
+#include "Materials/MaterialInstanceDynamic.h"
 
 // which arcade assists run on top of Chaos (bits): 1 speed governor, 2 grip, 4 yaw, 8 anti-flip, 16 track gravity, 32 air control,
 // 64 road glue (2.4 downforce)
@@ -37,6 +39,23 @@ namespace
 	constexpr float ChassisZ = 88.f; // box from 56 to 120 cm: clear of the wheels' suspension traces
 	// Parts in the order they come off (1.x: below 88, 76, 64, 52, 40, 28 and 16 armour)
 	const TCHAR* PartNames[7] = { TEXT("MirrorR"), TEXT("Antenna"), TEXT("PodL"), TEXT("LightBar"), TEXT("Wing"), TEXT("PodR"), TEXT("Blower") };
+	// FX round 4: the marks the body wears as its armour drops, in the order they come on (Below: the armour under which
+	// each shows). Dents, a cracked lamp, soot: what ft_car.py models on the damaged car, here as flat planes on the same
+	// panels, 1 to 4 cm proud of them. Places are in the body's own space: the model's (ft_car.py), 215 cm further back
+	// (ft_export.py), so the origin is under the middle of the car at road level. Kind: 0 dent, 1 cracked glass, 2 soot.
+	// Size is the plane's: across and up for a mark on the tail panel, along and across the car for one that lies flat
+	struct FCarMark { float Below; int32 Kind; FVector At; FVector Normal; FVector2D Size; float Seed; };
+	const FCarMark CarMarks[] = {
+		{ 82.f, 0, FVector(-220.8f, 0.f, 66.f), FVector(-1.f, 0.f, 0.f), FVector2D(44.f, 20.f), 1.f },             // a dent in the tail panel, over the plate
+		{ 70.f, 1, FVector(-221.f, -84.f, 62.f), FVector(-1.f, 0.f, 0.f), FVector2D(30.f, 26.f), 2.f },            // the left outer tail lamp cracked
+		{ 58.f, 2, FVector(-179.f, 62.f, 88.8f), FVector(0.f, 0.f, 1.f), FVector2D(46.f, 40.f), 3.f },             // soot on the rear deck, right
+		{ 46.f, 0, FVector(-189.f, -70.f, 88.5f), FVector(0.f, 0.f, 1.f), FVector2D(30.f, 40.f), 4.f },            // the deck's left corner crumpled
+		{ 35.f, 1, FVector(-221.f, 63.f, 62.f), FVector(-1.f, 0.f, 0.f), FVector2D(28.f, 24.f), 5.f },             // a right-hand tail lamp cracked
+		{ 35.f, 0, FVector(-220.8f, -62.f, 42.f), FVector(-1.f, 0.f, 0.f), FVector2D(46.f, 14.f), 6.f },           // a dent low in the tail panel, left
+		{ 24.f, 2, FVector(-69.f, -18.f, 123.3f), FVector(0.f, 0.f, 1.f), FVector2D(40.f, 44.f), 7.f },            // soot on the roof
+		{ 24.f, 1, FVector(-128.6f, -58.f, 107.3f), FVector(-0.365f, 0.f, 0.931f), FVector2D(28.f, 28.f), 8.f },   // the rear screen cracked, beside the louvres
+	};
+	const int32 NumCarMarks = UE_ARRAY_COUNT(CarMarks);
 }
 
 UFTWheelRear::UFTWheelRear()
@@ -275,6 +294,40 @@ void AFTPlayerCar::BeginPlay()
 	Vehicle->SetWheelTraceResponseToChannel(ECC_Vehicle, ECR_Ignore);
 	Vehicle->SetWheelTraceResponseToChannel(ECC_Pawn, ECR_Ignore);
 	Chassis->OnComponentHit.AddDynamic(this, &AFTPlayerCar::OnBodyHit);
+	// FX round 4: the marks the body wears as its armour drops (SetDamageLook shows them): planes on the body's own
+	// panels, drawn with the generator's M_FX_CarMark. A build without that material has none. They sort under the
+	// smoke and the fire (-30, -20), so what burns on the car is drawn over them
+	if (DamageMarks.Num() == 0)
+	{
+		UStaticMesh* PlaneMesh = Load<UStaticMesh>(TEXT("/Engine/BasicShapes/Plane"));
+		static const TCHAR* MarkMats[3] = { TEXT("/Game/FX/MI_FX_CarDent"), TEXT("/Game/FX/MI_FX_CarCrack"), TEXT("/Game/FX/MI_FX_CarSoot") };
+		for (int32 i = 0; i < NumCarMarks; ++i)
+		{
+			const FCarMark& M = CarMarks[i];
+			UMaterialInterface* Mat = Load<UMaterialInterface>(MarkMats[FMath::Clamp(M.Kind, 0, 2)]);
+			if (!PlaneMesh || !Mat) break;
+			UStaticMeshComponent* C = NewObject<UStaticMeshComponent>(this);
+			C->SetupAttachment(Body);
+			C->SetStaticMesh(PlaneMesh);
+			UMaterialInstanceDynamic* Mid = UMaterialInstanceDynamic::Create(Mat, C);
+			if (Mid) Mid->SetScalarParameterValue(TEXT("Seed"), M.Seed);
+			C->SetMaterial(0, Mid ? static_cast<UMaterialInterface*>(Mid) : Mat);
+			C->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			C->SetGenerateOverlapEvents(false);
+			C->SetCastShadow(false);
+			C->bAffectDistanceFieldLighting = false;
+			C->bAffectDynamicIndirectLighting = false;
+			C->bReceivesDecals = false;
+			C->SetTranslucentSortPriority(-35);
+			// the plane's face (+Z) along the panel's normal; its X across the car for an upright mark, along it for a flat one
+			C->SetRelativeLocationAndRotation(M.At, FRotationMatrix::MakeFromZX(M.Normal, FMath::Abs(M.Normal.Z) > 0.99 ? FVector(1., 0., 0.) : FVector(0., 1., 0.)).Rotator());
+			C->SetRelativeScale3D(FVector(M.Size.X * 0.01, M.Size.Y * 0.01, 1.));
+			C->SetVisibility(false);
+			C->RegisterComponent();
+			AddInstanceComponent(C);
+			DamageMarks.Add(C);
+		}
+	}
 	Super::BeginPlay();
 	if (EngineAudio->Sound) EngineAudio->Play();
 	if (SkidAudio->Sound) { SkidAudio->SetVolumeMultiplier(0.f); SkidAudio->Play(); }
@@ -406,6 +459,27 @@ void AFTPlayerCar::SetDamageLook(float Hp)
 			FTFx::Attach(TEXT("NS_RamSparks"), Body, FVector(-115.f, 0.f, 96.f), FRotator(60.f, 180.f, 0.f), 0.7f, FTFx::Extra, true);
 		}
 		else FTFx::Attach(TEXT("NS_MissileBackblast"), Body, FVector(-110.f, 0.f, 112.f), FRotator(-30.f, 0.f, 0.f), 0.6f, FTFx::Extra, true);
+	}
+	// FX round 4: the body wears its damage: dents, cracked lamps, soot, coming on one by one as the armour drops and
+	// going again on a repair (CarMarks, in order). One that comes on in play does it with a few chips of paint, or of
+	// glass, thrown off the panel; not when a take starts with the car already hurt
+	{
+		int32 Want = 0;
+		for (int32 i = 0; i < DamageMarks.Num() && i < NumCarMarks; ++i) if (bWrecked || Hp < CarMarks[i].Below) Want = i + 1;
+		if (Want != MarksShown)
+		{
+			const bool bLoud = DamageStage >= 0 && !bWrecked && GetWorld() && GetWorld()->GetTimeSeconds() > ShedQuietT;
+			for (int32 i = 0; i < DamageMarks.Num() && i < NumCarMarks; ++i)
+			{
+				UStaticMeshComponent* Mark = DamageMarks[i];
+				const bool bOn = i < Want;
+				if (!Mark || Mark->IsVisible() == bOn) continue;
+				Mark->SetVisibility(bOn);
+				if (bOn && bLoud)
+					FTFx::Attach(CarMarks[i].Kind == 1 ? TEXT("NS_HitGlass") : TEXT("NS_RamChips"), Body, CarMarks[i].At, CarMarks[i].Normal.Rotation(), 0.8f, FTFx::Extra, true);
+			}
+			MarksShown = Want;
+		}
 	}
 	DamageStage = Stage;
 }

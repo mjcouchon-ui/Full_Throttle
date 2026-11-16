@@ -2,8 +2,14 @@
 """
 FULL THROTTLE - import the UI kit into the project (Unreal editor Python; in the repo: Content/Python/ft_ui_kit_import.py).
 
-    import ft_ui_kit_import; ft_ui_kit_import.run()            # textures and the font
-    ft_ui_kit_import.import_textures(); ft_ui_kit_import.import_bungee()
+    import ft_ui_kit_import; ft_ui_kit_import.run()            # the 56 textures (what the queue job runs)
+    ft_ui_kit_import.import_textures(['Icons'])                # some of them, by name fragment
+    ft_ui_kit_import.import_bungee()                           # NOT part of run(): see below
+
+THE FONT IS ALREADY IN THE PROJECT. F_Bungee, Bungee-Regular and OFL-Bungee.txt came in with the menus' restyle
+(main ea13461). run() therefore imports textures only; import_bungee() stays here as the record of how the pair can
+be rebuilt, has never been run, and must not be run on a checkout that has the font (it would write a second,
+different F_Bungee).
 
 What it does:
   1. SourceArt/UI/Kit/T_UI_*.png (written by Tools/ui/ft_ui_kit.py)  ->  /Game/UI/Kit/<same name>
@@ -16,7 +22,7 @@ What it does:
      Bungee's licence goes to Content/Data/Licenses/OFL-Bungee.txt beside the other three.
 
 It logs one line per asset (prefix JAM FTUIKIT) and returns a report. Importing again replaces the assets in place.
-As a queue job: SourceArt/Jam/unreal/jam_run.ps1 -Script <a three line job: import ft_ui_kit_import, run(), quit>.
+As a queue job: SourceArt/Jam/unreal/jam_run.ps1 -Checkout <project> -Script <project>/SourceArt/UI/kit_import_job.py
 
 THIS SCRIPT HAS NOT BEEN RUN: it was written in a session that was not allowed to start Unreal. The texture half
 follows the project's proven Interchange route (ft_billboards.import_textures, bsky_ue.import_texture). The font
@@ -97,7 +103,7 @@ def import_textures(only=None):
         files = [f for f in files if any(o in f for o in only)]
     if not files:
         raise RuntimeError('no T_UI_*.png in ' + SRC)
-    out, total = [], 0
+    out, total, failed = [], 0, []
     for fn in files:
         name = os.path.splitext(fn)[0]
         src = os.path.join(SRC, fn)
@@ -113,6 +119,9 @@ def import_textures(only=None):
         pipe.set_editor_property('detect_normal_map_texture', False)
         pipe.set_editor_property('detect_long_lat_cubemap', False)
         pipe.set_editor_property('file_extensions_to_import_as_long_lat_cubemap', set())
+        # most of the kit is not a power of two in size (1024 x 72, 880 x 304 ...): without this Interchange refuses
+        # it ("Cannot import texture with non-power of two dimensions"). UI textures need no mip maps and none are made.
+        pipe.set_editor_property('allow_non_power_of_two', True)
         stack = unreal.InterchangePipelineStackOverride()
         stack.add_pipeline(pipe)
         task = unreal.AssetImportTask()
@@ -124,9 +133,12 @@ def import_textures(only=None):
         task.set_editor_property('save', False)
         task.set_editor_property('options', stack)
         AT.import_asset_tasks([task])
-        tex = unreal.load_asset(path)
+        tex = unreal.load_asset(path) if AL.does_asset_exist(path) else None
         if not isinstance(tex, unreal.Texture2D):
-            raise RuntimeError('%s did not import as a Texture2D (%s)' % (path, type(tex).__name__))
+            # one refused file must not cost the whole job: the rest is imported, and the job fails at its end
+            failed.append(name)
+            _warn('%s did NOT import as a Texture2D (%s): see the Interchange lines above' % (path, type(tex).__name__))
+            continue
         tex.set_editor_property('lod_group', _enum(unreal.TextureGroup, 'TEXTUREGROUP_UI'))
         tex.set_editor_property('compression_settings', _enum(unreal.TextureCompressionSettings, 'TC_EditorIcon'))   # "UserInterface2D (RGBA)"
         tex.set_editor_property('srgb', True)
@@ -149,13 +161,15 @@ def import_textures(only=None):
             _warn(name + note)
         out.append((name, w, h, wrap, filt))
     # anything in the folder that the kit no longer makes is reported, never deleted
-    have = set(n for n, _, _, _, _ in out)
+    have = set(n for n, _, _, _, _ in out) | set(failed)
     if not only:
         for a in AL.list_assets(DEST, recursive=False, include_folder=False):
             stem = a.split('/')[-1].split('.')[0]
             if stem.startswith('T_UI_') and stem not in have:
                 _warn('%s is in %s but not in SourceArt/UI/Kit (left alone)' % (stem, DEST))
-    _log('textures: %d imported, %.2f MB as RGBA8' % (len(out), total / 1048576.0))
+    _log('textures: %d imported of %d, %.2f MB as RGBA8' % (len(out), len(files), total / 1048576.0))
+    if failed:
+        raise RuntimeError('%d of %d textures did not import: %s' % (len(failed), len(files), ', '.join(failed)))
     return out
 
 
@@ -353,11 +367,12 @@ def import_bungee():
 
 
 def run(only=None):
-    """textures, then the font. -> a report dict"""
+    """The 56 textures. NOT the font: /Game/UI/Fonts/F_Bungee and Bungee-Regular are already in the project (made
+    with the menus' restyle, main ea13461), and a second import here would be a second, different pair of files.
+    -> a report dict"""
     tex = import_textures(only)
-    font, how = import_bungee()
-    rep = {'textures': len(tex), 'bytes': sum(w * h * 4 for _, w, h, _, _ in tex), 'font': font.get_path_name(), 'font_how': how}
-    _log('done: %d textures (%.2f MB as RGBA8), %s' % (rep['textures'], rep['bytes'] / 1048576.0, rep['font']))
+    rep = {'textures': len(tex), 'bytes': sum(w * h * 4 for _, w, h, _, _ in tex)}
+    _log('done: %d textures (%.2f MB as RGBA8)' % (rep['textures'], rep['bytes'] / 1048576.0))
     return rep
 
 

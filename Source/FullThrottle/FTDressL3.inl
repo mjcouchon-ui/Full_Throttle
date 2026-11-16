@@ -799,7 +799,7 @@ Set(TEXT("GateL"), { { TEXT("SM_CragFallA"), 0, 0, 0, 25, 1.5f } });
 Zone(TEXT("Round three: the viaduct's first piece, under the ground (so that the mesh casts no shadow)"), 1.07f, 1.1f);
 	Far(TEXT("SM_OreBridge"), 150, 150, 1, 0, 1.f, 1.f, 0.f, -1, 80.f, 0.f);
 
-Zone(TEXT("The viaduct over the road (1.54 km)"), 1.53f, 1.545f);     // slot 34
+Zone(TEXT("The viaduct over the road (1.58 km)"), 1.575f, 1.59f);     // slot 35 (second part: at slot 34 the road test left the deck out)
 	Site(TEXT("OreBridge"), 1, 82, 1, 0, 1.f);
 
 Zone(TEXT("The viaduct over the road (6.38 km)"), 6.37f, 6.385f);     // slot 141
@@ -818,38 +818,38 @@ Zone(TEXT("Slag trains: the far works"), 16.7f, 19.5f);
 
 // Haul roads, on the slots the mines and the digs do not take.
 Zone(TEXT("Haul roads: lava jumps"), 1.17f, 2.5f);
-	Scatter(TEXT("SM_HaulRoad"), 116, 120, 6, 0, 1.f, 1.f, 0.f, -1, 12.f);
-	Scatter(TEXT("SM_HaulRoad"), 116, 120, 6, 3, 1.f, 1.f, 0.f, 1, 12.f);
+	Scatter(TEXT("SM_HaulRoad"), 116, 120, 6, 0, 0.f, 1.f, 0.f, -1, 12.f);     // second part: off (chance 0): the haulers work a spoil tip now, at the end of this file
+	Scatter(TEXT("SM_HaulRoad"), 116, 120, 6, 3, 0.f, 1.f, 0.f, 1, 12.f);     // second part: off (chance 0): the haulers work a spoil tip now, at the end of this file
 
 Zone(TEXT("Haul roads: the magma run"), 5.18f, 6.73f);
-	Scatter(TEXT("SM_HaulRoad"), 116, 120, 8, 6, 1.f, 1.f, 0.f, -1, 12.f);
-	Scatter(TEXT("SM_HaulRoad"), 116, 120, 8, 2, 1.f, 1.f, 0.f, 1, 12.f);
+	Scatter(TEXT("SM_HaulRoad"), 116, 120, 8, 6, 0.f, 1.f, 0.f, -1, 12.f);     // second part: off (chance 0): the haulers work a spoil tip now, at the end of this file
+	Scatter(TEXT("SM_HaulRoad"), 116, 120, 8, 2, 0.f, 1.f, 0.f, 1, 12.f);     // second part: off (chance 0): the haulers work a spoil tip now, at the end of this file
 
 Zone(TEXT("Haul roads: Engine 13's road"), 8.34f, 11.1f);
-	Scatter(TEXT("SM_HaulRoad"), 116, 120, 12, 0, 1.f, 1.f, 0.f, -1, 12.f);
-	Scatter(TEXT("SM_HaulRoad"), 116, 120, 12, 3, 1.f, 1.f, 0.f, 1, 12.f);
+	Scatter(TEXT("SM_HaulRoad"), 116, 120, 12, 0, 0.f, 1.f, 0.f, -1, 12.f);     // second part: off (chance 0): the haulers work a spoil tip now, at the end of this file
+	Scatter(TEXT("SM_HaulRoad"), 116, 120, 12, 3, 0.f, 1.f, 0.f, 1, 12.f);     // second part: off (chance 0): the haulers work a spoil tip now, at the end of this file
 
 Zone(TEXT("Haul roads: the far works"), 16.7f, 19.5f);
-	Scatter(TEXT("SM_HaulRoad"), 116, 120, 12, 6, 1.f, 1.f, 0.f, -1, 12.f);
-	Scatter(TEXT("SM_HaulRoad"), 116, 120, 12, 9, 1.f, 1.f, 0.f, 1, 12.f);
+	Scatter(TEXT("SM_HaulRoad"), 116, 120, 12, 6, 0.f, 1.f, 0.f, -1, 12.f);     // second part: off (chance 0): the haulers work a spoil tip now, at the end of this file
+	Scatter(TEXT("SM_HaulRoad"), 116, 120, 12, 9, 0.f, 1.f, 0.f, 1, 12.f);     // second part: off (chance 0): the haulers work a spoil tip now, at the end of this file
 
 // A river of lava down a far flank: one slot each, left and right in turn (never on the right between 2.4 and 3.9 km).
 Zone(TEXT("A river of lava at 1.3 km"), 1.305f, 1.32f);
-	Far(TEXT("SM_LavaRiver"), 255, 275, 1, 0, 1.f, 1.f, 0.f, -1, -7.f, 0.f);
+	Far(TEXT("SM_LavaRiver"), 255, 275, 1, 0, 0.f, 1.f, 0.f, -1, -7.f, 0.f);     // second part: off; SM_LavaRiverL at the end of this file
 Zone(TEXT("A river of lava at 4.2 km"), 4.2f, 4.215f);
-	Far(TEXT("SM_LavaRiver"), 255, 275, 1, 0, 1.f, 1.f, 0.f, 1, -10.f, 0.f);
+	Far(TEXT("SM_LavaRiver"), 320, 340, 1, 0, 1.f, 1.f, 0.f, 1, -12.f, 0.f);     // second part: 330 m out (it is 180 m high and turned to the car coming)
 Zone(TEXT("A river of lava at 6.3 km"), 6.28f, 6.295f);
-	Far(TEXT("SM_LavaRiver"), 255, 275, 1, 0, 1.f, 1.f, 0.f, -1, -7.f, 0.f);
+	Far(TEXT("SM_LavaRiver"), 255, 275, 1, 0, 0.f, 1.f, 0.f, -1, -7.f, 0.f);     // second part: off; SM_LavaRiverL at the end of this file
 Zone(TEXT("A river of lava at 9.4 km"), 9.4f, 9.415f);
-	Far(TEXT("SM_LavaRiver"), 255, 275, 1, 0, 1.f, 1.f, 0.f, 1, -10.f, 0.f);
+	Far(TEXT("SM_LavaRiver"), 320, 340, 1, 0, 1.f, 1.f, 0.f, 1, -12.f, 0.f);     // second part: 330 m out (it is 180 m high and turned to the car coming)
 Zone(TEXT("A river of lava at 12.5 km"), 12.48f, 12.495f);
-	Far(TEXT("SM_LavaRiver"), 255, 275, 1, 0, 1.f, 1.f, 0.f, -1, -7.f, 0.f);
+	Far(TEXT("SM_LavaRiver"), 255, 275, 1, 0, 0.f, 1.f, 0.f, -1, -7.f, 0.f);     // second part: off; SM_LavaRiverL at the end of this file
 Zone(TEXT("A river of lava at 15.0 km"), 15.015f, 15.03f);
-	Far(TEXT("SM_LavaRiver"), 255, 275, 1, 0, 1.f, 1.f, 0.f, 1, -10.f, 0.f);
+	Far(TEXT("SM_LavaRiver"), 320, 340, 1, 0, 1.f, 1.f, 0.f, 1, -12.f, 0.f);     // second part: 330 m out (it is 180 m high and turned to the car coming)
 Zone(TEXT("A river of lava at 18.0 km"), 18.f, 18.015f);
-	Far(TEXT("SM_LavaRiver"), 255, 275, 1, 0, 1.f, 1.f, 0.f, -1, -7.f, 0.f);
+	Far(TEXT("SM_LavaRiver"), 255, 275, 1, 0, 0.f, 1.f, 0.f, -1, -7.f, 0.f);     // second part: off; SM_LavaRiverL at the end of this file
 Zone(TEXT("A river of lava at 21.0 km"), 20.985f, 21.f);
-	Far(TEXT("SM_LavaRiver"), 255, 275, 1, 0, 1.f, 1.f, 0.f, 1, -10.f, 0.f);
+	Far(TEXT("SM_LavaRiver"), 320, 340, 1, 0, 1.f, 1.f, 0.f, 1, -12.f, 0.f);     // second part: 330 m out (it is 180 m high and turned to the car coming)
 
 // A water bomber working the fires, far off and high: one over each fire district (one slot each).
 Zone(TEXT("The water bomber over the curtain of fire"), 0.45f, 0.465f);
@@ -867,3 +867,66 @@ Zone(TEXT("The water bomber over the inner wall"), 20.49f, 20.505f);
 Zone(TEXT("The gate of the pass, turned to face the jump"), 6.64f, 6.8f);
 	Site(TEXT("GateL"), -1, 68, 2, 1, 1.f);
 	Site(TEXT("GateR"), 1, 77, 2, 1, 1.f);
+
+// ---- ROUND THREE, SECOND PART (15 Nov 2026; NOT COMPILED and not seen in the game when it was committed). What the
+// first part's real-game frames showed, put right, and the rest of the list. Appended, or numbers in place (the first
+// viaduct's zone, the eight SM_HaulRoad rules and the four left-hand SM_LavaRiver rules to chance 0, the four
+// right-hand ones out to 330 m).
+//  - The rivers of lava are a mountain's shoulder 180 m high now, turned 60 degrees to the car coming (the first ones
+//    were a slab seen edge on): SM_LavaRiver on the right of the road, SM_LavaRiverL on the left, the lake 330 m out.
+//  - The haulers work a spoil tip with a ramp across its front (SM_HaulRoad right, SM_HaulRoadL left), turned 50
+//    degrees to the car coming, its middle 300 m out: on the old haul roads they only drove away from the camera.
+//  - Cracks in the ground with the lava showing (SM_LavaSeam), 26 to 34 m out along the banked bends, the corkscrews
+//    and the loops, which stood black on black. Flat (30 cm) and lit with a steady light: 24 m and more by the ruling.
+//    Left side only from 2.4 to 3.9 km (nothing bright on the right there). None on Engine 13's road.
+Zone(TEXT("A river of lava at 1.3 km, on the left"), 1.305f, 1.32f);
+	Far(TEXT("SM_LavaRiverL"), 320, 340, 1, 0, 1.f, 1.f, 0.f, -1, -9.f, 0.f);
+Zone(TEXT("A river of lava at 6.3 km, on the left"), 6.28f, 6.295f);
+	Far(TEXT("SM_LavaRiverL"), 320, 340, 1, 0, 1.f, 1.f, 0.f, -1, -9.f, 0.f);
+Zone(TEXT("A river of lava at 12.5 km, on the left"), 12.48f, 12.495f);
+	Far(TEXT("SM_LavaRiverL"), 320, 340, 1, 0, 1.f, 1.f, 0.f, -1, -9.f, 0.f);
+Zone(TEXT("A river of lava at 18.0 km, on the left"), 18.f, 18.015f);
+	Far(TEXT("SM_LavaRiverL"), 320, 340, 1, 0, 1.f, 1.f, 0.f, -1, -9.f, 0.f);
+
+// The spoil tips. Far rules (the middle distance: no shadow), on slots clear of the rivers; none on the right from 2.4
+// to 3.9 km.
+Zone(TEXT("Spoil tip: lava jumps, the right"), 1.17f, 2.3f);
+	Far(TEXT("SM_HaulRoad"), 295, 305, 12, 5, 1.f, 1.f, 0.f, 1, -12.f, 0.f);
+Zone(TEXT("Spoil tip: lava jumps, the left"), 1.6f, 2.5f);
+	Far(TEXT("SM_HaulRoadL"), 295, 305, 12, 10, 1.f, 1.f, 0.f, -1, -9.f, 0.f);
+Zone(TEXT("Spoil tip: the magma run, the right"), 5.18f, 6.73f);
+	Far(TEXT("SM_HaulRoad"), 295, 305, 12, 0, 1.f, 1.f, 0.f, 1, -12.f, 0.f);
+Zone(TEXT("Spoil tip: the magma run, the left"), 5.18f, 5.9f);
+	Far(TEXT("SM_HaulRoadL"), 295, 305, 12, 6, 1.f, 1.f, 0.f, -1, -9.f, 0.f);
+Zone(TEXT("Spoil tip: Engine 13's road, the left"), 8.34f, 11.1f);
+	Far(TEXT("SM_HaulRoadL"), 295, 305, 12, 2, 1.f, 1.f, 0.f, -1, -9.f, 0.f);
+Zone(TEXT("Spoil tip: Engine 13's road, the right (1)"), 8.34f, 9.2f);
+	Far(TEXT("SM_HaulRoad"), 295, 305, 12, 8, 1.f, 1.f, 0.f, 1, -12.f, 0.f);
+Zone(TEXT("Spoil tip: Engine 13's road, the right (2)"), 9.8f, 11.1f);
+	Far(TEXT("SM_HaulRoad"), 295, 305, 12, 8, 1.f, 1.f, 0.f, 1, -12.f, 0.f);
+Zone(TEXT("Spoil tip: the far works, the right"), 16.7f, 19.5f);
+	Far(TEXT("SM_HaulRoad"), 295, 305, 12, 8, 1.f, 1.f, 0.f, 1, -12.f, 0.f);
+Zone(TEXT("Spoil tip: the far works, the left (1)"), 16.7f, 17.6f);
+	Far(TEXT("SM_HaulRoadL"), 295, 305, 12, 2, 1.f, 1.f, 0.f, -1, -9.f, 0.f);
+Zone(TEXT("Spoil tip: the far works, the left (2)"), 18.3f, 19.5f);
+	Far(TEXT("SM_HaulRoadL"), 295, 305, 12, 2, 1.f, 1.f, 0.f, -1, -9.f, 0.f);
+
+// The lava seams: where the road banks, corkscrews or loops (Far rules: a Scatter is left out on those frames).
+Zone(TEXT("Lava seams: the first banked bend"), 1.65f, 1.86f);
+	Far(TEXT("SM_LavaSeam"), 26, 34, 1, 0, 0.85f, 1.f, 0.25f, 0, 0.75f, 180.f);
+Zone(TEXT("Lava seams: the first corkscrew"), 1.95f, 2.12f);
+	Far(TEXT("SM_LavaSeam"), 26, 34, 1, 0, 0.85f, 1.f, 0.25f, 0, 0.75f, 180.f);
+Zone(TEXT("Lava seams: the first loop (left only)"), 2.57f, 2.85f);
+	Far(TEXT("SM_LavaSeam"), 26, 34, 1, 0, 0.85f, 1.f, 0.25f, -1, 0.75f, 180.f);
+Zone(TEXT("Lava seams: the second banked bend (left only)"), 3.83f, 4.05f);
+	Far(TEXT("SM_LavaSeam"), 26, 34, 1, 0, 0.85f, 1.f, 0.25f, -1, 0.75f, 180.f);
+Zone(TEXT("Lava seams: the second corkscrew"), 4.9f, 5.07f);
+	Far(TEXT("SM_LavaSeam"), 26, 34, 1, 0, 0.85f, 1.f, 0.25f, 0, 0.75f, 180.f);
+Zone(TEXT("Lava seams: the second loop"), 5.82f, 6.1f);
+	Far(TEXT("SM_LavaSeam"), 26, 34, 1, 0, 0.85f, 1.f, 0.25f, 0, 0.75f, 180.f);
+Zone(TEXT("Lava seams: the wall ride"), 6.82f, 7.03f);
+	Far(TEXT("SM_LavaSeam"), 26, 34, 1, 0, 0.85f, 1.f, 0.25f, 0, 0.75f, 180.f);
+Zone(TEXT("Lava seams: the third corkscrew"), 7.04f, 7.2f);
+	Far(TEXT("SM_LavaSeam"), 26, 34, 1, 0, 0.85f, 1.f, 0.25f, 0, 0.75f, 180.f);
+Zone(TEXT("Lava seams: the third loop"), 7.89f, 8.17f);
+	Far(TEXT("SM_LavaSeam"), 26, 34, 1, 0, 0.85f, 1.f, 0.25f, 0, 0.75f, 180.f);

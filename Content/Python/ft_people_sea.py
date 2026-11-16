@@ -16,7 +16,7 @@ kicking fins, travel along the road. Such pieces are TALL: 24 m or more from the
 A piece is drawn like every prop: cm; z = 0 is the sand; the middle of the footprint is the origin; the FRONT faces -Y
 (the road); long pieces run along X (the road).
 
-Run in the editor:  import ft_people_sea; ft_people_sea.run()        (or run(['SM_DiveTeam_A']))
+Run in the editor:  import ft_people_sea; ft_people_sea.run()        (or run(["SM_DiveTeam_A"]))
 The placing rules: Source/FullThrottle/FTPeopleL6.inl.
 """
 import math
@@ -647,10 +647,10 @@ REST = [
 ]
 
 
-def run(only=None, everything=False):
+def run(only=None, everything=True):
     P.build_core()
     return P.export(DIR, JOBS + (REST if everything else []), only)
 
 
-def paths(everything=False):
+def paths(everything=True):
     return [DIR + '/' + j[0] for j in JOBS + (REST if everything else [])]

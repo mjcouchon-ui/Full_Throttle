@@ -784,10 +784,116 @@ def mark_materials():
     AL.save_loaded_asset(m)
     ft_mats.mi(m, '/Game/FX', 'MI_FX_MarkTyre', scalars={'Shape': 0.0, 'Opacity': 0.5})
     ft_mats.mi(m, '/Game/FX', 'MI_FX_MarkSoot', vectors={'Tint': (0.05, 0.04, 0.07, 1.0)}, scalars={'Shape': 1.0, 'Opacity': 0.8})
+    # round 4: the scorched strip a sliding wreck leaves (FTFx::WreckTrail)
+    ft_mats.mi(m, '/Game/FX', 'MI_FX_MarkSkid', vectors={'Tint': (0.04, 0.03, 0.05, 1.0)}, scalars={'Shape': 0.0, 'Opacity': 0.62})
     try:
         return MEL.get_statistics(m).get_editor_property('num_pixel_shader_instructions')
     except Exception:  # noqa
         return -1
+
+
+# ---------------------------------------------------------------------------------------------- FX round 4: marks on the KESTREL
+# M_FX_CarMark: what the car's body wears as its armour drops. Flat planes the car puts on its own panels
+# (FTPlayerCar.cpp, CarMarks: the places are the model's own, ft_car.py), one material instance each:
+#   Shape 0   a dent: a dark facet of four to six sides with a lit edge along its top (ft_car.py: "dents read as dark
+#             facets in the cel light")
+#   Shape 1   cracked glass: thin pale lines out from a point a little off the middle, two broken rings round it
+#   Shape 2   soot: M_FX_Mark's scorch star
+# Seed gives each mark a shape of its own. A material of its own, so a mistake here cannot spoil the road's marks.
+CARMARK_HLSL = r"""
+float2 q = (UV - 0.5) * 2.0;
+float rnd = frac(Seed * 0.6180339 + 0.137);
+float3 col = Tint;
+float op = 0.0;
+float px = max(fwidth(q.x) + fwidth(q.y), 0.004);
+if (Shape < 0.5)
+{
+    float r = length(q);
+    float a = atan2(q.y, q.x);
+    float nS = 4.0 + floor(frac(rnd * 3.3) * 2.99);
+    float seg = 6.2831853 / nS;
+    float ap = fmod(a + rnd * 6.2831853 + 62.831853, seg) - seg * 0.5;
+    float d = r * cos(ap) / cos(seg * 0.5) / 0.92;
+    op = 1.0 - smoothstep(1.0 - px, 1.0 + px, d);
+    float lit = step(0.62, d) * step(0.25, -q.y / max(r, 0.001));
+    col = lerp(Tint, Tint * 3.0 + 0.02, lit);
+}
+else if (Shape < 1.5)
+{
+    float2 c = q - float2(0.16 * sin(rnd * 40.0), 0.16 * cos(rnd * 23.0));
+    float r = length(c);
+    float a = atan2(c.y, c.x) + 3.1415927;
+    float nS = 6.0 + floor(frac(rnd * 5.7) * 3.99);
+    float seg = 6.2831853 / nS;
+    float k = floor(a / seg);
+    float jit = (frac(sin(k * 12.9898 + rnd * 78.233) * 43758.5453) - 0.5) * 0.5 * seg;
+    float da = abs(a - (k + 0.5) * seg - jit);
+    float aw = px / max(r, 0.06);
+    float w = 0.016 / max(r, 0.06);
+    float len = 0.5 + 0.42 * frac(sin(k * 7.13 + rnd * 11.0) * 9173.3);
+    float spoke = (1.0 - smoothstep(w, w + aw, da)) * step(r, len);
+    float ring1 = (1.0 - smoothstep(0.016, 0.016 + px, abs(r - 0.24))) * step(0.4, frac(sin(k * 3.7 + rnd * 5.0) * 311.7));
+    float ring2 = (1.0 - smoothstep(0.016, 0.016 + px, abs(r - 0.50))) * step(0.55, frac(sin(k * 9.1 + rnd * 17.0) * 127.1));
+    op = saturate(max(spoke, max(ring1, ring2))) * step(length(q), 0.97);
+}
+else
+{
+    float r = length(q);
+    float a = atan2(q.y, q.x);
+    float sN = 9.0 + floor(frac(rnd * 4.1) * 4.99);
+    float ray = pow(saturate(0.5 + 0.5 * sin(a * sN + rnd * 21.0)), 2.5) * (0.6 + 0.4 * sin(a * 2.0 + rnd * 5.0));
+    float Rs = 0.95 * (0.52 + 0.40 * ray + 0.08 * sin(a * 3.0 + rnd * 13.0));
+    float d = r / max(Rs, 0.001);
+    float da = px / max(Rs, 0.05);
+    op = 1.0 - smoothstep(1.0 - da, 1.0 + da, d);
+    col = r < 0.285 ? Tint * 0.55 : Tint;
+}
+return float4(col, op * Opacity);
+"""
+CARMARK_INSTANCES = {
+    'Dent': dict(vectors={'Tint': (0.10, 0.008, 0.02, 1.0)}, scalars={'Shape': 0.0, 'Opacity': 0.85}),
+    'Crack': dict(vectors={'Tint': (0.78, 0.86, 1.0, 1.0)}, scalars={'Shape': 1.0, 'Opacity': 0.9}),
+    'Soot': dict(vectors={'Tint': (0.03, 0.025, 0.04, 1.0)}, scalars={'Shape': 2.0, 'Opacity': 0.8}),
+}
+
+
+def car_mark_materials():
+    """M_FX_CarMark and MI_FX_CarDent, MI_FX_CarCrack, MI_FX_CarSoot. Returns the pixel-shader instruction count; if
+    the material did not compile (0) the instances are removed, so the car simply wears no marks."""
+    import ft_mats
+    MEL = unreal.MaterialEditingLibrary
+    m = ft_mats.new_material('/Game/FX', 'M_FX_CarMark', blend=unreal.BlendMode.BLEND_TRANSLUCENT, shading=unreal.MaterialShadingModel.MSM_UNLIT, two_sided=False)
+    X = -1100
+    ins = [('UV', ft_mats.expr(m, unreal.MaterialExpressionTextureCoordinate, x=X, y=-580), ''),
+           ('Tint', ft_mats.vparam(m, 'Tint', (0.03, 0.025, 0.04, 1.0), x=X, y=-400), ''),
+           ('Shape', ft_mats.sparam(m, 'Shape', 0.0, x=X, y=-240), ''),
+           ('Opacity', ft_mats.sparam(m, 'Opacity', 0.8, x=X, y=-170), ''),
+           ('Seed', ft_mats.sparam(m, 'Seed', 1.0, x=X, y=-100), '')]
+    cu = ft_mats.custom(m, CARMARK_HLSL, ins, out_type=unreal.CustomMaterialOutputType.CMOT_FLOAT4, x=-500, y=0, desc='CarMarkFX')
+    rgb = ft_mats.expr(m, unreal.MaterialExpressionComponentMask, x=-200, y=-60)
+    for ch, on in (('r', True), ('g', True), ('b', True), ('a', False)):
+        rgb.set_editor_property(ch, on)
+    alpha = ft_mats.expr(m, unreal.MaterialExpressionComponentMask, x=-200, y=80)
+    for ch, on in (('r', False), ('g', False), ('b', False), ('a', True)):
+        alpha.set_editor_property(ch, on)
+    MEL.connect_material_expressions(cu, '', rgb, '')
+    MEL.connect_material_expressions(cu, '', alpha, '')
+    MEL.connect_material_property(rgb, '', unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    MEL.connect_material_property(alpha, '', unreal.MaterialProperty.MP_OPACITY)
+    MEL.layout_material_expressions(m)
+    MEL.recompile_material(m)
+    AL.save_loaded_asset(m)
+    try:
+        n = MEL.get_statistics(m).get_editor_property('num_pixel_shader_instructions')
+    except Exception:  # noqa
+        n = -1
+    for name, kw in CARMARK_INSTANCES.items():
+        if n == 0:
+            if AL.does_asset_exist('/Game/FX/MI_FX_Car' + name):
+                AL.delete_asset('/Game/FX/MI_FX_Car' + name)
+        else:
+            ft_mats.mi(m, '/Game/FX', 'MI_FX_Car' + name, **kw)
+    return n
 
 
 def overhaul_definitions():
@@ -1037,6 +1143,34 @@ def overhaul_definitions():
                             rot=True, sort=True, pool=(2, 6), toward=300.0))
     add('NS_ImpactInk', fx(n=1, life=(0.05, 0.06), size=((580, 580), (620, 620)), mat=cel('Flash'), ramp=heat((C_INK, 1.0), (C_INK, 0.9), (C_INK, 0.7)),
                            rot=True, sort=True, pool=(2, 6), toward=280.0))
+    # ================================================================================================ FX round 4: the "next" list
+    # ---- the KESTREL wears its damage (FTPlayerCar.cpp, SetDamageLook): a cracked lamp or screen comes on with a few
+    # chips of glass thrown off it (pale, flat, tumbling: the toon chunk with its heat kept under the ember edge's)
+    C_GLASS = (0.62, 0.76, 0.95)
+    add('NS_HitGlass', fx(n=6, life=(0.30, 0.55), size=((7, 7), (15, 15)), mat=toon('Chunk'), ramp=heat((C_GLASS, 0.44), (C_GLASS, 0.36), (C_GLASS, 0.0)),
+                          speed=(300, 900), cone=55.0, axis=(1, 0, 0.3), gravity=-1200.0, rot=True, spin=600.0, sort=True))
+    # ---- a sliding wreck leaves a burning trail (FTFx::WreckTrail): a lick of flame on the scorched road behind it, three
+    # small tongues spread along a 3 m length (+X along the trail), burnt out in under a second
+    add('NS_TrailFire', fx(n=3, life=(0.5, 0.9), size=((40, 56), (62, 86)), mat=toon('Flame'), ramp=heat((C_FIRE, 1.0), (C_FIRE, 0.8), (C_FIRE, 0.5), (C_FIRE, 0.0)),
+                           grow=(0.6, 1.0, 0.7), speed=(60, 160), cone=20.0, box=(300, 60, 4), sort=True, pool=(4, 12), owner=False))
+    # ---- the other foes' weapons, each in its own shape (FTGameMode.cpp: effect calls only, in TickEnts and FireBullet)
+    # a truck's drum comes off its tail with a kick of dust low along the road
+    add('NS_BarrelDrop', fx(n=6, life=(0.28, 0.46), size=((46, 46), (78, 78)), mat=toon('SmokeCar'), ramp=heat((C_DUST, 1.0), (C_DUST, 0.6), (C_DUST, 0.0)),
+                            grow=(0.6, 1.4, 1.8), speed=(300, 800), cone=80.0, inner=40.0, drag=3.0, sphere=30.0, rot=True, sort=True))
+    # a chopper's rockets leave its pods: a jet of their fire back off the launch (+X is the way the rocket goes)
+    foe_fire = heat((C_FOE, 1.0), (C_FOE, 0.8), (C_FOE, 0.5), (C_FOE, 0.0))
+    add('NS_FoeRocketFlash', fx(n=5, life=(0.10, 0.18), size=((22, 90), (34, 150)), mat=cel('Shard'), ramp=heat(((1.0, 0.75, 0.7), 1.0), (C_FOE, 0.6), (C_FOE, 0.0)),
+                                speed=(1200, 2400), cone=16.0, axis=(-1, 0, 0), stretch=(1200, 2.0), align=True, sort=True, pool=(2, 6)))
+    # a Snake Eyes' chain: links lashing out across to its real reach (5 m), in their colour (+X is toward the car)
+    add('NS_ChainArc', fx(n=6, life=(0.10, 0.14), size=((8, 60), (12, 110)), mat=cel('Shard'), ramp=heat((C_WHITE, 1.0), (C_FOE, 0.6), (C_FOE, 0.0)),
+                          speed=(3000, 4400), cone=14.0, axis=(1, 0, 0.05), stretch=(2500, 2.0), align=True, sort=True, pool=(2, 6)))
+    # a rammer's charge starts with a kick of their fire out of its tail (banded lobes worked out of their colour)
+    add('NS_RammerLaunch', fx(n=5, life=(0.18, 0.30), size=((60, 60), (100, 100)), mat=toon('FireTint'), ramp=foe_fire, grow=(0.55, 1.0, 1.15),
+                              speed=(500, 1300), cone=22.0, axis=(-1, 0, 0.1), drag=3.0, box=(4, 120, 8), rot=True, spin=40.0, sort=True, toward=60.0))
+    # MR. CHUCKLES' pies: cream thrown off where one leaves the barrel or lands
+    C_CREAM = (1.0, 0.94, 0.80)
+    add('NS_PieSplat', fx(n=8, life=(0.25, 0.45), size=((16, 16), (34, 34)), mat=cel('Blob'), ramp=heat((C_WHITE, 1.0), (C_CREAM, 0.7), (C_CREAM, 0.0)),
+                          speed=(300, 1100), cone=75.0, gravity=-1100.0, sort=True, pool=(2, 8)))
     return d
 
 
@@ -1047,6 +1181,7 @@ def build_all():
         ft_attackfx.cel_materials()
     toon_materials()   # FX overhaul: M_FX_Toon and its instances (several systems below point at them)
     mark_materials()   # FX round 3: M_FX_Mark and its instances (what FTFx.cpp lays on the road)
+    car_mark_materials()   # FX round 4: M_FX_CarMark and its instances (what the KESTREL wears as its armour drops)
     made = [make(name, base, cfg) for name, base, cfg in definitions() + attack_definitions() + overhaul_definitions()]
     for p in ('_probe_FountainLightweight', '_probe_DirectionalBurstLightweight', '_probe_MinimalLightweight'):
         if AL.does_asset_exist(FX + p):

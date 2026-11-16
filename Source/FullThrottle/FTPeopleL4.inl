@@ -228,3 +228,126 @@ Zone(TEXT("People: before the arena"), 10.9f, 11.23f);
 	At(CREW("Camera"), -1, 23.f, 23.f, 4, 2);           At(CREW("Village"), 1, 23.2f, 23.2f, 4, 1);
 #undef PPL
 #undef CREW
+
+{
+// ---- BEGIN far (ft_people_park_far.py) ----
+#define FARP(n) TEXT("/Game/People/ThemePark/SM_Far" n)
+Zone(TEXT("People far: first look"), 0.f, 99.f);
+	Far(FARP("March_A"), 150, 158, 6, 1, 1.f, 2.f, 0.f, 0, 1.95f, 0.f);
+	Far(FARP("March_B"), 270, 280, 6, 4, 1.f, 3.f, 0.f, 0, 3.1f, 0.f);
+	Far(FARP("Ducks"), 90, 200, 4, 0, 1.f, 2.f, 0.2f, 0, -6.f, 15.f);
+	Far(FARP("DuckPond"), 112, 124, 5, 2, 1.f, 1.f, 0.f, 0, 1.65f, 180.f);
+	Far(FARP("Queue"), 205, 215, 7, 3, 1.f, 1.6f, 0.f, 0, 2.5f, 20.f);
+	Far(FARP("Balloons"), 74, 82, 5, 0, 1.f, 1.3f, 0.f, 0, 1.3f, 10.f);
+#undef FARP
+// ---- END far ----
+}
+
+{
+// ---- BEGIN watch (ft_people_park_watch.py) ----
+// THE WATCHERS: the park's guests where they would crowd to watch a car chase, on things RAISED over the stalls' roofs
+// (/Game/People/ThemePark/SM_Watch...). Where they stand, across:
+//   37.5 m   a queue bridge, a food court's terrace or a coaster's station, its people 6 m up, in the slots that have a
+//            ROW OF STALLS (the row's back wall is 33.1 m out, its roof 3.2 m up and its sign 4.7 m): the watchers
+//            look over the stalls. Under the sky ride's cables on the left (19 m up; its pylons stand where two slots
+//            meet, and these pieces are put down by Site, at a slot's middle)
+//   43.5 m   the same in Rocket Land, behind its single stalls
+//   47-60 m  a look-out tower of three balconies, in slots without a set of the dressing's
+//   47-88 m  the show bleachers, by Far rules (they stay through the corkscrews, loops and jumps), 1.15 to 1.45 times
+//            their size; in the lagoon, where the road looks down on the valley, they and a station are the watchers
+// Along: every rule names its slots (a slot is 45 m; WatchSite and WatchFar put a piece where the slot's number is K
+// modulo Every), worked out from the slots the dressing's sets stand on and kept off the main table's parade lane
+// where the land allows. Everything here is over 2 m tall and stands 37 m out or more; a steady glow only.
+{
+#define WAT(n) TEXT("/Game/People/ThemePark/SM_Watch" n)
+Set(TEXT("PplWatchBridgeA"),  { { WAT("Bridge_A"),  0, 0, 0, 0, 1 } });
+Set(TEXT("PplWatchBridgeB"),  { { WAT("Bridge_B"),  0, 0, 0, 0, 1 } });
+Set(TEXT("PplWatchTerrace"),  { { WAT("Terrace"),   0, 0, 0, 0, 1 } });
+Set(TEXT("PplWatchPlatform"), { { WAT("Platform"),  0, 0, 0, 0, 1 } });
+Set(TEXT("PplWatchTower"),    { { WAT("Tower"),     0, 0, 0, 0, 1 } });
+const auto WatchSite = [&](const TCHAR* SetName, int32 Side, float X, int32 Every, int32 K, float Chance = 1.f)
+{
+	Site(SetName, Side, X, Every, (Every - (K % Every)) % Every, Chance, 1.f, 0.f);
+};
+const auto WatchFar = [&](const TCHAR* Mesh, int32 Side, float X0, float X1, int32 Every, int32 K, float Drop, float Scale = 1.f, float Chance = 1.f)
+{
+	Far(Mesh, X0, X1, Every, (Every - (K % Every)) % Every, Chance, Scale, 0.f, Side, Drop, 0.f);
+};
+const float WDeck = 37.5f;
+
+// ---- 0 to 1.15 km: THE FRONT GATE. Stall rows stand on slots 1 (mod 6) and 10 (mod 12) on the left, 1 (mod 6) and
+// 4 (mod 12) on the right: a bridge, a terrace or a station behind each. Towers on two free slots, bleachers far back.
+Zone(TEXT("People watch: the front gate"), 0.f, 1.15f);
+	WatchSite(TEXT("PplWatchBridgeA"), -1, WDeck, 12, 1);   WatchSite(TEXT("PplWatchTerrace"), -1, WDeck, 12, 7);
+	WatchSite(TEXT("PplWatchBridgeB"), -1, WDeck, 12, 10);
+	WatchSite(TEXT("PplWatchTerrace"), 1, WDeck, 12, 1);    WatchSite(TEXT("PplWatchBridgeB"), 1, WDeck, 12, 7);
+	WatchSite(TEXT("PplWatchPlatform"), 1, WDeck, 12, 4);
+	WatchSite(TEXT("PplWatchTower"), -1, 48, 12, 2);        WatchSite(TEXT("PplWatchTower"), 1, 48, 12, 8);
+	WatchFar(WAT("Bleachers"), -1, 84, 88, 12, 0, 1.4f, 1.45f);  WatchFar(WAT("Bleachers"), 1, 84, 88, 12, 6, 1.4f, 1.45f);
+
+// ---- 1.15 to 1.84 km: THE MIDWAY. Stalls on every slot: the watchers' decks behind them on every other one (the
+// main table's high wire stands before the stalls on the others). Bleachers through the corkscrew.
+Zone(TEXT("People watch: the midway"), 1.15f, 1.84f);
+	WatchSite(TEXT("PplWatchBridgeA"), -1, WDeck, 8, 1);    WatchSite(TEXT("PplWatchPlatform"), -1, WDeck, 8, 3);
+	WatchSite(TEXT("PplWatchBridgeB"), -1, WDeck, 8, 5);    WatchSite(TEXT("PplWatchTerrace"), -1, WDeck, 8, 7);
+	WatchSite(TEXT("PplWatchTerrace"), 1, WDeck, 8, 0);     WatchSite(TEXT("PplWatchBridgeA"), 1, WDeck, 8, 2);
+	WatchSite(TEXT("PplWatchBridgeB"), 1, WDeck, 8, 4);     WatchSite(TEXT("PplWatchPlatform"), 1, WDeck, 8, 6);
+Zone(TEXT("People watch: the midway corkscrew"), 1.22f, 1.36f);
+	WatchFar(WAT("Bleachers"), -1, 62, 64, 2, 1, 1.2f, 1.2f);   WatchFar(WAT("Bleachers"), 1, 62, 64, 2, 0, 1.2f, 1.2f);
+
+// ---- 1.84 to 2.22 km: THE BIG JUMP. Single pieces by Far rules: towers and bleachers beyond the second row.
+Zone(TEXT("People watch: the big jump"), 1.84f, 2.22f);
+	WatchFar(WAT("Tower"), -1, 55, 56, 4, 1, 1.15f);            WatchFar(WAT("Tower"), 1, 55, 56, 4, 2, 1.15f);
+	WatchFar(WAT("Bleachers"), -1, 78, 82, 4, 3, 1.35f, 1.4f);  WatchFar(WAT("Bleachers"), 1, 78, 82, 4, 1, 1.35f, 1.4f);
+
+// ---- 2.22 to 2.98 km: PIRATE COVE. Docks on slots 3 (mod 4) left and 1 (mod 4) right: a terrace or a bridge on the
+// slot opposite each. Bleachers on the left round the loop.
+Zone(TEXT("People watch: pirate cove"), 2.22f, 2.98f);
+	WatchSite(TEXT("PplWatchTerrace"), -1, WDeck, 8, 1);    WatchSite(TEXT("PplWatchBridgeB"), -1, WDeck, 8, 5);
+	WatchSite(TEXT("PplWatchBridgeA"), 1, WDeck, 8, 3);     WatchSite(TEXT("PplWatchTerrace"), 1, WDeck, 8, 7);
+Zone(TEXT("People watch: the cove's loop"), 2.665f, 2.945f);
+	WatchFar(WAT("Bleachers"), -1, 58, 60, 2, 1, 1.2f, 1.2f);
+
+// ---- 2.98 to 3.21 km: THE LIFT HILL. A tower each side behind the stalls.
+Zone(TEXT("People watch: the lift hill"), 2.98f, 3.21f);
+	WatchFar(WAT("Tower"), -1, 55, 56, 4, 0, 1.15f);            WatchFar(WAT("Tower"), 1, 55, 56, 4, 1, 1.15f);
+
+// ---- 3.21 to 6.72 km: THE LAGOON. The road is the coaster and looks down on the valley: bleachers (their steps show
+// from above) and a station on the valley's floor, off the bandstands' slots (1 mod 3).
+Zone(TEXT("People watch: the lagoon"), 3.21f, 6.7174f);
+	WatchFar(WAT("Bleachers"), -1, 47, 50, 6, 3, 1.1f, 1.3f);   WatchFar(WAT("Bleachers"), 1, 47, 50, 6, 0, 1.1f, 1.3f);
+	WatchFar(WAT("Platform"), -1, 42, 43, 12, 5, 1.05f);        WatchFar(WAT("Platform"), 1, 42, 43, 12, 2, 1.05f);
+
+// ---- 6.91 to 8.12 km: ROCKET LAND. Pads and saucers on the even slots: the decks on odd ones, behind the single
+// stalls (the main table's high wire has the other odd slots). Bleachers through the corkscrew, towers round the loop.
+Zone(TEXT("People watch: rocket land"), 6.9074f, 8.1174f);
+	WatchSite(TEXT("PplWatchPlatform"), -1, 43.5f, 8, 3);   WatchSite(TEXT("PplWatchBridgeB"), -1, 43.5f, 8, 7);
+	WatchSite(TEXT("PplWatchBridgeA"), 1, 43.5f, 8, 1);     WatchSite(TEXT("PplWatchTerrace"), 1, 43.5f, 8, 5);
+Zone(TEXT("People watch: the rocket corkscrew"), 7.33f, 7.52f);
+	WatchFar(WAT("Bleachers"), -1, 72, 76, 2, 1, 1.3f, 1.4f);   WatchFar(WAT("Bleachers"), 1, 72, 76, 2, 0, 1.3f, 1.4f);
+Zone(TEXT("People watch: the rocket loop"), 7.8404f, 8.1204f);
+	WatchFar(WAT("Tower"), -1, 58, 60, 3, 0, 1.15f);
+
+// ---- 8.12 to 8.44 km: THE FUNHOUSE. Courts on slots 2 (mod 3) left and 1 (mod 3) right: towers on free slots.
+Zone(TEXT("People watch: the funhouse"), 8.1174f, 8.4374f);
+	WatchSite(TEXT("PplWatchTower"), -1, 47, 3, 0);         WatchSite(TEXT("PplWatchTower"), 1, 47, 3, 2);
+
+// ---- 8.44 to 8.91 km: THE FUNHOUSE JUMP. Bleachers each side, off the main table's stands.
+Zone(TEXT("People watch: the funhouse jump"), 8.4374f, 8.9074f);
+	WatchFar(WAT("Bleachers"), -1, 60, 62, 4, 1, 1.2f, 1.15f);  WatchFar(WAT("Bleachers"), 1, 60, 62, 4, 2, 1.2f, 1.15f);
+
+// ---- 9.30 km to the end: THE LAST RIDE. Stall rows on slots 0 and 4 (mod 12) on the left, 1 and 5 (mod 12) on the
+// right: the four decks behind them, turn about, four in five kept. A tower every twelfth slot a side (three in five),
+// bleachers far back off the facade rows' slots (three in four); the bleachers stay through the circuit's loops.
+Zone(TEXT("People watch: the last ride"), 9.2974f, 99.f);
+	WatchSite(TEXT("PplWatchBridgeA"), -1, WDeck, 24, 0, 0.8f);   WatchSite(TEXT("PplWatchTerrace"), -1, WDeck, 24, 4, 0.8f);
+	WatchSite(TEXT("PplWatchBridgeB"), -1, WDeck, 24, 12, 0.8f);  WatchSite(TEXT("PplWatchPlatform"), -1, WDeck, 24, 16, 0.8f);
+	WatchSite(TEXT("PplWatchTerrace"), 1, WDeck, 24, 1, 0.8f);    WatchSite(TEXT("PplWatchBridgeB"), 1, WDeck, 24, 5, 0.8f);
+	WatchSite(TEXT("PplWatchPlatform"), 1, WDeck, 24, 13, 0.8f);  WatchSite(TEXT("PplWatchBridgeA"), 1, WDeck, 24, 17, 0.8f);
+	WatchSite(TEXT("PplWatchTower"), -1, 48, 12, 5, 0.6f);        WatchSite(TEXT("PplWatchTower"), 1, 48, 12, 6, 0.6f);
+	WatchFar(WAT("Bleachers"), -1, 84, 88, 12, 9, 1.4f, 1.45f, 0.75f);
+	WatchFar(WAT("Bleachers"), 1, 84, 88, 12, 10, 1.4f, 1.45f, 0.75f);
+#undef WAT
+}
+// ---- END watch ----
+}

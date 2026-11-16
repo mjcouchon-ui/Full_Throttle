@@ -1348,10 +1348,18 @@ void AFTGameMode::TickOverlay(float RDt)
 		return DrawnOverlay == Overlay && OverlayRects.IsValidIndex(Index) && PC->Clicked(OverlayRects[Index]);
 	};
 	const bool bConfirm = PC->Hit(EKeys::Enter) || PC->Hit(EKeys::Gamepad_FaceButton_Bottom);
+	// the mouse: a right click is BACK on every one of these screens, and the row under a pointer that moves takes the focus
+	const bool bBack = PC->MenuBack() || PC->RightBack();
+	const FVector2D OvMouse = PC->MousePos();
+	const bool bOvMoved = !PC->UsesGamepadPrompts() && OvMouse.X >= 0.f && OverlayMouse.X >= 0.f && FVector2D::Distance(OvMouse, OverlayMouse) > 1.5f;
+	OverlayMouse = OvMouse;
+	int32 Hover = INDEX_NONE;
+	if (bOvMoved && DrawnOverlay == Overlay)
+		for (int32 I = 0; I < OverlayRects.Num(); ++I) if (PC->MouseIn(OverlayRects[I])) { Hover = I; break; }
 	if (bPendingSystemSave)
 	{
 		// Cancelling navigation leaves the queued write running and never discards it.
-		if (PC->MenuBack() || PC->Hit(EKeys::Gamepad_Special_Right) || bConfirm || Clicked(0))
+		if (bBack || PC->Hit(EKeys::Gamepad_Special_Right) || bConfirm || Clicked(0))
 		{
 			UE_LOG(LogFT, Display, TEXT("FT SYSTEM save_wait cancelled action=%d"), SystemAction);
 			CloseSystemDialog(); return;
@@ -1385,9 +1393,10 @@ void AFTGameMode::TickOverlay(float RDt)
 		const int32 Rows = bFailure && bExit ? 3 : 2;
 		if (PC->MenuUp() || PC->MenuLeft()) SystemRow = (SystemRow + Rows - 1) % Rows;
 		if (PC->MenuDown() || PC->MenuRight()) SystemRow = (SystemRow + 1) % Rows;
+		if (Hover != INDEX_NONE && Hover < Rows) SystemRow = Hover;
 		int32 Action = bConfirm ? SystemRow : INDEX_NONE;
 		for (int32 I = 0; I < Rows; ++I) if (Clicked(I)) Action = I;
-		if (PC->MenuBack() || PC->Hit(EKeys::Gamepad_Special_Right)) { CloseSystemDialog(); return; }
+		if (bBack || PC->Hit(EKeys::Gamepad_Special_Right)) { CloseSystemDialog(); return; }
 		if (Action == INDEX_NONE) return;
 		if (bFailure)
 		{
@@ -1415,9 +1424,10 @@ void AFTGameMode::TickOverlay(float RDt)
 		const int32 Was = PauseRow;
 		if (PC->MenuUp()) PauseRow = (PauseRow + Rows - 1) % Rows;
 		if (PC->MenuDown()) PauseRow = (PauseRow + 1) % Rows;
+		if (Hover != INDEX_NONE && Hover < Rows) PauseRow = Hover;
 		int32 Action = bConfirm ? PauseRow : INDEX_NONE;
 		for (int32 I = 0; I < Rows; ++I) if (Clicked(I)) Action = I;
-		if (PC->Hit(EKeys::P) || PC->MenuBack() || PC->Hit(EKeys::Gamepad_Special_Right)) Action = 0;
+		if (PC->Hit(EKeys::P) || bBack || PC->Hit(EKeys::Gamepad_Special_Right)) Action = 0;
 		else if (PC->Hit(EKeys::O)) Action = 1;
 		else if (PC->Hit(EKeys::C) || PC->Hit(EKeys::Gamepad_FaceButton_Top)) Action = 2;
 		else if (PC->Hit(EKeys::T)) Action = 3;
@@ -1446,11 +1456,12 @@ void AFTGameMode::TickOverlay(float RDt)
 	{
 		if (ControlsPage == 0)
 		{
-			if (Clicked(0) || PC->MenuBack() || PC->Hit(EKeys::C) || PC->Hit(EKeys::Gamepad_Special_Right)) { Close(); return; }
+			if (Clicked(0) || bBack || PC->Hit(EKeys::C) || PC->Hit(EKeys::Gamepad_Special_Right)) { Close(); return; }
 			const int32 Rows = IsTutorialActive() ? 4 : 3;
 			ControlsRow = FMath::Clamp(ControlsRow, 0, Rows - 1);
 			if (PC->MenuUp()) ControlsRow = (ControlsRow + Rows - 1) % Rows;
 			if (PC->MenuDown()) ControlsRow = (ControlsRow + 1) % Rows;
+			if (Hover >= 1 && Hover <= Rows) ControlsRow = Hover - 1;
 			int32 Activate = bConfirm ? ControlsRow : INDEX_NONE;
 			for (int32 I = 0; I < Rows; ++I) if (Clicked(I + 1)) Activate = ControlsRow = I;
 			if (PC->Hit(EKeys::Tab) || PC->Hit(EKeys::Gamepad_RightShoulder)) Activate = 2;
@@ -1477,7 +1488,7 @@ void AFTGameMode::TickOverlay(float RDt)
 		if (bControlsWaiting)
 		{
 			FKey Key;
-			if (Clicked(0) || PC->MenuBack())
+			if (Clicked(0) || bBack)
 			{
 				bControlsWaiting = PC->bCapture = false;
 				MenuCue(TEXT("Near"), .9f);
@@ -1505,12 +1516,14 @@ void AFTGameMode::TickOverlay(float RDt)
 			}
 			return;
 		}
-		if (Clicked(0) || PC->MenuBack() || PC->Hit(EKeys::C) || PC->Hit(EKeys::Gamepad_Special_Right)) { ControlsPage = 0; ControlsRow = 2; return; }
+		if (Clicked(0) || bBack || PC->Hit(EKeys::C) || PC->Hit(EKeys::Gamepad_Special_Right)) { ControlsPage = 0; ControlsRow = 2; return; }
 		const int32 MaxRows = UFTGameInstance::NumActions + 1;
 		const int32 BeforeRow = ControlsRow, BeforeCol = ControlsCol;
 		if (PC->MenuUp()) ControlsRow = (ControlsRow + MaxRows - 1) % MaxRows;
 		if (PC->MenuDown()) ControlsRow = (ControlsRow + 1) % MaxRows;
 		if (PC->MenuLeft() || PC->MenuRight()) ControlsCol = 1 - ControlsCol;
+		if (Hover >= 1 && Hover <= 2 * UFTGameInstance::NumActions) { ControlsRow = (Hover - 1) / 2; ControlsCol = (Hover - 1) % 2; }
+		else if (Hover == 1 + 2 * UFTGameInstance::NumActions) ControlsRow = UFTGameInstance::NumActions;
 		bool bActivate = bConfirm;
 		for (int32 I = 0; I < 2 * UFTGameInstance::NumActions; ++I)
 		{
@@ -1537,11 +1550,12 @@ void AFTGameMode::TickOverlay(float RDt)
 
 	if (Overlay == EFTOverlay::Options)
 	{
-		if (Clicked(0) || PC->MenuBack() || PC->Hit(EKeys::O) || PC->Hit(EKeys::Gamepad_Special_Right)) { Close(); return; }
+		if (Clicked(0) || bBack || PC->Hit(EKeys::O) || PC->Hit(EKeys::Gamepad_Special_Right)) { Close(); return; }
 		constexpr int32 Rows = 5;
 		const int32 Was = OptionsRow;
 		if (PC->MenuUp()) OptionsRow = (OptionsRow + Rows - 1) % Rows;
 		if (PC->MenuDown()) OptionsRow = (OptionsRow + 1) % Rows;
+		if (Hover >= 1 && Hover <= 2 * Rows) OptionsRow = (Hover - 1) / 2;
 		int32 Dir = PC->MenuRight() ? 1 : PC->MenuLeft() ? -1 : bConfirm ? 1 : 0;
 		for (int32 I = 0; I < 2 * Rows; ++I)
 		{
@@ -2361,6 +2375,14 @@ void AFTGameMode::FireBullet(int32 InOwner, float D, float X, float H, float VD,
 			if (On) FTFx::Attach(Muzzle, On, Bt.GetLocation(), Bt.Rotator(), Variant == 0 ? 1.f : 1.5f, FTFx::Flash);
 			else FTFx::Burst(this, Muzzle, Bt.GetLocation(), Bt.Rotator(), Variant == 0 ? 1.f : 1.5f, FTFx::Flash);
 			if (On && Variant == 0 && By == EFTKind::Suv) FTFx::Attach(TEXT("NS_EnemyMuzzleGun"), On, Bt.GetLocation(), Bt.Rotator());
+			// FX round 4: a boss's rounds leave the barrel as what they are: THE GREAT WHITE's fish in a splash, ENGINE 13's
+			// fireballs in a burst of fire, THE CHAIRMAN's heavy slugs behind a long tongue of flame, MR. CHUCKLES' pies in a puff
+			// of cream (variants 1 to 4, as AFTEntityActor::SetHostile's trails). Looks only
+			if (On && Variant >= 1 && Variant <= 4)
+			{
+				static const TCHAR* FxOwn[5] = { TEXT(""), TEXT("NS_Splash"), TEXT("NS_FlameBurst"), TEXT("NS_EnemyMuzzleGun"), TEXT("NS_PieSplat") };
+				FTFx::Attach(FxOwn[Variant], On, Bt.GetLocation(), Bt.Rotator(), Variant == 3 ? 1.6f : (Variant == 4 ? 1.f : 0.5f), FTFx::Extra);
+			}
 		}
 	}
 }
@@ -2736,7 +2758,12 @@ void AFTGameMode::TickEnts(float Dt)
 			{
 				E.Sp = Vp + 40.f * DU; E.T1 -= Dt;
 				E.Glow = FMath::Fmod(E.T, 0.16f) < 0.08f ? 1.f : 0.f;
-				if (E.T1 <= 0.f) { E.State = 3; E.T2 = 0.f; E.Glow = 1.f; }
+				if (E.T1 <= 0.f)
+				{
+					E.State = 3; E.T2 = 0.f; E.Glow = 1.f;
+					// FX round 4: the charge starts with a kick of their fire out of its tail (looks only; the charge's own trail follows)
+					if (AFTEntityActor* FxRam = E.Proxy.Get()) FTFx::Attach(TEXT("NS_RammerLaunch"), FxRam->GetRootComponent(), FVector(-230.f, 0.f, 60.f), FRotator::ZeroRotator, 1.f, FTFx::Main, true);
+				}
 			}
 			else
 			{
@@ -2801,6 +2828,11 @@ void AFTGameMode::TickEnts(float Dt)
 					E.T2 = 2.1f;
 					FFTEnt& B = Spawn(EFTKind::Barrel, (E.D - E.L / 2 - 150.f) - Pd, E.X);
 					B.Sp = 0.f;
+					// FX round 4: the drum comes off the truck's tail with a kick of dust where it lands on the road (looks only)
+					{
+						const FTransform FxDrum = EntTransform(B);
+						FTFx::Burst(this, TEXT("NS_BarrelDrop"), FxDrum.GetLocation(), FxDrum.Rotator(), 1.f, FTFx::Extra);
+					}
 				}
 				if (E.T > 26.f) E.State = 2;
 			}
@@ -2834,6 +2866,13 @@ void AFTGameMode::TickEnts(float Dt)
 						Hz.X = Px; Hz.D = R(300.f, 700.f); Hz.Track = 0.f; Hz.Warn = 1.35f; Hz.Live = 0.3f; Hz.W = 300.f;
 						Say(TEXT("zoneWarn"), 2, 2.f); Sfx(TEXT("ZoneWarn")); Shout(TEXT("ROCKETS! HOP!"));
 						E.T1 = R(2.6f, 3.4f);
+						// FX round 4: the chopper's rockets leave its pods: a star of their colour under it and a jet of their fire back off
+						// the launch, toward the rail they are sent at (down and back at the car). Looks only
+						if (AFTEntityActor* FxHeli = E.Proxy.Get())
+						{
+							FTFx::Attach(TEXT("NS_EnemyMuzzle"), FxHeli->GetRootComponent(), FVector(-60.f, 0.f, 120.f), FRotator(-30.f, 180.f, 0.f), 1.4f, FTFx::Flash, true);
+							FTFx::Attach(TEXT("NS_FoeRocketFlash"), FxHeli->GetRootComponent(), FVector(-60.f, 0.f, 120.f), FRotator(-30.f, 180.f, 0.f), 1.f, FTFx::Main, true);
+						}
 					}
 				}
 				else if (E.T1 <= 0.f && E.Count > 0)
@@ -2964,7 +3003,23 @@ void AFTGameMode::TickEnts(float Dt)
 						E.Glow = 0.f; E.State = 1; E.T2 = R(1.8f, 2.6f);
 						// 3.1: the swing itself: sparks off the chain, thrown across at the car's side of the bike
 						if (AFTEntityActor* Ha = E.Proxy.Get()) FTFx::Attach(TEXT("NS_ChainSwing"), Ha->GetRootComponent(), FVector(0.f, (Px > E.X ? 1.f : -1.f) * 60.f, 110.f), FRotator(0.f, Px > E.X ? 90.f : -90.f, 0.f), 1.f, FTFx::Main, true);
-						if (FMath::Abs(E.X - Px) < 56.f * XU && FMath::Abs(Ahead) < 36.f * DU + 200.f) { HurtPlayer(7.f); Say(TEXT("chainHit"), 2); Sfx(TEXT("Chain")); }
+						// FX round 4: and the chain itself: links lashing out across to its real reach, toward the car's side of the bike
+						if (AFTEntityActor* FxHog = E.Proxy.Get()) FTFx::Attach(TEXT("NS_ChainArc"), FxHog->GetRootComponent(), FVector(0.f, (Px > E.X ? 1.f : -1.f) * 60.f, 110.f), FRotator(0.f, Px > E.X ? 90.f : -90.f, 0.f), 1.f, FTFx::Extra, true);
+						if (FMath::Abs(E.X - Px) < 56.f * XU && FMath::Abs(Ahead) < 36.f * DU + 200.f)
+						{
+							// FX round 4: where the chain lands on the KESTREL: sparks and paint off the side it came from (only when the hit
+							// counts, as a round's burst: HurtPlayer does nothing while the car is invulnerable or outside the race)
+							if (Invuln <= 0.f && Phase == EFTPhase::Play)
+							{
+								const FTransform FxCar = Car->GetActorTransform();
+								const float FxSide = E.X > Px ? 1.f : -1.f;
+								const FVector FxWhere = FxCar.TransformPosition(FVector(-20.f, FxSide * 120.f, 100.f));
+								const FRotator FxOff = (FxCar.GetUnitAxis(EAxis::Y) * FxSide).Rotation();
+								FTFx::Attach(TEXT("NS_HitPlayerSparks"), Car->GetRootComponent(), FxWhere, FxOff, 1.f, FTFx::Extra);
+								FTFx::Attach(TEXT("NS_RamChips"), Car->GetRootComponent(), FxWhere, FxOff, 0.8f, FTFx::Extra);
+							}
+							HurtPlayer(7.f); Say(TEXT("chainHit"), 2); Sfx(TEXT("Chain"));
+						}
 						else { AddScore(150, 2, 150, TEXT("DuckedChain")); Popup(TEXT("DUCKED THE CHAIN +150"), CCyan); Say(TEXT("chainDodged"), 1); }
 					}
 				}
@@ -3022,6 +3077,16 @@ void AFTGameMode::TickEnts(float Dt)
 						FTFx::Attach(TEXT("NS_HitPlayerRing"), Car->GetRootComponent(), Bt.GetLocation(), Bt.Rotator(), 1.f, FTFx::Extra);
 						FTFx::Attach(TEXT("NS_RamChips"), Car->GetRootComponent(), Bt.GetLocation(), Bt.Rotator(), 0.7f, FTFx::Extra);
 					}
+					// FX round 4: a boss's round lands as what it is: a fish in a splash, a fireball in a burst of fire, the Chairman's
+					// heavy slug with a ring and chips of paint, a pie in cream
+					else if (E.Variant == 1) FTFx::Attach(TEXT("NS_Splash"), Car->GetRootComponent(), Bt.GetLocation(), FRotator::ZeroRotator, 0.5f, FTFx::Extra);
+					else if (E.Variant == 2) FTFx::Attach(TEXT("NS_FireSplash"), Car->GetRootComponent(), Bt.GetLocation(), FRotator::ZeroRotator, 0.5f, FTFx::Extra);
+					else if (E.Variant == 3)
+					{
+						FTFx::Attach(TEXT("NS_HitPlayerRing"), Car->GetRootComponent(), Bt.GetLocation(), Bt.Rotator(), 1.3f, FTFx::Extra);
+						FTFx::Attach(TEXT("NS_RamChips"), Car->GetRootComponent(), Bt.GetLocation(), Bt.Rotator(), 1.f, FTFx::Extra);
+					}
+					else if (E.Variant == 4) FTFx::Attach(TEXT("NS_PieSplat"), Car->GetRootComponent(), Bt.GetLocation(), FRotator::ZeroRotator, 1.f, FTFx::Extra);
 				}
 				HurtPlayer(HitDmg);
 				Release(E);

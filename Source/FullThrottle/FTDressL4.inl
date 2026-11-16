@@ -208,7 +208,7 @@ Set(TEXT("JumpRiver2"), { { TEXT("SM_Lake2"), -7.142f, 0, 18.184f, 0, 1 }, { TEX
 // three times the size over the lagoon, afloat (its z = 0 is 3.65 m over the level's floor: the valley's floor, like the
 // lakes); a marquee tower each side where a land begins; the two landmarks, each on its own slot
 Set(TEXT("SkyRun"),    { { TEXT("SM_SkyRide"), 0, 0, 0, 0, 1 } });
-Set(TEXT("SkyLagoon"), { { TEXT("SM_SkyRide"), 0, 0, 1.2167f, 0, 1 } });
+Set(TEXT("SkyLagoon"), { { TEXT("SM_SkyRideTall"), 0, 0, 3.65f, 0, 1 } });      // round 3: a span of its own, three slots long and 57 m tall (round 1 stood the small one there at three times its size)
 Set(TEXT("MarqueeGate"), { { TEXT("SM_MarqueeTower"), 0, 0, 0, 0, 1 } });
 Set(TEXT("GalleonSpot"), { { TEXT("SM_Galleon"), 0, 0, 0, 25, 1 } });       // turned to face the landing straight she is first seen from
 Set(TEXT("FlumeSpot"),   { { TEXT("SM_Flume"), 22.62f, 0, 26.f, 45, 1 } });  // half a slot back (midway between two of the lagoon's coasters), turned to face the lift hill. Round 2: 26 m up, its foot at the rails' level (the kit gives it the rock down to the valley): on the valley's floor the road's own crest hid it
@@ -542,19 +542,19 @@ Zone(TEXT("The Last Ride"), 9.2974f, 99.f);
 // between a land's sets, so two kinds seldom lie on each other; where they do, each kind has its own height.
 const auto ParkLawns = [&]()
 {
-	Far(TEXT("SM_FloorLawn"), 58, 72, 2, 1, 0.9f, 1.f, 0.1f, 0, 1.04f, 4.f);
-	Far(TEXT("SM_FloorPool"), 92, 110, 4, 1, 0.9f, 1.3f, 0.1f, 0, 1.33f, 30.f);
+	Far(TEXT("SM_FloorLawn"), 58, 72, 2, 1, 0.45f, 1.f, 0.1f, 0, 1.04f, 4.f);
+	Far(TEXT("SM_FloorPool"), 92, 110, 4, 1, 0.45f, 1.3f, 0.1f, 0, 1.33f, 30.f);
 };
 Zone(TEXT("Floor: the front gate"), 0.f, 0.53f);
 	ParkLawns();
-	Far(TEXT("SM_FloorSpoke"), 46, 46, 3, 0, 1.f, 1.f, 0.f, 0, 0.93f, 0.f);
+	Far(TEXT("SM_FloorSpoke"), 46, 46, 3, 0, 0.5f, 1.f, 0.f, 0, 0.93f, 0.f);
 	Far(TEXT("SM_FloorQueue"), 36, 38, 6, 3, 0.9f, 1.f, 0.f, 0, 0.88f, 3.f);
-	Far(TEXT("SM_FloorGames"), 50, 54, 4, 0, 0.9f, 1.f, 0.f, 0, 0.97f, 4.f);
+	Far(TEXT("SM_FloorGames"), 50, 54, 4, 0, 0.45f, 1.f, 0.f, 0, 0.97f, 4.f);
 	Far(TEXT("SM_FloorKart"), 108, 118, 12, 6, 1.f, 1.f, 0.f, 1, 1.46f, 3.f);
 Zone(TEXT("Floor: the gate's end"), 0.72f, 1.14f);
 	ParkLawns();
-	Far(TEXT("SM_FloorSpoke"), 46, 46, 3, 0, 1.f, 1.f, 0.f, 0, 0.93f, 0.f);
-	Far(TEXT("SM_FloorGames"), 50, 54, 4, 0, 0.9f, 1.f, 0.f, 0, 0.97f, 4.f);
+	Far(TEXT("SM_FloorSpoke"), 46, 46, 3, 0, 0.5f, 1.f, 0.f, 0, 0.93f, 0.f);
+	Far(TEXT("SM_FloorGames"), 50, 54, 4, 0, 0.45f, 1.f, 0.f, 0, 0.97f, 4.f);
 	Far(TEXT("SM_FloorKart"), 108, 118, 12, 0, 1.f, 1.f, 0.f, -1, 1.46f, 3.f);
 // the midway's rows are unbroken, so no paths cross them: behind the second row the park is backstage (service yards,
 // a shed every 180 m), then lawns
@@ -565,19 +565,19 @@ Zone(TEXT("Floor: behind the midway"), 1.15f, 1.86f);
 	Far(TEXT("SM_FloorPlaza"), 84, 96, 6, 4, 1.f, 1.2f, 0.1f, 0, 1.26f, 0.f);
 Zone(TEXT("Floor: pirate cove"), 2.23f, 3.0f);
 	ParkLawns();
-	Far(TEXT("SM_FloorSpoke"), 46, 46, 6, 0, 1.f, 1.f, 0.f, 0, 0.93f, 0.f);
-	Far(TEXT("SM_FloorPool"), 52, 62, 2, 0, 0.9f, 1.2f, 0.1f, 0, 0.99f, 40.f);
+	Far(TEXT("SM_FloorSpoke"), 46, 46, 6, 0, 0.5f, 1.f, 0.f, 0, 0.93f, 0.f);
+	Far(TEXT("SM_FloorPool"), 52, 62, 2, 0, 0.45f, 1.2f, 0.1f, 0, 0.99f, 40.f);
 	Far(TEXT("SM_FloorPlaza"), 84, 96, 6, 2, 1.f, 1.2f, 0.1f, 0, 1.26f, 0.f);
 Zone(TEXT("Floor: rocket land"), 6.92f, 8.11f);
 	ParkLawns();
-	Far(TEXT("SM_FloorSpoke"), 46, 46, 4, 1, 1.f, 1.f, 0.f, 0, 0.93f, 0.f);
+	Far(TEXT("SM_FloorSpoke"), 46, 46, 4, 1, 0.5f, 1.f, 0.f, 0, 0.93f, 0.f);
 	Far(TEXT("SM_FloorPlaza"), 62, 70, 4, 3, 1.f, 1.f, 0.1f, 0, 1.07f, 0.f);
 	Far(TEXT("SM_FloorKart"), 108, 118, 12, 4, 1.f, 1.f, 0.f, 1, 1.46f, 3.f);
 	Far(TEXT("SM_FloorKart"), 108, 118, 12, 10, 1.f, 1.f, 0.f, -1, 1.46f, 3.f);
 Zone(TEXT("Floor: the funhouse"), 8.12f, 8.45f);
 	ParkLawns();
-	Far(TEXT("SM_FloorSpoke"), 46, 46, 3, 0, 1.f, 1.f, 0.f, 0, 0.93f, 0.f);
-	Far(TEXT("SM_FloorGames"), 50, 54, 2, 0, 0.9f, 1.f, 0.f, 0, 0.97f, 4.f);
+	Far(TEXT("SM_FloorSpoke"), 46, 46, 3, 0, 0.5f, 1.f, 0.f, 0, 0.93f, 0.f);
+	Far(TEXT("SM_FloorGames"), 50, 54, 2, 0, 0.45f, 1.f, 0.f, 0, 0.97f, 4.f);
 	Far(TEXT("SM_FloorQueue"), 36, 38, 3, 0, 0.9f, 1.f, 0.f, 0, 0.88f, 3.f);
 Zone(TEXT("Floor: the back lot"), 8.93f, 9.29f);
 	Far(TEXT("SM_FloorYard"), 78, 86, 2, 1, 1.f, 1.2f, 0.f, 0, 1.21f, 4.f);
@@ -585,10 +585,10 @@ Zone(TEXT("Floor: the back lot"), 8.93f, 9.29f);
 const auto ParkFinale = [&]()
 {
 	ParkLawns();
-	Far(TEXT("SM_FloorSpoke"), 46, 46, 4, 1, 1.f, 1.f, 0.f, -1, 0.93f, 0.f);
-	Far(TEXT("SM_FloorSpoke"), 46, 46, 4, 0, 1.f, 1.f, 0.f, 1, 0.93f, 0.f);
-	Far(TEXT("SM_FloorGames"), 50, 54, 6, 0, 0.9f, 1.f, 0.f, 1, 0.97f, 4.f);
-	Far(TEXT("SM_FloorGames"), 50, 54, 6, 3, 0.9f, 1.f, 0.f, -1, 0.97f, 4.f);
+	Far(TEXT("SM_FloorSpoke"), 46, 46, 4, 1, 0.5f, 1.f, 0.f, -1, 0.93f, 0.f);
+	Far(TEXT("SM_FloorSpoke"), 46, 46, 4, 0, 0.5f, 1.f, 0.f, 1, 0.93f, 0.f);
+	Far(TEXT("SM_FloorGames"), 50, 54, 6, 0, 0.45f, 1.f, 0.f, 1, 0.97f, 4.f);
+	Far(TEXT("SM_FloorGames"), 50, 54, 6, 3, 0.45f, 1.f, 0.f, -1, 0.97f, 4.f);
 	Far(TEXT("SM_FloorPlaza"), 84, 96, 6, 2, 1.f, 1.2f, 0.1f, 0, 1.26f, 0.f);
 	Far(TEXT("SM_FloorYard"), 64, 70, 8, 6, 1.f, 1.f, 0.f, 0, 1.09f, 4.f);
 	Far(TEXT("SM_FloorQueue"), 36, 38, 6, 1, 0.9f, 1.f, 0.f, -1, 0.88f, 3.f);
@@ -651,27 +651,27 @@ Zone(TEXT("Sky ride: the last ride"), 9.32f, 14.f);
 	Site(TEXT("SkyRun"), -1, 35, 1, 0, 1.f);
 // over the lagoon it runs the straight valleys at three times the size (a span is three slots), 86 m out, afloat
 Zone(TEXT("Sky ride: over the lagoon, 3.26 km"), 3.2394f, 3.4113f);
-	SiteAfloat(TEXT("SkyLagoon"), 1, 86, 3, 0, 1.f, 3.f);
+	SiteAfloat(TEXT("SkyLagoon"), 1, 86, 3, 0, 1.f, 1.f);
 Zone(TEXT("Sky ride: over the lagoon, 3.89 km"), 3.8728f, 4.1805f);
-	SiteAfloat(TEXT("SkyLagoon"), -1, 86, 3, 1, 1.f, 3.f);
+	SiteAfloat(TEXT("SkyLagoon"), -1, 86, 3, 1, 1.f, 1.f);
 Zone(TEXT("Sky ride: over the lagoon, 4.43 km"), 4.4157f, 5.1306f);
-	SiteAfloat(TEXT("SkyLagoon"), 1, 86, 3, 1, 1.f, 3.f);
+	SiteAfloat(TEXT("SkyLagoon"), 1, 86, 3, 1, 1.f, 1.f);
 Zone(TEXT("Sky ride: over the lagoon, 5.38 km"), 5.3658f, 5.6735f);
-	SiteAfloat(TEXT("SkyLagoon"), -1, 86, 3, 1, 1.f, 3.f);
+	SiteAfloat(TEXT("SkyLagoon"), -1, 86, 3, 1, 1.f, 1.f);
 Zone(TEXT("Sky ride: over the lagoon, 6.15 km"), 6.1350f, 6.7141f);
-	SiteAfloat(TEXT("SkyLagoon"), 1, 86, 3, 2, 1.f, 3.f);
+	SiteAfloat(TEXT("SkyLagoon"), 1, 86, 3, 2, 1.f, 1.f);
 
 // ---- wooden coasters as stage flats, 120 m long with a train going over the hill: a near row (not in the lagoon: the
 // coasters that stand end on there reach 118 m out) and a far, taller one the whole level long
 Zone(TEXT("Wooden coasters: to the lift hill"), 0.f, 3.2f);
 	Far(TEXT("SM_WoodCoaster"), 108, 124, 8, 4, 1.f, 1.f, 0.f, -1, 2.013f, 8.f);
-	Far(TEXT("SM_WoodCoaster"), 108, 124, 8, 0, 1.f, 1.f, 0.f, 1, 2.013f, 8.f);
+	Far(TEXT("SM_WoodCoaster2"), 108, 124, 8, 0, 1.f, 1.f, 0.f, 1, 2.013f, 8.f);
 Zone(TEXT("Wooden coasters: from rocket land on"), 6.72f, 99.f);
 	Far(TEXT("SM_WoodCoaster"), 108, 124, 8, 4, 1.f, 1.f, 0.f, -1, 2.013f, 8.f);
-	Far(TEXT("SM_WoodCoaster"), 108, 124, 8, 0, 1.f, 1.f, 0.f, 1, 2.013f, 8.f);
+	Far(TEXT("SM_WoodCoaster2"), 108, 124, 8, 0, 1.f, 1.f, 0.f, 1, 2.013f, 8.f);
 Zone(TEXT("Wooden coasters, far"), 0.f, 99.f);
 	Far(TEXT("SM_WoodCoaster"), 205, 235, 12, 6, 1.f, 1.35f, 0.f, -1, 3.14f, 8.f);
-	Far(TEXT("SM_WoodCoaster"), 205, 235, 12, 0, 1.f, 1.35f, 0.f, 1, 3.14f, 8.f);
+	Far(TEXT("SM_WoodCoaster2"), 205, 235, 12, 0, 1.f, 1.35f, 0.f, 1, 3.14f, 8.f);
 
 // ---- the park's main street as stage flats, behind the stalls and before the rides
 Zone(TEXT("Main street: the front gate"), 0.f, 1.14f);
@@ -730,3 +730,53 @@ Zone(TEXT("Horizon cards"), 0.f, 99.f);
 	Far(TEXT("SM_Sky1"), 900, 1050, 9, 4, 1.f, 1.25f, 0.1f, 1, 30.f, 6.f);
 	Far(TEXT("SM_Sky2"), 1500, 1750, 12, 3, 1.f, 1.6f, 0.1f, -1, 35.f, 6.f);
 	Far(TEXT("SM_Sky2"), 1500, 1750, 12, 9, 1.f, 1.6f, 0.1f, 1, 35.f, 6.f);
+
+// ================================================================ ROUND 3 (15 Nov 2026, 18:00)
+// Built on the owner's order to build everything that was planned; NOT COMPILED IN THE CHECKOUT AND NOT SEEN IN THE
+// GAME when written. In the list above, only numbers and names changed in place: the lagoon's sky ride is a tall span
+// of its own (SM_SkyRideTall), the right-hand wooden coasters are a second silhouette (SM_WoodCoaster2), and the flat
+// floor pieces by Far rules (lawn panels, pools, spokes, painted games) stand at half their chance: a still scatter
+// the eye does not miss pays for the pieces below, which all move. The lattice coasters (SM_CoasterHill,
+// SM_FarCoaster) now carry trains that run: no rule changed for that, the kit builds them with one.
+Set(TEXT("SkyRun2"),     { { TEXT("SM_SkyRide2"), -45.243f, 0, 0, 0, 1 } });     // a span two slots long, its middle one slot on (on the left a set's +along runs back down the road)
+Set(TEXT("MonoRun"),     { { TEXT("SM_Monorail"), 45.243f, 0, 0, 0, 1 } });      // the same on the right, where +along runs on
+Set(TEXT("LagoonSheet"), { { TEXT("SM_LagoonWater"), 0, 0, 2.75f, 0, 1 } });     // afloat: its surface 2.75 m over the level's floor, 16.6 m under zero
+
+// ---- the sky ride goes on after 14 km, to the end, in spans two slots long
+Zone(TEXT("Sky ride: the last ride, after 14 km"), 14.f, 99.f);
+	Site(TEXT("SkyRun2"), -1, 35, 2, 0, 1.f);
+// ---- the monorail, on the right 52 m out (the sky ride is on the left): a train in every span, all in step
+Zone(TEXT("Monorail: the midway"), 1.16f, 1.82f);
+	Site(TEXT("MonoRun"), 1, 52, 2, 0, 1.f);
+Zone(TEXT("Monorail: the last ride"), 9.32f, 14.f);
+	Site(TEXT("MonoRun"), 1, 52, 2, 1, 1.f);
+// ---- drop towers in the middle distance (their ring of seats climbs, hangs, falls), not in the lagoon
+Zone(TEXT("Drop towers: the midway and the cove"), 1.15f, 3.f);
+	Far(TEXT("SM_DropTower"), 88, 104, 17, 5, 1.f, 1.f, 0.1f, -1, 1.642f, 20.f);
+	Far(TEXT("SM_DropTower"), 88, 104, 17, 13, 1.f, 1.f, 0.1f, 1, 1.642f, 20.f);
+Zone(TEXT("Drop towers: from rocket land on"), 6.72f, 99.f);
+	Far(TEXT("SM_DropTower"), 88, 104, 17, 5, 1.f, 1.f, 0.1f, -1, 1.642f, 20.f);
+	Far(TEXT("SM_DropTower"), 88, 104, 17, 13, 1.f, 1.f, 0.1f, 1, 1.642f, 20.f);
+// ---- show fountains (jets on a clock) behind the stalls, 44 m and more from the road
+Zone(TEXT("Show fountains: the front gate and the midway"), 0.1f, 1.9f);
+	Far(TEXT("SM_JetFountain"), 44, 56, 13, 4, 1.f, 1.f, 0.f, 0, 1.117f, 0.f);
+Zone(TEXT("Show fountains: the last ride"), 9.3f, 99.f);
+	Far(TEXT("SM_JetFountain"), 44, 56, 13, 9, 1.f, 1.f, 0.f, 0, 1.117f, 0.f);
+// ---- fireworks over the Last Ride: far (380 m and more) and high (their shells burst 115 m over the road), slow
+Zone(TEXT("Fireworks: the last ride"), 9.3f, 99.f);
+	Far(TEXT("SM_Fireworks"), 380, 520, 13, 6, 1.f, 1.6f, 0.2f, 0, -70.f, 180.f);
+// ---- Rocket Land's launch, far off: a rocket leaves its pad on a clock (seen down the straight after 6.9 km)
+Zone(TEXT("Rocket Land: the launch"), 6.74f, 8.1f);
+	Far(TEXT("SM_Launch"), 240, 300, 13, 3, 1.f, 1.f, 0.f, -1, 2.938f, 0.f);
+	Far(TEXT("SM_Launch"), 240, 300, 13, 9, 1.f, 1.f, 0.f, 1, 2.938f, 0.f);
+// ---- THE LAGOON'S WATER: sheets afloat beside the hollows of the coaster's valley, 95 to 295 m out, where the land
+// falls below their level (16.6 m under zero): the land makes the shore. One length a slot, on both sides.
+Zone(TEXT("Lagoon water 3.35 km"), 3.3299f, 3.3661f); SiteAfloat(TEXT("LagoonSheet"), -1, 195, 1, 0, 1.f); SiteAfloat(TEXT("LagoonSheet"), 1, 195, 1, 0, 1.f);
+Zone(TEXT("Lagoon water 4.03 km"), 4.0085f, 4.1805f); SiteAfloat(TEXT("LagoonSheet"), -1, 195, 1, 0, 1.f); SiteAfloat(TEXT("LagoonSheet"), 1, 195, 1, 0, 1.f);
+Zone(TEXT("Lagoon water 4.30 km"), 4.2800f, 4.3162f); SiteAfloat(TEXT("LagoonSheet"), -1, 195, 1, 0, 1.f); SiteAfloat(TEXT("LagoonSheet"), 1, 195, 1, 0, 1.f);
+Zone(TEXT("Lagoon water 4.52 km"), 4.5062f, 4.5424f); SiteAfloat(TEXT("LagoonSheet"), -1, 195, 1, 0, 1.f); SiteAfloat(TEXT("LagoonSheet"), 1, 195, 1, 0, 1.f);
+Zone(TEXT("Lagoon water 4.93 km"), 4.9134f, 5.1306f); SiteAfloat(TEXT("LagoonSheet"), -1, 195, 1, 0, 1.f); SiteAfloat(TEXT("LagoonSheet"), 1, 195, 1, 0, 1.f);
+Zone(TEXT("Lagoon water 5.38 km"), 5.3658f, 5.5377f); SiteAfloat(TEXT("LagoonSheet"), -1, 195, 1, 0, 1.f); SiteAfloat(TEXT("LagoonSheet"), 1, 195, 1, 0, 1.f);
+Zone(TEXT("Lagoon water 5.66 km"), 5.6373f, 5.6735f); SiteAfloat(TEXT("LagoonSheet"), -1, 195, 1, 0, 1.f); SiteAfloat(TEXT("LagoonSheet"), 1, 195, 1, 0, 1.f);
+Zone(TEXT("Lagoon water 6.15 km"), 6.1350f, 6.1711f); SiteAfloat(TEXT("LagoonSheet"), -1, 195, 1, 0, 1.f); SiteAfloat(TEXT("LagoonSheet"), 1, 195, 1, 0, 1.f);
+Zone(TEXT("Lagoon water 6.29 km"), 6.2707f, 6.4878f); SiteAfloat(TEXT("LagoonSheet"), -1, 195, 1, 0, 1.f); SiteAfloat(TEXT("LagoonSheet"), 1, 195, 1, 0, 1.f);

@@ -215,4 +215,8 @@ protected:
 	FVector MarkFrom[2] = { FVector::ZeroVector, FVector::ZeroVector };   // ...and where its next length starts
 	FName TurboTuftSeen;                       // the tuft FTFlow last gave TurboFX (a nitro colour's, or the stock one)
 	bool bTurboCel = false;                    // a banded flame stands in for that tuft (TurboCelFX)
+	// FX round 4: what the body wears as its armour drops (dents, a cracked lamp, soot): flat marks on its own panels,
+	// made in BeginPlay, shown by SetDamageLook in the order of FTPlayerCar.cpp's CarMarks
+	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> DamageMarks;
+	int32 MarksShown = 0;
 };

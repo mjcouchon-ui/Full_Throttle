@@ -101,4 +101,11 @@ namespace FTFx
 	 *  when it could not be laid (Low, or a build without the mark material): the caller draws the short-lived
 	 *  sprite instead. Road is the road's frame there (+Z off the road). */
 	bool SootMark(const UObject* Ctx, const FVector& At, const FQuat& Road, float RadiusCm);
+
+	// ---- round 4. Still looks only.
+
+	/** A sliding wreck leaves a burning trail: a length of scorched road from From to To (world), Width cm wide,
+	 *  lying against Up, kept for the scene with the other marks (the newest 160 lengths), and on every other length
+	 *  a lick of flame that burns out in under a second (at most 8 alight at once). Not at Low. */
+	void WreckTrail(const UObject* Ctx, const FVector& From, const FVector& To, const FVector& Up, float Width);
 }

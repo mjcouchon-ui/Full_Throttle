@@ -36,6 +36,10 @@ THIRD PASS (15 Nov 2026, the overhaul): tight canyons, lit storefronts, signs th
     is a Kit prop now), an airship goes over (SM_Blimp); a tower crane slews over the building sites (SM_Crane);
   - the cut banks are faced by a Bank rule (SM_CutTiles, SM_CutSyn, SM_CutCity) instead of the two tilted faces;
   - the horizon has two rows of flat skyline cards (SM_SkyCard1, SM_SkyCard2) behind the lit towers.
+ROUND 3 (15 Nov 2026, 18:00, the owner's order to build everything planned; NOT SEEN IN THE GAME when written):
+a train across the far end of every side street with a ticker and signals over its mouth (SM_ElCross), an elevated
+line over the podiums' roofs (SM_ElOver), helicopters with searchlights far off (SM_Chopper), the Syndicate's blocks
+and far needles edged in steady gold light, its far windows going on and off, the picture house's bulbs a slow swell.
 TO REBUILD THE KIT: ft_dress.run(['metro']), then ft_dress_metro.animate(): animate() builds the travelling props (SM_ElTrain, SM_CrossTraffic, SM_Blimp, SM_FarBridge:
 they are not JOBS entries) and puts M_Life back on every slot an export reset.
 Nothing that blinks, chases or turns is put in Syndicate Territory at the height the Chairman's shots fly: the table
@@ -101,7 +105,8 @@ def animate(only=None):
     A = ft_life.animate
     glows = lambda v: (lambda slot, col, glow: abs(glow - v) < 0.011)
     bulbs = lambda slot, col, glow: glow >= 1.9
-    n = A(DIR + 'SM_Marquee', 'Light', slots=bulbs, LightAxis=(1, 0, 0), LightLen=260.0, LightRate=0.8, LightDuty=0.6, LightMin=0.25)
+    n = A(DIR + 'SM_Marquee', 'Light', slots=bulbs, LightAxis=(1, 0, 0), LightLen=260.0, LightRate=0.35, LightDuty=0.6, LightSoft=0.3,
+          LightMin=0.6)       # round 3: 25 m out, so a slow soft swell (the lead's light ruling), not a chase
     n += A(DIR + 'SM_FarRadio', 'Light', slots=bulbs, LightRate=0.35, LightDuty=0.5, LightMin=0.15)
     # the blade signs: the letters light from the top down, one after the other; the tubes down the edges stay steady
     for name in ('SM_BladeHotel', 'SM_BladeClub', 'SM_BladeDiner', 'SM_BladeShow', 'SM_BladePark', 'SM_BladeBank', 'SM_BladeJazz'):
@@ -129,6 +134,9 @@ def animate(only=None):
            LightRand=1.0)          # the fin, 24.6 m out: the same slow swell. The beacon on its aerial is steady (it blinked in round 1)
     for name, cell in (('SM_MidBlock', 320.0), ('SM_GlassBlock', 320.0), ('SM_FarTowersA', 1100.0)):
         n += A(DIR + name, 'Light', slots=glows(G2), far=name.startswith('SM_Far'), **ft_life._windows(cell, rate=0.08, off=0.2, low=0.2))
+    # round 3: the Syndicate's far towers are lived in: their red slits go on and off, a few at a time, very slowly
+    n += A(DIR + 'SM_FarSyndicate', 'Light', slots=lambda slot, col, glow: col == RED.lstrip('#') and abs(glow - G2) < 0.011, far=True,
+           **ft_life._windows(1500.0, rate=0.08, off=0.25, low=0.35))
     for name in ('SM_FarTowersA', 'SM_FarTowersB', 'SM_FarSyndicate', 'SM_GlassBlock'):     # the red beacons only (not the Syndicate's red slits)
         n += A(DIR + name, 'Light', slots=lambda slot, col, glow: col == RED.lstrip('#') and glow >= 1.9, far=name.startswith('SM_Far'),
                **dict(ft_life.BLINK, LightRate=0.4))
@@ -139,6 +147,13 @@ def animate(only=None):
             if sm:
                 sm.set_editor_property('positive_bounds_extension', unreal.Vector(*pos))
                 sm.set_editor_property('negative_bounds_extension', unreal.Vector(*neg))
+                if name == 'SM_Klieg':      # round 3 (the review): a beam of light casts no shadow. Its sections are BEAM's mover shades
+                    beams = set(mv(c).lstrip('#').lower() for c in BEAM)
+                    sub = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
+                    for i, st in enumerate(sm.get_editor_property('static_materials')):
+                        got = ft_life._read(st.material_interface)
+                        if got is not None and ft_life._lin_hex(got[0]) in beams:
+                            sub.enable_section_cast_shadow(sm, False, 0, i)
                 unreal.EditorAssetLibrary.save_loaded_asset(sm)
         except Exception as e:  # noqa
             unreal.log_warning('FTDRESS metro: %s keeps its built bounds (%r)' % (name, e))
@@ -870,6 +885,15 @@ def syn_hq(m):
     m.box(BLACK, (0, 0, H + 450), (W * 0.66, D * 0.66, 900))
     for k in range(3):
         _chevrons(m, 0.0, -D / 2.0 - 6, 1300.0 + k * 1750, 1500.0, t=150)
+    # round 3: black on a black sky did not read. Its front's edges and crown in a steady line of gold light, and three
+    # rows of dim lit slits between the chevrons (steady: Syndicate Territory has nothing that blinks near the road)
+    for s in (-1, 1):
+        m.box(GOLD, (s * (W / 2.0 - 30), -D / 2.0 - 5, H / 2.0 + 240), (36, 10, H - 520), glow=G_LINE)
+    m.box(GOLD, (0, -D / 2.0 - 5, H - 30), (W - 60, 10, 36), glow=G_LINE)
+    m.box(GOLD, (0, -D * 0.33 - 5, H + 880), (W * 0.66, 10, 30), glow=G_LINE)
+    for k in range(3):
+        for j in range(5):
+            m.box(WARM, (-880 + j * 440, -D / 2.0 - 3, 2350 + k * 1750), (240, 4, 70), glow=G1)
     r = random.Random(11)
     for k in range(9):
         m.box(RED, (r.choice((-1, 1)) * r.uniform(500, 1000), -D / 2.0 - 2, 700 + k * 620), (r.uniform(300, 520), 4, 50), glow=G2)
@@ -984,6 +1008,8 @@ def far_syndicate(m):
         m.sphere(RED, (x, 0, h * 1.12 + 80), 190, steps=(5, 8), glow=G4)
         for k in range(2):
             _chevrons(m, x, -w / 2.0 - 10, h * (0.28 + 0.22 * k), w * 0.8, t=w * 0.09)
+        for e in (-1, 1):                 # round 3: each needle's edges in a steady line of gold light, so the three read from afar
+            m.box(GOLD, (x + e * w * 0.46, -w / 2.0 - 14, h * 0.36), (w * 0.06, 24, h * 0.68), glow=G_LINE)
         for k in range(4):
             m.box(RED, (x, -w / 2.0 - 8, h * (0.1 + 0.035 * k)), (w * 0.7, 16, 120), glow=G2)
     for k in range(6):
@@ -1389,7 +1415,108 @@ def bridge_kit(k, L=42000.0, deck=3400.0):
     return dict(grow=(0.0, 0.0, 0.0), grow_down=(0.0, 0.0, 0.0))
 
 
-KITS = [('SM_ElTrain', el_train), ('SM_CrossTraffic', cross_traffic), ('SM_Blimp', blimp), ('SM_FarBridge', bridge_kit)]
+SIG_G = '#3dff8a'       # a traffic light's green
+
+
+def el_cross(k, run=9000.0):
+    """What a side street shows at its far end, and over its mouth (one mesh, so one piece a street; this stands in
+    the G_Street set 77 m from the centre line, its front to the road):
+      - a viaduct across the street's end, 90 m of it, and a train that crosses it (Conveyor): through the gap between
+        the towers a player sees it pass for a second: traffic on a line of its own;
+      - over the street's mouth, 33 m from the centre line and 12 m up, a band of running lights between the
+        buildings (a news ticker: a chase, so it stands past 30 m);
+      - under it, 31 m out, a signal gantry whose three lamps take turns, slowly (red, amber, green: one group of
+        lamps and a light that climbs the column a third at a time)."""
+    s = k.group()
+    s.box(CONC, (0, 0, 1040.0), (run, 520, 130))
+    s.box(CONC_D, (0, -266, 1150.0), (run, 14, 90))
+    for x in (-3200.0, -1100.0, 1100.0, 3200.0):
+        s.box(CONC_D, (x, 0, 490.0), (300, 420, 980))
+    g = k.group('Conveyor', ConvStart=(-run / 2.0, 0.0, 1105.0), ConvDir=(1.0, 0.0, 0.0), ConvLen=run, ConvRate=0.12, ConvRand=1.0)
+    for i in range(3):
+        def car(m, head=(i == 2)):
+            m.box(SILVER, (0, 0, 150), (1460, 300, 300))
+            m.box(MAG, (0, 0, 50), (1466, 306, 40))
+            m.box(WARM_L, (0, 0, 190), (1300, 308, 100), glow=G2)
+            m.box(GREY_D, (0, 0, 312), (900, 200, 24))
+            if head:
+                m.box(WARM_L, (732, 0, 120), (6, 200, 60), glow=G4)
+        g.piece(car, a=i * 1500.0 / run)
+    # the ticker over the street's mouth: a dark band on two brackets, two rows of bulbs that run along it
+    y_t = -4400.0
+    s.box(NAVY, (0, y_t, 1310.0), (1300, 60, 250))
+    for sx in (-1, 1):
+        s.box(GREY_D, (sx * 640, y_t, 1310.0), (40, 90, 300))
+    t = k.group('Light', LightAxis=(1.0, 0.0, 0.0), LightLen=520.0, LightRate=0.9, LightDuty=0.5, LightSoft=0.1, LightMin=0.25, LightRand=1.0)
+    for row, col in ((1370.0, WARM_L), (1250.0, AMBER)):
+        for j in range(12):
+            t.box(col, (-605 + j * 110.0, y_t - 34, row), (70, 8, 70), glow=G3)
+    # the signal gantry at the mouth: two posts, a beam, a head each way along the avenue
+    y_g = -4600.0
+    for sx in (-1, 1):
+        s.box(GREY_D, (sx * 560, y_g, 400.0), (40, 40, 800))
+    s.box(GREY_D, (0, y_g, 800.0), (1160, 40, 40))
+    q = k.group('Light', LightAxis=(0.0, 0.0, 1.0), LightLen=180.0, LightRate=0.08, LightDuty=0.33, LightSoft=0.02, LightMin=0.12, LightRand=1.0)
+    for sx in (-1, 1):
+        s.box(NAVY, (sx * 300, y_g, 700.0), (70, 60, 210))
+        for z, col in ((640.0, SIG_G), (700.0, AMBER), (760.0, RED)):
+            q.box(col, (sx * 300 + sx * 37, y_g, z), (6, 44, 44), glow=G3)
+    return dict(grow=(0.0, 0.0, 450.0), grow_down=(0.0, 0.0, 0.0))
+
+
+def el_over(k, L=9048.0, H=2400.0):
+    """A span of the elevated line that runs over the podiums' roofs, two slots of road long, 24 m up (over the blade
+    signs' tops and the roof signs): a narrow deck on a pier at each end, a line of light under its edge, and a train
+    that runs the span and enters the next (every span in step). The table stands the spans at the podiums' own line,
+    29 m out, where no glass infill stands; in a tower block the track leaves them out, so the line dives into it."""
+    s = k.group()
+    for x in (-L / 2.0, L / 2.0):
+        s.box(CONC_D, (x, 0, H / 2.0 - 100.0), (240, 240, H + 200.0))
+        s.box(CONC, (x, 0, H - 40.0), (320, 380, 140))
+    s.box(CONC, (0, 0, H + 60.0), (L, 320, 120))
+    s.box(CYAN, (0, -164, H + 20.0), (L, 6, 24), glow=G1)
+    g = k.group('Conveyor', ConvStart=(-L / 2.0, 0.0, H + 120.0), ConvDir=(1.0, 0.0, 0.0), ConvLen=L, ConvRate=0.1, ConvRand=0.0)
+    for i in range(3):
+        def car(m, head=(i == 2)):
+            m.box(SILVER, (0, 0, 150), (1300, 290, 300))
+            m.box(MAG, (0, 0, 50), (1306, 296, 40))
+            m.box(WARM_L, (0, 0, 190), (1160, 298, 100), glow=G2)
+            m.box(GREY_D, (0, 0, 312), (800, 190, 24))
+            if head:
+                m.box(WARM_L, (652, 0, 120), (6, 190, 60), glow=G4)
+        g.piece(car, a=i * 1340.0 / L)
+    return dict(grow=(0.0, 0.0, 460.0), grow_down=(0.0, 0.0, 0.0))
+
+
+def chopper(k, R=5200.0):
+    """A helicopter circling a block far off, its searchlight on the roofs: the whole machine is one part that turns
+    about a point 52 m from it (Spin: so it flies a circle nose first, once in half a minute). White and blue, a lit
+    cabin, a red light at the tail, a beam hanging under it. The table hangs them 180 m and more from the road and
+    110 m up: never near enough, or low enough, to be taken for the birds that hunt the car."""
+    g = k.group('Spin', SpinAxis=(0.0, 0.0, 1.0), SpinPivot=(0.0, 0.0, 0.0), SpinRate=0.21, SpinRand=1.0)
+    g.sphere(WHITE, (R, 0, 0), 190, scale=(0.9, 1.7, 0.9), steps=(4, 7))
+    g.box(BLUE, (R, 0, -60), (330, 520, 70))
+    g.box(WARM_L, (R, 250, 30), (250, 90, 110), glow=G1)
+    g.box(WHITE, (R, -520, 40), (60, 640, 60))
+    g.box(BLUE, (R, -820, 130), (20, 150, 210))
+    g.sphere(RED, (R, -840, 250), 28, steps=(3, 5), glow=G4)
+    g.cyl(GREY_D, (R, 0, 170), 30, 60, steps=6)
+    g.cyl(SILVER, (R, 0, 230), 520, 16, steps=10)
+    for sx in (-1, 1):
+        g.box(GREY_D, (R + sx * 150, 0, -190), (24, 420, 24))
+    z, rad = -230.0, 26.0
+    for col, glow, h in zip(BEAM[:4], (0.3, 0.16, 0.1, 0.07), (500.0, 700.0, 800.0, 800.0)):
+        top = rad
+        rad = rad + h * 0.07
+        g.cyl(col, (R, 120, z - h), rad, h, steps=6, top_r=top, glow=glow)
+        z -= h
+    return dict(grow=(700.0, R + 700.0, 300.0), grow_down=(2.0 * R + 1400.0, R + 700.0, 0.0))     # the circle it flies, about the mesh's origin
+
+
+KITS = [('SM_ElTrain', el_train), ('SM_CrossTraffic', cross_traffic), ('SM_Blimp', blimp), ('SM_FarBridge', bridge_kit),
+        # round 3: what a side street shows (a train across its end, a ticker and signals over its mouth), the line over
+        # the podiums' roofs, helicopters
+        ('SM_ElCross', el_cross), ('SM_ElOver', el_over), ('SM_Chopper', chopper)]
 MOVERS = {
     'SM_Infill1': dict(what='the sign cube on the roof: turns about its mast', SpinAxis=(0, 0, 1), SpinPivot=(330, 0, 0), SpinRate=0.7),
     'SM_Infill2': dict(what='the scanner bar on the roof: turns about its mast', SpinAxis=(0, 0, 1), SpinPivot=(-280, 0, 0), SpinRate=1.1),

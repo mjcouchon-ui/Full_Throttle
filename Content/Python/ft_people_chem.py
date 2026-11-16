@@ -136,7 +136,7 @@ def sheet(g, x, y, z, L, H, col=WHITE, stripe=ORANGE, glow=0.18):
     g.box(stripe, (x, y - 3.5, z + H - 22), (L, 2, 16))
 
 
-def gantry(seed=1, L=900.0, decks=(330.0, 640.0), n=(4, 3), lamp=0.8, weld=False):
+def gantry(seed=1, L=900.0, decks=(430.0, 760.0), n=(4, 3), lamp=0.8, weld=False):
     """The shift on a sheeted scaffold: workers in hi-vis who stop work to watch the chase: waving, pointing,
     cheering, clapping, one still at it with a wrench (or a welder, his arc a steady point of light). Its own work
     lamps over the top deck. TALL: 24 m and more from the centre line."""
@@ -238,21 +238,26 @@ def kerb_crew(seed=2, n=8, L=1000.0, lunch=False):
 
 
 def dock_crowd(seed=3, L=1200.0, n=14, suits=False):
-    """Shift change on a loading dock: a concrete dock a metre and a half high with a hazard-striped lip, the shift
-    massed along it two deep, hopping and waving out of step, two sitting on the edge with their legs dangling, a
-    lamp post at each end (suits=True: half of them the waste crews in their chemical suits). TALL."""
+    """Shift change on a loading platform: a concrete deck on piers, 4.3 m up (from this road nothing under 3 m shows
+    at the sight line), with a hazard-striped lip, the shift massed along it two deep, hopping and waving out of
+    step, two sitting on the edge with their legs dangling, a lamp post at each end (suits=True: half of them the
+    waste crews in their chemical suits, against dark sheeting). TALL."""
     def build(sc):
         r = random.Random(seed)
         g = sc.still()
-        H, D = 150.0, 230.0
-        g.box(PAVE, (0, 0, H / 2.0), (L, D, H))
+        H, D = 430.0, 230.0
+        g.box(PAVE, (0, 0, H - 25), (L, D, 50))
+        for k in range(4):
+            x = -L / 2.0 + 90 + k * (L - 180) / 3.0
+            g.box(PAVE_D, (x, 20, (H - 50) / 2.0), (70, 110, H - 50))
+        tilt_box(g, PAVE_D, (L / 2.0 + 60, -60, 0), (L / 2.0 + 60, 90, H - 20), 90, 12)            # the stair up the end
         nb = 8
         for k in range(nb):
             g.box(HAZ if k % 2 else NAVY, (-L / 2.0 + (k + 0.5) * L / nb, -D / 2.0 - 2, H - 16), (L / nb, 5, 32))
         for sx in (-1, 1):                                              # the lamp posts (steady: 24 m and more)
             g.box(POLE, (sx * (L / 2.0 - 20), D / 2.0 - 14, H + 200), (10, 10, 400))
             g.box(LAMP, (sx * (L / 2.0 - 20), D / 2.0 - 50, H + 392), (40, 70, 8), glow=0.9)
-        sheet(g, 0, D / 2.0 - 4, H, L - 60, 250, col=(WHITE if not suits else '#3a2a7a'), stripe=(ORANGE if not suits else VIOLET),
+        sheet(g, 0, D / 2.0 - 4, H, L - 60, 270, col=(WHITE if not suits else '#3a2a7a'), stripe=(ORANGE if not suits else VIOLET),
               glow=(0.18 if not suits else 0.0))
         for i in range(n):
             x = -L / 2.0 + 130 + (i + 0.5) * (L - 260) / n + r.uniform(-12, 12)
@@ -269,54 +274,67 @@ def dock_crowd(seed=3, L=1200.0, n=14, suits=False):
 
 
 def hazmat(seed=6, L=1400.0):
-    """The waste crew: a file of figures in chemical suits walking a bund wall with canisters of the violet stuff
-    (it glows: the piece stands 24 m and more out), one at the end waving them on with a lit wand, a drum of it on
-    a pallet. TALL."""
+    """The waste crew: a file of figures in chemical suits crossing a pipe bridge, 4.4 m up, with canisters of the
+    violet stuff (it glows: the piece stands 24 m and more out), one at the end waving them on with a lit wand, a
+    drum of it on the deck. TALL."""
     def build(sc):
         r = random.Random(seed)
         g = sc.still()
-        H, D = 160.0, 170.0
-        g.box(PAVE_D, (0, 30, H / 2.0), (L, D, H))
-        g.box(PAVE, (0, 30, H - 5), (L + 16, D + 16, 10))
+        H, D = 440.0, 180.0
+        for k in range(4):
+            x = -L / 2.0 + 60 + k * (L - 120) / 3.0
+            for sy in (-1, 1):
+                g.box(PAVE_D, (x, sy * D / 2.0, H / 2.0), (22, 22, H))
+            g.box(PAVE_D, (x, 0, H - 60), (22, D, 22))
+        g.box(PAVE, (0, 0, H - 8), (L + 16, D + 16, 16))
+        g.cyl(VIOLET, (-L / 2.0, 0, H - 60), 26, L, rot=(-90, 0, 0), steps=8, glow=0.35)             # the line under the deck
         for k in range(10):
-            g.box(HAZ if k % 2 else VIOLET, (-L / 2.0 + (k + 0.5) * L / 10.0, 30 - D / 2.0 - 2, H - 40), (L / 10.0, 5, 30))
+            g.box(HAZ if k % 2 else VIOLET, (-L / 2.0 + (k + 0.5) * L / 10.0, -D / 2.0 - 10, H + 10), (L / 10.0, 5, 24))
+        g.box(POLE, (0, D / 2.0 + 4, H + 105), (L, 8, 8))
+        sheet(g, 0, D / 2.0 + 8, H + 4, L - 20, 250, col='#3a2a7a', stripe=VIOLET, glow=0.0)
         for i in range(5):
             x = -L / 2.0 + (i + 0.5) * L / 5.0
-            P.figure(sc, x, 30, z=H, yaw=90, stride=24, swing_l=16, axis_l='x', arm_r='down', hold_r=hold_canister(glow=0.9), rate=0.9, bob=3,
-                     phase=i * 0.37, travel=(L, 95), detail=1, **suit(r, s=1.15))
-        # beside the wall, on the road's side: the marshal and the drum
-        g.box(RUST, (L / 2.0 - 130, -95, 8), (150, 110, 16))
-        g.cyl('#fff6ea', (L / 2.0 - 130, -95, 16), 34, 96, steps=8)
-        g.cyl(VIOLET, (L / 2.0 - 130, -95, 50), 36, 30, steps=8, glow=0.8)
-        P.figure(sc, -L / 2.0 + 160, -95, yaw=20, arm_r='wave', swing_r=30, hold_r=hold_torch(glow=1.0), arm_l='point', rate=1.0,
-                 phase=0.3, react=True, detail=1, **suit(r, col=YEL, s=1.15))
+            P.figure(sc, x, 10, z=H, yaw=90, stride=24, swing_l=16, axis_l='x', arm_r='down', hold_r=hold_canister(glow=0.9), rate=0.9, bob=3,
+                     phase=i * 0.37, travel=(L, 95), detail=1, **suit(r, s=BIG))
+        g.cyl('#fff6ea', (L / 2.0 - 70, 40, H), 34, 96, steps=8)
+        g.cyl(VIOLET, (L / 2.0 - 70, 40, H + 34), 36, 30, steps=8, glow=0.8)
+        P.figure(sc, -L / 2.0 + 70, -40, z=H, yaw=20, arm_r='wave', swing_r=30, hold_r=hold_torch(glow=1.0), arm_l='point', rate=1.0,
+                 phase=0.3, react=True, detail=1, **suit(r, col=YEL, s=BIG))
     return build
 
 
 def guards(seed=7):
-    """The gate: a striped sentry box with a lit window, a red-and-white boom that rises and falls, a guard waving
-    the chase through with a lit wand, another with a hand up, and the dog. TALL."""
+    """The gate post: a red cabin with a lit window on a concrete plinth, 4.2 m up, its balcony towards the road; a
+    red-and-white signal arm that rises and falls; on the balcony a guard waving the chase through with a lit wand,
+    another with a hand up, and the dog. TALL."""
     def build(sc):
         r = random.Random(seed)
         g = sc.still()
-        trestles(g, 900, y=-110, n=3)
-        g.box(RED, (-300, 40, 130), (170, 170, 260))
+        H = 420.0
+        g.box(PAVE_D, (0, 30, (H - 30) / 2.0), (300, 200, H - 30))
+        g.box(PAVE, (0, 0, H - 15), (760, 250, 30))
+        for k in range(8):
+            g.box(RED if k % 2 else '#fff6ea', (-380 + (k + 0.5) * 95, -127, H - 14), (95, 5, 28))
+        g.box(POLE, (0, -118, H + 100), (750, 8, 8))
+        for k in range(5):
+            g.box(POLE, (-371 + k * 185.5, -118, H + 50), (8, 8, 100))
+        g.box(RED, (-250, 50, H + 130), (200, 140, 260))
         for k in range(3):
-            g.box('#fff6ea', (-300, -46, 40 + k * 90), (172, 2, 30))
-        g.box(LAMP, (-300, -47, 170), (90, 3, 60), glow=0.6)
-        g.box(NAVY, (-300, 30, 268), (220, 230, 16))
-        g.box(LAMP, (-300, -70, 258), (60, 30, 5), glow=0.9)
-        g.box(PAVE, (-170, -40, 60), (26, 26, 120))
-        boom = sc.part(P.motion(swing=32.0, pivot=(-170.0, -40.0, 118.0), axis=90.0, rate=0.14, phase=0.25))
+            g.box('#fff6ea', (-250, -21, H + 40 + k * 90), (202, 2, 30))
+        g.box(LAMP, (-250, -22, H + 170), (100, 3, 60), glow=0.6)
+        g.box(NAVY, (-250, 40, H + 268), (250, 200, 16))
+        g.box(LAMP, (-250, -50, H + 258), (60, 30, 5), glow=0.9)
+        sheet(g, 130, 122, H, 480, 250)
+        g.box(PAVE, (360, 90, H + 150), (20, 20, 300))
+        arm = sc.part(P.motion(swing=30.0, pivot=(360.0, 78.0, H + 290.0), axis=90.0, rate=0.14, phase=0.25))
         for k in range(6):
-            boom.box(RED if k % 2 else '#fff6ea', (-170 + 45 + k * 90, -40, 118), (90, 12, 16))
-        boom.box(NAVY, (-215, -40, 118), (70, 30, 40))
-        s = 1.15
-        P.figure(sc, 120, -20, yaw=-10, arm_r='wave', swing_r=32, hold_r=hold_torch(glow=1.0), arm_l='hip', rate=1.2, phase=r.random(), react=True,
-                 **guard(r, s=s))
-        P.figure(sc, 290, 20, yaw=12, arm_l='out', arm_r='point', swing_r=12, axis_r='x', rate=0.6, phase=r.random(), **guard(r, s=s))
-        P.quadruped(sc, 390, -30, yaw=20, length=80, height=56, girth=24, neck=18, neck_up=40, head=22, tail=26, wag=34, rate=2.6, bob=3,
-                    body='#5a4a3c', snout=DARK, ears=DARK)
+            arm.box(RED if k % 2 else '#fff6ea', (360 - 45 - k * 80, 78, H + 290), (80, 10, 22))
+        s = BIG
+        P.figure(sc, -30, -30, z=H, yaw=-10, arm_r='wave', swing_r=32, hold_r=hold_torch(glow=1.0), arm_l='hip', rate=1.2, phase=r.random(),
+                 react=True, **guard(r, s=s))
+        P.figure(sc, 140, 0, z=H, yaw=12, arm_l='out', arm_r='point', swing_r=12, axis_r='x', rate=0.6, phase=r.random(), **guard(r, s=s))
+        P.quadruped(sc, 280, -30, z=H, yaw=20, s=1.3, length=80, height=56, girth=24, neck=18, neck_up=40, head=22, tail=26, wag=34, rate=2.6,
+                    bob=3, body='#8e5a3a', snout=DARK, ears=DARK)
     return build
 
 
@@ -336,7 +354,7 @@ def patrol(seed=8, L=1800.0):
     return build
 
 
-def boffins(seed=9, L=640.0, Z=300.0):
+def boffins(seed=9, L=640.0, Z=440.0):
     """The Alchemist's laboratory staff on an observation deck: white coats against dark sheeting, a dish on a
     tripod that pans, one holding up a flask of the violet stuff (it glows), one with a clipboard, one filming. TALL."""
     def build(sc):
@@ -371,7 +389,7 @@ def boffins(seed=9, L=640.0, Z=300.0):
 CROW, CROW_W = '#2a2230', '#4a3a8a'
 
 
-def crows_perch(seed=10, L=800.0, Z=330.0):
+def crows_perch(seed=10, L=800.0, Z=480.0):
     """Crows on a lamp-lit pipe rail: a row of them shuffling and hopping, three more circling over it. TALL."""
     def build(sc):
         r = random.Random(seed)
@@ -461,7 +479,7 @@ def lit(fn, glow=0.06):
 JOBS = [
     ('SM_Gantry_A', lit(gantry(1))),
     ('SM_Gantry_B', lit(gantry(12, L=1100.0, decks=(700.0,), n=(6,), weld=True))),
-    ('SM_Gantry_C', lit(gantry(13, L=800.0, decks=(420.0, 760.0), n=(3, 4)))),
+    ('SM_Gantry_C', lit(gantry(13, L=800.0, decks=(470.0, 800.0), n=(3, 4)))),
     ('SM_WatchTower', lit(watch_tower(5))),
     ('SM_KerbCrew_A', lit(kerb_crew(2))),
     ('SM_KerbCrew_B', lit(kerb_crew(14, n=8, lunch=True))),

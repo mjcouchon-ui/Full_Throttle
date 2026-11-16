@@ -229,6 +229,7 @@ public:
 	FString SystemMessage;
 	EFTOverlay DrawnOverlay = EFTOverlay::None;
 	TArray<FBox2D> OverlayRects;
+	FVector2D OverlayMouse = FVector2D(-1.f, -1.f);   // where the pointer was at the last overlay tick (a row follows it only when it moves)
 	FString OverlayFeedback;
 	float OverlayFeedbackT = -10.f;
 	bool bOverlayFeedbackError = false;

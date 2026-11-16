@@ -616,17 +616,21 @@ def lifted(fn, g=0.05):
     return build
 
 
+# The near pieces too, a little: they stand 28 m out and more (a steady light may stand from 24 m), and against the
+# black works of the finale an unlit figure is a dark shape on a pale deck.
+NEAR_LIFT = 0.035
+
 JOBS = [
-    ('SM_VolEvac_A', evac(21, 95.0)),
-    ('SM_VolEvac_B', evac(22, -95.0, mule=True)),
-    ('SM_VolHose_A', hose_a),
-    ('SM_VolHose_B', hose_b),
-    ('SM_VolSurvey_A', survey_a),
-    ('SM_VolSurvey_B', survey_b),
-    ('SM_VolWatch_A', watch(61)),
-    ('SM_VolWatch_B', watch(62, banner=(YEL, '#8f6bff', WHITE))),
+    ('SM_VolEvac_A', lifted(evac(21, 95.0), NEAR_LIFT)),
+    ('SM_VolEvac_B', lifted(evac(22, -95.0, mule=True), NEAR_LIFT)),
+    ('SM_VolHose_A', lifted(hose_a, NEAR_LIFT)),
+    ('SM_VolHose_B', lifted(hose_b, NEAR_LIFT)),
+    ('SM_VolSurvey_A', lifted(survey_a, NEAR_LIFT)),
+    ('SM_VolSurvey_B', lifted(survey_b, NEAR_LIFT)),
+    ('SM_VolWatch_A', lifted(watch(61), NEAR_LIFT)),
+    ('SM_VolWatch_B', lifted(watch(62, banner=(YEL, '#8f6bff', WHITE)), NEAR_LIFT)),
     ('SM_VolRostrum', rostrum),
-    ('SM_VolGoats', goats_a),
+    ('SM_VolGoats', lifted(goats_a, NEAR_LIFT)),
     ('SM_VolHerd', lifted(herd), dict(far=True)),
     ('SM_VolCaravan', lifted(caravan), dict(far=True)),
     ('SM_VolCamp', lifted(camp), dict(far=True)),

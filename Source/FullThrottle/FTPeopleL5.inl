@@ -408,3 +408,273 @@ Zone(TEXT("People: The last lifts"), 22.4f, 99.0f);
 
 #undef ICE
 #undef CREW
+
+{
+// ---- BEGIN far (ft_people_ice_far.py) ----
+// Far life and creatures (the extra worker "far"): everything here stands past the land's edge (305 to 330 m, its foot
+// 20 m over the road's level: the land is 26 m up at 300 m) or flies over it, by Far rules, so it stays through loops,
+// jumps and pipes and casts no shadow. Slots of 45 m: a side has a piece every 8 slots (360 m), the two sides out of
+// step, and the eagles between them; a district has two kinds of piece, and they change with the district.
+#define ICEFAR(Name) TEXT("/Game/People/IceMountain/SM_Far" Name)
+Zone(TEXT("People far: the top and the first pipe"), 0.0f, 2.43f);
+	Far(ICEFAR("SkiFace"), 305.f, 330.f, 16, 0, 1.f, 1.f, 0.f, -1, -20.f, 6.f);
+	Far(ICEFAR("SledRace"), 305.f, 330.f, 16, 8, 1.f, 1.f, 0.f, -1, -20.f, 6.f);
+	Far(ICEFAR("SledRace"), 305.f, 330.f, 16, 4, 1.f, 1.f, 0.f, 1, -20.f, 6.f);
+	Far(ICEFAR("SkiFace"), 305.f, 330.f, 16, 12, 1.f, 1.f, 0.f, 1, -20.f, 6.f);
+	Far(ICEFAR("Eagles"), 240.f, 420.f, 16, 2, 1.f, 1.f, 0.f, -1, -10.f, 180.f);
+	Far(ICEFAR("Eagles"), 240.f, 420.f, 16, 10, 1.f, 1.f, 0.f, 1, -10.f, 180.f);
+Zone(TEXT("People far: the chute and Black diamond"), 2.43f, 5.65f);
+	Far(ICEFAR("ClimbWall"), 305.f, 330.f, 16, 0, 1.f, 1.f, 0.f, -1, -20.f, 6.f);
+	Far(ICEFAR("IbexArete"), 305.f, 330.f, 16, 8, 1.f, 1.f, 0.f, -1, -20.f, 6.f);
+	Far(ICEFAR("IbexArete"), 305.f, 330.f, 16, 4, 1.f, 1.f, 0.f, 1, -20.f, 6.f);
+	Far(ICEFAR("ClimbWall"), 305.f, 330.f, 16, 12, 1.f, 1.f, 0.f, 1, -20.f, 6.f);
+	Far(ICEFAR("Eagles"), 240.f, 420.f, 16, 2, 1.f, 1.f, 0.f, -1, -10.f, 180.f);
+	Far(ICEFAR("Eagles"), 240.f, 420.f, 16, 10, 1.f, 1.f, 0.f, 1, -10.f, 180.f);
+Zone(TEXT("People far: the whiteout"), 5.65f, 7.3f);
+	Far(ICEFAR("WolfCrest"), 305.f, 330.f, 16, 0, 1.f, 1.f, 0.f, -1, -20.f, 6.f);
+	Far(ICEFAR("IbexArete"), 305.f, 330.f, 16, 8, 1.f, 1.f, 0.f, -1, -20.f, 6.f);
+	Far(ICEFAR("IbexArete"), 305.f, 330.f, 16, 4, 1.f, 1.f, 0.f, 1, -20.f, 6.f);
+	Far(ICEFAR("WolfCrest"), 305.f, 330.f, 16, 12, 1.f, 1.f, 0.f, 1, -20.f, 6.f);
+	Far(ICEFAR("Eagles"), 240.f, 420.f, 16, 2, 1.f, 1.f, 0.f, -1, -10.f, 180.f);
+	Far(ICEFAR("Eagles"), 240.f, 420.f, 16, 10, 1.f, 1.f, 0.f, 1, -10.f, 180.f);
+Zone(TEXT("People far: the valley"), 7.3f, 8.94f);
+	Far(ICEFAR("SkiFace"), 305.f, 330.f, 16, 0, 1.f, 1.f, 0.f, -1, -20.f, 6.f);
+	Far(ICEFAR("SledRace"), 305.f, 330.f, 16, 8, 1.f, 1.f, 0.f, -1, -20.f, 6.f);
+	Far(ICEFAR("SledRace"), 305.f, 330.f, 16, 4, 1.f, 1.f, 0.f, 1, -20.f, 6.f);
+	Far(ICEFAR("SkiFace"), 305.f, 330.f, 16, 12, 1.f, 1.f, 0.f, 1, -20.f, 6.f);
+	Far(ICEFAR("Eagles"), 240.f, 420.f, 16, 2, 1.f, 1.f, 0.f, -1, -10.f, 180.f);
+	Far(ICEFAR("Eagles"), 240.f, 420.f, 16, 10, 1.f, 1.f, 0.f, 1, -10.f, 180.f);
+Zone(TEXT("People far: the glacier"), 8.94f, 11.6f);
+	Far(ICEFAR("ClimbWall"), 305.f, 330.f, 16, 0, 1.f, 1.f, 0.f, -1, -20.f, 6.f);
+	Far(ICEFAR("WolfCrest"), 305.f, 330.f, 16, 8, 1.f, 1.f, 0.f, -1, -20.f, 6.f);
+	Far(ICEFAR("WolfCrest"), 305.f, 330.f, 16, 4, 1.f, 1.f, 0.f, 1, -20.f, 6.f);
+	Far(ICEFAR("ClimbWall"), 305.f, 330.f, 16, 12, 1.f, 1.f, 0.f, 1, -20.f, 6.f);
+	Far(ICEFAR("Eagles"), 240.f, 420.f, 16, 2, 1.f, 1.f, 0.f, -1, -10.f, 180.f);
+	Far(ICEFAR("Eagles"), 240.f, 420.f, 16, 10, 1.f, 1.f, 0.f, 1, -10.f, 180.f);
+Zone(TEXT("People far: the white ridge"), 11.6f, 14.3f);
+	Far(ICEFAR("WolfCrest"), 305.f, 330.f, 16, 0, 1.f, 1.f, 0.f, -1, -20.f, 6.f);
+	Far(ICEFAR("IbexArete"), 305.f, 330.f, 16, 8, 1.f, 1.f, 0.f, -1, -20.f, 6.f);
+	Far(ICEFAR("IbexArete"), 305.f, 330.f, 16, 4, 1.f, 1.f, 0.f, 1, -20.f, 6.f);
+	Far(ICEFAR("WolfCrest"), 305.f, 330.f, 16, 12, 1.f, 1.f, 0.f, 1, -20.f, 6.f);
+	Far(ICEFAR("Eagles"), 240.f, 420.f, 16, 2, 1.f, 1.f, 0.f, -1, -10.f, 180.f);
+	Far(ICEFAR("Eagles"), 240.f, 420.f, 16, 10, 1.f, 1.f, 0.f, 1, -10.f, 180.f);
+Zone(TEXT("People far: the resort"), 14.3f, 17.0f);
+	Far(ICEFAR("SkiFace"), 305.f, 330.f, 16, 0, 1.f, 1.f, 0.f, -1, -20.f, 6.f);
+	Far(ICEFAR("SledRace"), 305.f, 330.f, 16, 8, 1.f, 1.f, 0.f, -1, -20.f, 6.f);
+	Far(ICEFAR("SledRace"), 305.f, 330.f, 16, 4, 1.f, 1.f, 0.f, 1, -20.f, 6.f);
+	Far(ICEFAR("SkiFace"), 305.f, 330.f, 16, 12, 1.f, 1.f, 0.f, 1, -20.f, 6.f);
+	Far(ICEFAR("Eagles"), 240.f, 420.f, 16, 2, 1.f, 1.f, 0.f, -1, -10.f, 180.f);
+	Far(ICEFAR("Eagles"), 240.f, 420.f, 16, 10, 1.f, 1.f, 0.f, 1, -10.f, 180.f);
+Zone(TEXT("People far: the ice again"), 17.0f, 19.7f);
+	Far(ICEFAR("ClimbWall"), 305.f, 330.f, 16, 0, 1.f, 1.f, 0.f, -1, -20.f, 6.f);
+	Far(ICEFAR("WolfCrest"), 305.f, 330.f, 16, 8, 1.f, 1.f, 0.f, -1, -20.f, 6.f);
+	Far(ICEFAR("WolfCrest"), 305.f, 330.f, 16, 4, 1.f, 1.f, 0.f, 1, -20.f, 6.f);
+	Far(ICEFAR("ClimbWall"), 305.f, 330.f, 16, 12, 1.f, 1.f, 0.f, 1, -20.f, 6.f);
+	Far(ICEFAR("Eagles"), 240.f, 420.f, 16, 2, 1.f, 1.f, 0.f, -1, -10.f, 180.f);
+	Far(ICEFAR("Eagles"), 240.f, 420.f, 16, 10, 1.f, 1.f, 0.f, 1, -10.f, 180.f);
+Zone(TEXT("People far: the high ridge"), 19.7f, 22.4f);
+	Far(ICEFAR("IbexArete"), 305.f, 330.f, 16, 0, 1.f, 1.f, 0.f, -1, -20.f, 6.f);
+	Far(ICEFAR("WolfCrest"), 305.f, 330.f, 16, 8, 1.f, 1.f, 0.f, -1, -20.f, 6.f);
+	Far(ICEFAR("WolfCrest"), 305.f, 330.f, 16, 4, 1.f, 1.f, 0.f, 1, -20.f, 6.f);
+	Far(ICEFAR("IbexArete"), 305.f, 330.f, 16, 12, 1.f, 1.f, 0.f, 1, -20.f, 6.f);
+	Far(ICEFAR("Eagles"), 240.f, 420.f, 16, 2, 1.f, 1.f, 0.f, -1, -10.f, 180.f);
+	Far(ICEFAR("Eagles"), 240.f, 420.f, 16, 10, 1.f, 1.f, 0.f, 1, -10.f, 180.f);
+Zone(TEXT("People far: the last lifts"), 22.4f, 99.0f);
+	Far(ICEFAR("SkiFace"), 305.f, 330.f, 16, 0, 1.f, 1.f, 0.f, -1, -20.f, 6.f);
+	Far(ICEFAR("SledRace"), 305.f, 330.f, 16, 8, 1.f, 1.f, 0.f, -1, -20.f, 6.f);
+	Far(ICEFAR("SledRace"), 305.f, 330.f, 16, 4, 1.f, 1.f, 0.f, 1, -20.f, 6.f);
+	Far(ICEFAR("SkiFace"), 305.f, 330.f, 16, 12, 1.f, 1.f, 0.f, 1, -20.f, 6.f);
+	Far(ICEFAR("Eagles"), 240.f, 420.f, 16, 2, 1.f, 1.f, 0.f, -1, -10.f, 180.f);
+	Far(ICEFAR("Eagles"), 240.f, 420.f, 16, 10, 1.f, 1.f, 0.f, 1, -10.f, 180.f);
+// ---- END far ----
+}
+
+{
+// ---- BEGIN watch (ft_people_ice_watch.py) ----
+// THE WATCHERS: the people who watch the chase, raised and massed, 30 to 56 m out. Six meshes (SM_Watch...): a race-finish
+// stand under a chequered gantry, two snow banks of spectators behind a net, a scaffold tower of flag wavers, a snow
+// groomer used as a stand, a lift platform with its queue. Each is put down by a set that turns it 35 degrees towards
+// the car coming down the road (R sets: yaw -35; L sets: +35), as the main table does with its stands.
+// Where they stand: 42 m (resort districts and ridges: behind the main cast's 34 m stands and in other slots than its
+// big-air hills and pipes), 55 m (towers: tall, they show over what is in front), 30 m in the glacier districts
+// (the ice walls stand 34 m out there: anything behind them is hidden), and by Far rules at 46 m under the loops and
+// the corkscrews, which leave Scatter and Site out. All are TALL: none nearer than 30 m. Nothing glows.
+#define WATCH(Name) TEXT("/Game/People/IceMountain/SM_Watch" Name)
+Set(TEXT("PplWatchFinishR"), { { WATCH("Finish_A"), 0, 0, 0, -35, 1 } });
+Set(TEXT("PplWatchFinishL"), { { WATCH("Finish_A"), 0, 0, 0, 35, 1 } });
+Set(TEXT("PplWatchBankAR"), { { WATCH("Bank_A"), 0, 0, 0, -35, 1 } });
+Set(TEXT("PplWatchBankAL"), { { WATCH("Bank_A"), 0, 0, 0, 35, 1 } });
+Set(TEXT("PplWatchBankBR"), { { WATCH("Bank_B"), 0, 0, 0, -35, 1 } });
+Set(TEXT("PplWatchBankBL"), { { WATCH("Bank_B"), 0, 0, 0, 35, 1 } });
+Set(TEXT("PplWatchTowerR"), { { WATCH("Tower_A"), 0, 0, 0, -35, 1 } });
+Set(TEXT("PplWatchTowerL"), { { WATCH("Tower_A"), 0, 0, 0, 35, 1 } });
+Set(TEXT("PplWatchGroomerR"), { { WATCH("Groomer_A"), 0, 0, 0, -35, 1 } });
+Set(TEXT("PplWatchGroomerL"), { { WATCH("Groomer_A"), 0, 0, 0, 35, 1 } });
+Set(TEXT("PplWatchLiftR"), { { WATCH("Lift_A"), 0, 0, 0, -35, 1 } });
+Set(TEXT("PplWatchLiftL"), { { WATCH("Lift_A"), 0, 0, 0, 35, 1 } });
+
+Zone(TEXT("People watch: the start"), 0.0f, 0.1f);
+	Site(TEXT("PplWatchFinishR"), 1, 42.0f, 2, 0, 1.00f);     // a finish stand right of the start, a bank of people left
+	Site(TEXT("PplWatchBankBL"), -1, 42.0f, 2, 1, 1.00f);
+	Site(TEXT("PplWatchTowerL"), -1, 55.0f, 2, 0, 1.00f);
+	Site(TEXT("PplWatchTowerR"), 1, 55.0f, 2, 1, 1.00f);
+
+Zone(TEXT("People watch: below the summit street"), 0.15f, 0.24f);
+	Site(TEXT("PplWatchBankAR"), 1, 42.0f, 2, 0, 1.00f);
+	Site(TEXT("PplWatchLiftL"), -1, 42.0f, 2, 1, 1.00f);
+
+Zone(TEXT("People watch: First tracks"), 0.24f, 1.19f);
+	Site(TEXT("PplWatchFinishR"), 1, 42.0f, 8, 0, 0.60f);     // right: finish stand, lift queue, bank, groomer in turn
+	Site(TEXT("PplWatchLiftR"), 1, 42.0f, 8, 4, 0.60f);
+	Site(TEXT("PplWatchBankAR"), 1, 42.0f, 8, 2, 0.60f);
+	Site(TEXT("PplWatchGroomerR"), 1, 42.0f, 8, 6, 0.60f);
+	Site(TEXT("PplWatchBankBL"), -1, 42.0f, 8, 0, 0.60f);     // left: the same cast, other slots
+	Site(TEXT("PplWatchFinishL"), -1, 42.0f, 8, 4, 0.60f);
+	Site(TEXT("PplWatchLiftL"), -1, 42.0f, 8, 2, 0.60f);
+	Site(TEXT("PplWatchBankAL"), -1, 42.0f, 8, 6, 0.60f);
+	Site(TEXT("PplWatchTowerR"), 1, 55.0f, 12, 1, 1.00f);     // flag towers further out
+	Site(TEXT("PplWatchTowerL"), -1, 55.0f, 12, 7, 1.00f);
+
+Zone(TEXT("People watch: The half pipe, competition day"), 1.19f, 2.43f);
+	Site(TEXT("PplWatchFinishR"), 1, 42.0f, 8, 1, 0.60f);     // right: finish stand, lift queue, bank, groomer in turn
+	Site(TEXT("PplWatchLiftR"), 1, 42.0f, 8, 5, 0.60f);
+	Site(TEXT("PplWatchBankAR"), 1, 42.0f, 8, 3, 0.60f);
+	Site(TEXT("PplWatchGroomerR"), 1, 42.0f, 8, 7, 0.60f);
+	Site(TEXT("PplWatchBankBL"), -1, 42.0f, 8, 1, 0.60f);     // left: the same cast, other slots
+	Site(TEXT("PplWatchFinishL"), -1, 42.0f, 8, 5, 0.60f);
+	Site(TEXT("PplWatchLiftL"), -1, 42.0f, 8, 3, 0.60f);
+	Site(TEXT("PplWatchBankAL"), -1, 42.0f, 8, 7, 0.60f);
+	Site(TEXT("PplWatchTowerR"), 1, 55.0f, 12, 1, 1.00f);     // flag towers further out
+	Site(TEXT("PplWatchTowerL"), -1, 55.0f, 12, 7, 1.00f);
+
+Zone(TEXT("People watch: The whiteout"), 5.65f, 7.3f);
+	Site(TEXT("PplWatchFinishR"), 1, 42.0f, 8, 0, 0.60f);     // right: finish stand, lift queue, bank, groomer in turn
+	Site(TEXT("PplWatchLiftR"), 1, 42.0f, 8, 4, 0.60f);
+	Site(TEXT("PplWatchBankAR"), 1, 42.0f, 8, 1, 0.60f);
+	Site(TEXT("PplWatchGroomerR"), 1, 42.0f, 8, 5, 0.60f);
+	Site(TEXT("PplWatchBankBL"), -1, 42.0f, 8, 1, 0.60f);     // left: the same cast, other slots
+	Site(TEXT("PplWatchFinishL"), -1, 42.0f, 8, 5, 0.60f);
+	Site(TEXT("PplWatchLiftL"), -1, 42.0f, 8, 3, 0.60f);
+	Site(TEXT("PplWatchBankAL"), -1, 42.0f, 8, 7, 0.60f);
+	Site(TEXT("PplWatchTowerR"), 1, 55.0f, 12, 1, 1.00f);     // flag towers further out
+	Site(TEXT("PplWatchTowerL"), -1, 55.0f, 12, 7, 1.00f);
+
+Zone(TEXT("People watch: The valley run"), 7.3f, 8.94f);
+	Site(TEXT("PplWatchFinishR"), 1, 42.0f, 8, 0, 0.60f);     // right: finish stand, lift queue, bank, groomer in turn
+	Site(TEXT("PplWatchLiftR"), 1, 42.0f, 8, 4, 0.60f);
+	Site(TEXT("PplWatchBankAR"), 1, 42.0f, 8, 1, 0.60f);
+	Site(TEXT("PplWatchGroomerR"), 1, 42.0f, 8, 5, 0.60f);
+	Site(TEXT("PplWatchBankBL"), -1, 42.0f, 8, 1, 0.60f);     // left: the same cast, other slots
+	Site(TEXT("PplWatchFinishL"), -1, 42.0f, 8, 5, 0.60f);
+	Site(TEXT("PplWatchLiftL"), -1, 42.0f, 8, 3, 0.60f);
+	Site(TEXT("PplWatchBankAL"), -1, 42.0f, 8, 7, 0.60f);
+	Site(TEXT("PplWatchTowerR"), 1, 55.0f, 12, 1, 1.00f);     // flag towers further out
+	Site(TEXT("PplWatchTowerL"), -1, 55.0f, 12, 7, 1.00f);
+
+Zone(TEXT("People watch: The resort"), 14.3f, 17.0f);
+	Site(TEXT("PplWatchFinishR"), 1, 42.0f, 8, 0, 0.60f);     // right: finish stand, lift queue, bank, groomer in turn
+	Site(TEXT("PplWatchLiftR"), 1, 42.0f, 8, 4, 0.60f);
+	Site(TEXT("PplWatchBankAR"), 1, 42.0f, 8, 1, 0.60f);
+	Site(TEXT("PplWatchGroomerR"), 1, 42.0f, 8, 5, 0.60f);
+	Site(TEXT("PplWatchBankBL"), -1, 42.0f, 8, 0, 0.60f);     // left: the same cast, other slots
+	Site(TEXT("PplWatchFinishL"), -1, 42.0f, 8, 4, 0.60f);
+	Site(TEXT("PplWatchLiftL"), -1, 42.0f, 8, 2, 0.60f);
+	Site(TEXT("PplWatchBankAL"), -1, 42.0f, 8, 6, 0.60f);
+	Site(TEXT("PplWatchTowerL"), -1, 55.0f, 12, 7, 1.00f);
+
+Zone(TEXT("People watch: The last lifts"), 22.4f, 99.0f);
+	Site(TEXT("PplWatchFinishR"), 1, 42.0f, 8, 0, 0.60f);     // right: finish stand, lift queue, bank, groomer in turn
+	Site(TEXT("PplWatchLiftR"), 1, 42.0f, 8, 4, 0.60f);
+	Site(TEXT("PplWatchBankAR"), 1, 42.0f, 8, 1, 0.60f);
+	Site(TEXT("PplWatchGroomerR"), 1, 42.0f, 8, 5, 0.60f);
+	Site(TEXT("PplWatchBankBL"), -1, 42.0f, 8, 0, 0.60f);     // left: the same cast, other slots
+	Site(TEXT("PplWatchFinishL"), -1, 42.0f, 8, 4, 0.60f);
+	Site(TEXT("PplWatchLiftL"), -1, 42.0f, 8, 2, 0.60f);
+	Site(TEXT("PplWatchBankAL"), -1, 42.0f, 8, 6, 0.60f);
+	Site(TEXT("PplWatchTowerR"), 1, 55.0f, 12, 1, 1.00f);     // flag towers further out
+	Site(TEXT("PplWatchTowerL"), -1, 55.0f, 12, 7, 1.00f);
+
+Zone(TEXT("People watch: Black diamond"), 4.02f, 5.65f);
+	Site(TEXT("PplWatchTowerR"), 1, 44.0f, 10, 1, 1.00f);     // flag towers on the open ridge
+	Site(TEXT("PplWatchBankAR"), 1, 42.0f, 10, 4, 0.60f);
+	Site(TEXT("PplWatchGroomerR"), 1, 42.0f, 10, 9, 0.60f);
+	Site(TEXT("PplWatchBankBL"), -1, 42.0f, 10, 2, 0.60f);
+	Site(TEXT("PplWatchTowerL"), -1, 44.0f, 10, 7, 1.00f);
+	Site(TEXT("PplWatchGroomerL"), -1, 42.0f, 10, 6, 0.60f);
+
+Zone(TEXT("People watch: The white ridge"), 11.6f, 14.3f);
+	Site(TEXT("PplWatchTowerR"), 1, 44.0f, 10, 1, 1.00f);     // flag towers on the open ridge
+	Site(TEXT("PplWatchBankAR"), 1, 42.0f, 10, 4, 0.60f);
+	Site(TEXT("PplWatchGroomerR"), 1, 42.0f, 10, 9, 0.60f);
+	Site(TEXT("PplWatchBankBL"), -1, 42.0f, 10, 2, 0.60f);
+	Site(TEXT("PplWatchTowerL"), -1, 44.0f, 10, 7, 1.00f);
+	Site(TEXT("PplWatchGroomerL"), -1, 42.0f, 10, 6, 0.60f);
+
+Zone(TEXT("People watch: The high ridge"), 19.7f, 22.4f);
+	Site(TEXT("PplWatchTowerR"), 1, 44.0f, 10, 1, 1.00f);     // flag towers on the open ridge
+	Site(TEXT("PplWatchBankAR"), 1, 42.0f, 10, 4, 0.60f);
+	Site(TEXT("PplWatchGroomerR"), 1, 42.0f, 10, 9, 0.60f);
+	Site(TEXT("PplWatchBankBL"), -1, 42.0f, 10, 2, 0.60f);
+	Site(TEXT("PplWatchTowerL"), -1, 44.0f, 10, 7, 1.00f);
+	Site(TEXT("PplWatchGroomerL"), -1, 42.0f, 10, 6, 0.60f);
+
+Zone(TEXT("People watch: Avalanche chute"), 2.43f, 2.96f);
+	Site(TEXT("PplWatchTowerR"), 1, 30.0f, 8, 2, 0.60f);     // in front of the ice walls (34 m): a tower, a bank, a groomer
+	Site(TEXT("PplWatchBankAR"), 1, 30.5f, 8, 3, 0.60f);
+	Site(TEXT("PplWatchGroomerR"), 1, 30.0f, 8, 6, 0.60f);
+	Site(TEXT("PplWatchBankBL"), -1, 30.5f, 8, 0, 0.60f);
+	Site(TEXT("PplWatchTowerL"), -1, 30.0f, 8, 1, 0.60f);
+
+Zone(TEXT("People watch: The super pipe"), 2.96f, 4.02f);
+	Site(TEXT("PplWatchTowerR"), 1, 30.0f, 8, 2, 0.60f);     // in front of the ice walls (34 m): a tower, a bank, a groomer
+	Site(TEXT("PplWatchBankAR"), 1, 30.5f, 8, 3, 0.60f);
+	Site(TEXT("PplWatchGroomerR"), 1, 30.0f, 8, 6, 0.60f);
+	Site(TEXT("PplWatchBankBL"), -1, 30.5f, 8, 0, 0.60f);
+	Site(TEXT("PplWatchTowerL"), -1, 30.0f, 8, 1, 0.60f);
+
+Zone(TEXT("People watch: The Abominable's glacier"), 8.94f, 11.6f);
+	Site(TEXT("PplWatchTowerR"), 1, 30.0f, 8, 0, 0.60f);     // in front of the ice walls (34 m): a tower, a bank, a groomer
+	Site(TEXT("PplWatchBankAR"), 1, 30.5f, 8, 1, 0.60f);
+	Site(TEXT("PplWatchGroomerR"), 1, 30.0f, 8, 4, 0.60f);
+	Site(TEXT("PplWatchBankBL"), -1, 30.5f, 8, 2, 0.60f);
+	Site(TEXT("PplWatchTowerL"), -1, 30.0f, 8, 3, 0.60f);
+
+Zone(TEXT("People watch: The ice again"), 17.0f, 19.7f);
+	Site(TEXT("PplWatchTowerR"), 1, 30.0f, 8, 2, 0.60f);     // in front of the ice walls (34 m): a tower, a bank, a groomer
+	Site(TEXT("PplWatchBankAR"), 1, 30.5f, 8, 3, 0.60f);
+	Site(TEXT("PplWatchGroomerR"), 1, 30.0f, 8, 6, 0.60f);
+	Site(TEXT("PplWatchBankBL"), -1, 30.5f, 8, 0, 0.60f);
+	Site(TEXT("PplWatchTowerL"), -1, 30.0f, 8, 1, 0.60f);
+
+Zone(TEXT("People watch: under the chute's corkscrew"), 2.51f, 2.685f);
+	Far(WATCH("Tower_A"), 46.0f, 47.0f, 3, 1, 1.f, 1.f, 0.f, 1, 0.80f, 0.f);
+	Far(WATCH("Bank_A"), 46.0f, 47.0f, 3, 2, 1.f, 1.f, 0.f, 1, 0.80f, 0.f);
+	Far(WATCH("Tower_A"), 46.0f, 47.0f, 3, 0, 1.f, 1.f, 0.f, -1, 0.80f, 0.f);
+	Far(WATCH("Bank_B"), 46.0f, 47.0f, 3, 1, 1.f, 1.f, 0.f, -1, 0.80f, 0.f);
+
+Zone(TEXT("People watch: under Black diamond's loop"), 4.085f, 4.37f);
+	Far(WATCH("Tower_A"), 46.0f, 47.0f, 3, 2, 1.f, 1.f, 0.f, 1, 0.80f, 0.f);
+	Far(WATCH("Bank_A"), 46.0f, 47.0f, 3, 0, 1.f, 1.f, 0.f, 1, 0.80f, 0.f);
+	Far(WATCH("Tower_A"), 46.0f, 47.0f, 3, 1, 1.f, 1.f, 0.f, -1, 0.80f, 0.f);
+	Far(WATCH("Bank_B"), 46.0f, 47.0f, 3, 2, 1.f, 1.f, 0.f, -1, 0.80f, 0.f);
+
+Zone(TEXT("People watch: under Black diamond's corkscrew"), 5.225f, 5.4f);
+	Far(WATCH("Tower_A"), 46.0f, 47.0f, 3, 0, 1.f, 1.f, 0.f, 1, 0.80f, 0.f);
+	Far(WATCH("Bank_A"), 46.0f, 47.0f, 3, 1, 1.f, 1.f, 0.f, 1, 0.80f, 0.f);
+	Far(WATCH("Tower_A"), 46.0f, 47.0f, 3, 2, 1.f, 1.f, 0.f, -1, 0.80f, 0.f);
+	Far(WATCH("Bank_B"), 46.0f, 47.0f, 3, 0, 1.f, 1.f, 0.f, -1, 0.80f, 0.f);
+
+Zone(TEXT("People watch: under the whiteout's loop"), 6.87f, 7.155f);
+	Far(WATCH("Tower_A"), 46.0f, 47.0f, 3, 1, 1.f, 1.f, 0.f, 1, 0.80f, 0.f);
+	Far(WATCH("Bank_A"), 46.0f, 47.0f, 3, 2, 1.f, 1.f, 0.f, 1, 0.80f, 0.f);
+	Far(WATCH("Tower_A"), 46.0f, 47.0f, 3, 0, 1.f, 1.f, 0.f, -1, 0.80f, 0.f);
+	Far(WATCH("Bank_B"), 46.0f, 47.0f, 3, 1, 1.f, 1.f, 0.f, -1, 0.80f, 0.f);
+
+Zone(TEXT("People watch: under the valley's corkscrew"), 7.215f, 7.385f);
+	Far(WATCH("Tower_A"), 46.0f, 47.0f, 3, 2, 1.f, 1.f, 0.f, 1, 0.80f, 0.f);
+	Far(WATCH("Bank_A"), 46.0f, 47.0f, 3, 0, 1.f, 1.f, 0.f, 1, 0.80f, 0.f);
+	Far(WATCH("Tower_A"), 46.0f, 47.0f, 3, 1, 1.f, 1.f, 0.f, -1, 0.80f, 0.f);
+	Far(WATCH("Bank_B"), 46.0f, 47.0f, 3, 2, 1.f, 1.f, 0.f, -1, 0.80f, 0.f);
+#undef WATCH
+// ---- END watch ----
+}

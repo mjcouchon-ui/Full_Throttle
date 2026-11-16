@@ -5,11 +5,11 @@ stalls). They stand on the ground behind the verge's hoarding, so from the road 
 adds the park's own cast, and everything in it is RAISED, MASSED, COLOURED and MOVING, because that is what reads
 from a road with a metre of barrier at 120 mph:
 
-    the parade      floats and marchers in a lane 24.5 to 27.5 m out: a tiered cake float with dancers and the giraffe,
+    the parade      floats and marchers in a lane 24.9 to 27.1 m out: a tiered cake float with dancers, the giraffe and a candle,
                     stilt walkers, flag bearers and ribbon dancers, the band's wagon with the hippo conducting. They
                     travel the piece's own length and come round again.
     the mascots     three original animals in costume (a giraffe in a pink waistcoat, a lilac hippo, a mint frog):
-                    in the parade, and meeting guests on a podium under a balloon arch (a queue up the ramp).
+                    in the parade, and meeting guests on a podium under a rainbow arch (a queue up the ramp).
     the performers  a high wire 8 m up between two masts (two walkers, one under a parasol), a show stage (a kick line,
                     a trampolinist, the frog as compere), the dog show (dogs through hoops).
     the staff       mint shirt, navy trousers, pink cap, a gold sash: on a cherry picker hanging bunting, at the top
@@ -19,7 +19,9 @@ from a road with a metre of barrier at 120 mph:
                     wheeling over the stalls.
     far             an open-air theatre's stand full of people (a band of colour that hops), doves.
 
-No clown anywhere in this kit: the level's boss is MR. CHUCKLES. Nothing glows and nothing blinks. No words, no marks.
+No clown anywhere in this kit, and no balloons: the level's boss is MR. CHUCKLES, a clown who flies under a bunch of
+balloons and bombs the road with them (the one inflatable here is a whale the size of a bus). It is a night level: every piece carries a small steady glow
+(lift(), and rows of steady lamps), all of it 24 m or more from the centre line; nothing blinks. No words, no marks.
 
 Run in the editor:  import ft_people_park; ft_people_park.run()       (or run(['SM_ParkHighWire']))
 The placing rules are Source/FullThrottle/FTPeopleL4.inl.
@@ -131,16 +133,6 @@ def hold_bigflag(col, pole=CREAM, h=330.0, w=130.0):
     return f
 
 
-def hold_balloons(cols=(RED, AMBER, CYAN), up=150.0):
-    def f(m, hd, side):
-        for k, c in enumerate(cols):
-            bx = hd[0] + (k - (len(cols) - 1) / 2.0) * 30
-            top = hd[2] + up + (k % 2) * 26
-            tilt_box(m, WHITE, hd, (bx, hd[1], top - 20), 4, 4)
-            m.sphere(c, (bx, hd[1], top), 23, steps=(3, 5))
-    return f
-
-
 def hold_ribbon(col, length=150.0):
     """A wand with a long ribbon in three folds (it swings with the arm)."""
     def f(m, hd, side):
@@ -249,7 +241,7 @@ def _float_body(m, L, W, H, cols):
 
 
 def parade_a(sc):
-    """The cake float: three tiers, dancers on the deck, the giraffe on the top tier, a bunch of balloons at the back.
+    """The cake float: three tiers, dancers on the deck, the giraffe on the top tier, a great candle at the back.
     The whole float goes along the lane and comes round again."""
     r = random.Random(41)
     TR = (1700.0, 85.0)
@@ -273,13 +265,11 @@ def parade_a(sc):
             d = guest(r, wear='dress' if k % 2 == 0 else 'shorts', top=(CYAN, AMBER, '#b8ff5a')[k], bottom=(MAG, RED, NAVY)[k], hair=('pony', 'afro', 'bun')[k])
             d.update(acts[k])
             P.figure(sc, px, (-30, 36, -20)[k], z=176, yaw=(-12, 8, 20)[k], phase=r.random(), travel=TR, detail=1, **d)
-        # the balloons at the back float on their strings
-        b = sc.part(P.motion(travel=tv_of(TR), base=(0.0, 0.0), bob=-9.0, rate=0.4, phase=0.3))
-        for k, c in enumerate((RED, AMBER, CYAN, WHITE, '#b8ff5a', MAG)):
-            bx, by, bz = -335 + (k % 3) * 22, -40 + (k % 2) * 70, 420 + (k % 3) * 60 + (k // 3) * 34
-            tilt_box(b, WHITE, (-330, 0, 176), (bx, by, bz - 26), 4, 4)
-            b.sphere(c, (bx, by, bz), 34, steps=(4, 6))
-        f.box(PLUM, (-330, 0, 190), (30, 30, 30))
+        # the candle at the back, its flame swaying
+        for k in range(5):
+            f.cyl(CREAM if k % 2 == 0 else MAG, (-335, 0, 176 + k * 52), 24, 52, steps=8)
+        b = sc.part(P.motion(travel=tv_of(TR), base=(0.0, 0.0), swing=7.0, pivot=(-335.0, 0.0, 436.0), axis=0.0, rate=0.7, phase=0.3))
+        b.sphere(AMBER, (-335, 0, 472), 30, scale=(0.75, 0.75, 1.4), steps=(4, 6), glow=1.2)
         bunting(f, (-60, -96, 250), (370, -96, 250), n=7)
         for px in (-60, 370):
             f.box(GOLD, (px, -96, 214), (6, 6, 78))
@@ -314,7 +304,7 @@ def parade_b(sc):
                  **dict(walk, **guest(r, top=RED, bottom=WHITE, hat='peak', hat_col=RED, band=GOLD, sleeves='long', detail=0)))
     _stilt(sc, r, 140, -30, TR, 0.0, MAG, CYAN, arm_l='wave', arm_r='out', swing_l=-24)
     _stilt(sc, r, -120, 40, TR, 0.4, AMBER, RED, arm_l='up', arm_r='up', swing_l=14, swing_r=-14)
-    _stilt(sc, r, -380, -20, TR, 0.7, '#b8ff5a', '#8f6bff', arm_l='out', arm_r='wave', swing_r=24, hold_l=hold_balloons())
+    _stilt(sc, r, -380, -20, TR, 0.7, '#b8ff5a', '#8f6bff', arm_l='out', arm_r='wave', swing_r=24, hold_r=hold_ribbon(AMBER))
     for k, px in enumerate((-590, -720)):
         P.figure(sc, px, (40, -40)[k], arm_r='wave', swing_r=40, hold_r=hold_ribbon((MAG, CYAN)[k]), arm_l='out', swing_l=20, phase=0.3 + 0.4 * k,
                  **dict(walk, bob=9, **guest(r, wear='dress', top=(AMBER, WHITE)[k], hair='pony')))
@@ -451,7 +441,7 @@ def stage_b(sc):
 
 def _meet(kind, seed):
     def build(sc):
-        """A mascot meets its public: on a striped podium under an arch of balloons, two children hopping beside it,
+        """A mascot meets its public: on a striped podium under a rainbow arch, two children hopping beside it,
         a family coming up the ramp, a staff member taking the picture."""
         r = random.Random(seed)
         g = sc.still()
@@ -465,11 +455,11 @@ def _meet(kind, seed):
             g.box('#ffe28a', (math.cos(a) * 190, math.sin(a) * 190, 110), (13, 13, 13), glow=1.3)
         tilt_box(g, GREY_L, (-640, 0, 0), (-170, 0, 112), 150, 12)        # the ramp
         g.box(PLUM, (-400, -78, 60), (480, 6, 6))
-        cols = (MAG, CYAN, AMBER, WHITE, RED, '#b8ff5a')
-        n = 15
-        for k in range(n):                                               # the arch, behind the podium
-            a = math.pi * k / (n - 1.0)
-            g.sphere(cols[k % len(cols)], (math.cos(a) * 300, 150, 40 + math.sin(a) * 330), 34, steps=(3, 6))
+        for j, col in enumerate((MAG, AMBER, CYAN)):                      # the rainbow arch, behind the podium
+            R, n = 250.0 + j * 36.0, 10
+            for k in range(n):
+                a0, a1 = math.pi * k / float(n), math.pi * (k + 1) / float(n)
+                tilt_box(g, col, (math.cos(a0) * R, 150, 40 + math.sin(a0) * R), (math.cos(a1) * R, 150, 40 + math.sin(a1) * R), 22, 36)
         mascot(sc, kind, 0, 10, z=122, s=1.2 if kind != 'giraffe' else 1.05, phase=0.1, rate=1.1, bob=7, arm_l='wave', swing_l=-24, react=True)
         for k, px in enumerate((-105, 110)):
             P.figure(sc, px, -60, z=122, yaw=(20, -20)[k], arm_l='up', arm_r='up', swing_l=12, swing_r=-12, bob=12, rate=1.7, phase=r.random(), detail=1, **kid(r))
@@ -477,7 +467,7 @@ def _meet(kind, seed):
             f = (k + 0.5) / 3.0
             d = guest(r) if k != 1 else kid(r)
             P.figure(sc, -620 + f * 420, 0, z=f * 100, yaw=90, arm_r=('wave', 'up', 'down')[k], swing_r=(20, 10, 0)[k], bob=(0, 9, 0)[k], rate=1.3,
-                     phase=r.random(), hold_l=hold_balloons((RED, AMBER), up=120) if k == 2 else None, detail=0, **d)
+                     phase=r.random(), hold_l=P.hold_flag(CYAN) if k == 2 else None, detail=0, **d)
         P.figure(sc, 260, -150, yaw=60, arm_l='hold', arm_r='hold', hold_r=P.hold_camera(), rate=0.3, bob=-1.5, detail=1, **staff(r))
     return build
 

@@ -1,5 +1,6 @@
 #include "FTHUD.h"
 #include "FTHUDStyle.h"
+#include "FTHUDSkin.h"
 #include "FTGameMode.h"
 #include "FTGameInstance.h"
 #include "FTInput.h"
@@ -13,6 +14,9 @@
 #include "Engine/Engine.h"
 #include "CanvasItem.h"
 #include "CanvasTypes.h"
+#if WITH_EDITOR
+#include "TextureCompiler.h"   // the title logo must not stand as a placeholder while its texture is still being built
+#endif
 #include "Engine/Texture2D.h"
 #include "Kismet/GameplayStatics.h"
 #include "Math/RotationMatrix.h"
@@ -181,15 +185,15 @@ void AFTHUD::Box(float X, float Y, float Wd, float Ht, const FLinearColor& C)
 	if (Use.A >= .5f && Wd >= 20.f * S && Ht >= 10.f * S) MarkTone(FBox2D(FVector2D(X, Y), FVector2D(X + Wd, Y + Ht)), Lum(Use) > .35f ? ETone::Light : ETone::Dark);
 }
 
-/** The focus cursor: a thick pink frame with a hard shadow (6 px at 1080), inside the item's own rectangle. */
+/** The focus cursor: a pink band round the item, OUTSIDE its own rectangle, so that it never lies on the item's words
+ *  (the owner, 15 Nov: "the pink border on the selected button is cutting off the words"). Rows stand 3 px apart: the
+ *  band fits the gap between them. */
 void AFTHUD::Cursor(const FBox2D& R)
 {
 	const float X = R.Min.X, Y = R.Min.Y, Wd = R.GetSize().X, Ht = R.GetSize().Y;
-	const float Th = FMath::Min(4.f * S, Ht * .2f), Off = 2.f * S;
-	Flat(X + Wd, Y + Off, Off, Ht, Ink);
-	Flat(X + Off, Y + Ht, Wd - Off, Off, Ink);
-	Flat(X, Y, Wd, Th, Pink); Flat(X, Y + Ht - Th, Wd, Th, Pink);
-	Flat(X, Y + Th, Th, Ht - 2 * Th, Pink); Flat(X + Wd - Th, Y + Th, Th, Ht - 2 * Th, Pink);
+	const float Th = 3.f * S;
+	Flat(X - Th, Y - Th, Wd + 2 * Th, Th, Pink); Flat(X - Th, Y + Ht, Wd + 2 * Th, Th, Pink);
+	Flat(X - Th, Y, Th, Ht, Pink); Flat(X + Wd, Y, Th, Ht, Pink);
 }
 
 void AFTHUD::Frame(float X, float Y, float Wd, float Ht, const FLinearColor& C, float Th)
@@ -245,10 +249,17 @@ void AFTHUD::Plate(const FBox2D& R, const FLinearColor& Accent, const FLinearCol
 	const float Out = 2.f * S, Drop = (bSticker ? 3.f : 3.5f) * S;
 	const float X = R.Min.X, Y = R.Min.Y;
 	const float Wd = R.GetSize().X - (bSticker ? Drop : 0.f), Ht = R.GetSize().Y - (bSticker ? Drop : 0.f);
-	Flat(X + Drop, Y + Drop, Wd, Ht, bSticker ? Alpha(Ink, .55f) : Ink);
-	Flat(X, Y, Wd, Ht, Ink);
 	const FLinearColor Stock = !Same(Fill, Ink) ? Fill : bSticker ? Ink : bPaper ? Paper : SlateFill;
-	Flat(X + Out, Y + Out, Wd - 2 * Out, Ht - 2 * Out, Stock);
+	if (bSticker)
+	{
+		Flat(X + Drop, Y + Drop, Wd, Ht, Alpha(Ink, .55f));
+		Flat(X, Y, Wd, Ht, Ink);
+		Flat(X + Out, Y + Out, Wd - 2 * Out, Ht - 2 * Out, Stock);
+	}
+	// In the menus the stock is the kit's: paper with its grain, or clapper-slate black with chalk dust and a chalk
+	// hairline, each in its ink outline on its hard shadow (FTSkin draws flat boxes while its textures are missing).
+	else if (Lum(Stock) > .35f) FTSkin::PaperPanel(Canvas, S, X, Y, Wd, Ht, Stock, Fade);
+	else FTSkin::SlatePanel(Canvas, S, X, Y, Wd, Ht, Fade, 7.f, Stock);
 	MarkTone(Rect(X, Y, Wd, Ht), Lum(Stock) > .35f ? ETone::Light : ETone::Dark);
 	if (bSticker)
 	{
@@ -382,7 +393,10 @@ AFTHUD::EControl AFTHUD::ControlState(const FBox2D& R, bool bFocus, bool bEnable
 	if (!bEnabled) return EControl::Disabled;
 	const AFTPlayerController* PC = Cast<AFTPlayerController>(GetOwningPlayerController());
 	if (PC && PC->bMenuMouse && !PC->UsesGamepadPrompts() && PC->MouseIn(R))
+	{
+		bPointerOverControl = true;
 		return PC->IsInputKeyDown(EKeys::LeftMouseButton) ? EControl::Pressed : EControl::Hover;
+	}
 	return bFocus ? EControl::Focus : EControl::Idle;
 }
 
@@ -397,9 +411,11 @@ FBox2D AFTHUD::Control(const FBox2D& R, const FString& Label, const FString& Hin
 	const FVector2D Size = R.GetSize();
 	const float X = R.Min.X + Sink, Y = R.Min.Y + Sink;
 	Flat(R.Min.X + Drop, R.Min.Y + Drop, Size.X, Size.Y, bHot ? Pink : Ink);
-	Flat(X, Y, Size.X, Size.Y, Ink);
 	const FLinearColor Stock = !bEnabled ? Mix(Steel, SlateFill, .65f) : bHot ? Active : Steel;
-	Flat(X + Out, Y + Out, Size.X - 2 * Out, Size.Y - 2 * Out, Stock);
+	// the body is the kit's stock, its own shadow off: the button's shadow above stays put while the body sinks
+	if (bEnabled && bHot) FTSkin::PaperPanel(Canvas, S, X, Y, Size.X, Size.Y, Stock, Fade, 0.f);
+	else FTSkin::SlatePanel(Canvas, S, X, Y, Size.X, Size.Y, Fade, 0.f, Stock, false);
+	if (!bEnabled && FTSkin::Texture(FTSkin::ETex::Hatch)) FTSkin::Hatch(Canvas, S, X + Out, Y + Out, Size.X - 2 * Out, Size.Y - 2 * Out, Fade * .5f);
 	MarkTone(Rect(X, Y, Size.X, Size.Y), bEnabled && bHot ? ETone::Light : ETone::Dark);
 	float StripeW = 0.f;
 	if (Size.X >= 96.f * S)
@@ -409,7 +425,8 @@ FBox2D AFTHUD::Control(const FBox2D& R, const FString& Label, const FString& Hin
 		const int32 Steps = 4;
 		const float StepH = (Size.Y - 2 * Out) / Steps;
 		const FLinearColor Light = !bEnabled ? Grey : bHot ? Yellow : White;
-		for (int32 I = 0; I < Steps; ++I) Flat(X + Out, Y + Out + I * StepH, StripeW, StepH, I % 2 == 0 ? Light : Ink);
+		if (FTSkin::Texture(FTSkin::ETex::HazardStripes)) FTSkin::HazardStripes(Canvas, S, X + Out, Y + Out, StripeW, Size.Y - 2 * Out, Light, Fade);
+		else for (int32 I = 0; I < Steps; ++I) Flat(X + Out, Y + Out + I * StepH, StripeW, StepH, I % 2 == 0 ? Light : Ink);
 		Flat(X + Out + StripeW, Y + Out, 1.34f * S, Size.Y - 2 * Out, Ink);
 		StripeW += 1.34f * S;
 	}
@@ -523,6 +540,65 @@ void AFTHUD::Marquee(const FBox2D& R)
 		const float Ly = Y + Edge + (Ht - 2 * Edge - Lamp) * I / Down;
 		Flat(X + Edge, Ly, Lamp, Lamp, (I + Chase + 2) % 3 == 0 ? White : Yellow);
 		Flat(X + Wd - Edge - Lamp, Ly, Lamp, Lamp, (I + Chase) % 3 == 0 ? White : Yellow);
+	}
+}
+
+/** A band of the clapper's stripes: the kit's narrow stripes tinted Light over their ink; blocks of Light and Dark while
+ *  the kit is missing. */
+void AFTHUD::Stripes(float X, float Y, float Wd, float Ht, const FLinearColor& Light, const FLinearColor& Dark)
+{
+	if (FTSkin::Texture(FTSkin::ETex::HazardStripes))
+	{
+		FTSkin::HazardStripes(Canvas, S, X, Y, Wd, Ht, Light, Fade, .75f);
+		return;
+	}
+	int32 Index = 0;
+	for (float Bx = X; Bx + 10.f * S <= X + Wd; Bx += 16.f * S) Flat(Bx, Y, 10.f * S, Ht, Index++ % 2 == 0 ? Dark : Light);
+}
+
+/** A row of key hints ("KEYS   ACTION     KEYS   ACTION"): the same string, in the same place, with a key cap of the
+ *  kit under each key, sized to it (light caps on a dark panel, dark caps on paper and on the wall). Anything that is
+ *  not such a row (a message, a string that had to be squeezed into its width) is printed as it always was. */
+void AFTHUD::HintRow(const FString& Str, float X, float Y, const FLinearColor& Color, float Height, int32 Align, bool bDisplay, float MaxWidth)
+{
+	struct FSpan { int32 At, Len, ActionAt; };
+	TArray<FSpan, TInlineAllocator<8>> Spans;
+	const float Whole = TextSize(Str, Height, bDisplay).X;
+	bool bRow = Str.Contains(TEXT("  ")) && !(MaxWidth > 0.f && Whole > MaxWidth);
+	for (int32 Start = 0; bRow && Start < Str.Len(); )
+	{
+		int32 End = Str.Find(TEXT("     "), ESearchCase::CaseSensitive, ESearchDir::FromStart, Start);
+		if (End == INDEX_NONE) End = Str.Len();
+		const FString One = Str.Mid(Start, End - Start);
+		const int32 Split = One.Find(TEXT("  "));
+		int32 Action = Split;
+		while (Action != INDEX_NONE && Action < One.Len() && One[Action] == TEXT(' ')) ++Action;
+		if (Split <= 0 || Split > 26 || Action >= One.Len() || One.Mid(Action).TrimEnd().Contains(TEXT("  "))) bRow = false;
+		else Spans.Add(FSpan{ Start, Split, Start + Action });
+		Start = End + 5;
+	}
+	if (!bRow || Spans.IsEmpty())
+	{
+		Print(Str, X, Y, Color, Height, Align, bDisplay, MaxWidth);
+		return;
+	}
+	const float RowX = X - (Align == 1 ? Whole * .5f : Align == 2 ? Whole : 0.f);
+	const float CapH = FMath::Clamp((FMath::Max(Height, 15.4f) + 4.f) * S, 28.f * FTSkin::KitPx(S), 44.f * FTSkin::KitPx(S));
+	for (int32 I = 0; I < Spans.Num(); ++I)
+	{
+		const FSpan& Span = Spans[I];
+		const FString Name = Str.Mid(Span.At, Span.Len);
+		// (a width is always measured up to a letter, never up to a space: where each piece stands is where it stood)
+		const float NameW = TextSize(Name, Height, bDisplay).X;
+		const float NameX = RowX + TextSize(Str.Left(Span.At + Span.Len), Height, bDisplay).X - NameW;
+		const float CapW = FTSkin::KeyCapWidth(NameW, CapH), CapX = NameX - (CapW - NameW) * .5f, CapY = Y - 1.f * S;
+		const bool bOnDark = ToneAt(NameX + NameW * .5f, Y + Height * S * .5f) == ETone::Dark;
+		FTSkin::KeyCap(Canvas, S, CapX, CapY, NameW, CapH, bOnDark, Fade);
+		MarkTone(Rect(CapX, CapY, CapW, CapH), bOnDark ? ETone::Light : ETone::Dark);
+		Print(Name, NameX, Y, Color, Height, 0, bDisplay);
+		const int32 ActionEnd = I + 1 < Spans.Num() ? Spans[I + 1].At : Str.Len();
+		const float ActionX = RowX + TextSize(Str.Left(Span.ActionAt + 1), Height, bDisplay).X - TextSize(Str.Mid(Span.ActionAt, 1), Height, bDisplay).X;
+		Print(Str.Mid(Span.ActionAt, ActionEnd - Span.ActionAt).TrimEnd(), ActionX, Y, Color, Height, 0, bDisplay);
 	}
 }
 
@@ -644,7 +720,7 @@ void AFTHUD::Backdrop(float Dim, float MattePx, bool bWall)
 	WallNow = bReducedMotion ? (bWall ? 1.f : 0.f) : FMath::FInterpTo(WallNow, bWall ? 1.f : 0.f, Dt, DimRate);
 	if (WallNow > .004f)
 	{
-		Grad(0, 0, W, H, Alpha(Lilac, WallNow), Alpha(Peach, WallNow), false);
+		FTSkin::Wall(Canvas, S, WallNow);   // the kit's lit cyclorama (its own gradient while the textures are missing)
 		if (WallNow >= .5f) MarkTone(Rect(0, 0, W, H), ETone::Light);
 	}
 	MatteNow = MatteNow < 0.f || bReducedMotion ? MattePx : FMath::FInterpTo(MatteNow, MattePx, Dt, MatteRate);
@@ -669,7 +745,7 @@ void AFTHUD::OverlayDim(float Dim)
 	if (bOverWall)
 	{
 		const float Up = FMath::Clamp(OverDimNow / .8f, 0.f, 1.f);
-		Grad(0, 0, W, H, Alpha(Lilac, Up), Alpha(Peach, Up), false);
+		FTSkin::Wall(Canvas, S, Up);
 		if (Up >= .5f) MarkTone(Rect(0, 0, W, H), ETone::Light);
 	}
 	else Box(0, 0, W, H, Alpha(Deep, OverDimNow));
@@ -708,6 +784,7 @@ void AFTHUD::DrawHUD()
 	Blocks.Reset();
 	Areas.Reset();
 	bSticker = false;
+	bPointerOverControl = false;
 	bReducedMotion = G->GI() && G->GI()->bReducedMotion;
 	UpdateMenuMotion(*G);
 	if (SeenPhase != static_cast<uint8>(G->Phase))
@@ -725,9 +802,21 @@ void AFTHUD::DrawHUD()
 		// the skin's display face (Bungee, SIL Open Font License 1.1); Orbitron stands in if it is not there
 		FBun = Cast<UFont>(StaticLoadObject(UFont::StaticClass(), nullptr, TEXT("/Game/UI/Fonts/F_Bungee"), nullptr, LOAD_NoWarn | LOAD_Quiet));
 		TLogo = Cast<UTexture2D>(StaticLoadObject(UTexture2D::StaticClass(), nullptr, TEXT("/Game/UI/Title/T_TitleLogo"), nullptr, LOAD_NoWarn | LOAD_Quiet));
+#if WITH_EDITOR
+		// (an uncooked game builds a texture in the background and shows a 32 x 32 placeholder until it is done: seen on
+		// 15 Nov, the logo stood blank for the whole title. One texture, once: wait for it here.)
+		if (TLogo)
+		{
+			const bool bWas = FTextureCompilingManager::Get().IsCompilingTexture(TLogo);
+			UTexture* LogoWait[] = { TLogo.Get() };
+			FTextureCompilingManager::Get().FinishCompilation(LogoWait);
+			UE_LOG(LogFT, Display, TEXT("FT TITLE logo compiling=%d size after=%dx%d"), bWas ? 1 : 0, TLogo->GetSizeX(), TLogo->GetSizeY());
+		}
+#endif
 		OrbitHeight = FMath::Max(1.f, float(MeasureF(FOrb ? FOrb.Get() : FD.Get(), TEXT("Hg"), 1.f).Y / S));
 		RajHeight = FMath::Max(1.f, float(MeasureF(FRaj ? FRaj.Get() : FB.Get(), TEXT("Hg"), 1.f).Y / S));
 		BunHeight = FMath::Max(1.f, float(MeasureF(DisplayFace(), TEXT("Hg"), 1.f).Y / S));
+		UE_LOG(LogFT, Display, TEXT("FT SKIN kit textures=%d"), FTSkin::Preload());   // all of the kit now, so nothing loads mid-race
 		UE_LOG(LogFT, Display, TEXT("FT TITLE assets orbitron=%d rajdhani=%d logo=%d bungee=%d"), FOrb ? 1 : 0, FRaj ? 1 : 0, TLogo ? 1 : 0, FBun ? 1 : 0);
 	}
 	// 3.0 attract mode: the game runs underneath (no race HUD), the wipe, then the title on top
@@ -776,6 +865,28 @@ void AFTHUD::DrawHUD()
 		if (GI->bMuted) Print(TEXT("MUTED"), 12 * S, H - 22 * S, Grey, LabelSize);
 	}
 	LastPhaseT = G->PhaseT;
+	DrawPointer(G);
+}
+
+/** The mouse pointer, last of all (FTCursor): only on a screen that takes the mouse, and only while the mouse is what
+ *  the player is using. Amber over anything that can be clicked, sunk and pink while the button is down. */
+void AFTHUD::DrawPointer(AFTGameMode* G)
+{
+	const AFTPlayerController* PC = Cast<AFTPlayerController>(GetOwningPlayerController());
+	if (!PC || !PC->PointerShown()) return;
+	const FVector2D At = PC->MousePos();
+	if (At.X < 0.f) return;
+	bool bOver = bPointerOverControl;
+	const auto Any = [&](const TArray<FBox2D>& Rects) { for (const FBox2D& R : Rects) if (R.bIsValid && R.IsInside(At)) bOver = true; };
+	const auto One = [&](const FBox2D& R) { if (R.bIsValid && R.IsInside(At)) bOver = true; };
+	if (G->Overlay != EFTOverlay::None) Any(G->OverlayRects);
+	else if (G->bAttract || G->Phase == EFTPhase::Title) { Any(G->TitleRowRects); Any(G->TitleBtnRects); }
+	else if (G->Phase == EFTPhase::Reel) One(G->ReelContinueRect);
+	else if (G->Phase == EFTPhase::Rating || G->Phase == EFTPhase::Paycheck) One(G->ResultsContinueRect);
+	else if (G->Phase == EFTPhase::PreProduction) { Any(G->TileRects); Any(G->TabRects); One(G->ReadyRect); One(G->BuyRect); One(G->UndoRect); }
+	const FTCursor::EState State = PC->IsInputKeyDown(EKeys::LeftMouseButton) ? FTCursor::EState::Pressed : bOver ? FTCursor::EState::Hover : FTCursor::EState::Normal;
+	if (State != PointerState) { PointerState = State; UE_LOG(LogFT, Display, TEXT("FT POINTER state=%d at=%.0f,%.0f"), int32(State), At.X, At.Y); }
+	FTCursor::Draw(Canvas, At, S, State, T, bReducedMotion);
 }
 
 FVector2D AFTHUD::MeasureF(UFont* F, const FString& Str, float Scale)
@@ -806,11 +917,17 @@ void AFTHUD::DrawTitle(AFTGameMode* G)
 	const bool bInteractive = G->Overlay == EFTOverlay::None;
 	const float X = Left + Safe * S, Y = (H - CanvasHeight * S) * .5f;
 	const float BoardW = 442 * S, ActionY = H - 88 * S;
-	const FLinearColor Night = Alpha(Deep, 0.f);
 
 	Backdrop(G->bAttract ? 0.f : .46f, 0.f);
-	Grad(0, 0, X + BoardW + 160 * S, H, Deep, Night, true);
-	Grad(0, H - 135 * S, W, 135 * S, Night, Deep, false);
+	// The wall (the ruling's item 4): the lit cyclorama stands only behind the shoot list, the left two fifths, and
+	// behind the action bar; the rest of the screen is the live view. (Text printed on it comes out in ink.)
+	const float WallW = X + BoardW + 22 * S, BarY = ActionY - 16 * S;
+	FTSkin::WallRect(Canvas, 0.f, 0.f, WallW, H, Fade);
+	FTSkin::WallRect(Canvas, WallW, BarY, W - WallW, H - BarY, Fade);
+	Flat(WallW, 0.f, 2.f * S, BarY, Ink);
+	Flat(WallW, BarY, W - WallW, 2.f * S, Ink);
+	MarkTone(Rect(0.f, 0.f, WallW, H), ETone::Light);
+	MarkTone(Rect(WallW, BarY, W - WallW, H - BarY), ETone::Light);
 
 	// The title arrives: the board from the left with the logo on it, the shoots dealt down it one after another, the
 	// actions up from the bottom edge (about half a second in all). The time is the game's time on the title, which is
@@ -830,28 +947,23 @@ void AFTHUD::DrawTitle(AFTGameMode* G)
 		Plate(Rect(X, Y + 25 * S, BoardW, ActionY - Y - 41 * S), Pink, Ink);
 		AccentSweep(Rect(X + 1 * S, Y + 26 * S, BoardW - 2 * S, 4 * S), Entry, Pink, MenuEntrance);
 		const float In = bReducedMotion || !bInteractive ? 1.f : EaseOut(Entry - .05f, MenuEntrance);
-		const float LogoW = 395 * S;
+		const float LogoW = 418 * S;
 		if (TLogo && TLogo->GetResource())
 		{
-			const float LogoH = LogoW * TLogo->GetSizeY() / FMath::Max(1, TLogo->GetSizeX());
-			const float LogoX = X + (BoardW - LogoW) * .5f, LogoY = Y + (47.f + 12.f * (1.f - In)) * S;
-			{
-				// the logo settles into place a touch larger than it ends
-				FPivot Settle(*this, FVector2D(LogoX + LogoW * .5f, LogoY + LogoH * .5f), 1.f + .07f * (1.f - In));
-				FCanvasTileItem Logo(FVector2D(LogoX, LogoY), TLogo->GetResource(), FVector2D(LogoW, LogoH), Alpha(FLinearColor::White, (.74f + .26f * In) * Fade));
-				Logo.BlendMode = SE_BLEND_Translucent;
-				Canvas->DrawItem(Logo);
-			}
-			// (No glint across the chrome: an additive tile adds the texture's colour where its alpha is zero as well, so
-			// a band of the logo "added to itself" lights a rectangle round the lettering. Seen in the frames of 15 Nov.)
+			// the logo fills the masthead, down to the clapper's stripes (the tagline that stood under it is gone)
+			const float Asp = TLogo->GetSizeX() > 0 && TLogo->GetSizeY() > 0 ? float(TLogo->GetSizeY()) / float(TLogo->GetSizeX()) : .42f;
+			const float LogoH = FMath::Min(LogoW * Asp, 162.f * S), LogoDrawW = LogoH / Asp;
+			const float LogoX = X + (BoardW - LogoDrawW) * .5f, LogoY = Y + 36.f * S + (166.f * S - LogoH) * .5f;
+			FCanvasTileItem Logo(FVector2D(LogoX, LogoY), TLogo->GetResource(), FVector2D(LogoDrawW, LogoH), FLinearColor(1.f, 1.f, 1.f, (.74f + .26f * In) * Fade));
+			Logo.BlendMode = SE_BLEND_Translucent;
+			Canvas->DrawItem(Logo);
+			if (!bLogoSaid) { bLogoSaid = true; UE_LOG(LogFT, Display, TEXT("FT TITLE logo size=%dx%d drawn=%.0fx%.0f at %.0f,%.0f fade=%.2f"), TLogo->GetSizeX(), TLogo->GetSizeY(), LogoDrawW, LogoH, LogoX, LogoY, Fade); }
 		}
 		else Print(TEXT("FULL THROTTLE"), X + BoardW * .5f, Y + 89 * S, White, Heading, 1, true, BoardW - 30 * S);
 
-		Print(TEXT("AN 80s SPY CAR CHASE"), X + 16 * S, Y + 183 * S, Grey, Body);
 		// the clapper's stripes across the board, between the masthead and the shoot list (TODO kit: the clapper arm)
-		for (int32 I = 0; I < 21; ++I) Flat(X + (16 + I * 19.5f) * S, Y + 206 * S, 12 * S, 8 * S, White);
+		Stripes(X + 16 * S, Y + 205 * S, BoardW - 32 * S, 9 * S, White, Steel);
 		Print(TEXT("SELECT YOUR SHOOT"), X + 16 * S, Y + 222 * S, White, Strong, 0, true);
-		Print(TEXT("1–8  /  UP-DOWN  /  D-PAD"), X + BoardW - 16 * S, Y + 224 * S, Grey, LabelSize, 2);
 		for (int32 I = 0; I < Count; ++I)
 		{
 			const FFTLevelDef& Level = FTData::Level(I);
@@ -916,46 +1028,18 @@ void AFTHUD::DrawTitle(AFTGameMode* G)
 		}
 	}
 
+	if (Career)
 	{
-		// The storyboard sheet (the ruling's item 4): a hollow paper frame taped over the live view, which is not touched;
-		// the chosen shoot on its caption strip; and under it a memo, the home of what CONTINUE would resume and of the
-		// state of the save (main's two lines, word for word; they stood under the shoot list).
-		// (TODO kit: the sheet, its tape and the memo are FTSkin textures; the boss ringed in grease pencil is baked.)
-		FBlock Sheet(*this, In01(Entry, .18f, DealTime), 30 * S, 0.f);
-		const float Sx = X + BoardW + 44 * S, Sr = Right - (Safe - 4.f) * S, Sy = Y + 12 * S, Sb = Y + 466 * S;
-		const float Rim = 12 * S, Strip = 46 * S, Sw = Sr - Sx, Sh = Sb - Sy;
-		Flat(Sx + 3.5f * S, Sb, Sw, 3.5f * S, Ink);                       // the hard shadow, under and to the right
-		Flat(Sr, Sy + 3.5f * S, 3.5f * S, Sh, Ink);
-		Flat(Sx, Sy, Sw, Rim, Paper); Flat(Sx, Sb - Strip, Sw, Strip, Paper);
-		Flat(Sx, Sy + Rim, Rim, Sh - Rim - Strip, Paper); Flat(Sr - Rim, Sy + Rim, Rim, Sh - Rim - Strip, Paper);
-		Frame(Sx, Sy, Sw, Sh, Ink, 1.5f);
-		Frame(Sx + Rim - 1.5f * S, Sy + Rim - 1.5f * S, Sw - 2 * Rim + 3 * S, Sh - Rim - Strip + 3 * S, Ink, 1.5f);
-		MarkTone(Rect(Sx, Sb - Strip, Sw, Strip), ETone::Light);
-		for (int32 Corner2 = 0; Corner2 < 4; ++Corner2)                    // four strips of tape
-			Flat(Corner2 % 2 == 0 ? Sx - 12 * S : Sr - 34 * S, Corner2 < 2 ? Sy - 6 * S : Sb - 9 * S, 46 * S, 15 * S, Alpha(Sticky, .92f));
-		const FFTLevelDef& Chosen = FTData::Level(Selection);
-		Flat(Sx + 12 * S, Sb - Strip + 8 * S, 36 * S, 30 * S, Ink);
-		MarkTone(Rect(Sx + 12 * S, Sb - Strip + 8 * S, 36 * S, 30 * S), ETone::Dark);
-		Print(FString::Printf(TEXT("%02d"), Selection + 1), Sx + 30 * S, Sb - Strip + 13 * S, Yellow, Strong, 1, true);
-		Print(Chosen.Zone, Sx + 58 * S, Sb - Strip + 4 * S, White, Strong, 0, true, 330 * S);
-		Print(Chosen.Title, Sx + 58 * S, Sb - Strip + 26 * S, Grey, LabelSize, 0, false, 330 * S);
-		if (GI && Selection < UFTGameInstance::MaxLevels && GI->BestScore[Selection] > 0)
-			Print(FString::Printf(TEXT("BEST %s"), *Num(GI->BestScore[Selection])), Sr - 16 * S, Sb - Strip + 13 * S, Yellow, Strong, 2, true, 220 * S);
-		if (Career)
-		{
-			const FBox2D Memo = Rect(Sx + 18 * S, Sb + 14 * S, 372 * S, 62 * S);
-			Flat(Memo.Min.X + 3.5f * S, Memo.Min.Y + 3.5f * S, Memo.GetSize().X, Memo.GetSize().Y, Ink);
-			Flat(Memo.Min.X, Memo.Min.Y, Memo.GetSize().X, Memo.GetSize().Y, Ink);
-			Flat(Memo.Min.X + 1.5f * S, Memo.Min.Y + 1.5f * S, Memo.GetSize().X - 3 * S, Memo.GetSize().Y - 3 * S, Paper);
-			MarkTone(Memo, ETone::Light);
-			Flat(Memo.Min.X + 150 * S, Memo.Min.Y - 7 * S, 46 * S, 14 * S, Alpha(Sticky, .92f));
-			Print(bContinue ? Career->ContinueLabel() : TEXT("NEW CAMPAIGN READY"), Memo.Min.X + 14 * S, Memo.Min.Y + 9 * S,
-				bContinue ? Cyan : Grey, Body, 0, false, Memo.GetSize().X - 28 * S);
-			FString SaveDetail = Career->C.Updated.IsEmpty() ? TEXT("Progress saves automatically at checkpoints.") : TEXT("LAST SAVE  ") + Career->C.Updated;
-			if (Career->bRecoveredFromBackup) SaveDetail = TEXT("BACKUP RECOVERED  /  ") + Career->C.Updated;
-			if (Career->bSaveError || Career->bLoadError) SaveDetail = TEXT("SAVE NEEDS ATTENTION  /  New Game can replace it.");
-			Print(SaveDetail, Memo.Min.X + 14 * S, Memo.Min.Y + 35 * S, Career->bSaveError || Career->bLoadError ? Amber : Grey, LabelSize, 0, false, Memo.GetSize().X - 28 * S);
-		}
+		// (main) what CONTINUE would resume, and the state of the save: main's two lines, word for word, under the shoot
+		// list and the driver's chips, where main puts them. (The taped storyboard sheet that framed the live view, with
+		// its caption strip and its memo, was taken out on the owner's word of 15 Nov: the view stays clear.)
+		FBlock Told2(*this, In01(Entry, .34f, .2f));
+		const float TellY = Y + 560 * S;
+		Print(bContinue ? Career->ContinueLabel() : TEXT("NEW CAMPAIGN READY"), X + 16 * S, TellY, bContinue ? Cyan : Grey, Body, 0, false, BoardW - 32 * S);
+		FString SaveDetail = Career->C.Updated.IsEmpty() ? TEXT("Progress saves automatically at checkpoints.") : TEXT("LAST SAVE  ") + Career->C.Updated;
+		if (Career->bRecoveredFromBackup) SaveDetail = TEXT("BACKUP RECOVERED  /  ") + Career->C.Updated;
+		if (Career->bSaveError || Career->bLoadError) SaveDetail = TEXT("SAVE NEEDS ATTENTION  /  New Game can replace it.");
+		Print(SaveDetail, X + 16 * S, TellY + 24 * S, Career->bSaveError || Career->bLoadError ? Amber : Grey, LabelSize, 0, false, BoardW - 32 * S);
 	}
 
 	static const TCHAR* Actions[] = { TEXT("CONTINUE"), TEXT("NEW GAME"), TEXT("OPTIONS"), TEXT("QUIT DESKTOP"), TEXT("PLAY SELECTED"), TEXT("CONTROLS") };
@@ -979,7 +1063,8 @@ void AFTHUD::DrawTitle(AFTGameMode* G)
 			State = EControl::Pressed;
 		{
 			FBlock Dealt(*this, In01(Entry, .16f + I * .035f, .2f), 0.f, 24 * S);
-			if (I == 0) Marquee(Rect(ButtonRect.Min.X - 6 * S, ButtonRect.Min.Y - 6 * S, Bw + 12 * S, 62 * S));   // the hero action stands in lights
+			// (15 Nov: with no save the greyed CONTINUE stood in lights and read as the selected button; the lights wait for a save)
+			if (I == 0 && bContinue) FTSkin::Marquee(Canvas, S, ButtonRect.Min.X, ButtonRect.Min.Y, Bw, 50 * S, T, bReducedMotion, Fade);   // the hero action stands in lights
 			// loop run 2 cycle 4: a first launch has no save; the greyed CONTINUE said "SAVED CHECKPOINT" anyway
 			G->TitleBtnRects[I] = Control(ButtonRect, Actions[I], I == 0 && !bContinue ? TEXT("NO SAVE YET") : Hints[I], State, I == 0 ? Cyan : Pink);
 			if (bFocus && bEnabled && G->TitleActionFocus != INDEX_NONE)
@@ -992,7 +1077,7 @@ void AFTHUD::DrawTitle(AFTGameMode* G)
 	}
 	{
 		FBlock Help(*this, In01(Entry, .36f, .2f));
-		Print(G->TitleActionFocus == INDEX_NONE ? InputHint(this, TEXT("TAB"), EKeys::Gamepad_RightShoulder) + TEXT("   ACTIONS")
+		HintRow(G->TitleActionFocus == INDEX_NONE ? InputHint(this, TEXT("TAB"), EKeys::Gamepad_RightShoulder) + TEXT("   ACTIONS")
 			+ TEXT("     ") + InputHint(this, TEXT("G"), EKeys::Gamepad_Special_Left) + TEXT("   PRE-PRODUCTION")
 			: TEXT("LEFT-RIGHT   ACTIONS     ") + ConfirmHint(this) + TEXT("   SELECT     ")
 			+ InputHint(this, TEXT("TAB"), EKeys::Gamepad_RightShoulder) + TEXT("   SHOOTS     ")
@@ -1166,6 +1251,198 @@ void AFTHUD::ResetPlayFeedback(const AFTGameMode& G)
 	ComboUpAt = CountsAt = ScoreUpAt = DriftUpAt = TurboReadyAt = BossOnAt = BossHitAt = BossPhaseAt = -10.f;
 }
 
+// ============================================================================================================
+// THE RACE'S STICKERS and the flow screens (DrawPlay, DrawCard, DrawCut, DrawReel), restyled to "the studio lot,
+// inked". The targets are ui_style/kit/mock/*.png and their recipe is mock_hud.py, whose numbers are kit px
+// (1080p px): K = S / 1.5 turns one into screen px. The kit's textures and their drawing are FTHUDSkin's; what
+// follows is what those four functions share on top of it, and what stands in while a texture is missing, so that
+// no figure the player needs ever goes unshown. Layout, wording, order and timing are the ones the HUD had.
+namespace
+{
+	/** A HUD sticker in its layout rectangle (FTSkin::InkPlate: T_UI_Hud_Plate from 160 kit px high, T_UI_Hud_Bar
+	 *  below; the hard shadow is inside the rectangle) and where its slanted body is: Lx and Rx are the body's left
+	 *  and right edge at a screen row, so every row of an instrument can follow the lean. (mock_hud.py, Sticker.) */
+	struct FRaceSticker
+	{
+		float X, Y, Wd, Ht, Sc, Bh, Lean;
+		FRaceSticker(float InX, float InY, float InWd, float InHt, float Kit) : X(InX), Y(InY), Wd(InWd), Ht(InHt)
+		{
+			Sc = InHt / (InHt >= 160.f * Kit ? 256.f : 96.f);   // screen px per texel of the sticker
+			Bh = InHt - 5.f * Sc;                              // the body without the shadow under it
+			Lean = .12f * Bh;                                  // how far the top stands to the right of the foot
+		}
+		float Lx(float Row) const { return X + Lean * (1.f - FMath::Clamp((Row - Y) / Bh, 0.f, 1.f)) + 6.f * Sc; }
+		float Rx(float Row) const { return X + Wd - 10.f * Sc - Lean * FMath::Clamp((Row - Y) / Bh, 0.f, 1.f); }
+	};
+
+	// cells of the kit's icon atlas, as RaceIcon takes them
+	constexpr int32 IcoClapper = static_cast<int32>(FTSkin::EIco::Clapper), IcoRec = static_cast<int32>(FTSkin::EIco::Rec);
+	constexpr int32 IcoShield = static_cast<int32>(FTSkin::EIco::Shield), IcoBolt = static_cast<int32>(FTSkin::EIco::Bolt);
+	constexpr int32 IcoMissile = static_cast<int32>(FTSkin::EIco::Missile), IcoBullets = static_cast<int32>(FTSkin::EIco::Bullets);
+	constexpr int32 IcoWrench = static_cast<int32>(FTSkin::EIco::Wrench), IcoWarning = static_cast<int32>(FTSkin::EIco::Warning);
+	constexpr int32 IcoSkull = static_cast<int32>(FTSkin::EIco::Skull), IcoArrow = static_cast<int32>(FTSkin::EIco::Arrow);
+}
+
+float AFTHUD::RaceTextW(const FString& Str, float Height, bool bDisplay)
+{
+	return float(TextSize(Str, Height, bDisplay).X);
+}
+
+/** Live text set by the MIDDLE OF ITS CAPITALS: a row's label, its figures and its key cap share one line whatever
+ *  their sizes. A string that MaxWidth makes smaller stays on that line. */
+void AFTHUD::RacePrint(const FString& Str, float X, float MidY, const FLinearColor& Color, float Height, int32 Align, bool bDisplay, float MaxWidth)
+{
+	if (Str.IsEmpty()) return;
+	float LineH = FMath::Max(Height, bDisplay ? 15.9f : 15.4f);
+	if (MaxWidth > 0.f)
+	{
+		const float Measured = RaceTextW(Str, LineH, bDisplay);
+		if (Measured > MaxWidth) LineH *= MaxWidth / Measured;   // (Print scales the whole line down to fit)
+	}
+	// the capitals start .227 of the line's height under its top and are .545 of it high (Bungee; Rajdhani .225, .504)
+	const float MidOfCaps = bDisplay ? .227f + .545f * .5f : .225f + .504f * .5f;
+	Print(Str, X, MidY - MidOfCaps * LineH * S, Color, Height, Align, bDisplay, MaxWidth);
+}
+
+/** Big numerals from the baked digit atlas (0-9 $ , . / % x + - : and space; never live text). X, CapTop: the top
+ *  left of the capitals (their right end with Align 2, their middle with 1); CapH: their height in screen px. A
+ *  figure wider than MaxWidth is drawn smaller on the same baseline. Returns the width drawn. Before the kit is
+ *  imported the figure is still shown: in Bungee, upright. */
+float AFTHUD::RaceDigits(const FString& Str, float X, float CapTop, float CapH, const FLinearColor& Fill, int32 Align, float MaxWidth)
+{
+	if (Str.IsEmpty() || CapH <= 0.f) return 0.f;
+	const float Baseline = CapTop + CapH;
+	if (FTSkin::Texture(FTSkin::ETex::DigitsFill))
+	{
+		const float Natural = FTSkin::MeasureDigits(Str, CapH);
+		if (MaxWidth > 0.f && Natural > MaxWidth) CapH *= MaxWidth / Natural;
+		return FTSkin::Digits(Canvas, Str, X, Baseline, CapH, Fill, Fade, Align);
+	}
+	const float LineH = CapH / (.545f * S);
+	const float Natural = RaceTextW(Str, LineH, true);
+	const float Fit = MaxWidth > 0.f && Natural > MaxWidth ? MaxWidth / Natural : 1.f;
+	Print(Str, X, Baseline - (.227f + .545f) * LineH * Fit * S, Fill, LineH, Align, true, MaxWidth);
+	return Natural * Fit;
+}
+
+/** A small slanted chip (a plate's tab, TAKE 1, a load, a caption, a shout, the keys strip): T_UI_Hud_Chip, white
+ *  with an ink outline, tinted. Without the texture: the same shape from two flat parallelograms. */
+void AFTHUD::RaceChip(float X, float Y, float Wd, float Ht, const FLinearColor& Tint)
+{
+	if (Wd <= 0.f || Ht <= 0.f) return;
+	if (FTSkin::Texture(FTSkin::ETex::HudChip))
+	{
+		FTSkin::HudChip(Canvas, X, Y, Wd, Ht, Tint, Fade);
+		return;
+	}
+	const float Slant = .25f * Ht, Edge = Ht * 2.5f / 40.f;
+	FTSkin::Para(Canvas, X, Y, Wd, Ht, Slant, Ink, Tint.A * Fade);
+	FTSkin::Para(Canvas, X + 1.25f * Edge, Y + Edge, Wd - 2.5f * Edge, Ht - 2.f * Edge, Slant * (Ht - 2.f * Edge) / Ht, Tint, Fade);
+}
+
+/** A plate's tab: a chip 30 kit px high with live text on it (KESTREL-88 / AGENT N. KANE, ORDNANCE). Returns its width. */
+float AFTHUD::RaceTab(const FString& Label, float X, float Y, const FLinearColor& Tint, const FLinearColor& TextColor)
+{
+	const float Ht = 30.f * S / 1.5f;
+	const float Wd = RaceTextW(Label, 16.f, true) + Ht * .9f;
+	RaceChip(X, Y, Wd, Ht, Tint);
+	RacePrint(Label, X + Ht * .5f, Y + Ht * .5f, TextColor, 16.f, 0, true);
+	return Wd;
+}
+
+/** An icon of the kit's atlas (Cell: FTSkin::EIco), Size screen px square. Without the atlas: the line icon the HUD
+ *  always had (Fallback: an EIcon), or nothing. */
+void AFTHUD::RaceIcon(int32 Cell, float X, float Y, float Size, const FLinearColor& Tint, int32 Fallback)
+{
+	if (FTSkin::Texture(FTSkin::ETex::Icons)) FTSkin::IconTex(Canvas, static_cast<FTSkin::EIco>(Cell), X, Y, Size, Tint, Fade);
+	else if (Fallback >= 0) Icon(static_cast<EIcon>(Fallback), X + Size * .12f, Y + Size * .12f, Size * .76f, Tint);
+}
+
+/** A key cap on a dark sticker with its key's name (Rajdhani at the floor size), the cap's face centred on the row's
+ *  middle line. A name too long for its room (a rebound key can be RIGHT MOUSE BUTTON) is set smaller, as Print fits
+ *  any string. Returns the cap's width. */
+float AFTHUD::RaceKey(const FString& Label, float X, float MidY, float Room, float HeightKit)
+{
+	const float Kit = S / 1.5f, Ht = HeightKit * Kit, Side = Ht * .62f;
+	float TextW = RaceTextW(Label, 16.f);
+	float MaxText = 0.f;
+	if (Room > 0.f && FMath::Max(Ht, TextW + Side) > Room)
+	{
+		MaxText = FMath::Max(Room - Side, 10.f * S);
+		TextW = FMath::Min(TextW, MaxText);
+	}
+	const float Wd = FTSkin::KeyCap(Canvas, S, X, MidY - (Ht - 4.f * Kit) * .5f, TextW, Ht, true, Fade);
+	RacePrint(Label, X + Wd * .5f, MidY, Ink, 16.f, 1, false, MaxText);
+	return Wd;
+}
+
+/** A row of T_UI_Hud_Pips (FullCell and the empty cell after it: 0 the missiles' arrows, 2 the film's reels), left
+ *  aligned at X. The pitch is the kit's while the row fits its room; a long row is drawn smaller, cells and pitch
+ *  together. FlashAt: a pip to light white (the rack a missile has just left). Returns the row's width. */
+float AFTHUD::RacePips(int32 FullCell, float X, float Y, int32 Have, int32 Total, float Room, float PitchKit, const FLinearColor& Tint, int32 FlashAt, float Flash)
+{
+	if (Total <= 0) return 0.f;
+	const float Kit = S / 1.5f;
+	const float Fit = FMath::Clamp(Room / (Total * PitchKit * Kit), .3f, 1.f);
+	const float Pitch = PitchKit * Kit * Fit, Size = 32.f * Kit * Fit, RowY = Y + 16.f * Kit * (1.f - Fit);
+	const bool bAtlas = FTSkin::Texture(FTSkin::ETex::HudPips) != nullptr;
+	for (int32 I = 0; I < Total; ++I)
+	{
+		const bool bFull = I < Have;
+		const float Px = X + I * Pitch;
+		if (bAtlas)
+		{
+			FTSkin::Pip(Canvas, static_cast<FTSkin::EPip>(FullCell + (bFull ? 0 : 1)), Px, RowY, Size, Size, bFull ? Tint : Steel, Fade);
+			if (I == FlashAt && Flash > 0.f) FTSkin::Pip(Canvas, static_cast<FTSkin::EPip>(FullCell), Px, RowY, Size, Size, FLinearColor::White, Flash * Fade);
+		}
+		else
+		{
+			// no atlas yet: a slanted block a pip, so the count can still be read off the row
+			FTSkin::Para(Canvas, Px + Size * .1f, RowY + Size * .22f, Size * .72f, Size * .56f, Size * .14f, bFull ? Tint : Steel, Fade);
+		}
+	}
+	return Total * Pitch;
+}
+
+/** One tile of a texture through a UV rectangle (a mirrored tile has its UVs the other way round). */
+void AFTHUD::RaceTile(UTexture2D* Tex, float X, float Y, float Wd, float Ht, float U0, float V0, float U1, float V1, const FLinearColor& Tint)
+{
+	if (!Tex || !Tex->GetResource() || Wd <= 0.f || Ht <= 0.f) return;
+	FCanvasTileItem Tile(FVector2D(X, Y), Tex->GetResource(), FVector2D(Wd, Ht), FVector2D(U0, V0), FVector2D(U1, V1), Alpha(Tint, Fade));
+	Tile.BlendMode = SE_BLEND_Translucent;
+	Canvas->DrawItem(Tile);
+}
+
+/** The clapper's stick, 956 kit px long, from T_UI_ClapStick (704 x 48, a stripe every 84 px): two tiles of the one
+ *  texture side by side, its first 500 px and its last 456 (which start three stripes further along, so the stripes
+ *  run on). X, Y: the texture's top left; the stick's body is 40 px high inside it and its hinge 24, 24 px in.
+ *  bFlipY: the fixed jaw on a slate's top edge. Without the texture: an ink bar and its stripes. */
+void AFTHUD::RaceStick(float X, float Y, const FLinearColor& Tint, bool bFlipY)
+{
+	const float Kit = S / 1.5f;
+	if (UTexture2D* Stick = FTSkin::Texture(FTSkin::ETex::ClapStick))
+	{
+		const float V0 = bFlipY ? 1.f : 0.f, V1 = bFlipY ? 0.f : 1.f;
+		const float Seam = FMath::RoundToFloat(X + 500.f * Kit);
+		RaceTile(Stick, X, Y, Seam - X, 48.f * Kit, 0.f, V0, 500.f / 704.f, V1, Tint);
+		RaceTile(Stick, Seam, Y, X + 956.f * Kit - Seam, 48.f * Kit, 248.f / 704.f, V0, 1.f, V1, Tint);
+		return;
+	}
+	Flat(X + 4.f * Kit, Y + 4.f * Kit, 948.f * Kit, 40.f * Kit, Ink);
+	for (int32 I = 0; I < 11; ++I)
+		FTSkin::Para(Canvas, X + (14.f + I * 84.f) * Kit, Y + 8.f * Kit, 58.f * Kit, 32.f * Kit, (bFlipY ? -1.f : 1.f) * 18.f * Kit, Tint, Fade);
+}
+
+/** The letterbox as film: a row of perforations along the picture's side of each matte. (The mattes themselves are
+ *  Backdrop's, eased from screen to screen; like them, this does not fade with the instruments.) */
+void AFTHUD::RaceMattes()
+{
+	const float Row = 16.f * S / 1.5f;
+	if (MatteNow <= Row) return;
+	FTSkin::TexTiled(Canvas, S, FTSkin::ETex::FilmPerf, 0.f, MatteNow - Row, W, Row, FTSkin::White, 1.f, 1.f, true, false);
+	FTSkin::TexTiled(Canvas, S, FTSkin::ETex::FilmPerf, 0.f, H - MatteNow, W, Row, FTSkin::White, 1.f, 1.f, true, false);
+}
+
 void AFTHUD::DrawPlay(AFTGameMode* G)
 {
 	const FFTLevelDef& Level = G->Def();
@@ -1176,6 +1453,7 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 	const float Now = G->RealClockNow();
 	const float X = Left + Safe * S, R = Right - Safe * S, Center = W * .5f;
 	const float Top = 25 * S, Base = H - 47 * S;
+	const float K = S / 1.5f;   // screen px per kit px: the numbers below that are times K are mock_hud.py's
 	const float Hp = G->HpPct(), TurboFrac = G->Turbo / FMath::Max(1.f, G->Stats.TurboTank);
 	const float HpFrac = FMath::Clamp(Hp / 100.f, 0.f, 1.f);
 	const int32 Load = FMath::Clamp(G->AmmoLoad, 0, 2), Rounds = Load > 0 ? G->Run.Rounds[Load - 1] : 0;
@@ -1186,14 +1464,20 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 	// the highlight reel's, so the reel takes over without a cut).
 	if (!bCut) { DimNow = 0.f; MatteNow = 0.f; }
 	Backdrop(0.f, bCut && !bReducedMotion ? ReelBar() : 0.f);
+	RaceMattes();
 
 	// ---- what changed since the last frame (the feedback below is timed from these)
+	const bool bArmorLow = Hp <= 25.f;
 	if (PlayDrawn != DrawCount - 1)
 	{
 		ResetPlayFeedback(*G);
 		PlaySince = T;
+		bLastArmorLow = bArmorLow;   // (a take that starts on a burning car does not shout it again)
+		ArmorLowAt = -10.f;
 	}
 	PlayDrawn = DrawCount;
+	if (bArmorLow && !bLastArmorLow) ArmorLowAt = Now;
+	bLastArmorLow = bArmorLow;
 	if (LastArmor >= 0.f && !FMath::IsNearlyEqual(LastArmor, G->Hp))
 	{
 		ArmorChanged = Now;
@@ -1256,182 +1540,287 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 	// the instruments come on from their own edges when the slate gives way to the race
 	const float PlayAge = bReducedMotion ? -1.f : T - PlaySince;
 
+	// The camera's view: the viewfinder's corner brackets, at the true corners of the screen (red while the car burns).
+	{
+		FBlock Arrive(*this, In01(PlayAge, 0.f, DealTime));
+		FTSkin::Brackets(Canvas, S, bArmorLow ? Red : White, Fade);
+	}
+
 	// Primary instruments sit on either side of the car and stay within the center 16:9 area.
+	// ---- the driver's sticker: speed, armour, turbo (mock_hud.py, hud_driver)
 	const float DriverW = 322 * S, DriverY = Base - 171 * S;
 	{
-		// a hit jolts the panel, flashes it red and leaves the lost armour on the bar for a beat
+		// a hit jolts the sticker, flashes it red and leaves the lost armour on the bar for a beat
 		const float HitAge = Now - ArmorHitAt;
 		const float Hit = Flash01(HitAge, .3f);
 		FBlock Arrive(*this, In01(PlayAge, 0.f, DealTime), -48 * S, 0.f, ShakeX(HitAge, FMath::Clamp(ArmorHitSize * .4f, 2.5f, 8.f) * S, ShakeTime), 0.f);
-		Plate(Rect(X, DriverY, DriverW, 171 * S), Cyan, Ink);
-		if (Hit > 0.f)
-		{
-			Box(X, DriverY, DriverW, 171 * S, Alpha(Red, .16f * Hit));
-			Frame(X, DriverY, DriverW, 171 * S, Alpha(Red, Hit), 2.f);
-		}
-		Print(TEXT("KESTREL-88 / AGENT N. KANE"), X + 14 * S, DriverY + 9 * S, Grey, LabelSize, 0, true);
-		Print(FString::FromInt(FMath::RoundToInt(G->SpeedMph)), X + 14 * S, DriverY + 28 * S, White, Readout, 0, true, 109 * S);
-		Print(TEXT("MPH"), X + 132 * S, DriverY + 50 * S, Grey, LabelSize, 0, true);
-		const float SpeedFrac = FMath::Clamp(G->SpeedMph / (900.f * .31f), 0.f, 1.f);
-		for (int32 I = 0; I < 12; ++I)
-		{
-			const float Px = X + (184 + I * 10) * S, He = (5.f + .7f * I) * S;
-			Stroke(FVector2D(Px, DriverY + 64 * S), FVector2D(Px + 4 * S, DriverY + 64 * S - He),
-				(I + 1) / 12.f <= SpeedFrac ? (I > 9 ? Pink : Cyan) : Track, 3.f);
-		}
-		Box(X + 14 * S, DriverY + 76 * S, 294 * S, S, Rule);
+		const float Y0 = DriverY;
+		const FRaceSticker P(X, Y0 + 12 * K, DriverW, 171 * S - 12 * K, K);
+		FTSkin::InkPlate(Canvas, S, P.X, P.Y, P.Wd, P.Ht, bArmorLow ? Red : Mix(White, Red, Hit), Fade);
+		if (Hit > 0.f) FTSkin::Para(Canvas, P.X, P.Y, P.Wd - 5.f * P.Sc, P.Bh, P.Lean, Red, .2f * Hit * Fade);
+		RaceTab(TEXT("KESTREL-88 / AGENT N. KANE"), P.Lx(P.Y) + 2 * K, Y0, bArmorLow ? Red : Cyan, bArmorLow ? FLinearColor::White : Ink);
 
+		// speed: the big numerals (capitals 60 kit px); MPH stands on their baseline
+		const float SpeedX = P.Lx(Y0 + 102 * K) + 12 * K;
+		const float SpeedW = RaceDigits(FString::FromInt(FMath::RoundToInt(G->SpeedMph)), SpeedX, Y0 + 42 * K, 60 * K, White);
+		RacePrint(TEXT("MPH"), SpeedX + SpeedW + 10 * K, Y0 + 95.5f * K, Cyan, 16.f, 0, true);
+		if (bArmorLow)
+		{
+			// ARMOR LOW!: the baked shout, inside the sticker's footprint, where the rev ticks are (they are not drawn
+			// while the car burns). It is popped in by scale and is solid from its first frame.
+			const float LowAge = Now - ArmorLowAt;
+			const float Pop = bReducedMotion ? 1.f : FMath::Lerp(.4f, 1.f, EaseOut(LowAge, .12f)) + .16f * Flash01(LowAge - .12f, .2f);
+			const float ShoutX = X + DriverW - 104 * K, ShoutY = Y0 + 66 * K;
+			if (FTSkin::Texture(FTSkin::ETex::HudArmorLow)) FTSkin::ArmorLow(Canvas, S, ShoutX, ShoutY, Fade, .68f * Pop);
+			else
+			{
+				FPivot PopIn(*this, FVector2D(ShoutX, ShoutY), Pop);
+				RaceChip(ShoutX - 96 * K, ShoutY - 21 * K, 192 * K, 42 * K, Sticky);
+				RacePrint(TEXT("ARMOR LOW!"), ShoutX, ShoutY, Ink, 16.f, 1, true);
+			}
+		}
+		else
+		{
+			// twelve rev ticks, growing; the last two are the red line (pink)
+			const float SpeedFrac = FMath::Clamp(G->SpeedMph / (900.f * .31f), 0.f, 1.f);
+			const float TickR = P.Rx(Y0 + 102 * K) - 12 * K;
+			const bool bAtlas = FTSkin::Texture(FTSkin::ETex::HudPips) != nullptr;
+			for (int32 I = 0; I < 12; ++I)
+			{
+				const float He = (16.f + 2.6f * I) * K;
+				const bool bLit = (I + 1) / 12.f <= SpeedFrac;
+				const FLinearColor TickColor = bLit ? (I > 9 ? Pink : Cyan) : Steel;
+				const float TickX = TickR - (12 - I) * 15.f * K, TickY = Y0 + 102 * K - He;
+				if (bAtlas) FTSkin::Pip(Canvas, bLit ? FTSkin::EPip::SegmentFull : FTSkin::EPip::SegmentFlat, TickX, TickY, 12 * K, He, TickColor, Fade);
+				else FTSkin::Para(Canvas, TickX, TickY, 12 * K, He, 3 * K, TickColor, Fade);
+			}
+		}
+		{
+			const float RuleL = P.Lx(Y0 + 111 * K) + 8 * K, RuleR = P.Rx(Y0 + 111 * K) - 8 * K;
+			Flat(RuleL, Y0 + 110 * K, RuleR - RuleL, 2 * K, Alpha(White, .24f));
+		}
+
+		// armour: the icon, ARMOR, the percentage (big numerals) and now / max; the bar; the damage line
 		const FLinearColor ArmorColor = Hp > 60.f ? Green : Hp > 30.f ? Amber : Red;
 		const TCHAR* Damage = Hp > 79.f ? TEXT("NOMINAL") : Hp > 59.f ? TEXT("BODYWORK DAMAGED") : Hp > 39.f ? TEXT("WINDSHIELD CRACKED") : Hp > 24.f ? TEXT("ENGINE SMOKING") : TEXT("CRITICAL / ON FIRE");
 		// critical: the warning beats (slowly: it is a state, not an attack)
 		// (a danger read-out beats BRIGHTER, toward white, never dimmer: it is at full strength all the time)
-		const float Beat = Hp <= 25.f && !bReducedMotion ? FMath::Square(FMath::Sin(Now * PI * 1.6f)) : 0.f;
-		// (the skin) armour at 25 or less: the whole armour row is solid red with white text
-		const bool bArmorLow = Hp <= 25.f;
-		if (bArmorLow) Flat(X + 7 * S, DriverY + 80 * S, DriverW - 17 * S, 52 * S, Red);
-		const FLinearColor ArmorInk = bArmorLow ? White : ArmorColor;
-		Icon(Hp <= 25.f ? EIcon::Warning : EIcon::Repair, X + 14 * S, DriverY + 84 * S, IconSize * S, Mix(ArmorInk, White, .45f * Beat));
-		Print(TEXT("ARMOR"), X + 39 * S, DriverY + 84 * S, White, Body, 0, true);
-		Print(FString::Printf(TEXT("%d%%   %.0f / %.0f"), FMath::RoundToInt(Hp), G->Hp, G->MaxHp()),
-			X + 307 * S, DriverY + 84 * S, Emphasis(ArmorChanged, ArmorInk), Strong, 2, false, 190 * S);
-		const FBox2D ArmorBar = Rect(X + 14 * S, DriverY + 107 * S, 294 * S, 8 * S);
-		Meter(ArmorBar, Hp / 100.f, ArmorInk, 12, ArmorGhost);
-		const float Gain = Flash01(Now - ArmorGainAt, .35f);
-		if (Gain > 0.f) Box(ArmorBar.Min.X, ArmorBar.Min.Y, ArmorBar.GetSize().X * HpFrac, ArmorBar.GetSize().Y, Alpha(White, .6f * Gain));
-		Print(Damage, X + 14 * S, DriverY + 117 * S, Mix(ArmorInk, White, FMath::Max(Flash01(Now - DamageStateAt, .5f), .45f * Beat)), LabelSize);
+		const float Beat = bArmorLow && !bReducedMotion ? FMath::Square(FMath::Sin(Now * PI * 1.6f)) : 0.f;
+		// armour at 25 or less: the whole armour row is solid red with white text, and the damage line is a red bar
+		const FLinearColor Danger = Mix(Red, FLinearColor::White, .22f * Beat);
+		const FLinearColor ArmorInk = bArmorLow ? FLinearColor::White : ArmorColor;
+		float RowL = P.Lx(Y0 + 114 * K) + 4 * K, RowR = P.Rx(Y0 + 168 * K) - 4 * K;
+		if (bArmorLow) RaceChip(RowL - 6 * K, Y0 + 114 * K, RowR - RowL + 12 * K, 54 * K, Danger);
+		RaceIcon(bArmorLow ? IcoWarning : IcoShield, RowL + 8 * K, Y0 + 117 * K, 30 * K, ArmorInk, static_cast<int32>(bArmorLow ? EIcon::Warning : EIcon::Repair));
+		RacePrint(TEXT("ARMOR"), RowL + 46 * K, Y0 + 132 * K, bArmorLow ? FLinearColor::White : White, 19.f, 0, true);
+		const FString Pool = FString::Printf(TEXT("%.0f / %.0f"), G->Hp, G->MaxHp());
+		const float PoolW = FMath::Min(RaceTextW(Pool, 16.f), 110 * K);
+		RacePrint(Pool, RowR - 12 * K, Y0 + 132 * K, bArmorLow ? FLinearColor::White : Grey, 16.f, 2, false, 110 * K);
+		RaceDigits(FString::Printf(TEXT("%d%%"), FMath::RoundToInt(Hp)), RowR - 24 * K - PoolW, Y0 + 118.5f * K, 27 * K, Emphasis(ArmorChanged, ArmorInk), 2);
+		{
+			const float Gain = Flash01(Now - ArmorGainAt, .35f);
+			const float BarH = 13 * K;
+			FTSkin::HudMeter(Canvas, S, RowL + 8 * K, Y0 + 150 * K, RowR - RowL - 20 * K - BarH * .35f, BarH, Hp / 100.f, 12,
+				Mix(ArmorInk, FLinearColor::White, .6f * Gain), bArmorLow ? Mix(Red, Ink, .62f) : Steel, Fade, ArmorGhost);
+		}
+		RowL = P.Lx(Y0 + 170 * K) + 4 * K; RowR = P.Rx(Y0 + 196 * K) - 4 * K;
+		if (bArmorLow)
+		{
+			RaceChip(RowL - 6 * K, Y0 + 170 * K, RowR - RowL + 12 * K, 26 * K, Danger);
+			RacePrint(Damage, (RowL + RowR) * .5f, Y0 + 183 * K, Ink, 16.f, 1, true);
+		}
+		else RacePrint(Damage, RowL + 8 * K, Y0 + 183 * K, Mix(ArmorColor, White, Flash01(Now - DamageStateAt, .5f)), 16.f);
 
+		// turbo
 		const TCHAR* Turbo = G->bTurboOn ? TEXT("BURN") : G->BoostT > 0.f ? TEXT("BOOST") : G->bTurboLock ? TEXT("RECHARGING") : TurboFrac >= .99f ? TEXT("READY") : TEXT("CHARGING");
 		const FLinearColor TurboColor = G->bTurboOn ? Pink : Cyan;
 		const float Ready = Flash01(Now - TurboReadyAt, .45f);
-		Icon(EIcon::Turbo, X + 14 * S, DriverY + 135 * S, 16 * S, Mix(TurboColor, White, Ready));
-		Print(FString::Printf(TEXT("TURBO  [%s]"), *Hint(EFTAction::Turbo, TEXT("LB/RT"))), X + 37 * S, DriverY + 134 * S, White, LabelSize, 0, false, 154 * S);
-		Print(G->bDraft ? FString(Turbo) + TEXT(" / DRAFT") : FString(Turbo), X + 307 * S, DriverY + 134 * S, Mix(TurboColor, White, Ready), LabelSize, 2);
-		const FBox2D TurboBar = Rect(X + 14 * S, DriverY + 153 * S, 294 * S, 7 * S);
-		Meter(TurboBar, TurboFrac, TurboColor, 8);
-		if (Ready > 0.f) Box(TurboBar.Min.X, TurboBar.Min.Y, TurboBar.GetSize().X, TurboBar.GetSize().Y, Alpha(White, .5f * Ready));
+		RowL = P.Lx(Y0 + 210 * K) + 12 * K; RowR = P.Rx(Y0 + 238 * K) - 12 * K;
+		RaceIcon(IcoBolt, RowL, Y0 + 197 * K, 26 * K, Mix(TurboColor, White, Ready), static_cast<int32>(EIcon::Turbo));
+		RacePrint(TEXT("TURBO"), RowL + 32 * K, Y0 + 210 * K, White, 16.f, 0, true);
+		const float TurboKeyX = RowL + 32 * K + RaceTextW(TEXT("TURBO"), 16.f, true) + 10 * K;
+		const FString TurboState = G->bDraft ? FString(Turbo) + TEXT(" / DRAFT") : FString(Turbo);
+		RacePrint(TurboState, RowR, Y0 + 210 * K, Mix(TurboColor, White, Ready), 16.f, 2);
+		RaceKey(Hint(EFTAction::Turbo, TEXT("LB/RT")), TurboKeyX, Y0 + 210 * K, RowR - RaceTextW(TurboState, 16.f) - 12 * K - TurboKeyX);
+		RowL = P.Lx(Y0 + 238 * K) + 12 * K;
+		FTSkin::HudMeter(Canvas, S, RowL, Y0 + 227 * K, RowR - RowL - 9 * K * .35f, 9 * K, TurboFrac, 8, Mix(TurboColor, FLinearColor::White, .5f * Ready), Steel, Fade, 0.f);
 	}
 
+	// ---- the ordnance sticker: missiles, ammo and its three loads, drift (mock_hud.py, hud_ordnance)
 	const float WeaponW = 300 * S, WX = R - WeaponW, WY = Base - 163 * S;
 	{
 		FBlock Arrive(*this, In01(PlayAge, .04f, DealTime), 48 * S, 0.f);
-		Plate(Rect(WX, WY, WeaponW, 163 * S), Amber, Ink);
-		Print(TEXT("ORDNANCE"), WX + 14 * S, WY + 8 * S, Grey, LabelSize, 0, true);
-		// a launch kicks the icon and the count, and the round that left the rack flashes out of the bar
-		const float Fired = Flash01(Now - MissileFiredAt, .22f), Loaded = Flash01(Now - MissileGainAt, .4f);
-		Icon(EIcon::Missile, WX + (14 + 5 * Fired) * S, WY + (29 - 4 * Fired) * S, IconSize * S, Mix(Amber, White, FMath::Max(Fired, Loaded)));
-		Print(FString::Printf(TEXT("MISSILES  [%s]"), *Hint(EFTAction::Missile, TEXT("B"))), WX + 39 * S, WY + 29 * S, White, Body, 0, false, 160 * S);
-		const int32 Capacity = G->MissileCap();
-		{
-			FPivot Kick(*this, FVector2D(R - 14 * S, WY + 38 * S), 1.f + .22f * Flash01(Now - MissileChanged, PunchTime));
-			Print(FString::Printf(TEXT("%d / %d"), G->Missiles, Capacity), R - 14 * S, WY + 26 * S,
-				Emphasis(MissileChanged, G->Missiles > 0 ? Amber : Grey), Strong, 2, true, 82 * S);
-		}
-		const int32 Racks = FMath::Clamp(Capacity, 1, 16);
-		const FBox2D MissileBar = Rect(WX + 14 * S, WY + 54 * S, 272 * S, 6 * S);
-		Meter(MissileBar, float(G->Missiles) / FMath::Max(1, Capacity), Amber, Racks);
-		if (Fired > 0.f && G->Missiles < Racks)
-		{
-			const float Pitch = (MissileBar.GetSize().X + 3 * S) / Racks;
-			Box(MissileBar.Min.X + G->Missiles * Pitch, MissileBar.Min.Y - 2 * S * Fired, Pitch - 3 * S, 6 * S + 4 * S * Fired, Alpha(White, Fired));
-		}
-		if (Loaded > 0.f) Box(MissileBar.Min.X, MissileBar.Min.Y, MissileBar.GetSize().X * FMath::Clamp(float(G->Missiles) / FMath::Max(1, Capacity), 0.f, 1.f), 6 * S, Alpha(White, .6f * Loaded));
+		const float Y0 = WY;
+		const FRaceSticker P(WX, Y0 + 12 * K, WeaponW, 163 * S - 12 * K, K);
+		FTSkin::InkPlate(Canvas, S, P.X, P.Y, P.Wd, P.Ht, White, Fade);
+		RaceTab(TEXT("ORDNANCE"), P.Lx(P.Y) + 2 * K, Y0, Yellow, Ink);
 
-		Icon(EIcon::Ammo, WX + 14 * S, WY + 68 * S, IconSize * S, Cyan);
-		Print(FString::Printf(TEXT("AMMO  [%s]"), *Hint(EFTAction::Ammo, TEXT("Y"))), WX + 39 * S, WY + 67 * S, White, Body, 0, false, 150 * S);
-		if (Load > 0) Print(Num(Rounds), R - 14 * S, WY + 65 * S, Emphasis(AmmoChanged, Cyan), Strong, 2, true, 94 * S);
+		// missiles: the count large (capitals 46), the capacity small (27) on its baseline; one arrow pip a missile.
+		// A launch kicks the icon and the count, and the rack that emptied flashes; a pickup lights the row.
+		const float Fired = Flash01(Now - MissileFiredAt, .22f), Loaded = Flash01(Now - MissileGainAt, .4f);
+		float RowL = P.Lx(Y0 + 73 * K) + 12 * K, RowR = P.Rx(Y0 + 82 * K) - 12 * K;
+		RaceIcon(IcoMissile, RowL + 5 * Fired * S, Y0 + 43 * K - 4 * Fired * S, 30 * K, Mix(Yellow, White, FMath::Max(Fired, Loaded)), static_cast<int32>(EIcon::Missile));
+		RacePrint(TEXT("MISSILES"), RowL + 38 * K, Y0 + 58 * K, White, 19.f, 0, true);
+		float KeyX = RowL + 38 * K + RaceTextW(TEXT("MISSILES"), 19.f, true) + 10 * K;
+		const int32 Capacity = G->MissileCap();
+		float CountW = 0.f;
+		{
+			FPivot Kick(*this, FVector2D(RowR, Y0 + 60 * K), 1.f + .22f * Flash01(Now - MissileChanged, PunchTime));
+			CountW = RaceDigits(FString::Printf(TEXT("/%d"), Capacity), RowR, Y0 + 55 * K, 27 * K, Grey, 2);
+			CountW += RaceDigits(FString::FromInt(G->Missiles), RowR - CountW + K, Y0 + 36 * K, 46 * K, Emphasis(MissileChanged, G->Missiles > 0 ? Yellow : Grey), 2);
+		}
+		RaceKey(Hint(EFTAction::Missile, TEXT("B")), KeyX, Y0 + 58 * K, RowR - CountW - 12 * K - KeyX);
+		const int32 Racks = FMath::Clamp(Capacity, 1, 16);
+		RowL = P.Lx(Y0 + 118 * K) + 8 * K;
+		RacePips(0, RowL, Y0 + 86 * K, G->Missiles, Racks, P.Rx(Y0 + 118 * K) - 8 * K - RowL, 32.f, Mix(Yellow, FLinearColor::White, .6f * Loaded), G->Missiles, Fired);
+
+		// ammo: the load's rounds on the right (none for STD), the three loads as chips
+		RowL = P.Lx(Y0 + 148 * K) + 12 * K; RowR = P.Rx(Y0 + 148 * K) - 12 * K;
+		RaceIcon(IcoBullets, RowL, Y0 + 120 * K, 28 * K, Cyan, static_cast<int32>(EIcon::Ammo));
+		RacePrint(TEXT("AMMO"), RowL + 38 * K, Y0 + 134 * K, White, 19.f, 0, true);
+		KeyX = RowL + 38 * K + RaceTextW(TEXT("AMMO"), 19.f, true) + 10 * K;
+		CountW = Load > 0 ? RaceDigits(Num(Rounds), RowR, Y0 + 120.5f * K, 27 * K, Emphasis(AmmoChanged, Cyan), 2) : 0.f;
+		RaceKey(Hint(EFTAction::Ammo, TEXT("Y")), KeyX, Y0 + 134 * K, RowR - CountW - 12 * K - KeyX);
 		static const TCHAR* LoadNames[] = { TEXT("STD"), TEXT("AP"), TEXT("HE") };
-		static const FLinearColor LoadColors[] = { Yellow, Cyan, Amber };
 		const float Switched = Flash01(Now - LoadSwitchAt, .25f);
+		RowL = P.Lx(Y0 + 182 * K) + 6 * K; RowR = P.Rx(Y0 + 182 * K) - 2 * K;
+		const float LoadW = (RowR - RowL - 8 * K) / 3.f;
 		for (int32 I = 0; I < UE_ARRAY_COUNT(LoadNames); ++I)
 		{
-			const float Px = WX + (14 + I * 92) * S;
+			const float Px = RowL + I * (LoadW + 4 * K);
 			const bool bOwned = I == 0 || (I == 1 ? G->Stats.ApRank > 0 : G->Stats.HeRank > 0);
-			Box(Px, WY + 92 * S, 86 * S, 23 * S, I == Load ? Active : bOwned ? Steel : Deep);
-			if (I == Load) Box(Px, WY + 113 * S, 86 * S, 2 * S, LoadColors[I]);
-			if (I == Load && Switched > 0.f) Box(Px, WY + 92 * S, 86 * S, 23 * S, Alpha(LoadColors[I], .45f * Switched));
-			Print(LoadNames[I], Px + 43 * S, WY + 94 * S, I == Load ? LoadColors[I] : bOwned ? White : Grey,
-				LabelSize, 1, true);
+			const bool bLoaded = I == Load;
+			RaceChip(Px, Y0 + 152 * K, LoadW, 30 * K, bLoaded ? Mix(Cyan, FLinearColor::White, .6f * Switched) : bOwned ? Steel : Track);
+			RacePrint(LoadNames[I], Px + LoadW * .5f, Y0 + 167 * K, bLoaded ? Ink : bOwned ? White : Grey, 16.f, 1, true);
 		}
+
+		// drift
 		const TCHAR* Drift = G->BoostT > 0.f ? TEXT("BOOST!") : !G->bDrifting ? TEXT("HOLD + STEER")
 			: G->DriftLevel == 0 ? TEXT("SLIDING") : G->DriftLevel == 1 ? TEXT("BLUE") : G->DriftLevel == 2 ? TEXT("ORANGE") : TEXT("PINK!");
 		const FLinearColor DriftColor = G->DriftLevel >= 3 ? Pink : G->DriftLevel == 2 ? Amber : Cyan;
 		const float Charged = Flash01(Now - DriftUpAt, .3f);
-		Print(FString::Printf(TEXT("DRIFT  [%s]"), *Hint(EFTAction::Drift, TEXT("A/RB"))), WX + 14 * S, WY + 120 * S, Grey, LabelSize, 0, false, 136 * S);
-		Print(Drift, R - 14 * S, WY + 120 * S, G->bDrifting || G->BoostT > 0.f ? Mix(DriftColor, White, Charged) : Grey, LabelSize, 2);
-		const FBox2D DriftBar = Rect(WX + 14 * S, WY + 141 * S, 272 * S, 5 * S);
-		Meter(DriftBar, G->DriftLevel / 3.f, DriftColor, 3);
-		if (Charged > 0.f) Box(DriftBar.Min.X, DriftBar.Min.Y, DriftBar.GetSize().X * FMath::Clamp(G->DriftLevel / 3.f, 0.f, 1.f), 5 * S, Alpha(White, .7f * Charged));
+		RowL = P.Lx(Y0 + 226 * K) + 12 * K; RowR = P.Rx(Y0 + 226 * K) - 12 * K;
+		RacePrint(TEXT("DRIFT"), RowL, Y0 + 198 * K, White, 16.f, 0, true);
+		KeyX = RowL + RaceTextW(TEXT("DRIFT"), 16.f, true) + 10 * K;
+		const FString DriftState(Drift);
+		RacePrint(DriftState, RowR, Y0 + 198 * K, G->bDrifting || G->BoostT > 0.f ? Mix(DriftColor, White, Charged) : Grey, 16.f, 2);
+		RaceKey(Hint(EFTAction::Drift, TEXT("A/RB")), KeyX, Y0 + 198 * K, RowR - RaceTextW(DriftState, 16.f) - 12 * K - KeyX);
+		FTSkin::HudMeter(Canvas, S, RowL, Y0 + 215 * K, RowR - RowL - 9 * K * .35f, 9 * K, G->DriftLevel / 3.f, 3, Mix(DriftColor, FLinearColor::White, .7f * Charged), Steel, Fade, 0.f);
 	}
 
 	// Secondary information stays near the top edge. Temporary cards share the same lane.
+	// ---- the scene slate: a clapper stripe along its top edge, the clapper, SCENE n/N, the take as a chip, FINALE;
+	// under them the film strip with a tick at every scene and the finale's flag at 85 % (mock_hud.py, hud_scene)
 	const float ObjectiveW = 362 * S, OX = Center - ObjectiveW * .5f;
-	const float ProgressW = ObjectiveW - 24 * S;
 	float NoticeY = Top + 58 * S;
 	{
 		FBlock Arrive(*this, In01(PlayAge, .02f, DealTime), 0.f, -40 * S);
-		Plate(Rect(OX, Top, ObjectiveW, 51 * S), Cyan, Ink);
-		Print(FString::Printf(TEXT("SCENE %d/%d  /  TAKE %d"), G->Scene + 1, G->NumScenes(), G->Take), OX + 12 * S, Top + 7 * S, White, LabelSize, 0, true);
-		Print(TEXT("FINALE"), OX + ObjectiveW - 12 * S, Top + 7 * S, Pink, LabelSize, 2, true);
-		Meter(Rect(OX + 12 * S, Top + 31 * S, ProgressW, 7 * S), G->Progress, Cyan);
+		const FRaceSticker P(OX, Top, ObjectiveW, 51 * S, K);
+		FTSkin::InkPlate(Canvas, S, P.X, P.Y, P.Wd, P.Ht, White, Fade);
+		{
+			const float StripeL = P.Lx(Top + 5 * K) - K, StripeR = P.Rx(Top + 13 * K) + 5 * K;
+			FTSkin::HazardStripes(Canvas, S, StripeL, Top + 5 * K, StripeR - StripeL, 8 * K, White, Fade);
+		}
+		const float RowL = P.Lx(Top + 14 * K) + 10 * K, RowR = P.Rx(Top + 66 * K) - 10 * K;
+		RaceIcon(IcoClapper, RowL, Top + 14 * K, 28 * K, White);
+		const FString SceneText = FString::Printf(TEXT("SCENE %d/%d"), G->Scene + 1, G->NumScenes());
+		RacePrint(SceneText, RowL + 36 * K, Top + 29 * K, White, 19.f, 0, true);
+		const float TakeX = RowL + 36 * K + RaceTextW(SceneText, 19.f, true) + 14 * K;
+		const FString TakeText = FString::Printf(TEXT("TAKE %d"), G->Take);
+		const float TakeW = RaceTextW(TakeText, 16.f, true) + 28 * K;
+		RaceChip(TakeX, Top + 16 * K, TakeW, 26 * K, White);
+		RacePrint(TakeText, TakeX + TakeW * .5f, Top + 29 * K, Ink, 16.f, 1, true);
+		RacePrint(TEXT("FINALE"), RowR, Top + 29 * K, Pink, 16.f, 2, true);
+		const float StripX = P.Lx(Top + 66 * K) + 8 * K, StripY = Top + 46 * K, StripH = 18 * K, StripW = RowR - StripX;
+		FTSkin::FilmMeter(Canvas, S, StripX, StripY, StripW, StripH, G->Progress, 1, Cyan, Steel, Fade);
+		const bool bAtlas = FTSkin::Texture(FTSkin::ETex::HudPips) != nullptr;
 		for (const FFTScene& Scene : Level.Scenes)
-			Box(OX + 12 * S + ProgressW * FMath::Clamp(Scene.D / FMath::Max(1.f, Level.FinaleD), 0.f, 1.f) * .85f, Top + 28 * S, S, 12 * S, Grey);
-		Box(OX + 12 * S + ProgressW * .85f, Top + 27 * S, 2 * S, 14 * S, Pink);
+		{
+			const float At = FMath::Clamp(Scene.D / FMath::Max(1.f, Level.FinaleD), 0.f, 1.f);
+			if (At <= .001f || At >= .999f) continue;   // (the first scene starts at the strip's end; the finale has the flag)
+			if (bAtlas) FTSkin::Pip(Canvas, FTSkin::EPip::Tick, StripX + 3 * K + (StripW - 6 * K) * At * .85f - 8 * K, StripY + K, 16 * K, StripH - 2 * K, White, Fade);
+			else FTSkin::FilmMeterMark(Canvas, S, StripX, StripY + 3 * K, StripW, StripH - 6 * K, At * .85f, White, .7f * Fade);
+		}
+		if (bAtlas) FTSkin::Pip(Canvas, FTSkin::EPip::FinaleMark, StripX + 3 * K + (StripW - 6 * K) * .85f - 14 * K, StripY - 9 * K, 27 * K, 27 * K, Pink, Fade);
+		else FTSkin::FilmMeterMark(Canvas, S, StripX, StripY, StripW, StripH, .85f, Pink, Fade);
 	}
 	if (G->bBossOn)
 	{
-		// The boss's plate drops in and its bar fills; every hit leaves what he just lost on the bar for a beat; a third
-		// of his armour gone (the next phase of the fight) jolts the plate and flashes it white.
+		// The boss's sticker drops in and its bar fills; every hit leaves what he just lost on the bar for a beat; a
+		// third of his armour gone (the next phase of the fight) jolts the sticker and flashes it white.
+		// (mock_hud.py, hud_boss)
 		const float BossAge = Now - BossOnAt, PhaseAge = Now - BossPhaseAt;
 		const float Phased = Flash01(PhaseAge, .45f);
 		FBlock Arrive(*this, In01(BossAge, 0.f, DealTime), 0.f, -18 * S, ShakeX(PhaseAge, 7 * S, .42f), 0.f);
-		const FBox2D BossPlate = Rect(OX, NoticeY, ObjectiveW, 66 * S);
-		Plate(BossPlate, Red, Ink);
-		AccentSweep(Rect(OX + S, NoticeY + S, ObjectiveW - 2 * S, 3 * S), BossAge, Red, MenuEntrance);
-		if (Phased > 0.f)
-		{
-			Box(OX, NoticeY, ObjectiveW, 66 * S, Alpha(White, .22f * Phased));
-			Frame(OX, NoticeY, ObjectiveW, 66 * S, Alpha(White, Phased), 2.f);
-		}
-		Icon(EIcon::Warning, OX + 12 * S, NoticeY + 8 * S, 16 * S, Mix(Red, White, Phased));
-		Print(G->BossLabel, OX + 36 * S, NoticeY + 7 * S, White, Body, 0, true, 206 * S);
+		const float Y0 = NoticeY;
+		const FRaceSticker P(OX, Y0, ObjectiveW, 66 * S, K);
+		FTSkin::InkPlate(Canvas, S, P.X, P.Y, P.Wd, P.Ht, Mix(Red, FLinearColor::White, Phased), Fade);
+		if (Phased > 0.f) FTSkin::Para(Canvas, P.X, P.Y, P.Wd - 5.f * P.Sc, P.Bh, P.Lean, FLinearColor::White, .22f * Phased * Fade);
+		AccentSweep(Rect(P.Lx(P.Y) + 4 * K, Y0 + 6 * K, P.Rx(P.Y) - P.Lx(P.Y) - 8 * K, 3 * S), BossAge, Red, MenuEntrance);
+		const float RowL = P.Lx(Y0 + 12 * K) + 10 * K, RowR = P.Rx(Y0 + 86 * K) - 10 * K;
+		RaceIcon(IcoSkull, RowL, Y0 + 11 * K, 32 * K, Mix(White, FLinearColor::White, Phased), static_cast<int32>(EIcon::Warning));
+		RacePrint(G->BossLabel, RowL + 42 * K, Y0 + 27 * K, White, 24.f, 0, true, 300 * K);
 		const FString GapLabel = G->bLastChance ? TEXT("LAST CHANCE!") : G->BossRate < 1.f
 			? FString::Printf(TEXT("GAP ×%.2f"), G->BossRate) : FString(TEXT("GAP"));
 		const float Urgent = G->bLastChance && !bReducedMotion ? FMath::Square(FMath::Sin(Now * PI * 1.5f)) : 0.f;   // brighter, never dimmer; slow: no strobe
-		Print(GapLabel, OX + ObjectiveW - 12 * S, NoticeY + 8 * S, G->bLastChance ? Mix(Red, White, .5f * Urgent) : Yellow, Body, 2, false, 120 * S);
-		const FBox2D BossBar = Rect(OX + 12 * S, NoticeY + 33 * S, ProgressW, 8 * S);
+		if (G->bLastChance)
+		{
+			// LAST CHANCE!: white on a red chip, the same words of danger as the armour row
+			const float GapW = RaceTextW(GapLabel, 16.f, true) + 30 * K;
+			RaceChip(RowR + 8 * K - GapW, Y0 + 13 * K, GapW, 28 * K, Mix(Red, FLinearColor::White, .22f * Urgent));
+			RacePrint(GapLabel, RowR + 8 * K - GapW * .5f, Y0 + 27 * K, FLinearColor::White, 16.f, 1, true);
+		}
+		else RacePrint(GapLabel, RowR, Y0 + 27 * K, Yellow, 16.f, 2, true, 180 * K);
+		const float BarX = P.Lx(Y0 + 86 * K) + 10 * K, BarW = RowR - BarX, BarH = 17 * K;
 		const float Filling = bReducedMotion ? 1.f : EaseOut(BossAge - .1f, .5f);
-		Meter(BossBar, G->BossHpFrac * Filling, Red, 8, BossGhost * Filling);
-		// where the fight changes: a notch at two thirds and at one third (white while it is still to come)
+		FTSkin::HudMeter(Canvas, S, BarX, Y0 + 50 * K, BarW - BarH * .35f, BarH, G->BossHpFrac * Filling, 8, Red, Mix(Red, Ink, .72f), Fade, BossGhost * Filling);
+		// where the fight changes: a notch at two thirds and at one third (chalk while it is still to come)
+		const bool bAtlas = FTSkin::Texture(FTSkin::ETex::HudPips) != nullptr;
 		for (const float Line : { .66f, .33f })
-			Box(BossBar.Min.X + ProgressW * Line - S, BossBar.Min.Y - 3 * S, 2 * S, 14 * S, G->BossHpFrac > Line ? White : Alpha(Grey, .45f));
+		{
+			const FLinearColor Notch = G->BossHpFrac > Line ? White : Alpha(Grey, .7f);
+			if (bAtlas) FTSkin::Pip(Canvas, FTSkin::EPip::Tick, BarX + BarW * Line - 8 * K, Y0 + 45 * K, 16 * K, 27 * K, Notch, Fade);
+			else Flat(BarX + BarW * Line - K, Y0 + 45 * K, 2 * K, 27 * K, Notch);
+		}
 		const float Struck = Flash01(Now - BossHitAt, .14f);
-		if (Struck > 0.f) Box(BossBar.Min.X + ProgressW * G->BossHpFrac - 3 * S, BossBar.Min.Y - 2 * S, 4 * S, 12 * S, Alpha(White, Struck));
-		Meter(Rect(OX + 12 * S, NoticeY + 48 * S, ProgressW, 5 * S), G->BossClock / FMath::Max(1.f, G->BossEscapeT), G->bLastChance ? Red : Yellow);
+		if (Struck > 0.f) Flat(BarX + BarW * G->BossHpFrac - 2 * K, Y0 + 46 * K, 5 * K, 25 * K, Alpha(FLinearColor::White, Struck));
+		// the gap: how long before he gets away
+		Flat(BarX, Y0 + 77 * K, BarW, 7 * K, Steel);
+		Flat(BarX, Y0 + 77 * K, BarW * FMath::Clamp(G->BossClock / FMath::Max(1.f, G->BossEscapeT), 0.f, 1.f), 7 * K, G->bLastChance ? Red : Yellow);
 		NoticeY += 73 * S;
 	}
 	if (Now >= G->CaptionT && Now - G->CaptionT < 3.f)
 	{
-		// a warning is at full strength from its first frame: it lands a touch large with a flash, it never fades in
+		// a warning is at full strength from its first frame: a solid red chip the width of the slate, white text; it
+		// lands a touch large with a flash, it never fades in. (Rajdhani, not Bungee: a caption can be a whole sentence.)
 		const float Age = Now - G->CaptionT, Landed = Flash01(Age, .22f);
 		FPivot Land(*this, FVector2D(Center, NoticeY + 15 * S), 1.f + .14f * Flash01(Age, .16f));
-		Plate(Rect(OX, NoticeY, ObjectiveW, 31 * S), Red, Ink);
-		if (Landed > 0.f) Frame(OX, NoticeY, ObjectiveW, 31 * S, Alpha(Red, Landed), 2.f);
-		Print(G->Caption, Center, NoticeY + 5 * S, Mix(Red, White, Landed), Strong, 1, true, ObjectiveW - 24 * S);
+		RaceChip(OX, NoticeY, ObjectiveW, 46 * K, Mix(Red, FLinearColor::White, .3f * Landed));
+		RacePrint(G->Caption, Center, NoticeY + 23 * K, FLinearColor::White, 22.f, 1, false, ObjectiveW - 52 * K);
 		NoticeY += 37 * S;
 	}
 	if (!G->Line.IsEmpty() && Now - G->LineT < G->LineHold + 1.2f)
 	{
+		// the director's line: the megaphone badge, the DIRECTOR chip in the line's priority colour (cyan a remark,
+		// pink a warning of an attack, amber the loud ones) and the speech balloon hugging the line; the group is
+		// centred in the lane the line always had (480 x 36). (mock_hud.py, hud_director)
 		const FLinearColor Accent = G->LinePri >= 3 ? Yellow : G->LinePri >= 2 ? Pink : Cyan;
-		const float LineW = 480 * S, LineX = Center - LineW * .5f;
 		const float Offset = bReducedMotion ? 0.f : (1.f - EaseOut(Now - G->LineT)) * 6 * S;
-		const float Y = NoticeY - Offset;
+		const float Y0 = NoticeY - Offset;
 		// the director's line fades out over its last third of a second instead of blinking off
 		const float Left01 = bReducedMotion ? 1.f : FMath::Clamp((G->LineHold + 1.2f - (Now - G->LineT)) / .3f, 0.f, 1.f);
 		// (a line of priority 2 or more is a warning of an attack: solid from its first frame; a remark fades in)
 		FBlock Speak(*this, FMath::Min(G->LinePri >= 2 ? 1.f : In01(Now - G->LineT, 0.f, .14f), Left01));
-		Plate(Rect(LineX, Y, LineW, 36 * S), Accent, Ink);
-		Print(TEXT("DIRECTOR"), LineX + 12 * S, Y + 10 * S, Accent, LabelSize, 0, true);
-		Print(G->Line, LineX + 108 * S, Y + 7 * S, White, Body, 0, false, LineW - 122 * S);
+		const float LineMax = 496 * K;
+		const float LineW = FMath::Min(RaceTextW(G->Line, 19.f), LineMax);
+		const float ChipW = 40 * K + RaceTextW(TEXT("DIRECTOR"), 16.f, true);
+		const float GroupX = Center - (34 * K + ChipW + LineW + 64 * K) * .5f;
+		RaceChip(GroupX + 34 * K, Y0 + 11 * K, ChipW, 32 * K, Accent);
+		RacePrint(TEXT("DIRECTOR"), GroupX + 60 * K, Y0 + 27 * K, Ink, 16.f, 0, true);
+		FTSkin::TexNat(Canvas, S, FTSkin::ETex::HudMegaphone, GroupX, Y0, FTSkin::White, Fade, .75f);
+		// (the balloon's rectangle starts 6 kit px under the Y it is given; today's lane is 54 kit px high)
+		const FBox2D Says = FTSkin::Balloon(Canvas, S, GroupX + 34 * K + ChipW - 6 * K, Y0 - 6 * K, LineW, Fade, false, 54 * K);
+		RacePrint(G->Line, float(Says.Min.X), float(Says.Min.Y + Says.Max.Y) * .5f, Ink, 19.f, 0, false, LineMax);
 		NoticeY += 43 * S;
 	}
 	const bool bAction = Now >= G->ActionT && Now - G->ActionT < 1.f;
@@ -1447,48 +1836,71 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 		// (ACTION! and an attack's shout are solid from their first frame; only a scene's name fades and slides in)
 		FBlock Arrive(*this, bCalled ? 1.f : In01(Age, 0.f, .2f), 0.f, bCalled ? 0.f : -10 * S);
 		FPivot Land(*this, FVector2D(Center, NoticeY + 17 * S), bCalled ? 1.f + .3f * Flash01(Age, .14f) : 1.f);
-		Plate(Rect(Center - 148 * S, NoticeY, 296 * S, 34 * S), Yellow, Ink);
-		if (Landed > 0.f) Frame(Center - 148 * S, NoticeY, 296 * S, 34 * S, Alpha(Yellow, Landed), 2.f);
-		Print(Text, Center, NoticeY + 5 * S, Mix(Yellow, White, Landed), Strong, 1, true, 272 * S);
+		RaceChip(Center - 148 * S, NoticeY, 296 * S, 48 * K, Mix(Yellow, FLinearColor::White, .5f * Landed));
+		RacePrint(Text, Center, NoticeY + 24 * K, Ink, 24.f, 1, true, 390 * K);
 	}
 
 	// The recording ledger and the latest three rewards stay out of the driving corridor.
+	// ---- the ledger: NOW FILMING, the box office, the combo, the counts, the film left (mock_hud.py, hud_ledger)
 	const float LedgerW = 255 * S, LX = R - LedgerW;
 	{
 		FBlock Arrive(*this, In01(PlayAge, .06f, DealTime), 48 * S, 0.f);
-		Plate(Rect(LX, Top, LedgerW, 173 * S), Pink, Ink);
-		// the camera's light: a slow blink while it films
-		const float Rec = bReducedMotion || bCut ? 1.f : .5f + .5f * FMath::Square(FMath::Cos(G->Timecode * PI * .5f));
-		Icon(EIcon::Record, LX + 10 * S, Top + 7 * S, 18 * S, Alpha(Pink, Rec));
-		Print(TEXT("NOW FILMING"), LX + 33 * S, Top + 8 * S, White, LabelSize, 0, true);
+		const FRaceSticker P(LX, Top + 12 * K, LedgerW, 173 * S - 12 * K, K);
+		FTSkin::InkPlate(Canvas, S, P.X, P.Y, P.Wd, P.Ht, White, Fade);
+		{
+			const float TabX = P.Lx(P.Y) + 2 * K;
+			RaceChip(TabX, Top, 54 * K + RaceTextW(TEXT("NOW FILMING"), 16.f, true), 30 * K, Pink);
+			// the camera's light: a slow blink while it films
+			const float Rec = bReducedMotion || bCut ? 1.f : .5f + .5f * FMath::Square(FMath::Cos(G->Timecode * PI * .5f));
+			RaceIcon(IcoRec, TabX + 14 * K, Top + 4 * K, 22 * K, Alpha(FLinearColor::White, Rec), static_cast<int32>(EIcon::Record));
+			RacePrint(TEXT("NOW FILMING"), TabX + 42 * K, Top + 15 * K, Ink, 16.f, 0, true);
+		}
 		const int32 Tc = FMath::FloorToInt(G->Timecode);
 		const int32 FrameNo = FMath::FloorToInt(FMath::Fmod(G->Timecode, 1.f) * 24.f);
-		Print(FString::Printf(TEXT("%02d:%02d:%02d"), Tc / 60, Tc % 60, FrameNo), R - 12 * S, Top + 8 * S, Grey, LabelSize, 2);
-		Print(TEXT("BOX OFFICE"), LX + 12 * S, Top + 30 * S, Grey, LabelSize);
-		Print(Money(FMath::RoundToInt64(ScoreShown)), LX + 12 * S, Top + 46 * S, Mix(Yellow, White, .7f * Flash01(Now - ScoreUpAt, .3f)), Heading, 0, true, 228 * S);
-		const FString Counts = G->Combo > 1 ? FString::Printf(TEXT("COMBO ×%d"), G->Combo)
-			: FString::Printf(TEXT("KILLS %d    NEAR MISSES %d"), G->Kills, G->NearMisses);
-		{
-			// a combo that grows kicks; a kill or a near miss brightens the count
-			const float Up = G->Combo > 1 ? Flash01(Now - ComboUpAt, PunchTime) : 0.f;
-			FPivot Kick(*this, FVector2D(LX + 12 * S, Top + 93 * S), 1.f + .28f * Up);
-			Print(Counts, LX + 12 * S, Top + 83 * S, G->Combo > 1 ? Mix(Pink, White, Up) : Mix(White, Cyan, Flash01(Now - CountsAt, .35f)), Body, 0, false, 227 * S);
-		}
+		RacePrint(FString::Printf(TEXT("%02d:%02d:%02d"), Tc / 60, Tc % 60, FrameNo), P.Rx(Top + 34 * K) - 12 * K, Top + 34 * K, Grey, 16.f, 2);
+		RacePrint(TEXT("BOX OFFICE"), P.Lx(Top + 60 * K) + 12 * K, Top + 56 * K, Yellow, 16.f, 0, true);
+		float RowL = P.Lx(Top + 108 * K) + 12 * K;
+		// the box office in big numerals; a long figure is drawn smaller to fit, and gives the combo's burst its room
+		RaceDigits(Money(FMath::RoundToInt64(ScoreShown)), RowL, Top + 72 * K, 36 * K, Mix(Yellow, FLinearColor::White, .7f * Flash01(Now - ScoreUpAt, .3f)), 0,
+			P.Rx(Top + 108 * K) - 12 * K - RowL - (G->Combo > 1 ? 112 * K : 0.f));
+		RowL = P.Lx(Top + 148 * K) + 12 * K;
 		if (G->Combo > 1)
 		{
-			// the time left to keep it: the bar blinks through its last second
+			// the combo: the pink starburst with its multiplier (it kicks when the combo grows), COMBO and the time
+			// left to keep it (the bar blinks toward white through its last second, never dimmer)
+			const float Up = Flash01(Now - ComboUpAt, PunchTime);
+			const float BurstX = P.Rx(Top + 98 * K) - 58 * K, BurstY = Top + 96 * K;
+			if (FTSkin::Texture(FTSkin::ETex::HudComboFill)) FTSkin::Combo(Canvas, S, BurstX, BurstY, G->Combo, Mix(Pink, FLinearColor::White, .45f * Up), Fade, .76f * (1.f + .28f * Up), FTSkin::White);
+			else RacePrint(FString::Printf(TEXT("x%d"), G->Combo), BurstX, BurstY, Mix(Pink, White, Up), 30.f, 1, true);
+			RacePrint(TEXT("COMBO"), RowL, Top + 136 * K, Pink, 16.f, 0, true);
+			const float BarX = RowL + RaceTextW(TEXT("COMBO"), 16.f, true) + 12 * K, BarW = BurstX - 58 * K - BarX;
 			const float Ending = G->ComboT < 1.f && !bReducedMotion ? FMath::Square(FMath::Sin(Now * PI * 2.5f)) : 0.f;   // toward white, never dimmer
-			Meter(Rect(LX + 135 * S, Top + 91 * S, 107 * S, 4 * S), G->ComboT / 3.f, Mix(Pink, White, .6f * Ending));
+			Flat(BarX, Top + 132 * K, BarW, 8 * K, Steel);
+			Flat(BarX, Top + 132 * K, BarW * FMath::Clamp(G->ComboT / 3.f, 0.f, 1.f), 8 * K, Mix(Pink, FLinearColor::White, .6f * Ending));
 		}
-		Print(FString::Printf(TEXT("STUNTS %d   /   COLLATERAL %d"), G->StuntCount, G->Collateral), LX + 12 * S, Top + 104 * S, Grey, LabelSize, 0, false, 227 * S);
+		else
+		{
+			// a kill or a near miss brightens the count
+			RacePrint(FString::Printf(TEXT("KILLS %d    NEAR MISSES %d"), G->Kills, G->NearMisses), RowL, Top + 136 * K,
+				Mix(White, Cyan, Flash01(Now - CountsAt, .35f)), 19.f, 0, false, 320 * K);
+		}
+		RacePrint(FString::Printf(TEXT("STUNTS %d   /   COLLATERAL %d"), G->StuntCount, G->Collateral), P.Lx(Top + 166 * K) + 12 * K, Top + 166 * K, Grey, 16.f, 0, false, 320 * K);
 		const int32 Time = FMath::FloorToInt(G->LevelClock), Par = ProgressData.Levels.IsValidIndex(G->Level) ? ProgressData.Levels[G->Level].Par : 0;
-		Print(FString::Printf(TEXT("CARNAGE %d%%  /  %d:%02d  PAR %d:%02d"),
+		RacePrint(FString::Printf(TEXT("CARNAGE %d%%  /  %d:%02d  PAR %d:%02d"),
 			FMath::RoundToInt(100.f * G->Run.Wrecked / FMath::Max(1, G->ScriptTotal)), Time / 60, Time % 60, Par / 60, Par % 60),
-			LX + 12 * S, Top + 123 * S, Grey, LabelSize, 0, false, 227 * S);
-		Print(FString::Printf(TEXT("FILM  %d/%d"), FMath::Max(0, G->Stats.Reels - G->Retakes), G->Stats.Reels), LX + 12 * S, Top + 145 * S, White, LabelSize);
-		Meter(Rect(LX + 112 * S, Top + 152 * S, 130 * S, 6 * S), float(G->Stats.Reels - G->Retakes) / FMath::Max(1, G->Stats.Reels), Yellow, FMath::Clamp(G->Stats.Reels, 1, 10));
+			P.Lx(Top + 192 * K) + 12 * K, Top + 192 * K, Grey, 16.f, 0, false, 320 * K);
+		// the film left: FILM n/N and one reel pip a reel (up to ten), right aligned
+		RowL = P.Lx(Top + 224 * K) + 12 * K;
+		const FString Film = FString::Printf(TEXT("FILM  %d/%d"), FMath::Max(0, G->Stats.Reels - G->Retakes), G->Stats.Reels);
+		RacePrint(Film, RowL, Top + 224 * K, White, 16.f, 0, true);
+		const int32 Reels = FMath::Clamp(G->Stats.Reels, 1, 10);
+		const int32 ReelsLeft = FMath::Clamp(FMath::RoundToInt(float(G->Stats.Reels - G->Retakes) / FMath::Max(1, G->Stats.Reels) * Reels), 0, Reels);
+		const float PipR = P.Rx(Top + 240 * K) - 8 * K;
+		const float PipRoom = FMath::Min(PipR - RowL - RaceTextW(Film, 16.f, true) - 14 * K, 224 * K);
+		RacePips(2, PipR - Reels * 32 * K * FMath::Clamp(PipRoom / (Reels * 32 * K), .3f, 1.f), Top + 208 * K, ReelsLeft, Reels, PipRoom, 32.f, Yellow);
 	}
 
+	// the reward tags under the ledger: the latest three, the newest on top, their right edge on the ledger's
 	for (int32 I = FMath::Max(0, G->Popups.Num() - 3); I < G->Popups.Num(); ++I)
 	{
 		const FFTPopup& Popup = G->Popups[I];
@@ -1496,26 +1908,56 @@ void AFTHUD::DrawPlay(AFTGameMode* G)
 		const float Py = Top + (182 + (G->Popups.Num() - 1 - I) * 32) * S;
 		const bool bRepair = (Popup.Text.StartsWith(TEXT("+")) && Popup.Text.EndsWith(TEXT(" ARMOR"))) || Popup.Text == TEXT("ARMOR FULL");
 		const bool bMissile = (Popup.Text.StartsWith(TEXT("+")) && (Popup.Text.EndsWith(TEXT(" MISSILES")) || Popup.Text.EndsWith(TEXT(" MISSILE")))) || Popup.Text == TEXT("MISSILES FULL");
-		const FLinearColor Color = Alpha(bRepair ? Green : bMissile ? Amber : Popup.Col, Opacity);
-		// a reward slides in from the edge with a flash; a stunt (the big ones) with a wider bar and a longer flash
+		const FLinearColor TagColor = bRepair ? Green : bMissile ? Yellow : FLinearColor(Popup.Col.R, Popup.Col.G, Popup.Col.B, 1.f);
+		// a reward slides in from the edge with a flash; a stunt (the big ones) lands a touch large with a longer flash
 		const bool bBig = Popup.Big > 1.f;
 		const float Landed = Flash01(Popup.T, bBig ? .3f : .18f);
 		FBlock Arrive(*this, In01(Popup.T, 0.f, .13f), 26 * S, 0.f);
-		Box(LX, Py, LedgerW, 27 * S, Alpha(Ink, Opacity));
-		Box(LX, Py, (bBig ? 5 : 3) * S, 27 * S, Color);
-		if (Landed > 0.f) Box(LX, Py, LedgerW, 27 * S, Alpha(bBig ? Color : White, (bBig ? .45f : .28f) * Landed));
-		if (bRepair || bMissile) Icon(bRepair ? EIcon::Repair : EIcon::Missile, LX + 10 * S, Py + 4 * S, 17 * S, Color);
-		Print(Popup.Text, LX + (bRepair || bMissile ? 35 : 12) * S, Py + 4 * S, Mix(Color, Alpha(White, Opacity), .6f * Landed), Body, 0, false, 207 * S);
+		FBlock Leave(*this, Opacity);
+		const bool bIcon = bRepair || bMissile;
+		const float TextRoom = (bIcon ? 270 : 300) * K;
+		const float TextX = (bIcon ? 58 : 28) * K;
+		const float TagW = TextX + FMath::Min(RaceTextW(Popup.Text, 18.f, true), TextRoom) + 20 * K;
+		const float TagX = R - TagW;
+		FPivot Land(*this, FVector2D(R, Py + 20 * K), bBig ? 1.f + .12f * Flash01(Popup.T, .16f) : 1.f);
+		const FLinearColor TagTint = Mix(TagColor, FLinearColor::White, (bBig ? .6f : .4f) * Landed);
+		if (FTSkin::Texture(FTSkin::ETex::HudTag)) FTSkin::HudTag(Canvas, TagX, Py, TagW, 40 * K, TagTint, Fade);
+		else
+		{
+			Flat(TagX, Py, TagW, 38 * K, Ink);
+			Flat(TagX + 3 * K, Py + 3 * K, TagW - 6 * K, 32 * K, TagTint);
+		}
+		if (bIcon) RaceIcon(bRepair ? IcoWrench : IcoMissile, TagX + 26 * K, Py + 5 * K, 26 * K, Ink, static_cast<int32>(bRepair ? EIcon::Repair : EIcon::Missile));
+		RacePrint(Popup.Text, TagX + TextX, Py + 18 * K, Ink, 18.f, 0, true, TextRoom);
 	}
 	if (G->bShowKeys && GI)
 	{
-		const FString Keys = FString::Printf(TEXT("DRIFT %s   /   TURBO %s   /   FIRE %s   /   MISSILE %s   /   AMMO %s   /   %s PAUSE"),
-			*Hint(EFTAction::Drift, TEXT("A/RB")), *Hint(EFTAction::Turbo, TEXT("LB/RT")), *Hint(EFTAction::Fire, TEXT("X")),
-			*Hint(EFTAction::Missile, TEXT("B")), *Hint(EFTAction::Ammo, TEXT("Y")), *InputHint(this, TEXT("P / ESC"), EKeys::Gamepad_Special_Right));
+		// the keys line: a slanted slate strip, each key in its cap with what it does beside it (mock_hud.py, hud_keys)
 		// (the keys go after ten seconds of the race: they fade out over the last half second rather than blink off)
 		FBlock Keyline(*this, bReducedMotion || G->Phase != EFTPhase::Play ? 1.f : FMath::Min(In01(PlayAge, .1f, DealTime), FMath::Clamp((10.f - G->PhaseT) / .5f, 0.f, 1.f)));
-		Box(Center - 306 * S, H - 32 * S, 612 * S, 22 * S, Ink);
-		Print(Keys, Center, H - 31 * S, Grey, LabelSize, 1, false, 588 * S);
+		const FString KeyNames[] = { Hint(EFTAction::Drift, TEXT("A/RB")), Hint(EFTAction::Turbo, TEXT("LB/RT")), Hint(EFTAction::Fire, TEXT("X")),
+			Hint(EFTAction::Missile, TEXT("B")), Hint(EFTAction::Ammo, TEXT("Y")), InputHint(this, TEXT("P / ESC"), EKeys::Gamepad_Special_Right) };
+		static const TCHAR* KeyDoes[] = { TEXT("DRIFT"), TEXT("TURBO"), TEXT("FIRE"), TEXT("MISSILE"), TEXT("AMMO"), TEXT("PAUSE") };
+		const float CapH = 30 * K, Between = 24 * K;
+		float CapW[UE_ARRAY_COUNT(KeyDoes)], DoesW[UE_ARRAY_COUNT(KeyDoes)];
+		float Whole = -Between;
+		for (int32 I = 0; I < UE_ARRAY_COUNT(KeyDoes); ++I)
+		{
+			CapW[I] = FMath::Max(CapH, RaceTextW(KeyNames[I], 16.f) + CapH * .62f);
+			DoesW[I] = RaceTextW(KeyDoes[I], 16.f);
+			Whole += CapW[I] + 8 * K + DoesW[I] + Between;
+		}
+		// (rebound keys with long names: the row is set narrower, never wider than the line always was)
+		const float Fit = FMath::Min(1.f, (612 * S - 56 * K) / Whole);
+		const float StripW = Whole * Fit + 56 * K, StripY = H - 32 * S, MidY = StripY + 16 * K;
+		RaceChip(Center - StripW * .5f, StripY, StripW, 33 * K, FTSkin::Slate);
+		float Px = Center - Whole * Fit * .5f;
+		for (int32 I = 0; I < UE_ARRAY_COUNT(KeyDoes); ++I)
+		{
+			Px += RaceKey(KeyNames[I], Px, MidY, Fit < 1.f ? CapW[I] * Fit : 0.f, 30.f) + 8 * K * Fit;
+			RacePrint(KeyDoes[I], Px, MidY, White, 16.f, 0, false, Fit < 1.f ? DoesW[I] * Fit : 0.f);
+			Px += (DoesW[I] + Between) * Fit;
+		}
 	}
 	if (G->Overlay == EFTOverlay::None) DrawTutorial(G);
 }
@@ -1546,9 +1988,11 @@ void AFTHUD::DrawCard(AFTGameMode* G)
 	const float Time = G->PhaseT;
 	const float Mid = W * .5f;
 	const float X = Mid - 320 * S, Y = H * .5f - 144 * S;
-	// the slate is on film: a slim letterbox while it is up; the dim behind it eases in from the last screen's. Both
-	// cut when the race starts (DrawPlay): nothing dims live play. (Backdrop)
+	const float K = S / 1.5f;   // screen px per kit px: the numbers below that are times K are mock_hud.py's (screen_card)
+	// the slate is on film: a slim letterbox while it is up (a row of perforations along each matte); the dim behind
+	// it eases in from the last screen's. Both cut when the race starts (DrawPlay): nothing dims live play. (Backdrop)
 	Backdrop(FMath::Lerp(.68f, .96f, FMath::Clamp((Time - 2.9f) / .3f, 0.f, 1.f)), bReducedMotion ? 0.f : ReelBar() * .5f);
+	RaceMattes();
 	// The clapper: its arm is hinged at the left end, held open while the card drops in, lifts a little more, then
 	// snaps shut (it meets the card as the clap sounds, 1.0 s in). The clap knocks the card and lights the stick.
 	const float Closed = bReducedMotion ? 1.f : EaseIn(Time - ClapperClose, ClapperTravel);
@@ -1557,38 +2001,52 @@ void AFTHUD::DrawCard(AFTGameMode* G)
 	const float Leaving = bReducedMotion ? 0.f : EaseIn(Time - 2.95f, .25f);
 	FBlock Arrive(*this, In01(bReducedMotion ? -1.f : Time, 0.f, DealTime), 0.f, -30 * S, 0.f, 5 * S * Flash01(Shut, .16f));
 	FBlock Leave(*this, 1.f - Leaving, 0.f, -20 * S);
-	Plate(Rect(X, Y, 640 * S, 310 * S), Cyan, Ink);
+	// the slate itself: clapper-slate black with chalk dust and a chalk hairline, in its ink outline on its hard shadow
+	FTSkin::SlatePanel(Canvas, S, X, Y, 640 * S, 310 * S, Fade);
+	MarkTone(Rect(X, Y, 640 * S, 310 * S), ETone::Dark);   // (chalk stays chalk on it, even while the last screen's wall is still clearing behind)
+	// the fixed jaw on the slate's top edge (the stick, flipped), and the arm on it, hinged at its left end
+	RaceStick(X + 2 * K, Y + 11 * K, FLinearColor::White, true);
 	{
 		const float Lift = bReducedMotion ? 0.f : FMath::SmoothStep(ClapperClose - .22f, ClapperClose, Time);
-		const float StickY = Y - 13 * S;
-		FPivot Hinge(*this, FVector2D(X + 5 * S, StickY + 25 * S), 1.f, -(11.f + 3.f * Lift) * (1.f - Closed));
-		Box(X, StickY, 640 * S, 28 * S, Steel);
-		for (int32 I = 0; I < 10; ++I)
-		{
-			const float Px = X + (I * 64 + 7) * S;
-			Stroke(FVector2D(Px, StickY + 23 * S), FVector2D(Px + 27 * S, StickY + 4 * S), I < 2 ? Cyan : White, 6.f);
-		}
+		FPivot Hinge(*this, FVector2D(X + 26 * K, Y - 5 * K), 1.f, -(11.f + 3.f * Lift) * (1.f - Closed));
+		RaceStick(X + 2 * K, Y - 29 * K, FLinearColor::White, false);
 		const float Snap = Flash01(Shut, .14f);
-		if (Snap > 0.f) Box(X, StickY, 640 * S, 28 * S, Alpha(White, .8f * Snap));
+		if (Snap > 0.f) Flat(X + 6 * K, Y - 25 * K, 948 * K, 40 * K, Alpha(FLinearColor::White, .8f * Snap));
 	}
-	AccentSweep(Rect(X + 1 * S, Y + 17 * S, 638 * S, 4 * S), Shut, Cyan, FocusSweep);
+	AccentSweep(Rect(X + 6 * K, Y + 60 * K, 640 * S - 12 * K, 3 * S), Shut, Cyan, FocusSweep);
 	const FFTLevelDef& Level = G->Def();
 	const int32 Roll = 40 + (G->GI() ? G->GI()->RunCounter : 1);
-	Print(FString::Printf(TEXT("FULL THROTTLE  /  ROLL A-%d"), Roll), X + 22 * S, Y + 33 * S, Grey, LabelSize, 0, true);
-	Print(G->Take > 1 ? TEXT("RESET THE CARS") : Level.Zone, X + 22 * S, Y + 65 * S, White, Readout, 0, true, 594 * S);
-	Print(G->Take > 1 ? TEXT("FRESH PAINT ON THE KESTREL. ROLLING…") : Level.Title + TEXT("  /  ") + Level.Place,
-		X + 22 * S, Y + 120 * S, Grey, Strong, 0, false, 594 * S);
-	Box(X + 22 * S, Y + 160 * S, 596 * S, S, Rule);
-	Print(TEXT("SCENE"), X + 24 * S, Y + 177 * S, Grey, LabelSize, 0, true);
-	Print(TEXT("TAKE"), X + 232 * S, Y + 177 * S, Grey, LabelSize, 0, true);
-	Print(TEXT("LEVEL"), X + 439 * S, Y + 177 * S, Grey, LabelSize, 0, true);
-	Print(FString::Printf(TEXT("%02d / %02d"), G->Scene + 1, G->NumScenes()), X + 24 * S, Y + 197 * S, Cyan, Heading, 0, true);
-	Print(FString::Printf(TEXT("%02d"), G->Take), X + 232 * S, Y + 197 * S, G->Take > 1 ? Red : White, Heading, 0, true);
-	Print(FString::Printf(TEXT("%02d"), Level.Index + 1), X + 439 * S, Y + 197 * S, White, Heading, 0, true);
+	RacePrint(FString::Printf(TEXT("FULL THROTTLE  /  ROLL A-%d"), Roll), X + 33 * K, Y + 82 * K, Grey, 16.f);
+	{
+		// (the slate's own lettering is chalk: no second, pink printing under it)
+		const bool bWasSticker = bSticker;
+		bSticker = true;
+		RacePrint(G->Take > 1 ? TEXT("RESET THE CARS") : Level.Zone, X + 31 * K, Y + 142 * K, White, 64.f, 0, true, 894 * K);
+		bSticker = bWasSticker;
+	}
+	RacePrint(G->Take > 1 ? TEXT("FRESH PAINT ON THE KESTREL. ROLLING…") : Level.Title + TEXT("  /  ") + Level.Place,
+		X + 33 * K, Y + 202 * K, Grey, 22.f, 0, false, 894 * K);
+	Flat(X + 33 * K, Y + 240 * K, 894 * K, 2 * K, Alpha(White, .35f));
+	// SCENE, TAKE and LEVEL: a label over big numerals, a chalk rule between one and the next
+	const auto Reading = [&](const TCHAR* Label, const FString& Value, const FLinearColor& Tint, float At)
+	{
+		if (At > 40.f) Flat(X + (At - 24.f) * K, Y + 258 * K, 2 * K, 96 * K, Alpha(White, .24f));
+		RacePrint(Label, X + At * K, Y + 277 * K, Grey, 16.f);
+		RaceDigits(Value, X + (At - 2.f) * K, Y + 298 * K, 46 * K, Tint);
+	};
+	Reading(TEXT("SCENE"), FString::Printf(TEXT("%02d/%02d"), G->Scene + 1, G->NumScenes()), Cyan, 36.f);
+	Reading(TEXT("TAKE"), FString::Printf(TEXT("%02d"), G->Take), G->Take > 1 ? Red : White, 348.f);
+	Reading(TEXT("LEVEL"), FString::Printf(TEXT("%02d"), Level.Index + 1), White, 658.5f);
+	FTSkin::Signature(Canvas, S, X + 30 * K, Y + 372 * K, FTSkin::Mute, .55f * Fade);   // the director's hand, in chalk
 	if (Time > 1.2f)
 	{
+		// the key in its cap, SKIP SLATE beside it, right aligned where the prompt always was
 		FBlock Prompt(*this, bReducedMotion ? 1.f : EaseOut(Time - 1.2f, .18f));
-		Print(ConfirmHint(this) + TEXT("   SKIP SLATE"), X + 615 * S, Y + 266 * S, Grey, Body, 2);
+		const FString SkipKey = ConfirmHint(this);
+		const float SkipW = RaceTextW(TEXT("SKIP SLATE"), 16.f);
+		const float SkipCapW = FMath::Max(30 * K, RaceTextW(SkipKey, 16.f) + 30 * K * .62f);
+		RaceKey(SkipKey, X + 925 * K - SkipW - 8 * K - SkipCapW, Y + 409 * K, 0.f, 30.f);
+		RacePrint(TEXT("SKIP SLATE"), X + 925 * K, Y + 409 * K, Grey, 16.f, 2);
 	}
 }
 
@@ -1600,35 +2058,48 @@ void AFTHUD::DrawCut(AFTGameMode* G)
 	LastCutAge = Age;
 	if (Age < 0.f) return;
 	const float Mid = W * .5f, Y = H * .32f;
-	const FBox2D Card = Rect(Mid - 330 * S, Y, 660 * S, 112 * S);
+	const float K = S / 1.5f;   // screen px per kit px: the numbers below that are times K are mock_hud.py's (screen_cut)
+	const float CardX = Mid - 330 * S, CardW = 660 * S, CardH = 112 * S;
 	// CUT! is shouted: the card comes down large and fast, lands in a tenth of a second, flashes, and jolts
 	const float Down = bReducedMotion ? 1.f : EaseIn(Age, .1f);
 	const float Since = Age - .1f;
 	const float Landed = Flash01(Since, .22f);
 	FBlock Arrive(*this, .25f + .75f * Down, 0.f, 0.f, ShakeX(Since, 6 * S, .26f), 0.f);
-	FPivot Slam(*this, Card.GetCenter(), 1.f + .34f * (1.f - Down));
-	Plate(Card, Red, Ink);
-	if (Landed > 0.f)
-	{
-		Box(Card.Min.X, Card.Min.Y, Card.GetSize().X, Card.GetSize().Y, Alpha(White, .3f * Landed));
-		Frame(Card.Min.X, Card.Min.Y, Card.GetSize().X, Card.GetSize().Y, Alpha(White, Landed), 2.f);
-	}
+	FPivot Slam(*this, FVector2D(Mid, Y + CardH * .5f), 1.f + .34f * (1.f - Down));
+	// a slate shut on the take: slate black in its ink outline on its hard shadow, the clapper's stick down on its top
+	// edge in the cut's red, a red rule along its foot
+	FTSkin::SlatePanel(Canvas, S, CardX, Y, CardW, CardH, Fade);
+	MarkTone(Rect(CardX, Y, CardW, CardH), ETone::Dark);
+	RaceStick(CardX + 17 * K, Y - K, Mix(Red, FLinearColor::White, .6f * Landed), false);
+	if (Landed > 0.f) Flat(CardX, Y, CardW, CardH, Alpha(FLinearColor::White, .3f * Landed));
 	const float Wipe = bReducedMotion ? 1.f : EaseOut(Since);
-	Box(Card.Min.X, Card.Max.Y - 4 * S, (Card.GetSize().X - Corner * S) * Wipe, 3 * S, Red);
-	AccentSweep(Rect(Card.Min.X + 12 * S, Y + 3 * S, Card.GetSize().X - 24 * S, 4 * S), Since, Red, MenuEntrance);
-	Print(G->CutTitle, Mid, Y + (9.f + 6.f * (1.f - Wipe)) * S, Mix(Red, White, Landed), Readout, 1, true);
-	Print(G->CutSub, Mid, Y + 64 * S, White, Strong, 1, false, 616 * S);
+	Flat(CardX + 3 * K, Y + CardH - 10 * K, (CardW - 6 * K) * Wipe, 7 * K, Red);
+	AccentSweep(Rect(CardX + 6 * K, Y + 48 * K, CardW - 12 * K, 3 * S), Since, Red, MenuEntrance);
+	{
+		// the title: red over its ink print (the slate's own lettering: no second, pink printing under it)
+		const bool bWasSticker = bSticker;
+		bSticker = true;
+		const float TitleY = Y + 83 * K + 6.f * (1.f - Wipe) * S;
+		RacePrint(G->CutTitle, Mid + 4 * K, TitleY + 4 * K, Ink, 66.f, 1, true, 924 * K);
+		RacePrint(G->CutTitle, Mid, TitleY, Mix(Red, FLinearColor::White, Landed), 66.f, 1, true, 924 * K);
+		bSticker = bWasSticker;
+	}
+	// the caption under it: why the camera stopped, or what comes next
+	RacePrint(G->CutSub, Mid, Y + 134 * K, White, 24.f, 1, false, 924 * K);
 }
 
 void AFTHUD::DrawReel(AFTGameMode* G)
 {
 	const float Mid = W * .5f, X = Left + Safe * S, R = Right - Safe * S;
 	const float Bar = ReelBar();
+	const float K = S / 1.5f;   // screen px per kit px: the numbers below that are times K are mock_hud.py's (screen_reel)
 	const float Entry = MenuAge(EMenuView::Reel);
 	// The highlights' title card holds the picture dark behind it; card and dark clear together over its last fifth of
 	// a second, so the first shot comes up from under them. The mattes are the ones CUT! closed (Backdrop): no cut.
+	// They are film: a row of perforations runs along the picture's side of each.
 	const float Holding = G->ReelTitleT > 0.f ? (bReducedMotion ? 1.f : FMath::Clamp(G->ReelTitleT / .2f, 0.f, 1.f)) : 0.f;
 	Backdrop(.88f * Holding, Bar);
+	RaceMattes();
 	const float ShotAge = MenuAge(EMenuView::Reel, true);
 	if (G->ReelShot != LastReelShot)
 	{
@@ -1637,40 +2108,52 @@ void AFTHUD::DrawReel(AFTGameMode* G)
 		LastReelShot = G->ReelShot;
 	}
 	if (!G->bReelDone)
-		AccentSweep(Rect(R - 318 * S, Bar - 6 * S, 318 * S, 4 * S), ShotAge, Pink, FocusSweep);
+		AccentSweep(Rect(R - 318 * S, Bar - 16 * K - 5 * S, 318 * S, 4 * S), ShotAge, Pink, FocusSweep);
 	const FFTLevelDef& Level = G->Def();
 	if (G->ReelTitleT > 0.f)
 	{
-		const FBox2D Card = Rect(Mid - 335 * S, H * .34f, 670 * S, 158 * S);
+		// the title card: call-sheet paper in its ink outline on its hard shadow, a clapper stripe along its head, the
+		// title in ink over its pink print (Print sets a title that way), a rule, the shoot
+		const float CardX = Mid - 335 * S, CardY = H * .34f, CardW = 670 * S, CardH = 158 * S;
 		FBlock Arrive(*this, In01(Entry, .04f, DealTime), 0.f, -28 * S);
 		FBlock Leave(*this, Holding, 0.f, -16 * S);
-		Plate(Card, Pink, Ink);
-		AccentSweep(Rect(Card.Min.X + 12 * S, Card.Max.Y - 8 * S, Card.GetSize().X - 24 * S, 4 * S),
-			Entry, Pink, MenuEntrance);
-		Print(TEXT("ROADBURN PICTURES"), Mid, Card.Min.Y + 16 * S, Pink, LabelSize, 1, true);
-		Print(TEXT("THE HIGHLIGHTS"), Mid, Card.Min.Y + 43 * S, White, Readout, 1, true, 630 * S);
-		Print(Level.Zone + TEXT("  /  ") + Level.Title, Mid, Card.Min.Y + 104 * S, Grey, Strong, 1, false, 630 * S);
+		FTSkin::PaperPanel(Canvas, S, CardX, CardY, CardW, CardH, FTSkin::Paper, Fade);
+		MarkTone(Rect(CardX, CardY, CardW, CardH), ETone::Dark);   // (the colours below are given as inks: Print is to set them as they are)
+		FTSkin::ClapStripes(Canvas, S, CardX + 3 * K, CardY + 3 * K, CardW - 6 * K, 16 * K, FTSkin::Chalk, Fade, .5f);
+		Flat(CardX + 3 * K, CardY + 19 * K, CardW - 6 * K, 3 * K, Ink);
+		AccentSweep(Rect(CardX + 12 * S, CardY + CardH - 8 * S, CardW - 24 * S, 4 * S), Entry, Pink, MenuEntrance);
+		RacePrint(TEXT("ROADBURN PICTURES"), Mid, CardY + 50 * K, Mix(Pink, Ink, .25f), 16.f, 1, true);
+		RacePrint(TEXT("THE HIGHLIGHTS"), Mid, CardY + 112 * K, Ink, 61.f, 1, true, 945 * K);
+		Flat(CardX + 180 * K, CardY + 162 * K, CardW - 360 * K, 3 * K, Ink);
+		RacePrint(Level.Zone + TEXT("  /  ") + Level.Title, Mid, CardY + 196 * K, Ink, 22.f, 1, false, 945 * K);
 	}
 	{
+		// the reel's name on the top bar
 		FBlock Slug(*this, In01(Entry, 0.f, DealTime), -34 * S, 0.f);
-		Icon(EIcon::Play, X, Bar * .5f - 10 * S, 22 * S, Pink);
-		Print(TEXT("DAILIES / HIGHLIGHTS"), X + 35 * S, Bar * .5f - 11 * S, White, Strong, 0, true);
+		RaceIcon(IcoArrow, X - 8 * K, Bar * .5f - 20 * K, 40 * K, Pink, static_cast<int32>(EIcon::Play));
+		RacePrint(TEXT("DAILIES / HIGHLIGHTS"), X + 40 * K, Bar * .5f, White, 24.f, 0, true);
 	}
 	// each shot is slugged as it cuts in: the counter flashes, the label slides in from the left
 	const float Spliced = G->bReelDone || G->ReelTitleT > 0.f ? 0.f : Flash01(ShotAge, .3f);
-	Print(FString::Printf(TEXT("SHOT %02d / %02d  %s"), G->ReelShot, G->ReelShots, *G->ReelCamName),
-		R, Bar * .5f - 10 * S, Mix(Grey, White, Spliced), Body, 2, false, 318 * S);
+	RacePrint(FString::Printf(TEXT("SHOT %02d / %02d  %s"), G->ReelShot, G->ReelShots, *G->ReelCamName),
+		R, Bar * .5f, Mix(Grey, White, Spliced), 19.f, 2, false, 477 * K);
 	{
 		FBlock Label(*this, G->bReelDone ? 1.f : In01(ShotAge, 0.f, .18f), -18 * S, 0.f);
-		Print(G->ReelLabel, X, H - Bar * .5f - 10 * S, Yellow, Strong, 0, true, 332 * S);
+		RacePrint(G->ReelLabel, X, H - Bar * .5f, Yellow, 24.f, 0, true, 498 * K);
 	}
 	if (G->bReelSlow != bLastReelSlow) { bLastReelSlow = G->bReelSlow; ReelSlowAt = T; }
 	if (G->bReelSlow)
 	{
 		FBlock Slow(*this, In01(T - ReelSlowAt, 0.f, .15f), 14 * S, 0.f);
-		Print(TEXT("SLOW MOTION"), R, H - Bar * .5f - 8 * S, Pink, Body, 2, true);
+		RacePrint(TEXT("SLOW MOTION"), R, H - Bar * .5f, Pink, 19.f, 2, true);
 	}
-	if (G->RealClockNow() - G->ReelLoopT < 2.f) Print(TEXT("AGAIN, FROM THE TOP"), Mid, Bar + 18 * S, White, Strong, 1, true);
+	if (G->RealClockNow() - G->ReelLoopT < 2.f)
+	{
+		// the reel starts over: said on a chalk chip under the top bar
+		const float AgainW = RaceTextW(TEXT("AGAIN, FROM THE TOP"), 19.f, true) + 44 * K;
+		RaceChip(Mid - AgainW * .5f, Bar + 12 * S, AgainW, 40 * K, White);
+		RacePrint(TEXT("AGAIN, FROM THE TOP"), Mid, Bar + 12 * S + 20 * K, Ink, 19.f, 1, true);
+	}
 	DrawReelContinue(G);
 }
 
@@ -1708,7 +2191,7 @@ void AFTHUD::DrawRating(AFTGameMode* G)
 		FBlock Head(*this, In01(Age, 0.f, DealTime), 0.f, -22 * S);
 		Print(TEXT("THE DAILIES"), X, Y - 57 * S, White, Heading, 0, true);
 		Print(Level.Zone + TEXT("  /  ") + Level.Title, R, Y - 47 * S, Grey, Strong, 2, false, 500 * S);
-		for (int32 I = 0; I < 12; ++I) Flat(X + I * 16 * S, Y - 16 * S, 10 * S, 5 * S, I % 2 == 0 ? Ink : White);   // the clapper's stripes under the title
+		Stripes(X, Y - 17 * S, 190 * S, 6 * S, White, Ink);   // the clapper's stripes under the title
 	}
 	{
 		FBlock Arrive(*this, In01(Age, .04f, DealTime), -36 * S, 0.f);
@@ -1775,24 +2258,33 @@ void AFTHUD::DrawRating(AFTGameMode* G)
 			const float After = bReducedMotion ? 1.f : EaseOut(Hit, .3f);
 			const float StampY = Y + 118 * S;
 			const FVector2D NameSize = TextSize(Names[Rating], Heading, true);
-			{
-				FPivot Stamp(*this, FVector2D(RatingX + FMath::Min<float>(NameSize.X, 398 * S) * .5f, StampY + NameSize.Y * .5f),
-					1.f + .9f * (1.f - Down), -5.f * (1.f - Down));
-				Print(Names[Rating], RatingX, StampY, Alpha(Mix(Color, White, Landed), .25f + .75f * Down), Heading, 0, true, 398 * S);
-			}
-			// The rating is a rubber stamp: once it has landed, a double rule of its own ink stands round the name
-			// (B-MOVIE in plain ink, the others in the ink of their colour). (TODO kit: FTSkin::Stamp, the film can.)
+			// The rating is a rubber stamp. With the kit it is the baked stamp of that rating (its name, its stars, its worn
+			// edge), a little askew, coming down as it always did. Without it: the name in the display face, upright, and
+			// once it has landed a double rule of its own ink round it. (TODO kit: the film can beside it.)
 			const FLinearColor StampInk = InkFor(Color);
-			if (Down >= 1.f)
+			if (FTSkin::Texture(FTSkin::ETex::StampRating))
+				FTSkin::Stamp(Canvas, S, RatingX + 199 * S, StampY + NameSize.Y * .5f, Rating, -4.f - 6.f * (1.f - Down), .8f * (1.f + .9f * (1.f - Down)), Fade * (.25f + .75f * Down));
+			else
 			{
-				Frame(RatingX - 10 * S, StampY - 8 * S, 418 * S, NameSize.Y + 16 * S, Alpha(StampInk, .9f), 3.f);
-				Frame(RatingX - 5 * S, StampY - 3 * S, 408 * S, NameSize.Y + 6 * S, Alpha(StampInk, .7f), 1.f);
+				{
+					FPivot Stamp(*this, FVector2D(RatingX + FMath::Min<float>(NameSize.X, 398 * S) * .5f, StampY + NameSize.Y * .5f),
+						1.f + .9f * (1.f - Down), -5.f * (1.f - Down));
+					Print(Names[Rating], RatingX, StampY, Alpha(Mix(Color, White, Landed), .25f + .75f * Down), Heading, 0, true, 398 * S);
+				}
+				if (Down >= 1.f)
+				{
+					Frame(RatingX - 10 * S, StampY - 8 * S, 418 * S, NameSize.Y + 16 * S, Alpha(StampInk, .9f), 3.f);
+					Frame(RatingX - 5 * S, StampY - 3 * S, 408 * S, NameSize.Y + 6 * S, Alpha(StampInk, .7f), 1.f);
+				}
 			}
 			if (Landed > 0.f) Flat(RatingX - 10 * S, StampY - 8 * S, 418 * S, NameSize.Y + 16 * S, Alpha(Color, .3f * Landed));
-			Meter(Rect(RatingX, Y + 182 * S, 397 * S, 12 * S), (Rating + 1) / 4.f * After, StampInk, 4);   // the four pips
+			if (FTSkin::Texture(FTSkin::ETex::DailiesPip)) FTSkin::DailiesPips(Canvas, S, RatingX, Y + 175 * S, FMath::RoundToInt((Rating + 1) * After), 4, Fade, .8f);   // the four pips, as stars
+			else Meter(Rect(RatingX, Y + 182 * S, 397 * S, 12 * S), (Rating + 1) / 4.f * After, StampInk, 4);   // the four pips
 			Flat(RatingX, Y + 209 * S, 396 * S * After, 1.34f * S, StampInk);
 			FBlock Quip(*this, bReducedMotion ? 1.f : EaseOut(Hit - .12f, .25f));
 			Print(G->RatingQuip, RatingX, Y + 233 * S, White, Strong, 0, false, 398 * S);
+			// (the kit) the take's can in the card's free corner: under the lowest line the card can carry, at every rating
+			if (FTSkin::Texture(FTSkin::ETex::FilmCan)) FTSkin::TexNat(Canvas, S, FTSkin::ETex::FilmCan, R - 118 * S, Y + 362 * S, FTSkin::White, Fade, .68f);
 		}
 		if (G->PhaseT > 3.f && (G->bOutOfFilm || G->bEscaped))
 		{
@@ -1806,11 +2298,11 @@ void AFTHUD::DrawRating(AFTGameMode* G)
 	const FBox2D Continue = Rect(R - 442 * S, Y + 481 * S, 442 * S, 55 * S);
 	{
 		FBlock Arrive(*this, In01(Age, .16f, .2f), 0.f, 18 * S);
-		Marquee(Rect(Continue.Min.X - 7 * S, Continue.Min.Y - 7 * S, Continue.GetSize().X + 14 * S, Continue.GetSize().Y + 14 * S));   // the hero action stands in lights
+		FTSkin::Marquee(Canvas, S, Continue.Min.X, Continue.Min.Y, Continue.GetSize().X, Continue.GetSize().Y, T, bReducedMotion, Fade);   // the hero action stands in lights
 		G->ResultsContinueRect = Control(Continue, TEXT("CONTINUE TO PAYCHECK"), ConfirmHint(this),
 			ControlState(Continue, true, G->PhaseT > 2.9f), Cyan);
 		FocusAccent(Continue, bReducedMotion ? -1.f : Time - 2.9f, Cyan);   // armed: its light runs once
-		Print(InputHint(this, TEXT("R"), EKeys::Gamepad_FaceButton_Top) + TEXT("   RESHOOT     ") + InputHint(this, TEXT("B"), EKeys::Gamepad_FaceButton_Right) + TEXT("   TITLE     ")
+		HintRow(InputHint(this, TEXT("R"), EKeys::Gamepad_FaceButton_Top) + TEXT("   RESHOOT     ") + InputHint(this, TEXT("B"), EKeys::Gamepad_FaceButton_Right) + TEXT("   TITLE     ")
 			+ InputHint(this, TEXT("ESC"), EKeys::Gamepad_Special_Right) + TEXT("   PAUSE"), X + 2 * S, Y + 499 * S, Grey, Body);
 	}
 }
@@ -1892,8 +2384,23 @@ void AFTHUD::DrawPreProduction(AFTGameMode* G)
 		const FBox2D TabRect = Rect(X + I * 178 * S, TabY, 170 * S, 44 * S);
 		const bool bCurrent = I == static_cast<int32>(G->Tab);
 		FBlock Dealt(*this, In01(Age, .05f + I * .025f, .2f), 0.f, -14 * S);
-		G->TabRects[I] = Control(TabRect, Tabs[I], FString(), ControlState(TabRect, bCurrent), Cyan);
-		if (bCurrent) FocusAccent(TabRect, DepartmentAge, Cyan);
+		const EControl TabState = ControlState(TabRect, bCurrent);
+		if (FTSkin::Texture(FTSkin::ETex::Plaque))
+		{
+			// (the kit) a department's tab is a door plaque in the tab's own rectangle: slate when idle, lit under the mouse,
+			// paper with its hazard stripe for the department that is open; the name stands where the button put it
+			const bool bUnderMouse = TabState == EControl::Hover || TabState == EControl::Pressed;
+			FTSkin::Plaque(Canvas, TabRect.Min.X, TabRect.Min.Y, TabRect.GetSize().X, TabRect.GetSize().Y,
+				bCurrent ? FTSkin::EPlaque::Active : bUnderMouse ? FTSkin::EPlaque::Focus : FTSkin::EPlaque::Idle, Fade);
+			MarkTone(TabRect, bCurrent ? ETone::Light : ETone::Dark);
+			Print(Tabs[I], TabRect.GetCenter().X, TabRect.Min.Y + TabRect.GetSize().Y * .24f, White, Strong, 1, true, TabRect.GetSize().X - 24 * S);
+			G->TabRects[I] = TabRect;
+		}
+		else
+		{
+			G->TabRects[I] = Control(TabRect, Tabs[I], FString(), TabState, Cyan);
+			if (bCurrent) FocusAccent(TabRect, DepartmentAge, Cyan);
+		}
 	}
 	{
 		FBlock Help(*this, In01(Age, .2f, .2f));
@@ -1973,8 +2480,14 @@ void AFTHUD::DrawPreProduction(AFTGameMode* G)
 			// (TODO kit: the card stock, the APPROVED stamp and a pending card's paper clip are FTSkin textures.)
 			const bool bOwnedCard = Tile.State == EFTTile::Owned || Tile.State == EFTTile::Equipped;
 			const FLinearColor Card = bOwnedCard ? Paper : Tile.State == EFTTile::Available ? Aqua : Tile.State == EFTTile::Pending ? Sticky : Steel;
-			Flat(Tx, Ty, Size.X, Size.Y, Ink);
-			Flat(Tx + 1.34f * S, Ty + 1.34f * S, Size.X - 2.68f * S, Size.Y - 2.68f * S, Interaction == EControl::Pressed ? Mix(Card, Ink, .25f) : Card);
+			// (the kit's stock: paper with its grain for a card, clapper-slate under a hatch for a blank; flat boxes without it)
+			const FLinearColor CardNow = Interaction == EControl::Pressed ? Mix(Card, Ink, .25f) : Card;
+			if (Lum(Card) > .35f) FTSkin::PaperPanel(Canvas, S, Tx, Ty, Size.X, Size.Y, CardNow, Fade, 0.f, FTSkin::Ink, 2.f);
+			else
+			{
+				FTSkin::SlatePanel(Canvas, S, Tx, Ty, Size.X, Size.Y, Fade, 0.f, CardNow, false, FTSkin::Ink, 2.f);
+				if (FTSkin::Texture(FTSkin::ETex::Hatch)) FTSkin::Hatch(Canvas, S, Tx + 2 * S, Ty + 2 * S, Size.X - 4 * S, Size.Y - 4 * S, Fade * .3f);
+			}
 			MarkTone(TileRect, Lum(Card) > .35f ? ETone::Light : ETone::Dark);
 			Flat(Tx, Ty, (bSelected ? 4 : 2) * S, Size.Y, bSelected ? Pink : State);
 			if (bSelected) Cursor(TileRect);
@@ -1982,9 +2495,18 @@ void AFTHUD::DrawPreProduction(AFTGameMode* G)
 			if (bOwnedCard)
 			{
 				const float BadgeX = TileRect.Max.X - (Tile.bSwatch ? 31 : 17) * S, BadgeY = Ty + 5 * S;
-				Flat(BadgeX, BadgeY, 12 * S, 12 * S, Ink);
-				Stroke(FVector2D(BadgeX + 2.5f * S, BadgeY + 6 * S), FVector2D(BadgeX + 5 * S, BadgeY + 9 * S), Green, 2.f);
-				Stroke(FVector2D(BadgeX + 5 * S, BadgeY + 9 * S), FVector2D(BadgeX + 9.5f * S, BadgeY + 3 * S), Green, 2.f);
+				if (FTSkin::Texture(FTSkin::ETex::Icons))
+				{
+					FTSkin::IconTex(Canvas, FTSkin::EIco::BadgeCheck, BadgeX - 3 * S, BadgeY - 3 * S, 18 * S, FTSkin::White, Fade);
+					// the APPROVED stamp, small and askew in the card's lower right, off the word OWNED
+					FTSkin::Stamp(Canvas, S, TileRect.Max.X - 34 * S, TileRect.Max.Y - 14 * S, FTSkin::StampApproved, -7.f, .42f, Fade * .9f);
+				}
+				else
+				{
+					Flat(BadgeX, BadgeY, 12 * S, 12 * S, Ink);
+					Stroke(FVector2D(BadgeX + 2.5f * S, BadgeY + 6 * S), FVector2D(BadgeX + 5 * S, BadgeY + 9 * S), Green, 2.f);
+					Stroke(FVector2D(BadgeX + 5 * S, BadgeY + 9 * S), FVector2D(BadgeX + 9.5f * S, BadgeY + 3 * S), Green, 2.f);
+				}
 			}
 			if (bSelected)
 			{
@@ -2014,8 +2536,16 @@ void AFTHUD::DrawPreProduction(AFTGameMode* G)
 		FBlock Panel(*this, In01(Age, .12f, DealTime), bSkills ? 0.f : 30 * S, 0.f);
 		Plate(Rect(DetailX, BoardY - 32 * S, R - DetailX, Bottom - BoardY + 32 * S), Pink, Ink, true);   // (the skin) read at length: paper
 		// ... a sheet on a clipboard: its clip (TODO kit: the board and the clip are FTSkin textures)
-		Flat(DetailX + (R - DetailX) * .5f - 36 * S, BoardY - 40 * S, 72 * S, 16 * S, Ink);
-		Flat(DetailX + (R - DetailX) * .5f - 33 * S, BoardY - 37 * S, 66 * S, 10 * S, Steel);
+		if (FTSkin::Texture(FTSkin::ETex::ClipboardClip))
+		{
+			const FVector2D ClipSize = FTSkin::TexSize(FTSkin::ETex::ClipboardClip) * FTSkin::KitPx(S) * .7f;
+			FTSkin::TexNat(Canvas, S, FTSkin::ETex::ClipboardClip, DetailX + (R - DetailX) * .5f - ClipSize.X * .5f, BoardY - 32 * S - ClipSize.Y * .6f, FTSkin::White, Fade, .7f);
+		}
+		else
+		{
+			Flat(DetailX + (R - DetailX) * .5f - 36 * S, BoardY - 40 * S, 72 * S, 16 * S, Ink);
+			Flat(DetailX + (R - DetailX) * .5f - 33 * S, BoardY - 37 * S, 66 * S, 10 * S, Steel);
+		}
 		AccentSweep(Rect(DetailX + 2 * S, BoardY - 30 * S, R - DetailX - 4 * S, 4 * S),
 			bSkills ? -1.f : DepartmentAge - .06f, Pink, MenuEntrance);
 		if (G->Tiles.IsValidIndex(Selection))
@@ -2082,6 +2612,9 @@ void AFTHUD::DrawPreProduction(AFTGameMode* G)
 				}
 				else if (Tile.State == EFTTile::Available && !bCanAfford)
 					Print(FString::Printf(TEXT("AVAILABLE CASH  %s"), *Money(Career->C.Cash)), Dx, Dy + 5 * S, Red, LabelSize, 0, false, Dw);
+				// (the kit) the branch's picture in the skill detail, in the room the text leaves above the button: never over a line
+				if (bSkills && ActionY - Dy > 150 * S && FTSkin::Texture(FTSkin::ETex::BranchBurst))
+					FTSkin::BranchArt(Canvas, S, Dx + Dw * .5f - 53.3f * S, Dy + 28 * S + (ActionY - Dy - 135 * S) * .5f, FMath::Clamp(Tile.Col, 0, 4), Fade, .5f);
 			}
 
 			FString Action = TEXT("BUY"), Hint = Tile.bCash ? TEXT("HOLD ") + ConfirmHint(this) : ConfirmHint(this);
@@ -2117,7 +2650,7 @@ void AFTHUD::DrawPreProduction(AFTGameMode* G)
 	FBlock Foot(*this, In01(Age, .16f, .2f), 0.f, 16 * S);
 	const FBox2D Ready = Rect(R - 344 * S, Bottom + 13 * S, 344 * S, 54 * S);
 	const FString ReadyLabel = G->bPPFromTitle || G->PPNextLevel < 0 ? TEXT("READY / TITLE") : FString::Printf(TEXT("READY / LEVEL %d"), G->PPNextLevel + 1);
-	Marquee(Rect(Ready.Min.X - 6 * S, Ready.Min.Y - 6 * S, Ready.GetSize().X + 12 * S, Ready.GetSize().Y + 12 * S));   // the hero action stands in lights
+	FTSkin::Marquee(Canvas, S, Ready.Min.X, Ready.Min.Y, Ready.GetSize().X, Ready.GetSize().Y, T, bReducedMotion, Fade);   // the hero action stands in lights
 	G->ReadyRect = Control(Ready, ReadyLabel, InputHint(this, TEXT("SPACE / CLICK"), EKeys::Gamepad_FaceButton_Top), ControlState(Ready, false, !Career->bSaving && G->PhaseT >= .3f), Cyan);
 	// (main's test, word for word; bSaid above is this stream's, for the flash of an answer)
 	const bool bFeedback = (Career->bSaving || T - G->PPMsgT < 2.2f) && !G->PPMsg.IsEmpty();
@@ -2132,7 +2665,7 @@ void AFTHUD::DrawPreProduction(AFTGameMode* G)
 	}
 	else if (bSkills && !Career->C.bTipSeen && Career->SPLeft() > 0)
 		Print(TEXT("Pick an available skill to spend a point. READY keeps pending changes."), X + 2 * S, Bottom + 16 * S, Yellow, Body, 0, false, 836 * S);
-	Print(TEXT("ARROWS / D-PAD   MOVE     ") + ConfirmHint(this) + TEXT("   CONFIRM     ") + InputHint(this, TEXT("Q / E"), EKeys::Gamepad_LeftShoulder) + TEXT(" / ") + InputHint(this, TEXT("TAB"), EKeys::Gamepad_RightShoulder) + TEXT("   CHANGE TAB"),
+	HintRow(TEXT("ARROWS / D-PAD   MOVE     ") + ConfirmHint(this) + TEXT("   CONFIRM     ") + InputHint(this, TEXT("Q / E"), EKeys::Gamepad_LeftShoulder) + TEXT(" / ") + InputHint(this, TEXT("TAB"), EKeys::Gamepad_RightShoulder) + TEXT("   CHANGE TAB"),
 		X + 2 * S, Bottom + 48 * S, Grey, Body, 0, false, 836 * S);
 }
 
@@ -2147,7 +2680,10 @@ void AFTHUD::DrawPaycheck(AFTGameMode* G)
 		FBlock Head(*this, In01(Age, 0.f, DealTime), 0.f, -22 * S);
 		Print(TEXT("PAYCHECK"), X, Y + 32 * S, White, Heading, 0, true);
 		Print(Level.Zone + TEXT("  /  ") + Level.Title, R, Y + 42 * S, Grey, Strong, 2, false, 526 * S);
-		for (int32 I = 0; I < 12; ++I) Flat(X + I * 16 * S, Y + 73 * S, 10 * S, 5 * S, I % 2 == 0 ? Ink : White);   // the clapper's stripes under the title
+		Stripes(X, Y + 72 * S, 190 * S, 6 * S, White, Ink);   // the clapper's stripes under the title
+		// (the kit) the chase runs along the header band, in the empty stretch between the title and the shoot's name
+		if (FTSkin::Texture(FTSkin::ETex::Chase))
+			FTSkin::ChaseStrip(Canvas, S, X + 250 * S, Y + 30 * S, 520 * S, 44 * S, bReducedMotion ? .62f : .15f + .7f * FMath::Fmod(T * .03f, 1.f), Fade);
 	}
 	const FBox2D Cash = Rect(X, Y + 91 * S, 543 * S, 512 * S);
 	const FBox2D Career = Rect(R - 573 * S, Y + 91 * S, 573 * S, 512 * S);
@@ -2206,6 +2742,7 @@ void AFTHUD::DrawPaycheck(AFTGameMode* G)
 			Print(TEXT("PAY TO THE ORDER OF"), Cheque.Min.X + 90 * S, Cheque.Min.Y + 34 * S, Grey, LabelSize, 0, false, 190 * S);
 			Print(TEXT("AGENT N. KANE"), Cheque.Min.X + 90 * S, Cheque.Min.Y + 51 * S, White, Strong, 0, true, 190 * S);
 			Flat(Cheque.Min.X + 90 * S, Cheque.Min.Y + 77 * S, 190 * S, 1.34f * S, Ink);
+			if (FTSkin::Texture(FTSkin::ETex::Signature)) FTSkin::Signature(Canvas, S, Cheque.Min.X + 196 * S, Cheque.Min.Y + 83 * S, FTSkin::Ink, Fade, .42f);   // the director signs it
 			Flat(Sum.Min.X, Sum.Min.Y, Sum.GetSize().X, Sum.GetSize().Y, Ink);
 			MarkTone(Sum, ETone::Dark);
 			Print(TEXT("TOTAL"), Sum.Min.X + 9 * S, Sum.Min.Y + 3 * S, Yellow, LabelSize, 0, true);
@@ -2321,11 +2858,11 @@ void AFTHUD::DrawPaycheck(AFTGameMode* G)
 
 	const FBox2D Continue = Rect(R - 447 * S, Y + 622 * S, 447 * S, 54 * S);
 	FBlock Foot(*this, In01(Age, .16f, .2f), 0.f, 18 * S);
-	Marquee(Rect(Continue.Min.X - 7 * S, Continue.Min.Y - 7 * S, Continue.GetSize().X + 14 * S, Continue.GetSize().Y + 14 * S));   // the hero action stands in lights
+	FTSkin::Marquee(Canvas, S, Continue.Min.X, Continue.Min.Y, Continue.GetSize().X, Continue.GetSize().Y, T, bReducedMotion, Fade);   // the hero action stands in lights
 	G->ResultsContinueRect = Control(Continue, TEXT("CONTINUE"), ConfirmHint(this),
 		ControlState(Continue, true, G->PhaseT >= .6f), Cyan);
 	FocusAccent(Continue, bReducedMotion ? -1.f : Time - .6f, Cyan);   // armed: its light runs once
-	Print(InputHint(this, TEXT("R"), EKeys::Gamepad_FaceButton_Top) + TEXT("   RESHOOT     ") + InputHint(this, TEXT("B"), EKeys::Gamepad_FaceButton_Right) + TEXT("   TITLE     ")
+	HintRow(InputHint(this, TEXT("R"), EKeys::Gamepad_FaceButton_Top) + TEXT("   RESHOOT     ") + InputHint(this, TEXT("B"), EKeys::Gamepad_FaceButton_Right) + TEXT("   TITLE     ")
 		+ InputHint(this, TEXT("ESC"), EKeys::Gamepad_Special_Right) + TEXT("   PAUSE"), X, Y + 638 * S, Grey, Body);
 }
 
@@ -2378,7 +2915,7 @@ void AFTHUD::DrawPause(AFTGameMode* G)
 	Plate(Rect(X, Y, WidthPx, (468 + ExtraHeight) * S), Yellow, Ink);
 	AccentSweep(Rect(X + 2 * S, Y + 2 * S, WidthPx - 4 * S, 4 * S), Entry, Yellow, MenuEntrance);
 	Print(TEXT("CAMERAS HOLDING"), X + (24.f + 9.f * (1.f - In)) * S, Y + 23 * S, White, Heading, 0, true);
-	for (int32 I = 0; I < 10; ++I) Flat(X + (24 + I * 16) * S, Y + 59 * S, 10 * S, 4 * S, I % 2 == 0 ? White : Pink);   // the clapper's stripes under the heading
+	Stripes(X + 24 * S, Y + 58 * S, 158 * S, 5 * S, White, Pink);   // the clapper's stripes under the heading
 	const UFTInputSubsystem* Input = UFTInputSubsystem::Get(this);
 	const bool bDisconnected = Input && Input->HasDisconnectedController();
 	Print(bDisconnected ? TEXT("CONTROLLER DISCONNECTED") : G->ResumeDescription(), X + 24 * S, Y + 67 * S,
@@ -2407,7 +2944,7 @@ void AFTHUD::DrawPause(AFTGameMode* G)
 			if (Chosen > 0.f) Box(Row.Min.X, Row.Min.Y, Row.GetSize().X, Row.GetSize().Y, Alpha(White, .2f * Chosen));
 		}
 	}
-	Print(G->bPendingSystemSave ? G->SystemMessage : bDisconnected ? TEXT("Reconnect your controller, or resume with the keyboard.")
+	HintRow(G->bPendingSystemSave ? G->SystemMessage : bDisconnected ? TEXT("Reconnect your controller, or resume with the keyboard.")
 		: TEXT("UP-DOWN   NAVIGATE     ") + ConfirmHint(this) + TEXT("   SELECT"),
 		X + 24 * S, Y + (420 + ExtraHeight) * S, Grey, Body, 0, false, WidthPx - 48 * S);
 }
@@ -2445,7 +2982,7 @@ void AFTHUD::DrawSystemDialog(AFTGameMode* G)
 		G->OverlayRects.Add(Control(Row, Label, FString(), ControlState(Row, G->bPendingSystemSave || G->SystemRow == I, true), I == 2 ? Red : Cyan));
 		if (G->SystemRow == I && Chosen > 0.f) Box(Row.Min.X, Row.Min.Y, Row.GetSize().X, Row.GetSize().Y, Alpha(White, .16f * Chosen));
 	}
-	Print(TEXT("LEFT-RIGHT   CHOOSE     ") + ConfirmHint(this) + TEXT("   SELECT     ") + BackHint(this) + TEXT("   CANCEL"),
+	HintRow(TEXT("LEFT-RIGHT   CHOOSE     ") + ConfirmHint(this) + TEXT("   SELECT     ") + BackHint(this) + TEXT("   CANCEL"),
 		X + 29 * S, Y + 349 * S, Grey, LabelSize, 0, false, 598 * S);
 }
 
@@ -2549,7 +3086,7 @@ void AFTHUD::DrawControls(AFTGameMode* G)
 		Print(G->OverlayFeedback, X + 326 * S, Y + 461 * S, Mix(Tone, White, Flash01(Said, .3f)), Body, 0, false, 542 * S);
 		AccentSweep(Rect(X + 326 * S, Y + 487 * S, 300 * S, 2 * S), Said, Tone, FocusSweep);
 	}
-	Print(TEXT("UP-DOWN   ACTION     LEFT-RIGHT   LAYOUT     ") + ConfirmHint(this) + TEXT("   REBIND"), X + 25 * S, Y + 522 * S, White, Body);
+	HintRow(TEXT("UP-DOWN   ACTION     LEFT-RIGHT   LAYOUT     ") + ConfirmHint(this) + TEXT("   REBIND"), X + 25 * S, Y + 522 * S, White, Body);
 	Print(TEXT("MOUSE   LEFT: GUNS   /   RIGHT: MISSILE   /   MIDDLE: AMMO"), X + 25 * S, Y + 555 * S, Grey, Body);
 	Print(TEXT("Primary, secondary and utility bindings also carry over to the fighting controls."),
 		X + 25 * S, Y + 581 * S, Grey, Body, 0, false, 850 * S);
@@ -2564,7 +3101,7 @@ void AFTHUD::DrawControlGuide(AFTGameMode* G)
 	const float X = W * .5f - 492 * S, Y = (H - CanvasHeight * S) * .5f + 24 * S, WidthPx = 984 * S;
 	Plate(Rect(X, Y, WidthPx, 672 * S), Cyan, Ink);
 	Print(TEXT("KNOW YOUR CONTROLS"), X + 24 * S, Y + 20 * S, White, Heading, 0, true);
-	for (int32 I = 0; I < 10; ++I) Flat(X + (24 + I * 16) * S, Y + 57 * S, 10 * S, 4 * S, I % 2 == 0 ? White : Pink);   // the clapper's stripes under the heading
+	Stripes(X + 24 * S, Y + 56 * S, 158 * S, 5 * S, White, Pink);   // the clapper's stripes under the heading
 	const FBox2D Back = Rect(X + 800 * S, Y + 18 * S, 160 * S, 45 * S);
 	G->OverlayRects.Add(Control(Back, TEXT("BACK"), BackHint(this), ControlState(Back), Cyan));
 	Print(Input->UsesGamepad() ? Input->DeviceLabel() : TEXT("KEYBOARD + MOUSE"), X + 25 * S, Y + 68 * S, Cyan, Body);
@@ -2612,7 +3149,7 @@ void AFTHUD::DrawControlGuide(AFTGameMode* G)
 		G->OverlayRects.Add(Control(Button, Labels[I], Hints[I], ControlState(Button, G->ControlsRow == I), I == 1 ? Yellow : Cyan));
 	}
 	Print(TEXT("Button style changes labels, keeping the same physical button positions."), L + 8 * S, Y + 445 * S, Grey, LabelSize, 0, false, WidthPx - 64 * S);
-	Print(FString::Printf(TEXT("%s  SELECT     %s  BACK     UP / DOWN  NAVIGATE     LEFT / RIGHT  BUTTON STYLE"), *ConfirmHint(this), *BackHint(this)),
+	HintRow(FString::Printf(TEXT("%s  SELECT     %s  BACK     UP / DOWN  NAVIGATE     LEFT / RIGHT  BUTTON STYLE"), *ConfirmHint(this), *BackHint(this)),
 		L + 8 * S, Y + 644 * S, White, Body, 0, false, WidthPx - 64 * S);
 }
 
@@ -2669,7 +3206,7 @@ void AFTHUD::DrawOptions(AFTGameMode* G)
 	FBlock Panel(*this, In01(MenuAge(EMenuView::Options), 0.f, QuietTime));
 	Plate(Rect(X, Y, WidthPx, 607 * S), Cyan, Ink, true);   // (the skin) read at length: paper
 	Print(TEXT("OPTIONS"), X + 25 * S, Y + 21 * S, White, Heading, 0, true);
-	for (int32 I = 0; I < 10; ++I) Flat(X + (25 + I * 16) * S, Y + 60 * S, 10 * S, 4 * S, I % 2 == 0 ? Ink : Pink);   // the clapper's stripes under the heading
+	Stripes(X + 25 * S, Y + 59 * S, 158 * S, 5 * S, White, Pink);   // the clapper's stripes under the heading
 	const FBox2D Back = Rect(X + 545 * S, Y + 20 * S, 161 * S, 48 * S);
 	G->OverlayRects.Add(Control(Back, TEXT("BACK"), BackHint(this), ControlState(Back), Cyan));
 
@@ -2718,5 +3255,5 @@ void AFTHUD::DrawOptions(AFTGameMode* G)
 		}
 	}
 	Print(TEXT("CHANGES SAVE AUTOMATICALLY"), X + 24 * S, Y + 526 * S, Grey, LabelSize, 0, true);
-	Print(TEXT("UP-DOWN / D-PAD   PICK     LEFT-RIGHT   CHANGE"), X + 24 * S, Y + 561 * S, White, Body);
+	HintRow(TEXT("UP-DOWN / D-PAD   PICK     LEFT-RIGHT   CHANGE"), X + 24 * S, Y + 561 * S, White, Body);
 }

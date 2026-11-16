@@ -1,6 +1,7 @@
 // Reads the controls the 1.7.1 way: the left hand drives, the right hand shoots. Two keyboard layouts
 // (WASD + Shift/Space + J/K, or arrows + Shift/Space + Z/X), each reading only its own keys; the layout
-// follows the steering keys. Mouse (hold left = guns, right click = missile) and gamepad always work.
+// follows the steering keys. Mouse (hold left = guns, right click = missile, middle click or wheel = next ammo) and
+// gamepad always work. In the menus the mouse points (hover, click, wheel through a list, right click = back).
 #pragma once
 
 #include "CoreMinimal.h"
@@ -14,7 +15,7 @@ struct FFTInput
 	float RawSteer = 0.f;
 	bool bUp = false, bDown = false, bDrift = false, bTurbo = false, bFire = false;
 	bool bMissile = false;  // this frame
-	bool bAmmo = false;     // 2.6: AMMO cycles the load, this frame (L / C, pad Y, middle click)
+	bool bAmmo = false;     // 2.6: AMMO cycles the load, this frame (L / C, pad Y, middle click, mouse wheel)
 	bool bDriftPressed = false;
 	bool bPad = false;
 };
@@ -66,6 +67,10 @@ public:
 	/** Set when a menu is closed by a button that is also FIRE: no shot until that button is released. */
 	bool bSwallowFire = false;
 	bool RightClicked(const FBox2D& R) const { return Hit(EKeys::RightMouseButton) && MouseIn(R); }
+	/** A right click anywhere on a pause / options / controls / dialog screen is BACK. */
+	bool RightBack() const { return bMenuMouse && Hit(EKeys::RightMouseButton); }
+	/** The drawn pointer (FTCursor) is on screen: a screen takes the mouse and the mouse was the last thing used. */
+	bool PointerShown() const;
 
 	// rebinding: the next key pressed is returned once
 	bool bCapture = false;

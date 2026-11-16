@@ -35,7 +35,7 @@ PINK, CYAN, YEL, MINT, RED, ORANGE, VIOLET, BLUE = '#ff5fa2', '#2ee6ff', '#ffc93
 WARM, WARM_L, GOLD, WOOD, BLACK = '#ffe28a', '#fff1c0', '#ffc93c', '#9a6a44', '#1c1a26'
 POLICE, POLICE_L = '#3a5fa8', '#57c7ff'
 HOT = (PINK, CYAN, YEL, MINT, RED, ORANGE, VIOLET, WHITE, '#f4a6ff', '#b8ff5a', '#57c7ff')     # coats that read at night
-G_BULB, G_FLOOR, G_PANEL, G_FIG = 1.6, 0.3, 0.7, 0.05
+G_BULB, G_FLOOR, G_PANEL, G_FIG = 1.8, 0.45, 0.8, 0.09
 
 
 def lit(sc, g=G_FIG):
@@ -86,7 +86,7 @@ def bulbs(m, a, b, n, sag=40.0, cols=(WARM, PINK, CYAN, YEL), glow=G_BULB, wire=
     for k in range(1, n + 1):
         t = k / float(n + 1)
         p = (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t - sag * 4.0 * t * (1.0 - t))
-        m.box(cols[k % len(cols)], p, (17, 17, 17), glow=glow)
+        m.box(cols[k % len(cols)], p, (24, 24, 24), glow=glow)
         if wire:
             tilt_box(m, DARK, prev, p, 4, 4)
         prev = p
@@ -179,7 +179,7 @@ def march(seed=2, kind=0, bars=(PINK, CYAN, YEL), police=False):
         if police:
             for i in range(4):
                 x = -225 + i * 150
-                P.figure(sc, x, -196, yaw=180 + r.uniform(-8, 8), arm_l='out', arm_r='out', rock=3, rate=0.4, phase=r.random(), detail=1, **officer(r))
+                P.figure(sc, x, -196, yaw=180 + r.uniform(-8, 8), arm_l='out', arm_r='out', rock=3, rate=0.4, phase=r.random(), detail=0, **officer(r))
     return build
 
 
@@ -263,12 +263,12 @@ def queue(seed=6):
         acts = (dict(arm_l='hip', rock=3, rate=0.3), dict(arm_r='face', hold_r=P.hold_phone(), rate=0.25, bob=-1.0),
                 dict(arm_r='wave', swing_r=26, rate=1.3, bob=3, react=True), dict(arm_l='hold', arm_r='hold', hold_r=P.hold_cup(), turn=14, rate=0.3),
                 dict(turn=22, rate=0.28), dict(arm_r='point', swing_r=10, axis_r='x', rate=0.7, react=True))
-        for i in range(9):
-            x = -520 + i * 118 + r.uniform(-10, 10)
+        for i in range(8):
+            x = -520 + i * 132 + r.uniform(-10, 10)
             d = person(r, wear=r.choice(('dress', 'coat', 'skirt', 'coat')), sleeves='long')
             d.update(acts[(i * 5 + seed) % len(acts)])
             d.setdefault('phase', r.random())
-            P.figure(sc, x, 6 + r.uniform(-6, 6), yaw=r.choice((-60, -35, 0, 0, 30)), detail=1 if i % 2 == 0 else 0, **d)
+            P.figure(sc, x, 6 + r.uniform(-6, 6), yaw=r.choice((-60, -35, 0, 0, 30)), detail=1 if i % 4 == 0 else 0, **d)
         P.figure(sc, 566, -8, yaw=40, arm_r='wave', swing_r=20, arm_l='back', rate=0.9, detail=1,
                  **person(r, top=RED, bottom=NAVY, sleeves='long', wear='trousers', hat='peak', hat_col=RED, band=GOLD, s=0.96))
     return build
@@ -276,14 +276,15 @@ def queue(seed=6):
 
 def syndicate(seed=7):
     """LOW, a pocket piece, Syndicate Territory only: the Chairman's men at their post in black and gold. Two ranks,
-    one scanning the street through glasses, one pointing the car out, their dog. (Gold caps and bands: they have to
-    read against black walls by the street's own light. No chevron on them: that mark stays on the dressing.)"""
+    one scanning the street through glasses, one pointing the car out, their dog. (Gold jackets, black caps and bands:
+    in black suits they could not be seen against the black walls at night. No chevron on them: that mark stays on
+    the dressing.)"""
     def build(sc):
         r = random.Random(seed)
         g = sc.still()
         g.box(BLACK, (0, 40, 12), (560, 90, 24))
         g.box(GOLD, (0, -6, 12), (560, 4, 8))
-        suit = dict(tops=(BLACK,), bottoms=(BLACK,), sleeves='long', wear='trousers', hat='peak', hat_col=GOLD, band=GOLD, shoes=DARK)
+        suit = dict(tops=(GOLD,), bottoms=(BLACK,), sleeves='long', wear='trousers', hat='peak', hat_col=BLACK, band=BLACK, shoes=DARK)
         acts = (dict(arm_l='back', arm_r='back', rock=2, rate=0.25), dict(arm_l='hip', arm_r='face', hold_r=P.hold_camera(col=DARK, lens=GOLD), turn=32, rate=0.22),
                 dict(arm_r='point', arm_l='hip', swing_r=12, axis_r='x', rate=0.8, react=True), dict(arm_l='hip', arm_r='hip', turn=12, rate=0.3),
                 dict(arm_l='back', arm_r='face', hold_r=P.hold_phone(col=DARK, screen=GOLD), rock=3, rate=0.3), dict(arm_l='back', arm_r='back', turn=18, rate=0.2))
@@ -483,6 +484,9 @@ def flock(seed=13, n=14):
             P.bird(sc, math.cos(math.radians(a)) * R, math.sin(math.radians(a)) * R, 120 + ring * 170 + r.uniform(-60, 60), heading=a + 90.0 * way,
                    span=r.uniform(240, 320), body=b, wing=w, beak=ORANGE, phase=r.random(), rate=r.uniform(1.7, 2.3), flap=34.0,
                    orbit=(0, 0, way * (0.075, 0.055, 0.04)[ring]))
+        g = sc.still()
+        for sx, sy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            g.box('#c9c4d6', (sx * 1300, sy * 1300, 300), (4, 4, 4))            # the mesh is as wide as the wheel
         lit(sc, 0.14)
     return build
 

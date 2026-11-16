@@ -67,6 +67,9 @@ namespace
 		// NS_TurboFlameCel_<colour>, is loaded when the car first sees that colour.)
 		{ TEXT("NS_TurboFlameCel"), false }, { TEXT("NS_ExhaustFlame"), false }, { TEXT("NS_SpeedLines"), false },
 		{ TEXT("NS_ImpactCard"), false }, { TEXT("NS_ImpactInk"), false },
+		// round 4: glass off a cracked lamp, a wreck's burning trail, and the other foes' weapons
+		{ TEXT("NS_HitGlass"), false }, { TEXT("NS_TrailFire"), false },
+		{ TEXT("NS_BarrelDrop"), false }, { TEXT("NS_FoeRocketFlash"), false }, { TEXT("NS_ChainArc"), false }, { TEXT("NS_RammerLaunch"), false }, { TEXT("NS_PieSplat"), false },
 	};
 
 	TMap<FName, UNiagaraSystem*>& Cache()
@@ -84,8 +87,8 @@ namespace
 	struct FMarks
 	{
 		TWeakObjectPtr<AActor> Host;
-		TWeakObjectPtr<UInstancedStaticMeshComponent> Tyre, Soot;
-		int32 TyreNext = 0, SootNext = 0;   // which one is laid next: past the cap, the oldest is taken up and laid again
+		TWeakObjectPtr<UInstancedStaticMeshComponent> Tyre, Soot, Skid;   // (Skid, round 4: the scorched strip behind a sliding wreck)
+		int32 TyreNext = 0, SootNext = 0, SkidNext = 0;   // which one is laid next: past the cap, the oldest is taken up and laid again
 		int32 Level = 0;                    // the level's surface, for the tyre marks' colour
 		bool bTried = false;
 	};
@@ -100,6 +103,7 @@ namespace
 		TArray<float> SmokeUntil;   // when each laid length of missile smoke ends: there is a cap on them (Trail)
 		TMap<int32, FFoeLook> Foes; // what each damaged foe wears (FoeLook)
 		FMarks Marks;               // tyre marks and soot on the road (TyreMark, SootMark)
+		TArray<float> FlameUntil;   // round 4: when each lick of flame on a wreck's trail burns out: there is a cap on them (WreckTrail)
 		float PruneT = 0.f;
 	};
 	FFxState& FxRaw()
@@ -114,7 +118,7 @@ namespace
 		{
 			// a new map: everything of the last one went with its world
 			S.Carried.Reset(); S.Pending.Reset(); S.Live.Reset(); S.Trails.Reset(); S.BlastT.Reset(); S.SmokeUntil.Reset(); S.Foes.Reset(); S.PruneT = 0.f;
-			S.Marks = FMarks();
+			S.Marks = FMarks(); S.FlameUntil.Reset();
 			S.World = W;
 		}
 		return S;
@@ -151,6 +155,7 @@ namespace
 	// meshes on one actor of this file's own: no Niagara system, one draw each, and a fixed number of them (the newest
 	// 480 lengths of tyre mark and the newest 64 scorches: past that the oldest is taken up and laid again)
 	constexpr int32 MaxTyreMarks = 480, MaxSootMarks = 64;
+	constexpr int32 MaxSkidMarks = 160;   // round 4: lengths of scorched road behind sliding wrecks (4 m each)
 
 	UInstancedStaticMeshComponent* MarkLayer(AActor* Host, const TCHAR* MaterialName, int32 Sort)
 	{
@@ -221,7 +226,8 @@ namespace
 			// under the blasts' sprite scorches, smoke and fire (SortScorch and up), the tyre marks under the soot
 			M.Tyre = MarkLayer(Host, TEXT("MI_FX_MarkTyre"), SortScorch - 5);
 			M.Soot = MarkLayer(Host, TEXT("MI_FX_MarkSoot"), SortScorch - 2);
-			M.TyreNext = M.SootNext = 0;
+			M.Skid = MarkLayer(Host, TEXT("MI_FX_MarkSkid"), SortScorch - 4);
+			M.TyreNext = M.SootNext = M.SkidNext = 0;
 			TintMarks(M);
 		}
 		return &M;
@@ -671,6 +677,32 @@ bool FTFx::SootMark(const UObject* Ctx, const FVector& At, const FQuat& Road, fl
 	return true;
 }
 
+// ------------------------------------------------------------------------------------------ round 4: a wreck's burning trail
+void FTFx::WreckTrail(const UObject* Ctx, const FVector& From, const FVector& To, const FVector& Up, float Width)
+{
+	UWorld* W = Ctx ? Ctx->GetWorld() : nullptr;
+	if (!W || IsLow()) return;
+	const FVector Along = To - From;
+	const float Len = (float)Along.Size();
+	if (Len < 20.f || Len > 2000.f) return;
+	const FQuat Q = FRotationMatrix::MakeFromXZ(Along / Len, Up).ToQuat();
+	const FVector Mid = (From + To) * 0.5;
+	// the scorched strip (a plane, as a tyre mark: no system)
+	FMarks* M = MarksFor(W);
+	UInstancedStaticMeshComponent* C = M ? M->Skid.Get() : nullptr;
+	const int32 Step = M ? M->SkidNext : 0;
+	if (C) LayMark(C, M->SkidNext, MaxSkidMarks, FTransform(Q, Mid + Q.GetUpVector() * 2., FVector(Len * 0.0104, FMath::Max(Width, 20.f) * 0.01, 1.)));
+	// the flame on it: every other length, and never more than eight alight (each is a system of its own, three
+	// sprites, gone in under a second). Small and low: it is what is left burning, not a thing in the road
+	FFxState& S = FxState(W);
+	const float T = W->GetTimeSeconds();
+	S.FlameUntil.RemoveAllSwap([T](float U) { return U <= T || U > T + 5.f; });
+	if ((Step & 1) == 0 && S.FlameUntil.Num() < 8 && Shows(Ctx, Extra))
+	{
+		if (FxSpawn(Ctx, TEXT("NS_TrailFire"), Mid + Q.GetUpVector() * 6., Q.Rotator(), 1.f, SortFire)) S.FlameUntil.Add(T + 0.95f);
+	}
+}
+
 void FTFx::ClearWorld(const UObject* Ctx, const TCHAR* Why)
 {
 	UWorld* W = Ctx ? Ctx->GetWorld() : nullptr;
@@ -680,7 +712,9 @@ void FTFx::ClearWorld(const UObject* Ctx, const TCHAR* Why)
 	// round 3: the marks on the road go with the scene
 	if (UInstancedStaticMeshComponent* C = S.Marks.Tyre.Get()) { Marks += C->GetInstanceCount(); C->ClearInstances(); }
 	if (UInstancedStaticMeshComponent* C = S.Marks.Soot.Get()) { Marks += C->GetInstanceCount(); C->ClearInstances(); }
-	S.Marks.TyreNext = S.Marks.SootNext = 0;
+	if (UInstancedStaticMeshComponent* C = S.Marks.Skid.Get()) { Marks += C->GetInstanceCount(); C->ClearInstances(); }
+	S.Marks.TyreNext = S.Marks.SootNext = S.Marks.SkidNext = 0;
+	S.FlameUntil.Reset();
 	for (const TWeakObjectPtr<UNiagaraComponent>& C : S.Live)
 		if (UNiagaraComponent* N = C.Get()) if (N->IsActive()) { N->DeactivateImmediate(); ++Bursts; }
 	const int32 Pending = S.Pending.Num(), Carried = S.Carried.Num(), Trails = S.Trails.Num();
@@ -717,7 +751,8 @@ void FTFx::Census(const UObject* Ctx, const TCHAR* Tag)
 	By.KeySort([](const FName& A, const FName& B) { return A.LexicalLess(B); });
 	FString List;
 	for (const TPair<FName, int32>& P : By) List += FString::Printf(TEXT(" %s:%d"), *P.Key.ToString(), P.Value);
-	const int32 TyreMarks = S.Marks.Tyre.IsValid() ? S.Marks.Tyre->GetInstanceCount() : 0, SootMarks = S.Marks.Soot.IsValid() ? S.Marks.Soot->GetInstanceCount() : 0;
+	const int32 TyreMarks = S.Marks.Tyre.IsValid() ? S.Marks.Tyre->GetInstanceCount() : 0;
+	const int32 SootMarks = (S.Marks.Soot.IsValid() ? S.Marks.Soot->GetInstanceCount() : 0) + (S.Marks.Skid.IsValid() ? S.Marks.Skid->GetInstanceCount() : 0);
 	UE_LOG(LogFT, Display, TEXT("FTFX census tag=%s systems=%d wrecks=%d carried=%d pending=%d trails=%d low=%d tyreMarks=%d soot=%d |%s"),
 		Tag ? Tag : TEXT("-"), All, Wrecks, S.Carried.Num(), S.Pending.Num(), S.Trails.Num(), IsLow() ? 1 : 0, TyreMarks, SootMarks, *List);
 }

@@ -6,6 +6,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/HUD.h"
 #include "Math/Box2D.h"
+#include "FTCursor.h"
 #include "FTHUD.generated.h"
 
 class AFTGameMode;
@@ -119,6 +120,8 @@ private:
 	/** Ghost: where the value was a moment ago (drawn behind the value while it drains). */
 	void Meter(const FBox2D& R, float Fraction, const FLinearColor& Accent, int32 Segments = 1, float Ghost = -1.f);
 	void Print(const FString& Str, float X, float Y, const FLinearColor& Color, float Height, int32 Align = 0, bool bDisplay = false, float MaxWidth = 0.f);
+	/** A row of key hints: Print's own arguments; a key cap of the kit stands under each key. */
+	void HintRow(const FString& Str, float X, float Y, const FLinearColor& Color, float Height, int32 Align = 0, bool bDisplay = false, float MaxWidth = 0.f);
 	FVector2D TextSize(const FString& Str, float Height, bool bDisplay = false);
 	FBox2D Control(const FBox2D& R, const FString& Label, const FString& Hint, EControl State, const FLinearColor& Accent, const FLinearColor* LabelColor = nullptr);
 	EControl ControlState(const FBox2D& R, bool bFocus = false, bool bEnabled = true) const;
@@ -136,10 +139,27 @@ private:
 	void Flat(float X, float Y, float Wd, float Ht, const FLinearColor& C);
 	void Cursor(const FBox2D& R);
 	void Marquee(const FBox2D& R);
+	void Stripes(float X, float Y, float Wd, float Ht, const FLinearColor& Light, const FLinearColor& Dark);
 	void Frame(float X, float Y, float Wd, float Ht, const FLinearColor& C, float Th = 2.f);
 	void DrawTitle(AFTGameMode* G);
+	bool bLogoSaid = false;   // the title's logo line is logged once
 	void DrawCard(AFTGameMode* G);
 	void DrawPlay(AFTGameMode* G);
+	// ---- the race's stickers and the flow screens (FTHUD.cpp, above DrawPlay): what DrawPlay, DrawCard, DrawCut and
+	// DrawReel share on top of FTHUDSkin, and what stands in while a kit texture is missing. Nothing else calls these.
+	bool bLastArmorLow = false;
+	float ArmorLowAt = -10.f;
+	float RaceTextW(const FString& Str, float Height, bool bDisplay = false);
+	void RacePrint(const FString& Str, float X, float MidY, const FLinearColor& Color, float Height, int32 Align = 0, bool bDisplay = false, float MaxWidth = 0.f);
+	float RaceDigits(const FString& Str, float X, float CapTop, float CapH, const FLinearColor& Fill, int32 Align = 0, float MaxWidth = 0.f);
+	void RaceChip(float X, float Y, float Wd, float Ht, const FLinearColor& Tint);
+	float RaceTab(const FString& Label, float X, float Y, const FLinearColor& Tint, const FLinearColor& TextColor);
+	void RaceIcon(int32 Cell, float X, float Y, float Size, const FLinearColor& Tint, int32 Fallback = -1);
+	float RaceKey(const FString& Label, float X, float MidY, float Room = 0.f, float HeightKit = 28.f);
+	float RacePips(int32 FullCell, float X, float Y, int32 Have, int32 Total, float Room, float PitchKit, const FLinearColor& Tint, int32 FlashAt = -1, float Flash = 0.f);
+	void RaceTile(class UTexture2D* Tex, float X, float Y, float Wd, float Ht, float U0, float V0, float U1, float V1, const FLinearColor& Tint);
+	void RaceStick(float X, float Y, const FLinearColor& Tint, bool bFlipY);
+	void RaceMattes();
 	void DrawPickupMarkers(const AFTGameMode& Game);
 	void DrawCut(AFTGameMode* G);
 	void DrawReel(AFTGameMode* G);
@@ -156,4 +176,8 @@ private:
 	void DrawControlGuide(AFTGameMode* G);
 	void DrawTutorial(AFTGameMode* G);
 	void DrawOptions(AFTGameMode* G);
+	// the mouse pointer (FTCursor), drawn last; a Control under it this frame makes it the hover pointer
+	void DrawPointer(AFTGameMode* G);
+	mutable bool bPointerOverControl = false;
+	FTCursor::EState PointerState = FTCursor::EState::Normal;
 };

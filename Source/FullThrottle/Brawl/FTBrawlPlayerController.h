@@ -27,7 +27,7 @@ private:
  void MenuClick();
  bool MenuReady() const;
  void ReconcileFocusInput(bool bLostFocus);
- int32 MouseRow() const;
+ public: int32 MouseRow() const; private:
  FVector2D LastMouse = FVector2D::ZeroVector;
  bool bPointerReady = false;
  double NextStickAt = 0, MenuReadyAt = 0;

@@ -1169,17 +1169,19 @@ def far_range_card(path, outline=MASSIF, L=120000.0, H=38000.0, tones=RANGE_FAR,
 # pieces casts a shadow (they stand beyond 70 m, or are placed by Far rules).
 def rack_train(path):
     """A rack railway climbing the slope: 170 m of track running away from the road and up (12 in 100, the snow
-    slope's own rise), a red three-car train climbing on one track and another coming down on the other, 6 m a second,
+    slope's own rise), a red three-car train climbing on one track and another coming down on the other, 10 m a second,
     each instance on its own clock; a halt at the foot and one at the top, which the trains come out of and go into.
-    The middle distance: the table stands its foot 96 m out and more. Its foot is the origin; it runs along +y."""
+    The middle distance: the table stands its foot 96 m out and more. Its foot is the origin; it runs along +y. Second
+    part: the table lays it 50 degrees across the slope, its far end towards the car coming, so the trains cross the
+    picture (straight up the slope they only grew and shrank)."""
     import ft_life
     k = ft_life.Kit()
     L = 17000.0
-    rise = L * 0.12
+    rise = L * 0.12 * math.cos(math.radians(50.0))     # second part: the table lays it 50 degrees across the slope
     n = math.hypot(L, rise)
     s = k.group(rough=0.9)
-    tilt_box(s, SNOW_SH, (0, -200, -70), (0, L, rise - 70), 900, 90)             # the embankment
-    tilt_box(s, ROCK_D, (0, -200, -16), (0, L, rise - 16), 560, 30)              # ballast and sleepers, one dark strip
+    tilt_box(s, SNOW_SH, (0, -200, -80), (0, L, rise - 80), 900, 260)            # the embankment: a bank downhill, cut in uphill
+    tilt_box(s, ROCK_D, (0, -200, 62), (0, L, rise + 62), 560, 30)               # ballast and sleepers, one dark strip
     for y, z in ((-420.0, 0.0), (L + 220.0, rise)):                              # the halts
         s.box(WOOD_D, (0, y, z + 220), (980, 620, 440))
         s.box(SNOW, (0, y, z + 480), (1100, 760, 90))
@@ -1187,8 +1189,8 @@ def rack_train(path):
         s.box(WOOD_D, (0, y, z - 400), (900, 560, 820))
     for lane, dr in ((150.0, 1.0), (-150.0, -1.0)):
         up = dr > 0
-        g = k.group('Conveyor', rough=0.6, ConvStart=(lane, 0.0 if up else L, 46.0 if up else rise + 46.0), ConvDir=(0.0, dr * L / n, dr * rise / n),
-                    ConvLen=n, ConvRate=0.035, ConvRand=1.0)
+        g = k.group('Conveyor', rough=0.6, ConvStart=(lane, 0.0 if up else L, 85.0 if up else rise + 85.0), ConvDir=(0.0, dr * L / n, dr * rise / n),
+                    ConvLen=n, ConvRate=0.0587, ConvRand=1.0)
         for i in range(3):
             def car(m):
                 m.box(STEEL_D, (0, 0, 30), (230, 760, 60))
@@ -1201,7 +1203,7 @@ def rack_train(path):
 
 def lift_line_live(path, seed=14, length=36000, h=7000):
     """The ridge with a lift line along its crest (the far lift line), its cabins TRAVELLING now: six go up one
-    cable in red and six come down the other in blue, 6 m a second, every ridge in step. The ridge, its six pylons,
+    cable in red and six come down the other in blue, 10 m a second, every ridge in step. The ridge, its six pylons,
     the cables and the top station are as the still piece drew them (the same random numbers in the same order); the
     red lamps on the pylons still blink."""
     import ft_life
@@ -1231,7 +1233,7 @@ def lift_line_live(path, seed=14, length=36000, h=7000):
     n = math.hypot(xb - xa, zb - za)
     for sd, dr, col in ((-1, 1.0, RED), (1, -1.0, BLUE)):
         g = k.group('Conveyor', rough=0.6, ConvStart=(xa if dr > 0 else xb, -600.0 + sd * 560.0, za if dr > 0 else zb),
-                    ConvDir=(dr * (xb - xa) / n, 0.0, dr * (zb - za) / n), ConvLen=n, ConvRate=0.02, ConvRand=0.0)
+                    ConvDir=(dr * (xb - xa) / n, 0.0, dr * (zb - za) / n), ConvLen=n, ConvRate=0.033, ConvRand=0.0)
         for i in range(6):
             def cabin(m, c=col):
                 m.box(NET, (0, 0, -150), (30, 30, 300))
@@ -1243,19 +1245,19 @@ def lift_line_live(path, seed=14, length=36000, h=7000):
 
 def groomer_run(path):
     """Groomers at work on the piste: a groomed strip 120 m up the slope (a shade bluer than the snow) and two piste
-    groomers on it, one climbing and one coming down, 4 m a second, blade ahead and tiller behind, each with its amber
+    groomers on it, one climbing and one coming down, 7 m a second, blade ahead and tiller behind, each with its amber
     beacon; every instance on its own clock. The middle distance: its foot stands 84 m out and more. It runs along +y."""
     import ft_life
     k = ft_life.Kit()
     L = 12000.0
-    rise = L * 0.12
+    rise = L * 0.12 * math.cos(math.radians(50.0))     # second part: the table lays it 50 degrees across the slope
     n = math.hypot(L, rise)
     s = k.group(rough=0.95)
-    tilt_box(s, SNOW_SH, (0, -300, -34), (0, L + 300, rise - 34), 1500, 40)
+    tilt_box(s, SNOW_SH, (0, -300, -75), (0, L + 300, rise - 75), 1500, 300)     # a bank on its downhill side, cut in uphill
     for lane, dr in ((340.0, 1.0), (-340.0, -1.0)):
         up = dr > 0
-        conv = dict(ConvStart=(lane, 0.0 if up else L, 14.0 if up else rise + 14.0), ConvDir=(0.0, dr * L / n, dr * rise / n), ConvLen=n,
-                    ConvRate=0.033, ConvRand=1.0)
+        conv = dict(ConvStart=(lane, 0.0 if up else L, 90.0 if up else rise + 90.0), ConvDir=(0.0, dr * L / n, dr * rise / n), ConvLen=n,
+                    ConvRate=0.058, ConvRand=1.0)
         g = k.group('Conveyor', rough=0.7, **conv)
         lamp = k.group(('Conveyor', 'Light'), rough=0.5, LightRate=0.7, LightDuty=0.45, LightSoft=0.06, LightMin=0.12, LightRand=1.0, **conv)
 
@@ -1275,7 +1277,7 @@ def groomer_run(path):
 
 def plough_convoy(path):
     """A far road with a snow-plough convoy on it: 420 m of cleared road on an embankment along the foot of the near
-    ridge, and five ploughs nose to tail on it, orange and yellow, lamps on, 10 m a second, each instance on its own
+    ridge, and five ploughs nose to tail on it, orange and yellow, lamps on, 18 m a second, each instance on its own
     clock. Far (330 m out and more, 30 m up): they read as a line of coloured blocks crawling across the white. The
     road runs along x; its front (-y) faces the game's road."""
     import ft_life
@@ -1286,7 +1288,7 @@ def plough_convoy(path):
     s.box(ASPH, (0, 0, 20), (2.0 * half, 900, 50))
     s.box(SNOW, (0, -570, 60), (2.0 * half, 240, 120))
     s.box(SNOW, (0, 600, 110), (2.0 * half, 300, 230))
-    g = k.group('Conveyor', rough=0.7, ConvStart=(-half, 0.0, 44.0), ConvDir=(1.0, 0.0, 0.0), ConvLen=2.0 * half, ConvRate=0.024, ConvRand=1.0)
+    g = k.group('Conveyor', rough=0.7, ConvStart=(-half, 0.0, 44.0), ConvDir=(1.0, 0.0, 0.0), ConvLen=2.0 * half, ConvRate=0.043, ConvRand=1.0)
     for i in range(5):
         def plough(m, c=(ORANGE if i % 2 == 0 else YEL)):
             m.box(BLACK, (0, 0, 80), (820, 320, 160))
@@ -1303,12 +1305,12 @@ def plough_convoy(path):
 
 def cloud_drift(path):
     """A layer of cloud drifting past the summits (the horizon's own slow movement): five flat-bottomed clouds on one
-    line 1.5 km long, 12 m a second, each instance on its own clock. Far only (900 m out and more, 250 m up)."""
+    line 1.5 km long, 25 m a second, each instance on its own clock. Far only (900 m out and more, 250 m up)."""
     import ft_life
     k = ft_life.Kit()
     half = 75000.0
     r = random.Random(77)
-    g = k.group('Conveyor', rough=1.0, ConvStart=(-half, 0.0, 0.0), ConvDir=(1.0, 0.0, 0.0), ConvLen=2.0 * half, ConvRate=0.008, ConvRand=1.0)
+    g = k.group('Conveyor', rough=1.0, ConvStart=(-half, 0.0, 0.0), ConvDir=(1.0, 0.0, 0.0), ConvLen=2.0 * half, ConvRate=0.0167, ConvRand=1.0)
     for i in range(5):
         def cloud(m, sz=r.uniform(0.8, 1.3), dy=r.uniform(-9000, 9000), dz=r.uniform(-2500, 2500)):
             for (x, rr, zz) in ((-2600, 2400, 0), (0, 3200, 400), (2800, 2200, -100)):
@@ -1316,6 +1318,96 @@ def cloud_drift(path):
             m.sphere(SNOW_SH, (200 * sz, dy, dz - 700 * sz), 3600 * sz, scale=(1.9, 0.75, 0.22), steps=(4, 8))
         g.piece(cloud, a=(i * 0.2 + r.uniform(-0.05, 0.05)) % 1.0)
     k.save(path, grow=(half, 9000.0, 3000.0), grow_down=(half, 9000.0, 3000.0))
+
+
+# ---- round three, second part (15 Nov 2026): the cable car beyond the gondola and the aurora; the rack railway and
+# the groomers' strips are laid across the slope by the table now (turned 50 degrees: see their rise), and everything
+# of round three runs faster, so that it is seen to move from a car at 140 mph.
+MINT, LILAC = '#8ff0cf', '#b9a2ff'
+
+
+def _rz(v, deg):
+    """The vector v turned about z by deg (a yaw: +x towards +y), for a moving group's own vectors."""
+    c, s = math.cos(math.radians(deg)), math.sin(math.radians(deg))
+    return (v[0] * c - v[1] * s, v[0] * s + v[1] * c, v[2])
+
+
+def _turned(g, deg):
+    """Everything drawn into the group (or the part) g from now on is turned about z by deg."""
+    g.base = ft_art._xf((0, 0, 0), (0, deg, 0))
+    return g
+
+
+def cable_car(path, turn=-35.0):
+    """The cable car beyond the gondola (a far landmark that moves): one span of 600 m from a valley station up to a
+    station on a shoulder of its own mountain (190 m), one lattice tower 75 m high half-way, and two big cabins on
+    each rope, yellow going up and red coming down, 15 m a second, each instance on its own clock. Far only (its
+    middle 640 m out, on the RIGHT of the road: it is built along the road and turned `turn` degrees, the mountain
+    end towards the road and ahead, so the cabins cross the picture of the car coming). The origin is the middle of
+    the span on the ground."""
+    import ft_life
+    k = ft_life.Kit()
+    r = random.Random(52)
+    half, top = 30000.0, 16600.0
+    ax, az, bx, bz = -half + 400.0, 1500.0, half - 300.0, top - 800.0          # the rope's two ends
+    n = math.hypot(bx - ax, bz - az)
+    s = _turned(k.group(far=True, rough=0.85), turn)
+    _mount(s, r, half + 5200.0, 3000.0, 9000.0, top + 3000.0, ROCK_D, 0.42, 7)  # its mountain, and a lower one behind the rope
+    _mount(s, r, half - 3000.0, 7500.0, 6500.0, (top + 3000.0) * 0.6, ROCK, 0.5, 6)
+    s.cyl(FAR_ROCK_D, (half + 900.0, 0.0, -3000.0), 3600.0, top - 2200.0 + 3000.0, steps=6, top_r=1700.0)   # the shoulder the top station stands on
+    s.box(WOOD_D, (half + 900.0, 0.0, top - 1400.0), (2400, 1800, 1600))
+    s.box(SNOW, (half + 900.0, 0.0, top - 500.0), (2700, 2100, 220))
+    s.box(LIT, (half + 900.0, -908.0, top - 1300.0), (1500, 16, 420), glow=1.2)
+    s.box(CONC, (-half - 900.0, 0.0, -900.0), (2800, 2200, 1800))               # the valley station on its plinth
+    s.box(WOOD, (-half - 900.0, 0.0, 900.0), (2600, 2000, 1800))
+    s.box(SNOW, (-half - 900.0, 0.0, 1910.0), (2900, 2300, 220))
+    s.box(LIT, (-half - 900.0, -1008.0, 900.0), (1700, 16, 460), glow=1.2)
+    xm = ax + 0.45 * (bx - ax)                                                  # the tower: four splayed legs, two frames, the head
+    zm = az + 0.45 * (bz - az)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            tilt_box(s, STEEL_D, (xm + sx * 900.0, sy * 620.0, -300.0), (xm + sx * 140.0, sy * 300.0, zm), 110, 110)
+    for t in (0.33, 0.66):
+        s.box(STEEL_D, (xm, 0.0, zm * t), ((1.0 - t) * 1700.0 + 400.0, (1.0 - t) * 800.0 + 700.0, 80))
+    s.box(STEEL_D, (xm, 0.0, zm + 60.0), (320, 1500, 160))
+    s.sphere(RED, (xm, 0.0, zm + 240.0), 110, steps=(4, 6), glow=1.4)
+    for sy in (-1, 1):                                                          # the two ropes, straight from station to station
+        tilt_box(s, NET, (ax, sy * 560.0, az), (bx, sy * 560.0, bz), 60, 60)
+    for sy, dr, col in ((-1, 1.0, YEL), (1, -1.0, RED)):
+        g = k.group('Conveyor', rough=0.6, ConvStart=_rz((ax if dr > 0 else bx, sy * 560.0, az if dr > 0 else bz), turn),
+                    ConvDir=_rz((dr * (bx - ax) / n, 0.0, dr * (bz - az) / n), turn), ConvLen=n, ConvRate=1500.0 / n, ConvRand=1.0)
+        for i in range(2):
+            def cabin(m, c=col):
+                _turned(m, turn)
+                m.box(STEEL_D, (0, 0, 0), (500, 120, 90))                       # the carriage on the rope
+                m.box(NET, (0, 0, -260), (40, 40, 520))                         # the hanger
+                m.box(c, (0, 0, -800), (1100, 460, 560))
+                m.box(ICE, (0, 0, -740), (1106, 466, 200))                      # the window band
+                m.box(SNOW, (0, 0, -505), (1140, 500, 40))
+            g.piece(cabin, a=(i * 0.5 + (0.0 if dr > 0 else 0.25)) % 1.0)
+    k.save(path)
+
+
+def aurora(path):
+    """An aurora over the horizon AHEAD (the lead's list; the level is in daylight, so it is pale, small in the sky
+    and far: 1.6 km out and more, 650 m up, seen over the far ranges kilometres down the road and leaving the top of
+    the picture as the car comes near). Two curtains 1.4 km long, mint and lilac, each a row of upright lengths on a
+    wavy line; a slow wave runs along them (their hems rise and fall 14 m) and the light travels along them, each
+    instance on its own clock. Far only."""
+    import ft_life
+    k = ft_life.Kit()
+    half, N = 70000.0, 24
+    for (col, y0, amp, lam, ph, z0, h0) in ((MINT, 0.0, 9000.0, 96000.0, 0.4, 0.0, 15000.0), (LILAC, 11000.0, 7000.0, 78000.0, 2.3, 9000.0, 12000.0)):
+        g = k.group(('Flutter', 'Light'), far=True, rough=1.0, FlutterPin=(-half - 100.0, 0.0, 0.0), FlutterAxis=(1.0, 0.0, 0.0), FlutterDir=(0.0, 0.0, 1.0),
+                    FlutterAmp=1400.0, FlutterLen=40000.0, FlutterRate=0.6, FlutterSpan=1.0,
+                    LightAxis=(1.0, 0.0, 0.0), LightLen=30000.0, LightRate=0.1, LightDuty=0.55, LightSoft=0.4, LightMin=0.5, LightRand=1.0)
+        for j in range(N):
+            x0, x1 = -half + 2.0 * half * j / N, -half + 2.0 * half * (j + 1) / N
+            ya, yb = y0 + amp * math.sin(6.28318 * x0 / lam + ph), y0 + amp * math.sin(6.28318 * x1 / lam + ph)
+            h = h0 * (0.5 + 0.5 * math.sin(3.14159 * (j + 0.5) / N))             # deepest in its middle, a point at each end
+            zb = z0 + 2600.0 * math.sin(6.28318 * 2.0 * j / N + ph)              # the hem hangs in two slow folds
+            tilt_box(g, col, (x0 - 60.0, ya, zb + h / 2.0), (x1 + 60.0, yb, zb + h / 2.0), 160, h, glow=0.5)
+    k.save(path, grow=(0.0, 0.0, 1500.0), grow_down=(0.0, 0.0, 1500.0))
 
 
 LIFE = [
@@ -1326,7 +1418,7 @@ LIFE = [
     ('SM_RangeMid', lambda p: far_range_card(p, outline=SIERRA, L=80000.0, H=23000.0, tones=RANGE_MID, depth=4000.0, snowline=0.42, seed=73,
                                              avalanche=1)),
     ('SM_RidgeLiftLine', lift_line_live), ('SM_RackTrain', rack_train), ('SM_GroomerRun', groomer_run), ('SM_PloughConvoy', plough_convoy),
-    ('SM_CloudDrift', cloud_drift),     # round three
+    ('SM_CloudDrift', cloud_drift), ('SM_CableCar', cable_car), ('SM_Aurora', aurora),     # round three
 ]
 
 

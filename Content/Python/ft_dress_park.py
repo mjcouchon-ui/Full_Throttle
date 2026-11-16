@@ -37,6 +37,13 @@ THIRD PASS (15 Nov 2026, the overhaul): dense, distinctive and alive at racing s
     cove's kraken has a galleon in its arms (SM_Galleon); a second mover shade (mv2) lets one mesh carry two motions;
   - the horizon has two rows of flat skyline cards behind the lit rides (SM_Sky1, SM_Sky2) and the far wheel turns.
 animate() calls life_props() first: one call after an export sets everything going.
+
+ROUND 3 (15 Nov 2026, 18:00, the owner's order to build everything planned; NOT SEEN IN THE GAME when written):
+the sky ride in two more spans (SM_SkyRide2, SM_SkyRideTall), a monorail (SM_Monorail), trains on the lattice
+coasters (SM_CoasterHill and SM_FarCoaster are Kit props now) and a second wooden coaster (SM_WoodCoaster2), drop
+towers whose ring of seats climbs and falls (SM_DropTower), show fountains (SM_JetFountain), fireworks over the Last
+Ride (SM_Fireworks), a rocket that leaves its pad on a clock (SM_Launch), the lagoon's water (SM_LagoonWater), and
+the galleon rocks in the kraken's arms (a third mover shade, mv3). Bulb chases inside 30 m are a slow swell.
 """
 import math
 import random
@@ -98,6 +105,12 @@ def mv2(col):
     return col[:5] + '%02x' % (b - 2 if b >= 254 else b + 2)
 
 
+def mv3(col):
+    """A third mover's shade, three steps off in blue: the galleon's hull, masts, sails and lamps, which rock together."""
+    b = int(col[5:7], 16)
+    return col[:5] + '%02x' % (b - 3 if b >= 253 else b + 3)
+
+
 def mover_hexes(shade=mv):
     """The mover shades, as ft_life names a slot's colour (hex without #)."""
     return set(shade(c).lstrip('#').lower() for c in _MOVER_BASE)
@@ -140,11 +153,16 @@ def animate(only=None):
             kw = dict((k, v) for k, v in p.items() if k not in ('what', 'far'))
             n += A(DIR + name, 'Spin', slots=lambda slot, col, glow, shades=shades: col in shades, far=bool(p.get('far')), SpinRand=1.0, **kw)
     # the bulbs of the stalls and signs run in a chase; the lagoon's lights shimmer
-    for name in ('SM_GameStall', 'SM_GameStall2', 'SM_GameStall3', 'SM_TicketGate', 'SM_SignMidway', 'SM_SignPirate',
-                 'SM_SignLagoon', 'SM_SignRocket', 'SM_SignFun', 'SM_SignRide', 'SM_FacadeRow'):
+    # Round 3 (the lead's light ruling): what stands inside 30 m swells slowly and softly, never under 60% (the stalls at
+    # 25 m, the land signs at 26 to 27 m); the ticket gates (37 m) and the main street's flats (47 m and more) still chase
+    for name in ('SM_GameStall', 'SM_GameStall2', 'SM_GameStall3', 'SM_SignMidway', 'SM_SignPirate',
+                 'SM_SignLagoon', 'SM_SignRocket', 'SM_SignFun', 'SM_SignRide'):
+        n += A(DIR + name, 'Light', slots=lambda slot, col, glow: glow >= 1.9, LightAxis=(1, 0, 0), LightLen=260.0, LightRate=0.35,
+               LightDuty=0.6, LightSoft=0.3, LightMin=0.6)
+    for name in ('SM_TicketGate', 'SM_FacadeRow'):
         n += A(DIR + name, 'Light', slots=lambda slot, col, glow: glow >= 1.9, LightAxis=(1, 0, 0), LightLen=260.0, LightRate=0.8,
                LightDuty=0.6, LightMin=0.25)
-    for name in ('SM_Lake', 'SM_Lake2', 'SM_Pond'):
+    for name in ('SM_Lake', 'SM_Lake2', 'SM_Pond', 'SM_LagoonWater'):
         n += A(DIR + name, 'Light', slots=lambda slot, col, glow: 0.8 < glow < 1.0, LightHash=0.35, LightCell=300.0, LightRate=1.5,
                LightMin=0.2)
     # third pass. Marquee lights that climb: the high striker's scale (they were steady: the old filter picked nothing),
@@ -162,12 +180,13 @@ def animate(only=None):
     # cloth: the pennants over the hoarding (small, unlit: they stand right behind the barrier), the galleon's flag
     n += A(DIR + 'SM_ParkFence', 'Flutter', slots=lambda slot, col, glow: col in movers, FlutterPin=(0.0, 0.0, 192.0), FlutterAxis=(0.0, 0.0, -1.0),
            FlutterDir=(0.0, 1.0, 0.0), FlutterSpan=46.0, FlutterLen=130.0, FlutterRate=6.0, FlutterAmp=7.0, FlutterPhase=(0.004, 0.0, 0.0))
-    n += A(DIR + 'SM_Galleon', 'Flutter', slots=lambda slot, col, glow: col in movers2, FlutterPin=(150.0, 0.0, 3800.0), FlutterAxis=(1.0, 0.0, 0.0),
-           FlutterDir=(0.0, 1.0, 0.0), FlutterSpan=400.0, FlutterLen=380.0, FlutterRate=5.0, FlutterAmp=26.0)
-    # the kraken's arms sway from the water up; the crowd bobs, person after person
+    # the kraken's arms sway from the water up; round 3: she rocks in them (hull, masts, sails, flag and lamps are one
+    # mover, the third shade: 3.5 degrees each way about her keel line), so her lamps and flag no longer move by themselves
     n += A(DIR + 'SM_Galleon', 'Sway', slots=lambda slot, col, glow: col in movers, far=True, SwayBase=40.0, SwayHeight=2300.0, SwayAmp=240.0,
            SwayPow=1.5, SwayRate=0.8, SwayLean=0.2)
-    n += A(DIR + 'SM_Galleon', 'Light', slots=lambda slot, col, glow: glow >= 1.9, LightHash=0.3, LightCell=90.0, LightRate=1.5, LightMin=0.4, LightRand=1.0)
+    movers3 = mover_hexes(mv3)
+    n += A(DIR + 'SM_Galleon', 'Spin', slots=lambda slot, col, glow: col in movers3, far=True, SpinAxis=(1.0, 0.0, 0.0),
+           SpinPivot=(0.0, 0.0, 700.0), SpinRate=0.55, SpinSwing=3.5, SpinRand=0.0)
     n += A(DIR + 'SM_Balloon', 'Bob', far=True, BobAmp=220.0, BobRate=0.05, BobRand=1.0)
     n += A(DIR + 'SM_Crowd', 'Bob', slots=lambda slot, col, glow: col != GREY_L.lstrip('#'), BobAmp=5.0, BobRate=1.1, BobRand=1.0,
            BobPhase=(0.0021, 0.0013, 0.0))
@@ -920,14 +939,18 @@ def path_lights(m, seed=8):
         m.sphere([MAG, AMBER, LAV][k % 3], (x, y, 60), 60, scale=(1.5, 1.1, 0.4), steps=(3, 6))
 
 
-def coaster_hill(m, L=6400, H=3000):
+def coaster_hill(m, L=6400, H=3000, train=True):
     """A length of the park's own coaster: hills and a loop on a forest of white supports, the rail picked out in
     pink, a train on the first climb, a station under an awning. Runs along X; its supports go on down below z = 0."""
     pts = []
     n = 24
+    hill = (H - 500) * (0.55 + 0.45 * math.cos(math.pi * 0.3))    # round 3: the first hill is a half sine, the arc a Conveyor's train travels (coaster_kit)
     for k in range(n + 1):
         t = k / float(n)
-        z = 500 + (H - 500) * (0.5 - 0.5 * math.cos(2 * math.pi * t * 1.5)) * (0.55 + 0.45 * math.cos(math.pi * t * 0.9))
+        if t <= 2.0 / 3.0:
+            z = 500 + hill * math.sin(math.pi * t * 1.5)
+        else:
+            z = 500 + (H - 500) * (0.5 - 0.5 * math.cos(2 * math.pi * t * 1.5)) * (0.55 + 0.45 * math.cos(math.pi * t * 0.9))
         pts.append((-L / 2.0 + L * t, 0.0, max(z, 420.0)))
     for a, b in zip(pts, pts[1:]):
         tilt_box(m, WHITE, a, b, 130, 40)
@@ -937,8 +960,9 @@ def coaster_hill(m, L=6400, H=3000):
         tilt_box(m, CREAM, (p[0] - 150, 110, -200), (p[0] + 150, -110, p[2] * 0.72), 18, 18)
     _ring(m, WHITE, (L * 0.36, 0, 1500), 1080, 44, steps=24)
     _ring(m, CYAN, (L * 0.36, -60, 1500), 1080, 12, steps=24, glow=G2)
-    for k in range(4):
-        m.box([RED, AMBER, CYAN, MAG][k], (pts[4][0] + k * 190, 0, pts[4][2] + 110 + k * 70), (170, 150, 110))
+    if train:                                                    # (the kit's SM_CoasterHill has a train that runs instead: coaster_kit)
+        for k in range(4):
+            m.box([RED, AMBER, CYAN, MAG][k], (pts[4][0] + k * 190, 0, pts[4][2] + 110 + k * 70), (170, 150, 110))
     m.box(PLUM, (-L / 2.0 + 500, -300, 150), (900, 400, 300))
     m.box(BULB, (-L / 2.0 + 500, -502, 170), (600, 4, 130), glow=G2)
     _stripes(m, -L / 2.0 + 50, -L / 2.0 + 950, -360, 330, 560, 12, [MAG, CREAM], 8, roll=_awn(10))
@@ -1007,9 +1031,13 @@ def far_coaster(m, L=26000, H=8200):
     """The big coaster on the skyline: a quarter of a kilometre of hills and a loop."""
     pts = []
     n = 28
+    hill = (H - 1400) * 0.89                                      # round 3: the first hill is a half sine (far_coaster_kit's train travels it)
     for k in range(n + 1):
         t = k / float(n)
-        z = 1400 + (H - 1400) * (0.5 - 0.5 * math.cos(2 * math.pi * t * 2.5)) * (1.0 - 0.55 * t)
+        if t <= 0.4:
+            z = 1400 + hill * math.sin(math.pi * t / 0.4)
+        else:
+            z = 1400 + (H - 1400) * (0.5 - 0.5 * math.cos(2 * math.pi * t * 2.5)) * (1.0 - 0.55 * t)
         pts.append((-L / 2.0 + L * t, 0.0, z))
     for a, b in zip(pts, pts[1:]):
         tilt_box(m, WHITE, a, b, 420, 150)
@@ -1458,23 +1486,24 @@ def galleon(m):
     m.cyl(WATER, (0, 0, -290), 2500, 335, steps=14, glow=GW)
     m.sphere(ROCK, (0, 200, 150), 1300, scale=(1.5, 0.8, 0.5), steps=(5, 9))
     hull = [(-1500, 700), (-1700, 1500), (-1100, 1500), (-1000, 1250), (1200, 1250), (1500, 1500), (1900, 1650), (1500, 800), (900, 600), (-1100, 600)]
-    _side(m, WOOD_D, hull, -330, 330)
-    m.box(RED, (0, 0, 1280), (2300, 680, 70))
-    m.box(WOOD, (-1400, 0, 1700), (620, 600, 420))
+    S = mv3                                                                      # round 3: the whole ship is one mover (she rocks)
+    _side(m, S(WOOD_D), hull, -330, 330)
+    m.box(S(RED), (0, 0, 1280), (2300, 680, 70))
+    m.box(S(WOOD), (-1400, 0, 1700), (620, 600, 420))
     for k in range(3):
-        m.box(AMBER, (-1580 + k * 180, -302, 1720), (110, 6, 130), glow=G2)
-        m.box(AMBER, (-1712, -180 + k * 180, 1700), (6, 120, 160), glow=G2)
-    tilt_box(m, WOOD, (1500, 0, 1550), (2500, 0, 1900), 36, 36)                 # the bowsprit
+        m.box(S(AMBER), (-1580 + k * 180, -302, 1720), (110, 6, 130), glow=G2)
+        m.box(S(AMBER), (-1712, -180 + k * 180, 1700), (6, 120, 160), glow=G2)
+    tilt_box(m, S(WOOD), (1500, 0, 1550), (2500, 0, 1900), 36, 36)              # the bowsprit
     for x, h in ((-700, 3300), (150, 3900), (1000, 3000)):
-        m.cyl(WOOD, (x, 0, 1250), 36, h - 1250, steps=6)
+        m.cyl(S(WOOD), (x, 0, 1250), 36, h - 1250, steps=6)
         for zz, w in ((h - 520, 900), (h - 1320, 1250)):
-            m.box(CREAM, (x, 0, zz), (w, 30, 640))
-            m.box(WOOD_D, (x, 0, zz + 330), (w + 120, 44, 44))
-        m.cyl(WOOD_D, (x, 0, h - 150), 90, 60, steps=6)
-    _side(m, mv2(NAVY), [(150, 3900), (560, 3800), (150, 3700)], -4, 4)
+            m.box(S(CREAM), (x, 0, zz), (w, 30, 640))
+            m.box(S(WOOD_D), (x, 0, zz + 330), (w + 120, 44, 44))
+        m.cyl(S(WOOD_D), (x, 0, h - 150), 90, 60, steps=6)
+    _side(m, S(NAVY), [(150, 3900), (560, 3800), (150, 3700)], -4, 4)
     tops = ((-1650, 0, 1950), (-700, 0, 3300), (150, 0, 3900), (1000, 0, 3000), (2450, 0, 1900))
     for a, b in zip(tops, tops[1:]):
-        _lamps(m, (a[0], -40, a[2]), (b[0], -40, b[2]), 5, [BULB, AMBER])
+        _lamps(m, (a[0], -40, a[2]), (b[0], -40, b[2]), 5, [S(BULB), S(AMBER)])
     for x0, y0, lx, ly, h in ((-2000, -500, 420, 120, 2100), (2150, -350, -480, 160, 2500), (600, -1000, 160, 300, 1500), (-800, 950, -260, -200, 1800)):
         p = (x0, y0, -60.0)
         for k in range(1, 6):
@@ -1576,33 +1605,188 @@ SKY2 = (('hump', -22000, 5200, 6800), ('hump', -13500, 4200, 9800), ('tent', -70
 # origin and sent along a line by the material (ConvStart, ConvDir a UNIT vector, ConvLen, ConvArc for a hill), its
 # place on the line set by the number given to piece(a=...). They return what Kit.save() needs to know of how far the
 # parts leave the mesh as built (so the prop is not culled while they are in view, and the track's road test knows).
-def sky_ride(k, L=4524.0, H=1900.0):
+def sky_ride(k, L=4524.0, H=1900.0, n=3, half=230.0, pyl=1.0, wire=14.0, cab=1.0):
     """One span of the sky ride: two pylons, 45 m of twin cable 19 m up (its gondolas clear every ride that stands under it), gondolas going out on one and back on the
     other. A span is one 45 m slot of road long and every span is in step (ConvRand 0), so a row of them down a
-    straight is one line: a gondola that leaves a span enters the next. The table stands the spans (at three times
-    the size over the lagoon)."""
+    straight is one line: a gondola that leaves a span enters the next. Round 3: the same in two more sizes, each a mesh
+    of its own (KITS): SM_SkyRide2, two slots long (the Last Ride after 14 km), and SM_SkyRideTall, three slots long and
+    57 m tall with stout pylons and a thick cable, for the lagoon (round 1 stood the small span there at three times its
+    size: gondolas like crates). The gondolas travel 4.5 m a second whatever the span."""
     s = k.group()
     for x in (-L / 2.0, L / 2.0):      # a pylon at each end: down a straight the next span's stands in the same place
-        s.cyl(CREAM, (x, 0, -200), 46, H + 200, steps=8, top_r=30)
+        s.cyl(CREAM, (x, 0, -200), 46 * pyl, H + 200, steps=8, top_r=30 * pyl)
         for j in range(3):
-            s.cyl(MAG, (x, 0, 300 + j * 480), 50, 90, steps=8)
-        s.box(PLUM, (x, 0, H), (80, 580, 60))
-        s.sphere(BULB, (x, 0, H + 70), 30, steps=(3, 5), glow=G4)
+            s.cyl(MAG, (x, 0, (300 + j * 480) * H / 1900.0), 50 * pyl, 90 * pyl, steps=8)
+        s.box(PLUM, (x, 0, H), (80 * pyl, 2.0 * half + 120.0, 60 * pyl))
+        s.sphere(BULB, (x, 0, H + 70 * pyl), 30 * pyl, steps=(3, 5), glow=G4)
     for sy in (-1, 1):
-        s.box(GREY_L, (0, sy * 230, H - 20), (L, 14, 14))
+        s.box(GREY_L, (0, sy * half, H - 20), (L, wire, wire))
+    rate = 0.1 * 4524.0 / L
     for sy, d, cols in ((-1, 1.0, (RED, AMBER)), (1, -1.0, (CYAN, MAG))):
-        g = k.group('Conveyor', ConvStart=(-d * L / 2.0, sy * 230.0, H - 20.0), ConvDir=(d, 0.0, 0.0), ConvLen=L, ConvRate=0.1, ConvRand=0.0)
-        for i in range(3):
+        g = k.group('Conveyor', ConvStart=(-d * L / 2.0, sy * half, H - 20.0), ConvDir=(d, 0.0, 0.0), ConvLen=L, ConvRate=rate, ConvRand=0.0)
+        for i in range(n):
             def cabin(m, c=cols[i % 2]):
-                m.box(GREY_L, (0, 0, -75), (12, 12, 150))
-                m.box(c, (0, 0, -250), (230, 160, 200))
-                m.box(BULB, (0, 0, -232), (234, 164, 64), glow=G1)
-                m.box(CREAM, (0, 0, -146), (250, 180, 16))
-            g.piece(cabin, a=i / 3.0)
+                m.box(GREY_L, (0, 0, -75 * cab), (12 * cab, 12 * cab, 150 * cab))
+                m.box(c, (0, 0, -250 * cab), (230 * cab, 160 * cab, 200 * cab))
+                m.box(BULB, (0, 0, -232 * cab), (234 * cab, 164 * cab, 64 * cab), glow=G1)
+                m.box(CREAM, (0, 0, -146 * cab), (250 * cab, 180 * cab, 16 * cab))
+            g.piece(cabin, a=i / float(n))
     return dict(grow=(0.0, 0.0, 0.0), grow_down=(0.0, 0.0, 0.0))
 
 
-def wood_coaster(k, L=12000.0, base=700.0, peak=3300.0):
+def monorail(k, L=9048.0, H=1050.0):
+    """A span of the park's monorail, two slots of road long: a beam on a pylon at each end, a line of light along it,
+    and a train of four cars that runs the span and enters the next (every span is in step, like the sky ride's). The
+    table stands the spans 52 m out on the right through the Midway and the Last Ride."""
+    s = k.group()
+    for x in (-L / 2.0, L / 2.0):
+        s.box(CREAM, (x, 0, H / 2.0 - 100.0), (150, 150, H + 200.0))
+        s.box(CREAM, (x, 0, H - 30.0), (240, 420, 110))
+        for j in range(2):
+            s.box(TEAL, (x, 0, 260.0 + j * 380.0), (164, 164, 70))
+    s.box(GREY_L, (0, 0, H + 60.0), (L, 120, 110))
+    s.box(MAG, (0, -62, H + 60.0), (L, 6, 30), glow=G1)
+    g = k.group('Conveyor', ConvStart=(-L / 2.0, 0.0, H + 115.0), ConvDir=(1.0, 0.0, 0.0), ConvLen=L, ConvRate=0.085, ConvRand=0.0)
+    for i in range(4):
+        def car(m, head=(i == 3)):
+            m.box(WHITE, (0, 0, 150), (880, 230, 260))
+            m.box(CYAN, (0, 0, 60), (886, 236, 50))
+            m.box(BULB, (0, 0, 190), (760, 238, 90), glow=G1)
+            m.box(NAVY, (0, 0, 290), (700, 180, 24))
+            if head:
+                m.box(BULB, (442, 0, 110), (6, 150, 50), glow=G3)
+        g.piece(car, a=i * 920.0 / L)
+    return dict(grow=(0.0, 0.0, 420.0), grow_down=(0.0, 0.0, 0.0))
+
+
+def coaster_kit(k, L=6400.0, H=3000.0):
+    """SM_CoasterHill with a train that runs: the piece as coaster_hill draws it (the same slab and post as when it was
+    a job, so the track's tests see the box they always saw), and four cars that go over its first hill and come round
+    again (Conveyor: the hill is its arc). Every coaster of the lagoon and the park's middle distance gets its train
+    with no piece more."""
+    _std(lambda m: coaster_hill(m, L, H, train=False))(k.group())
+    hill = (H - 500.0) * (0.55 + 0.45 * math.cos(math.pi * 0.3))
+    g = k.group('Conveyor', ConvStart=(-L / 2.0, 0.0, 575.0), ConvDir=(1.0, 0.0, 0.0), ConvLen=L * 2.0 / 3.0, ConvArc=hill, ConvRate=0.12, ConvRand=1.0)
+    for i, c in enumerate((RED, AMBER, CYAN, AMBER)):
+        def car(m, c=c, lead=(i == 3)):
+            m.box(c, (0, 0, 55), (170, 150, 110))
+            m.box(NAVY, (0, 0, 122), (120, 110, 26))
+            if lead:
+                m.box(BULB, (88, 0, 60), (6, 90, 40), glow=G3)
+        g.piece(car, a=i * 0.045)
+    return dict(grow=(0.0, 0.0, 200.0), grow_down=(0.0, 0.0, 0.0))
+
+
+def far_coaster_kit(k, L=26000.0, H=8200.0):
+    """SM_FarCoaster with a train on its first hill (five cars, 6 m each: it stands 340 m and more away)."""
+    _std(lambda m: far_coaster(m, L, H), slab=0.0)(k.group())
+    hill = (H - 1400.0) * 0.89
+    g = k.group('Conveyor', ConvStart=(-L / 2.0, 0.0, 1660.0), ConvDir=(1.0, 0.0, 0.0), ConvLen=L * 0.4, ConvArc=hill, ConvRate=0.06, ConvRand=1.0)
+    for i, c in enumerate((RED, AMBER, CYAN, AMBER, RED)):
+        def car(m, c=c):
+            m.box(c, (0, 0, 190), (620, 480, 380))
+            m.box(NAVY, (0, 0, 410), (460, 360, 60))
+        g.piece(car, a=i * 0.066)
+    return dict(grow=(0.0, 0.0, 600.0), grow_down=(0.0, 0.0, 0.0))
+
+
+def drop_tower(k, H=6200.0):
+    """A drop tower: a shaft 62 m tall in the park's colours, lamps up it, and a ring of seats that climbs it slowly,
+    hangs at the top, drops and waits (Bob, the drop ride's own cycle), each tower in its own time."""
+    s = k.group()
+    s.box(NAVY, (0, 0, 60), (900, 900, 120))
+    s.box(PLUM, (0, 0, 120 + H / 2.0), (260, 260, H))
+    for j in range(int(H // 900)):
+        s.box(MAG if j % 2 else CREAM, (0, 0, 700 + j * 900), (270, 270, 110))
+        s.box(BULB, (0, -138, 1150 + j * 900), (60, 6, 60), glow=G2)
+    s.cyl(MAG, (0, 0, H + 120), 300, 160, steps=8)
+    s.cyl(CREAM, (0, 0, H + 280), 200, 220, steps=8, top_r=30)
+    s.sphere(BULB, (0, 0, H + 560), 80, steps=(3, 5), glow=G4)
+    g = k.group('Bob', far=True, BobShape=1.0, BobAmp=H - 1500.0, BobRate=0.11, BobRand=1.0, BobDir=(0.0, 0.0, 1.0))
+    for sx, sy, lx, ly in ((0, -1, 800, 170), (0, 1, 800, 170), (-1, 0, 170, 800), (1, 0, 170, 800)):
+        g.box(AMBER, (sx * 330, sy * 330, 620), (lx, ly, 150))
+        g.box(CYAN, (sx * 330, sy * 330, 730), (lx * 0.9, ly * 0.9, 70))
+        g.box(BULB, (sx * 420, sy * 420, 560), (lx * 0.8 if lx > ly else 8, ly * 0.8 if ly > lx else 8, 40), glow=G2)
+    return dict(grow=(0.0, 0.0, 0.0), grow_down=(0.0, 0.0, 0.0))
+
+
+def jet_fountain(k):
+    """A show fountain for the forecourts' middle distance (44 m and more from the road): a round basin of lit water, a
+    bowl on a stem, a tall jet in the middle and four lower ones round it, all on a clock of their own (Plume: drops
+    that rise and thin out; unlit but for the faintest glow, like the flume's spray)."""
+    s = k.group()
+    s.cyl(GREY_L, (0, 0, -140), 900, 220, steps=14)
+    s.cyl(WATER, (0, 0, -130), 840, 190, steps=14, glow=GW)
+    s.cyl(GREY_L, (0, 0, 60), 150, 250, steps=8)
+    s.cyl(CREAM, (0, 0, 310), 330, 46, steps=10)
+    for i in range(8):
+        a = i * math.pi / 4.0
+        s.box((MAG, CYAN)[i % 2], (math.cos(a) * 890, math.sin(a) * 890, 100), (90, 90, 60), glow=G1)
+    for base, rise, nn, size, cycle in (((0.0, 0.0, 360.0), 1200.0, 8, 1.0, 0.06), ((520.0, 0.0, 70.0), 560.0, 4, 0.7, 0.09),
+                                        ((-520.0, 0.0, 70.0), 560.0, 4, 0.7, 0.09), ((0.0, 520.0, 70.0), 560.0, 4, 0.7, 0.11),
+                                        ((0.0, -520.0, 70.0), 560.0, 4, 0.7, 0.11)):
+        p = k.group('Plume', rough=0.9, PlumeBase=base, PlumeRise=rise, PlumeDrift=50.0, PlumeSize0=0.8, PlumeSize1=1.0, PlumeRate=0.8,
+                    PlumeSpread=40.0, PlumeEase=0.55, PlumeCycle=cycle, PlumeDuty=0.65)
+        for i in range(nn):
+            p.piece(lambda m, r_=56.0 * size: m.sphere(SPRAY, (0, 0, 0), r_, steps=(3, 5), glow=0.1), a=i / float(nn), b=1.0, c=i * 0.37)
+    return dict(grow=(200.0, 200.0, 1700.0), grow_down=(200.0, 200.0, 0.0))
+
+
+def fireworks(k):
+    """Fireworks far off over the Last Ride: three shells that burst in turn, one every seven seconds each, their sparks
+    spreading and falling as they fade (Burst; the numbers of ft_life.firework, in the park's three lights). Slow, far
+    and high: the table hangs them 380 m and more from the road."""
+    r = random.Random(11)
+    for col, base, ph in ((MAG, (0.0, 0.0, 5200.0), 0.0), (CYAN, (-900.0, 700.0, 6100.0), 0.37), (AMBER, (700.0, -500.0, 4700.0), 0.68)):
+        g = k.group('Burst', far=True, BurstBase=base, BurstRadius=2300.0, BurstFall=620.0, BurstRate=0.15, BurstLife=0.36, BurstPhase=ph)
+        for i in range(16):
+            g.piece(lambda m, c=col: m.sphere(c, (0, 0, 0), 85, steps=(3, 5), glow=3.0), a=r.random(), b=r.uniform(-0.25, 0.95), c=r.random())
+    return dict(grow=(3300.0, 3100.0, 8500.0), grow_down=(3300.0, 3100.0, 0.0))
+
+
+def rocket_launch(k, climb=42000.0):
+    """Rocket Land's launch, far off: a pad and a red gantry, smoke rolling off the pad, and a rocket that leaves it on
+    a clock: it climbs 420 m in three quarters of a minute, is gone, and stands on the pad again (Conveyor, straight
+    up). Its flame is a steady light that travels with it."""
+    s = k.group()
+    s.box(GREY_L, (0, 0, 100), (2400, 2400, 200))
+    s.box(RED, (-760, 0, 200 + 2100), (300, 300, 4200))
+    for j in range(5):
+        s.box(WHITE, (-760, 0, 500 + j * 800), (310, 310, 160))
+    for z in (1500.0, 3200.0):
+        s.box(RED, (-430, 0, z), (500, 120, 120))
+    s.sphere(BULB, (-760, 0, 4480), 70, steps=(3, 5), glow=G4)
+    g = k.group('Conveyor', ConvStart=(0.0, 0.0, 300.0), ConvDir=(0.0, 0.0, 1.0), ConvLen=climb, ConvRate=0.022, ConvRand=1.0)
+
+    def rocket(m):
+        m.cyl(WHITE, (0, 0, 0), 260, 2600, steps=10)
+        m.cyl(RED, (0, 0, 2600), 260, 760, steps=10, top_r=12)
+        m.cyl(MAG, (0, 0, 1500), 266, 160, steps=10)
+        for a in range(3):
+            an = a * 2.0 * math.pi / 3.0
+            m.box(RED, (math.cos(an) * 330, math.sin(an) * 330, 260), (200, 200, 520))
+        m.cyl(AMBER, (0, 0, -1300), 30, 1300, steps=8, top_r=220, glow=G4)
+    g.piece(rocket, a=0.0)
+    p = k.group('Plume', rough=0.95, PlumeBase=(0.0, 0.0, 240.0), PlumeRise=900.0, PlumeDrift=800.0, PlumeSize0=1.0, PlumeSize1=3.0, PlumeRate=0.3,
+                PlumeSpread=520.0, PlumeEase=0.7)
+    for i in range(7):
+        p.piece(lambda m: m.sphere(GREY_L, (0, 0, 0), 260, steps=(3, 5)), a=i / 7.0, b=0.8 + 0.4 * ((i * 3) % 4) / 3.0, c=i * 0.41)
+    return dict(grow=(1500.0, 1500.0, climb + 3800.0), grow_down=(1500.0, 1500.0, 0.0))
+
+
+def lagoon_water(m, L=5400.0, D=20000.0):
+    """A length of the lagoon's own water: a flat sheet 54 m along the road and 200 m across, glints of the park's
+    lights lying on it (they shimmer: animate()). The table stands the sheets afloat, 95 to 295 m out beside the
+    hollows of the coaster's valley, 16.6 m under the level's zero: there the land falls away below that level, so the
+    water shows wherever the valley is lower and the land makes its own shore. Lengths overlap a little end to end."""
+    m.box(WATER, (0, 0, -30), (L, D, 60), glow=GW)
+    r = random.Random(23)
+    for k in range(26):
+        m.box((CYAN, WHITE, LAV)[k % 3], (r.uniform(-L / 2.0 + 400, L / 2.0 - 400), r.uniform(-D / 2.0 + 500, D / 2.0 - 500), 2.0),
+              (r.uniform(260, 620), 30, 4), glow=G2)
+
+
+def wood_coaster(k, L=12000.0, base=700.0, peak=3300.0, fill=PLUM, post=WHITE, rail=MAG, hut=TEAL):
     """A wooden coaster's big hill as a stage flat, 120 m long and 33 m to the crest: a plum infill, white posts and
     cross braces half a metre wide (a real lattice would ink to scribble at 100 m), the rail picked out in pink light;
     and a train of five cars that goes over the hill and comes round again (the hill is the Conveyor's own arc)."""
@@ -1610,18 +1794,18 @@ def wood_coaster(k, L=12000.0, base=700.0, peak=3300.0):
     n = 24
     top = lambda x: base + (peak - base) * math.sin(math.pi * (x + L / 2.0) / L)
     xs = [-L / 2.0 + L * i / n for i in range(n + 1)]
-    _side(s, PLUM, [(-L / 2.0, -300.0)] + [(x, top(x)) for x in xs] + [(L / 2.0, -300.0)], -40, 40)
+    _side(s, fill, [(-L / 2.0, -300.0)] + [(x, top(x)) for x in xs] + [(L / 2.0, -300.0)], -40, 40)
     for i in range(0, n + 1, 2):
-        s.box(WHITE, (xs[i], -20, (top(xs[i]) - 300) / 2.0), (56, 110, top(xs[i]) + 300))
+        s.box(post, (xs[i], -20, (top(xs[i]) - 300) / 2.0), (56, 110, top(xs[i]) + 300))
     for i in range(0, n, 2):
         h = min(top(xs[i]), top(xs[i + 2])) * 0.92
-        tilt_box(s, WHITE, (xs[i], -44, 0), (xs[i + 2], -44, h), 44, 56)
-        tilt_box(s, WHITE, (xs[i + 2], -44, 0), (xs[i], -44, h), 44, 56)
+        tilt_box(s, post, (xs[i], -44, 0), (xs[i + 2], -44, h), 44, 56)
+        tilt_box(s, post, (xs[i + 2], -44, 0), (xs[i], -44, h), 44, 56)
     for a, b in zip(xs, xs[1:]):
-        tilt_box(s, WHITE, (a, -30, top(a)), (b, -30, top(b)), 170, 50)
-        tilt_box(s, MAG, (a, -124, top(a) + 44), (b, -124, top(b) + 44), 18, 18, glow=G2)
+        tilt_box(s, post, (a, -30, top(a)), (b, -30, top(b)), 170, 50)
+        tilt_box(s, rail, (a, -124, top(a) + 44), (b, -124, top(b) + 44), 18, 18, glow=G2)
     for sx in (-1, 1):
-        s.box(TEAL, (sx * (L / 2.0 - 330), -90, base / 2.0 + 40), (700, 320, base + 280))
+        s.box(hut, (sx * (L / 2.0 - 330), -90, base / 2.0 + 40), (700, 320, base + 280))
         s.box(CREAM, (sx * (L / 2.0 - 330), -90, base + 200), (780, 400, 40))
         s.box(BULB, (sx * (L / 2.0 - 330), -252, base * 0.5), (420, 4, 220), glow=G2)
     g = k.group('Conveyor', ConvStart=(-L / 2.0, -40.0, base + 70.0), ConvDir=(1.0, 0.0, 0.0), ConvLen=L, ConvArc=peak - base, ConvRate=0.085, ConvRand=1.0)
@@ -1710,11 +1894,18 @@ def swan_boats(k, run=5200.0):
     return dict(grow=(1500.0, run / 2.0 + 240.0, 280.0), grow_down=(320.0, run / 2.0 + 240.0, 0.0))
 
 
-KITS = [('SM_SkyRide', sky_ride), ('SM_WoodCoaster', wood_coaster), ('SM_Flume', flume), ('SM_SwanBoats', swan_boats)]
+KITS = [('SM_SkyRide', sky_ride), ('SM_WoodCoaster', wood_coaster), ('SM_Flume', flume), ('SM_SwanBoats', swan_boats),
+        # round 3: the sky ride's two other spans, the monorail, the lattice coasters with trains that run (they were
+        # jobs: SM_CoasterHill, SM_FarCoaster), a second wooden coaster, and what works on a clock
+        ('SM_SkyRide2', lambda k: sky_ride(k, L=9048.0, n=6)),
+        ('SM_SkyRideTall', lambda k: sky_ride(k, L=13572.0, H=5700.0, n=9, half=420.0, pyl=2.4, wire=40.0, cab=1.5)),
+        ('SM_Monorail', monorail), ('SM_CoasterHill', coaster_kit), ('SM_FarCoaster', far_coaster_kit),
+        ('SM_WoodCoaster2', lambda k: wood_coaster(k, L=8400.0, base=600.0, peak=4300.0, fill=NAVY, post=CREAM, rail=CYAN, hut=MAG)),
+        ('SM_DropTower', drop_tower), ('SM_JetFountain', jet_fountain), ('SM_Fireworks', fireworks), ('SM_Launch', rocket_launch)]
 
 _FLOOR = [('SM_FloorPlaza', floor_plaza), ('SM_FloorSpoke', floor_spoke), ('SM_FloorPave', floor_pave), ('SM_FloorLawn', floor_lawn),
           ('SM_FloorGames', floor_games), ('SM_FloorQueue', floor_queue), ('SM_FloorKart', floor_kart), ('SM_FloorPool', floor_pool),
-          ('SM_FloorYard', floor_yard), ('SM_CutLawn', cut_lawn), ('SM_CutLawnLow', cut_lawn_low), ('SM_Crowd', crowd),
+          ('SM_FloorYard', floor_yard), ('SM_CutLawn', cut_lawn), ('SM_CutLawnLow', cut_lawn_low), ('SM_Crowd', crowd), ('SM_LagoonWater', lagoon_water),
           ('SM_Sky1', lambda m: sky_card(m, SKY1, 42000.0, '#5a2f8e', 0.06, 12, 41)),
           ('SM_Sky2', lambda m: sky_card(m, SKY2, 52000.0, '#8a3a98', 0.07, 8, 43))]
 
@@ -1727,7 +1918,7 @@ _NEAR = [
     ('SM_PirateShip', pirate_ship), ('SM_SkullRock', skull_rock),
     ('SM_JetRide', jet_ride), ('SM_Saucer', saucer), ('SM_PlanetPosts', planet_posts),
     ('SM_Funhouse', funhouse), ('SM_SwingRide', swing_ride), ('SM_Maintenance', maintenance),
-    ('SM_PathLights', path_lights), ('SM_CoasterHill', coaster_hill),
+    ('SM_PathLights', path_lights),
     ('SM_SignMidway', lambda m: land_sign(m, 'THE MIDWAY', AMBER, MAG, _em_star)),
     ('SM_SignPirate', lambda m: land_sign(m, 'PIRATE COVE', CREAM, RED, _em_skull)),
     ('SM_SignLagoon', lambda m: land_sign(m, 'THE LAGOON', CYAN, TEAL, _em_wave)),
@@ -1737,7 +1928,7 @@ _NEAR = [
 ]
 _NEW = [('SM_MarqueeTower', marquee_tower), ('SM_Robot', robot)]     # third pass: a slab, no post
 _WATER = [('SM_Pond', pond), ('SM_Lake', lake), ('SM_Lake2', lambda m: lake(m, seed=13, serpent=True))]
-_FAR = [('SM_FarCoaster', far_coaster), ('SM_FarWheel', far_wheel), ('SM_FarChute', far_chute), ('SM_FarBigTops', far_bigtops),
+_FAR = [('SM_FarWheel', far_wheel), ('SM_FarChute', far_chute), ('SM_FarBigTops', far_bigtops),
         ('SM_FarRocket', far_rocket), ('SM_FarFort', far_fort)]
 _FLAT = [('SM_FacadeRow', facade_row), ('SM_Galleon', galleon), ('SM_Balloon', balloon)]         # third pass: drawn with their own footing (the balloon flies)
 # the floor, bank, crowd and card pieces are drawn with their own skirts and take no hidden post (it would double their

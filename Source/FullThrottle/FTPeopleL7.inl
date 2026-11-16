@@ -108,7 +108,7 @@ Zone(TEXT("People: Fifth and Main"), 0.3f, 1.1f);
 	Site(TEXT("PplRoofS1"), 1, 29.0f, 6, 4, 1.0f);
 	Site(TEXT("PplFlockGap"), -1, 29.0f, 4, 1, 1.0f);
 	Site(TEXT("PplFlockGap"), 1, 29.0f, 4, 0, 1.0f);
-	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 5, 2, 0.85f, 2.2f, 0.2f, 0, -55.0f, 180.0f);
+	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 10, 2, 0.85f, 2.2f, 0.2f, 1, -55.0f, 180.0f);
 Zone(TEXT("People: Theatre Row (1)"), 1.1f, 1.34f);
 // the queue at every picture house (W_Marquee left (2,0), right (2,1)); pockets: left every gap but s%3==2, right but s%3==1;
 // a party on every other picture house, the cradle on every other glass infill (G_Fill left (3,2), right (3,1))
@@ -132,7 +132,7 @@ Zone(TEXT("People: Theatre Row (1)"), 1.1f, 1.34f);
 	Site(TEXT("PplClean"), 1, 29.0f, 6, 1, 1.0f);
 	Site(TEXT("PplFlockGap"), -1, 29.0f, 6, 1, 1.0f);
 	Site(TEXT("PplFlockGap"), 1, 29.0f, 6, 2, 1.0f);
-	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 5, 0, 0.85f, 2.2f, 0.2f, 0, -55.0f, 180.0f);
+	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 10, 0, 0.85f, 2.2f, 0.2f, 1, -55.0f, 180.0f);
 Zone(TEXT("Crew: Theatre Row 1.34 km"), 1.34f, 1.443f);
 	Site(TEXT("PplCrewCam"), -1, 17.6f, 3, 0, 1.0f);
 	Site(TEXT("PplCrewAppA"), -1, 17.6f, 3, 2, 1.0f);
@@ -163,7 +163,7 @@ Zone(TEXT("People: Theatre Row (2)"), 1.443f, 2.1f);
 	Site(TEXT("PplClean"), 1, 29.0f, 6, 1, 1.0f);
 	Site(TEXT("PplFlockGap"), -1, 29.0f, 6, 1, 1.0f);
 	Site(TEXT("PplFlockGap"), 1, 29.0f, 6, 2, 1.0f);
-	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 5, 0, 0.85f, 2.2f, 0.2f, 0, -55.0f, 180.0f);
+	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 10, 0, 0.85f, 2.2f, 0.2f, 1, -55.0f, 180.0f);
 Zone(TEXT("People: The Garages (1)"), 2.1f, 2.56f);
 // every gap an alley: a pocket in every other slot; parties on the garages' top decks (W_Garage left (2,0), right (2,1)) and
 // the yards' roofs (W_Yards left (2,1), right (2,0))
@@ -181,7 +181,7 @@ Zone(TEXT("People: The Garages (1)"), 2.1f, 2.56f);
 	Site(TEXT("PplRoofYard"), 1, 29.0f, 4, 2, 1.0f);
 	Site(TEXT("PplFlockGap"), -1, 29.0f, 6, 1, 1.0f);
 	Site(TEXT("PplFlockGap"), 1, 29.0f, 6, 4, 1.0f);
-	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 4, 1, 0.85f, 2.2f, 0.2f, 0, -55.0f, 180.0f);
+	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 8, 1, 0.85f, 2.2f, 0.2f, -1, -55.0f, 180.0f);
 Zone(TEXT("Crew: The Garages 2.56 km"), 2.56f, 2.665f);
 	Site(TEXT("PplCrewCam"), -1, 17.6f, 2, 0, 1.0f);
 	Site(TEXT("PplCrewAppA"), -1, 17.6f, 2, 1, 1.0f);
@@ -206,7 +206,7 @@ Zone(TEXT("People: The Garages (2)"), 2.665f, 3.04f);
 	Site(TEXT("PplRoofYard"), 1, 29.0f, 4, 2, 1.0f);
 	Site(TEXT("PplFlockGap"), -1, 29.0f, 6, 1, 1.0f);
 	Site(TEXT("PplFlockGap"), 1, 29.0f, 6, 4, 1.0f);
-	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 4, 1, 0.85f, 2.2f, 0.2f, 0, -55.0f, 180.0f);
+	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 8, 1, 0.85f, 2.2f, 0.2f, -1, -55.0f, 180.0f);
 Zone(TEXT("Crew: The Garages 3.04 km"), 3.04f, 3.13f);
 	Site(TEXT("PplCrewCam"), -1, 17.6f, 2, 0, 1.0f);
 	Site(TEXT("PplCrewAppA"), -1, 17.6f, 2, 1, 1.0f);
@@ -241,7 +241,7 @@ Zone(TEXT("People: The Plaza (1)"), 3.208f, 4.53f);
 	Site(TEXT("PplRoofPent"), 1, 29.0f, 4, 3, 1.0f);
 	Site(TEXT("PplFlockGap"), -1, 29.0f, 4, 0, 1.0f);
 	Site(TEXT("PplFlockGap"), 1, 29.0f, 4, 1, 1.0f);
-	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 4, 3, 0.85f, 2.2f, 0.2f, 0, -55.0f, 180.0f);
+	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 8, 3, 0.85f, 2.2f, 0.2f, -1, -55.0f, 180.0f);
 Zone(TEXT("Crew: The Plaza 4.53 km"), 4.53f, 4.62f);
 	Site(TEXT("PplCrewCam"), -1, 17.6f, 2, 1, 1.0f);
 	Site(TEXT("PplCrewCater"), -1, 29.0f, 2, 1, 1.0f);
@@ -282,7 +282,7 @@ Zone(TEXT("People: Wall Street (1)"), 4.701f, 5.59f);
 	Site(TEXT("PplRoofYard"), 1, 29.0f, 4, 0, 1.0f);
 	Site(TEXT("PplFlockGap"), -1, 29.0f, 4, 1, 1.0f);
 	Site(TEXT("PplFlockGap"), 1, 29.0f, 4, 3, 1.0f);
-	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 5, 4, 0.85f, 2.2f, 0.2f, 0, -55.0f, 180.0f);
+	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 10, 4, 0.85f, 2.2f, 0.2f, 1, -55.0f, 180.0f);
 Zone(TEXT("Crew: Wall Street 5.59 km"), 5.59f, 5.696f);
 	Site(TEXT("PplCrewCam"), -1, 17.6f, 4, 0, 1.0f);
 	Site(TEXT("PplCrewAppA"), -1, 17.6f, 4, 3, 1.0f);
@@ -316,7 +316,7 @@ Zone(TEXT("People: Wall Street (2)"), 5.696f, 6.29f);
 	Site(TEXT("PplRoofYard"), 1, 29.0f, 4, 0, 1.0f);
 	Site(TEXT("PplFlockGap"), -1, 29.0f, 4, 1, 1.0f);
 	Site(TEXT("PplFlockGap"), 1, 29.0f, 4, 3, 1.0f);
-	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 5, 4, 0.85f, 2.2f, 0.2f, 0, -55.0f, 180.0f);
+	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 10, 4, 0.85f, 2.2f, 0.2f, 1, -55.0f, 180.0f);
 Zone(TEXT("People: Penthouse Row (1)"), 6.29f, 6.63f);
 // the Syndicate shows itself: its men in the pockets before its banners (G_Banner: left s%6 = 0, right 3). A rally before
 // each monument (left s%6 = 2, right 5), the cradle on the closed gaps (left 3, right 0), the queue at the picture house
@@ -343,7 +343,7 @@ Zone(TEXT("People: Penthouse Row (1)"), 6.29f, 6.63f);
 	Site(TEXT("PplRoofPent"), 1, 29.0f, 6, 2, 1.0f);
 	Site(TEXT("PplQueue"), 1, 29.0f, 6, 0, 1.0f);
 	Site(TEXT("PplRoofMarq"), 1, 29.0f, 6, 3, 1.0f);
-	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 5, 1, 0.85f, 2.2f, 0.2f, 0, -55.0f, 180.0f);
+	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 10, 1, 0.85f, 2.2f, 0.2f, -1, -55.0f, 180.0f);
 Zone(TEXT("Crew: Penthouse Row 6.63 km"), 6.63f, 6.737f);
 	Site(TEXT("PplCrewCam"), -1, 17.6f, 6, 0, 1.0f);
 	Site(TEXT("PplCrewAppA"), -1, 17.6f, 6, 5, 1.0f);
@@ -385,7 +385,7 @@ Zone(TEXT("People: Penthouse Row (2)"), 6.737f, 7.48f);
 	Site(TEXT("PplRoofPent"), 1, 29.0f, 6, 2, 1.0f);
 	Site(TEXT("PplQueue"), 1, 29.0f, 6, 0, 1.0f);
 	Site(TEXT("PplRoofMarq"), 1, 29.0f, 6, 3, 1.0f);
-	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 5, 1, 0.85f, 2.2f, 0.2f, 0, -55.0f, 180.0f);
+	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 10, 1, 0.85f, 2.2f, 0.2f, -1, -55.0f, 180.0f);
 Zone(TEXT("Crew: Penthouse Row 7.48 km"), 7.48f, 7.66f);
 	Site(TEXT("PplCrewCam"), -1, 17.6f, 6, 0, 1.0f);
 	Site(TEXT("PplCrewAppA"), -1, 17.6f, 6, 5, 1.0f);
@@ -452,8 +452,8 @@ Zone(TEXT("Crew: Penthouse loop"), 6.737f, 6.972f);
 Zone(TEXT("People: Syndicate Territory, the arena"), 7.66f, 13.56f);
 	Site(TEXT("PplSyn"), -1, 17.6f, 4, 0, 0.9f);
 	Site(TEXT("PplSyn"), 1, 17.6f, 4, 2, 0.9f);
-	Site(TEXT("PplOnAs"), -1, 17.6f, 8, 3, 0.72f);
-	Site(TEXT("PplOnBs"), 1, 17.6f, 8, 7, 0.72f);
+	Site(TEXT("PplOnAs"), -1, 17.6f, 4, 1, 0.72f);
+	Site(TEXT("PplOnBs"), 1, 17.6f, 4, 3, 0.72f);
 	Site(TEXT("PplCrewAppAs"), -1, 17.6f, 16, 5, 0.72f);
 	Site(TEXT("PplCrewAppAs"), 1, 17.6f, 16, 13, 0.72f);
 	Site(TEXT("PplSynWatch"), -1, 29.0f, 8, 0, 0.9f);
@@ -463,19 +463,109 @@ Zone(TEXT("People: Syndicate Territory, the arena"), 7.66f, 13.56f);
 	Site(TEXT("PplRoofGar"), -1, 29.0f, 8, 7, 0.9f);
 	Site(TEXT("PplRoofMidA"), 1, 29.0f, 8, 4, 0.9f);
 	Site(TEXT("PplRoofYard"), 1, 29.0f, 8, 0, 0.9f);
-	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 7, 3, 0.9f, 2.2f, 0.2f, 0, -55.0f, 180.0f);
+	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 9, 3, 0.9f, 2.2f, 0.2f, -1, -55.0f, 180.0f);
+	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 9, 7, 0.9f, 2.2f, 0.2f, 1, -55.0f, 180.0f);
 Zone(TEXT("People: Syndicate Territory, the circuit"), 13.56f, 99.0f);
-	Site(TEXT("PplSyn"), -1, 17.6f, 4, 0, 0.45f);
-	Site(TEXT("PplSyn"), 1, 17.6f, 4, 2, 0.45f);
-	Site(TEXT("PplOnAs"), -1, 17.6f, 8, 3, 0.36f);
-	Site(TEXT("PplOnBs"), 1, 17.6f, 8, 7, 0.36f);
-	Site(TEXT("PplCrewAppAs"), -1, 17.6f, 16, 5, 0.36f);
-	Site(TEXT("PplCrewAppAs"), 1, 17.6f, 16, 13, 0.36f);
-	Site(TEXT("PplSynWatch"), -1, 29.0f, 8, 0, 0.45f);
-	Site(TEXT("PplSynWatch2"), 1, 29.0f, 8, 3, 0.45f);
-	Site(TEXT("PplRoofPent"), -1, 29.0f, 8, 1, 0.45f);
-	Site(TEXT("PplRoofPent"), 1, 29.0f, 8, 2, 0.45f);
-	Site(TEXT("PplRoofGar"), -1, 29.0f, 8, 7, 0.45f);
-	Site(TEXT("PplRoofMidA"), 1, 29.0f, 8, 4, 0.45f);
-	Site(TEXT("PplRoofYard"), 1, 29.0f, 8, 0, 0.45f);
-	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 7, 3, 0.45f, 2.2f, 0.2f, 0, -55.0f, 180.0f);
+	Site(TEXT("PplSyn"), -1, 17.6f, 4, 0, 0.25f);
+	Site(TEXT("PplSyn"), 1, 17.6f, 4, 2, 0.25f);
+	Site(TEXT("PplOnAs"), -1, 17.6f, 4, 1, 0.2f);
+	Site(TEXT("PplOnBs"), 1, 17.6f, 4, 3, 0.2f);
+	Site(TEXT("PplCrewAppAs"), -1, 17.6f, 16, 5, 0.2f);
+	Site(TEXT("PplCrewAppAs"), 1, 17.6f, 16, 13, 0.2f);
+	Site(TEXT("PplSynWatch"), -1, 29.0f, 8, 0, 0.25f);
+	Site(TEXT("PplSynWatch2"), 1, 29.0f, 8, 3, 0.25f);
+	Site(TEXT("PplRoofPent"), -1, 29.0f, 8, 1, 0.25f);
+	Site(TEXT("PplRoofPent"), 1, 29.0f, 8, 2, 0.25f);
+	Site(TEXT("PplRoofGar"), -1, 29.0f, 8, 7, 0.25f);
+	Site(TEXT("PplRoofMidA"), 1, 29.0f, 8, 4, 0.25f);
+	Site(TEXT("PplRoofYard"), 1, 29.0f, 8, 0, 0.25f);
+	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 9, 3, 0.25f, 2.2f, 0.2f, -1, -55.0f, 180.0f);
+	Far(TEXT("/Game/People/CityCenter/SM_PigeonFlock"), 110.0f, 190.0f, 9, 7, 0.25f, 2.2f, 0.2f, 1, -55.0f, 180.0f);
+
+{
+// ---- BEGIN far (ft_people_city_far.py) ----
+Zone(TEXT("People far: test"), 0.f, 99.f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarGeese"), 38.f, 44.f, 5, 0, 1.f, 1.f, 0.f, 0, -105.f, 6.f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarGliders"), 34.f, 42.f, 5, 2, 1.f, 1.5f, 0.f, 0, -95.f, 6.f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarTowerParty"), 110.f, 150.f, 4, 1, 1.f, 2.2f, 0.f, 0, 0.7f, 10.f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarTowerLoft"), 62.f, 84.f, 4, 3, 1.f, 2.0f, 0.f, 0, 0.7f, 10.f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarConcert"), 66.f, 90.f, 6, 2, 1.f, 1.6f, 0.f, 0, 0.7f, 8.f);
+	Far(TEXT("/Game/People/CityCenter/SM_FarSkyRun_A"), 80.f, 110.f, 6, 4, 1.f, 1.6f, 0.f, 0, 0.7f, 8.f);
+// ---- END far ----
+}
+
+{
+// ---- BEGIN watch (ft_people_city_watch.py) ----
+// THE WATCHERS: the city, climbed onto everything to see the chase. Every piece here is tall, lit (steadily) and 24 m
+// or more from the road, and stands where the main cast does not: a footbridge over a side street's mouth (the
+// G_Street gaps), a scaffold stand in an alley's mouth and a scaffold up the brick building behind it (the G_Alley
+// gaps), the open decks of the garages (W_Garage) and the free half of the dear doors' roof terraces (W_Pent: the
+// main cast's rally and the crew's crane stand 5.05 m the other way from the middle). A rule here copies the side,
+// every and phase of the dressing rule it stands at (FTDressL7.inl): change one there, change it here.
+// The dressing's alleys have a chance of 0.8 to 0.9 and their dice are their own: one stand or scaffold in ten stands
+// in an empty gap (both are scaffolds on their own legs, so that reads).
+Set(TEXT("PplWatchBridgeA"), { { TEXT("/Game/People/CityCenter/SM_WatchBridge_A"), 22.6f, -2.4f, 0.0f, 0.0f, 1.0f } });
+Set(TEXT("PplWatchBridgeB"), { { TEXT("/Game/People/CityCenter/SM_WatchBridge_B"), 22.6f, -2.4f, 0.0f, 0.0f, 1.0f } });
+Set(TEXT("PplWatchSteps"),   { { TEXT("/Game/People/CityCenter/SM_WatchSteps_A"), 22.6f, -1.9f, 0.0f, 0.0f, 1.0f } });
+Set(TEXT("PplWatchScaf"),    { { TEXT("/Game/People/CityCenter/SM_WatchBalcony_A"), 22.6f, 4.9f, 0.0f, 0.0f, 1.0f } });
+Set(TEXT("PplWatchGap"),     { { TEXT("/Game/People/CityCenter/SM_WatchSteps_A"), 22.6f, -1.9f, 0.0f, 0.0f, 1.0f }, { TEXT("/Game/People/CityCenter/SM_WatchBalcony_A"), 22.6f, 4.9f, 0.0f, 0.0f, 1.0f } });
+Set(TEXT("PplWatchDeck"),    { { TEXT("/Game/People/CityCenter/SM_WatchDeck_A"), 0.0f, 2.5f, 0.0f, 0.0f, 1.0f } });
+Set(TEXT("PplWatchRoof"),    { { TEXT("/Game/People/CityCenter/SM_WatchRoof_A"), 5.05f, 0.5f, 9.6f, 0.0f, 1.0f } });
+
+Zone(TEXT("People watch: Fifth and Main"), 0.f, 1.10f);
+// side streets: left the odd slots, right the even; alleys: left the even slots, right the odd
+	Site(TEXT("PplWatchBridgeA"), -1, 29.f, 4, 1, 1.f);
+	Site(TEXT("PplWatchBridgeB"), -1, 29.f, 4, 3, 0.5f);
+	Site(TEXT("PplWatchBridgeB"), 1, 29.f, 4, 0, 1.f);
+	Site(TEXT("PplWatchBridgeA"), 1, 29.f, 4, 2, 0.5f);
+	Site(TEXT("PplWatchGap"), -1, 29.f, 4, 0, 1.f);
+	Site(TEXT("PplWatchScaf"), -1, 29.f, 4, 2, 0.6f);
+	Site(TEXT("PplWatchSteps"), 1, 29.f, 4, 1, 1.f);
+	Site(TEXT("PplWatchGap"), 1, 29.f, 4, 3, 0.6f);
+Zone(TEXT("People watch: Theatre Row"), 1.10f, 2.10f);
+// alleys: every third slot, side by side in turn (G_Alley 0, 3, 0); side streets: left (3,1), right (3,2)
+	Site(TEXT("PplWatchGap"), 0, 29.f, 3, 0, 1.f);
+	Site(TEXT("PplWatchBridgeA"), -1, 29.f, 3, 1, 1.f);
+	Site(TEXT("PplWatchBridgeB"), 1, 29.f, 3, 2, 1.f);
+Zone(TEXT("People watch: The Garages"), 2.10f, 3.13f);
+// a garage every other block (left (2,0), right (2,1)); an alley in every gap
+	Site(TEXT("PplWatchDeck"), -1, 29.f, 2, 0, 1.f);
+	Site(TEXT("PplWatchDeck"), 1, 29.f, 2, 1, 1.f);
+	Site(TEXT("PplWatchSteps"), -1, 29.f, 4, 1, 1.f);
+	Site(TEXT("PplWatchScaf"), -1, 29.f, 4, 3, 1.f);
+	Site(TEXT("PplWatchSteps"), 1, 29.f, 4, 2, 1.f);
+	Site(TEXT("PplWatchScaf"), 1, 29.f, 4, 0, 1.f);
+Zone(TEXT("People watch: The Plaza"), 3.13f, 4.62f);
+// side streets: left (2,0), right (2,1); the dear doors: left (4,2), right (4,3)
+	Site(TEXT("PplWatchBridgeA"), -1, 29.f, 4, 0, 1.f);
+	Site(TEXT("PplWatchBridgeB"), -1, 29.f, 4, 2, 0.5f);
+	Site(TEXT("PplWatchBridgeB"), 1, 29.f, 4, 1, 1.f);
+	Site(TEXT("PplWatchBridgeA"), 1, 29.f, 4, 3, 0.5f);
+	Site(TEXT("PplWatchRoof"), -1, 29.f, 4, 2, 1.f);
+	Site(TEXT("PplWatchRoof"), 1, 29.f, 4, 3, 1.f);
+Zone(TEXT("People watch: Wall Street"), 4.62f, 6.29f);
+// alleys: every other slot, side by side in turn (G_Alley 0, 2, 0); side streets: left (4,1), right (4,3); the dear
+// doors: left (4,1), right (4,2)
+	Site(TEXT("PplWatchGap"), 0, 29.f, 4, 0, 1.f);
+	Site(TEXT("PplWatchSteps"), 0, 29.f, 4, 2, 0.7f);
+	Site(TEXT("PplWatchBridgeA"), -1, 29.f, 4, 1, 1.f);
+	Site(TEXT("PplWatchBridgeB"), 1, 29.f, 4, 3, 1.f);
+	Site(TEXT("PplWatchRoof"), -1, 29.f, 8, 1, 1.f);
+	Site(TEXT("PplWatchRoof"), 1, 29.f, 8, 2, 1.f);
+Zone(TEXT("People watch: Penthouse Row"), 6.29f, 7.66f);
+// side streets: left (6,2), right (6,5); the dear doors: left (3,0) and (3,1), right (3,1) and (3,2)
+	Site(TEXT("PplWatchBridgeB"), -1, 29.f, 6, 2, 1.f);
+	Site(TEXT("PplWatchBridgeA"), 1, 29.f, 6, 5, 1.f);
+	Site(TEXT("PplWatchRoof"), -1, 29.f, 3, 1, 0.8f);
+	Site(TEXT("PplWatchRoof"), 1, 29.f, 3, 2, 0.8f);
+Zone(TEXT("People watch: Syndicate Territory, the arena"), 7.66f, 13.56f);
+// the roofs the city still holds: the dear doors (left (4,1), right (4,2)) and the one garage (left (8,7))
+	Site(TEXT("PplWatchRoof"), -1, 29.f, 4, 1, 0.5f);
+	Site(TEXT("PplWatchRoof"), 1, 29.f, 4, 2, 0.5f);
+	Site(TEXT("PplWatchDeck"), -1, 29.f, 8, 7, 1.f);
+Zone(TEXT("People watch: Syndicate Territory, the circuit"), 13.56f, 99.f);
+	Site(TEXT("PplWatchRoof"), -1, 29.f, 4, 1, 0.2f);
+	Site(TEXT("PplWatchRoof"), 1, 29.f, 4, 2, 0.2f);
+	Site(TEXT("PplWatchDeck"), -1, 29.f, 8, 7, 0.4f);
+// ---- END watch ----
+}

@@ -74,8 +74,34 @@ bool UFTInputSubsystem::IsIntentionalInput(const FInputKeyEventArgs& Params)
 	return Params.Event == IE_Pressed && !Params.Key.IsAxis1D() && !Params.Key.IsAxis2D() && Params.Key != EKeys::AnyKey;
 }
 
+bool UFTInputSubsystem::PointerPosition(const APlayerController* PC, FVector2D& Out) const
+{
+	if (!PC) return false;
+	if (PointerOverride.X >= 0.f)
+	{
+		int32 Vw = 0, Vh = 0; PC->GetViewportSize(Vw, Vh);
+		Out = FVector2D(PointerOverride.X * Vw, PointerOverride.Y * Vh);
+		return Vw > 0 && Vh > 0;
+	}
+	float X = -1.f, Y = -1.f;
+	if (!PC->GetMousePosition(X, Y)) return false;
+	Out = FVector2D(X, Y);
+	return true;
+}
+
+void UFTInputSubsystem::ObservePointer(const APlayerController* PC)
+{
+	FVector2D At;
+	if (!PointerPosition(PC, At)) { bPointerSeen = false; return; }
+	if (bPointerSeen && FVector2D::DistSquared(At, PointerLast) > 4.f) bPointer = true;
+	PointerLast = At; bPointerSeen = true;
+}
+
 void UFTInputSubsystem::ObserveInput(const FInputKeyEventArgs& Params)
 {
+	// the pointer: a click or the wheel wakes it, a deliberate key or controller input puts it away
+	if (Params.Key.IsMouseButton()) { if (Params.Event == IE_Pressed) bPointer = true; }
+	else if (IsIntentionalInput(Params)) bPointer = false;
 	if (!IsIntentionalInput(Params))
 	{
 		if (Params.InputDevice == AxisCandidate && FMath::Abs(Params.AmountDepressed) < .35f) AxisIntentSince.Remove(Params.Key);

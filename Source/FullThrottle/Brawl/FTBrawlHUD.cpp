@@ -5,6 +5,8 @@
 #include "Engine/Font.h"
 #include "CanvasItem.h"
 #include "FTInput.h"
+#include "FTCursor.h"
+#include "FTBrawlPlayerController.h"
 #include "FTInputGlyphs.h"
 #include "FTGameInstance.h"
 
@@ -293,7 +295,18 @@ void AFTBrawlHUD::DrawHUD()
 		Canvas->StrLen(Face(false), TEXT("Hg"), Xl, Yl); RajH = FMath::Max(1.f, Yl);
 		UE_LOG(LogTemp, Log, TEXT("FTBRAWL HUD fonts orbitron=%d rajdhani=%d"), FOrb ? 1 : 0, FRaj ? 1 : 0);
 	}
-	if (G->SystemScreen) { DrawSystemMenu(G); return; }
+	if (G->SystemScreen)
+	{
+		DrawSystemMenu(G);
+		// the mouse pointer (FTCursor), as on the races' screens: shown while the mouse is what the player is using
+		const AFTBrawlPlayerController* PC = Cast<AFTBrawlPlayerController>(GetOwningPlayerController());
+		const UFTInputSubsystem* Input = UFTInputSubsystem::Get(this);
+		FVector2D At;
+		if (PC && Input && PC->bShowMouseCursor && Input->PointerActive() && !Input->UsesGamepad() && Input->PointerPosition(PC, At))
+			FTCursor::Draw(Canvas, At, S, PC->IsInputKeyDown(EKeys::LeftMouseButton) ? FTCursor::EState::Pressed : G->SystemRows().IsValidIndex(PC->MouseRow()) ? FTCursor::EState::Hover : FTCursor::EState::Normal,
+				GetWorld()->GetRealTimeSeconds(), bReducedMotion);
+		return;
+	}
 	if (G->InCut()) { DrawCut(G); DrawSaveIndicator(G); return; }
 	DrawSaveIndicator(G);
 	const float W = Canvas->ClipX / S, H = 720.f;

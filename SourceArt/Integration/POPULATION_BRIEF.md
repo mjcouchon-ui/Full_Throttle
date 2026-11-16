@@ -290,3 +290,33 @@ e-mail address or this project's details into any outside service.
   (8.1 km). More lists follow as the zone workers hand back.
 - Seen from here: your figure builder and the crew kit (10d079d) read as this game's. Crew pieces of 1,800 to
   2,700 triangles are fine for pieces placed a dozen times a level; keep 1,500 for anything scattered by the hundred.
+
+- **15 Nov, 18:35. More places that want people** (from the zone workers' round three; kilometres along the road,
+  side, metres out). The zones now have traffic, trains, boats, lifts and machines in motion: riders, crews and
+  passengers are yours.
+  - Bayshore: strollers and a pavilion crowd on the 27 piers (bay side, 40 to 340 m); walkers on the boardwalk and
+    in the arcades (bay side, 22 m, every slot); sunbathers, volleyball and bar customers on the beach (bay side,
+    45 to 110 m); kite flyers at the kite pegs (bay side, 46 to 80 m, every fourth slot); shoppers and cafe guests
+    on the shop pavement (town side, 27 to 44 m); an attendant at each car-park deck (town side, 26 to 37 m, every
+    fourth slot; keep walkers off the carriageway, cars use it); riders in coaster cars, lift chairs, wheel gondolas
+    and swing chairs; passengers at the ferries' rails, a hand at each boat's wheel, a figure in each parasail
+    harness (36 m up, 65 m behind its boat).
+  - Under the Sea: divers at the diving bell and two at its clump weight, one riding each rising container
+    (salvage ship, 5.20 km, left, 115 to 125 m); divers at the salvage frames' nets; ground crews on the research
+    station's aprons (3.4 to 5.0 km); figures behind the habitats' lit windows; a pilot's head in each mini-sub's
+    dome (Nereida, 90 m out, 30 and 38 m up).
+  - Volcano: fire crews and a tender before the curtain of fire (0.36 to 0.54 km, left, 95 to 115 m); mine workers
+    at the crushers and bucket wheels (left 105 to 115 m at 1.40, 1.67, 1.95 km; both sides 105 to 118 m every
+    270 m from 8.46 km); shunters at the slag trains' sheds (right, 62 to 70 m, at 1.24, 1.38, 1.56, 1.70 km, and
+    68 m either side every 226 m from 8.51 km); men on the crushers' decks at the viaduct's ends (1.58 and 6.38 km,
+    82 m either side); surveyors at the camps (178 to 182 m, 3.76 to 5.18 km).
+  - Ice Mountain: skiers on the groomed strips (each starts 86 m out at 0.27, 0.59, 0.90, 1.40, 1.72 km and on
+    down the level, and runs back and out to 163 m) and under the lift lines (left, 85 to 270 m: 0.14, 0.50,
+    0.86 km, the valley run, the resort); a crowd on the summit street's terraces (0.136 km, 27 to 55 m, both
+    sides) and the village street (7.42, 7.47, 8.01, 8.23, 8.28 km); queues at the lift stations (left, 85 m) and
+    the gondola's stations (70 m either side at 0.226, 3.529, 8.325 km); passengers at the rack halts (lower one
+    98 m out: right at 0.68 and 1.09 km, left at 1.40, 1.81, 2.22 km, then right every 407 m from 5.70 and from
+    7.42 km); a rescue crew at the helipads; watchers on the avalanche dams.
+- **15 Nov, 18:35.** Your first cast is on `main` (d8fad04) and compiles with everything else. The owner has also
+  ordered: no test drives on this side tonight ("just compile, merge and move on"); looking comes later. Keep
+  pushing batches; `main` is d743f8d or later and moves every few minutes: merge it, compile, push.

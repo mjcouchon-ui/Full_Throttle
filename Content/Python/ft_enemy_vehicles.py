@@ -244,9 +244,11 @@ def carrier(m):
         mount(m, 2, s * (hw - 39), 78, 51, 31, LIGHT)
         # Overhaul: the carrier is a launcher. A light tree on each rear post counts every rider out (the lamps
         # themselves are the game's: SM_CarrierLampA / G): the lower three are the gate's, the upper three the lift's.
-        m.box(DARK, (30, s * (hw - 10), 192), (12, 46, 136))
-        m.box(DARK, (30, s * (hw - 10), 398), (12, 46, 136))
-        m.box(CAST, (44, s * (hw - 10), 398), (26, 30, 150))
+        # (round two: the lamps are 72 cm squares in 80 cm hoods now, so each tree is a board 250 cm tall: the gate's
+        # beside the lower deck, the lift's on a mast above it; FTEntity.cpp CarrierLampZ has the six heights)
+        m.box(DARK, (30, s * (hw - 14), 204), (12, 88, 250))
+        m.box(DARK, (30, s * (hw - 14), 476), (12, 88, 250))
+        m.box(CAST, (44, s * (hw - 14), 440), (26, 30, 300))
         # the air brakes' hinge posts on the top deck's flank (the flaps are SM_CarrierFlap)
         m.box(CAST, (336, s * (hw + 4), 400), (14, 14, 170))
     # The middle lane of each deck is the launch lane: its two bikes are the game's (carrier_body leaves them out).
@@ -362,6 +364,22 @@ def shark(m):
         rod(m, CAST, (-30, s * 120, 120), (89, s * 39, 188), 16, steps=8)
         m.box(RED, (-33, s * 120, 120), (6, 43, 9), glow=.75)
     # (overhaul: the three pale bars that were here sat on the baked tail fin; they are on the moving tail now)
+    # Round two: it was pale grey all over and lost against the road from behind until it turned. Its back is deep
+    # sea blue now and its fins darker still, over the same white belly: two tones that read at 58 m.
+    _recolour(m, {'#7f8fa8': SHARK_BACK, '#5a6a84': SHARK_D})
+
+
+def _recolour(m, table):
+    """Move everything a model has drawn in a colour of table to its new colour (the glow it was drawn with stays)."""
+    for col, glow in list(m.meshes):
+        new = table.get(col)
+        if not new or new == col:
+            continue
+        mesh = m.meshes.pop((col, glow))
+        if (new, glow) in m.meshes:
+            unreal.GeometryScript_MeshEdits.append_mesh(m.meshes[(new, glow)], mesh, unreal.Transform())
+        else:
+            m.meshes[(new, glow)] = mesh
 
 
 def limo(m):
@@ -394,6 +412,15 @@ def limo(m):
     m.box('#ffc93c', (-20, 0, 331), (6, span + 4, 4))
     for k in range(7):
         m.box(RED, (-22, (k - 3) * (span - 60) / 7.0, 319), (4, 44, 8), glow=.9)
+    # Round two: the Chairman wears his crown. Four gold spires stand on the wing, a red jewel on each: burning gold
+    # six metres over the road, the one shape in that street that is his from behind (he was a low dark car in a
+    # busy street). The middle of the crown is left open: the sunroof's guns come up six metres ahead of it on the
+    # centre line, and the camera sees them through that gap. They are lit parts of the body, so they flare with
+    # every wind-up as his other lights do. Looks only: his box in the fight is the game's own numbers, not this mesh.
+    for y, h in ((-216, 215), (-112, 270), (112, 270), (216, 215)):
+        m.cyl('#ffc93c', (2, y, 330), 38, h, steps=6, glow=.55, top_r=5)
+        m.sphere(RED, (2, y, 330 + h + 8), 15, steps=(4, 6), glow=1.2)
+    m.box('#ffc93c', (2, 0, 335), (30, span - 20, 10), glow=.55)
     # the Chairman's crest on the boot: a gold crown (five points), and a gold spine along the roof
     for k in range(5):
         y = (k - 2) * 26
@@ -419,28 +446,36 @@ def _tesla_top_broken(m):
 
 
 # ---- THE GREAT WHITE: the tail that swims, the dorsal fin (whole, then torn), the lower jaw
-SHARK_D, SHARK_BELLY = '#5a6a84', '#e8eef8'
+# Round two: the back is deep sea blue and the fins darker (it was pale grey and lost from behind); the fins' trailing
+# edges, the edges the camera sees while it runs ahead, are a strip of cyan light.
+SHARK_D, SHARK_BELLY, SHARK_BACK, SHARK_EDGE = '#1c2f52', '#e8eef8', '#2b4a7a', '#2ee6ff'
 
 
 def shark_tail(m):
-    """The tail (origin: its root on the body's centre line; it runs back along -X and sweeps from side to side)."""
+    """The tail (origin: its root on the body's centre line; it runs back along -X and sweeps from side to side).
+    Round two: a fifth bigger, thicker, and both lobes' trailing edges are lit."""
+    K = 1.2
     m.sphere(SHARK_D, (-10, 0, 0), 60, scale=(1.4, 0.6, 1.0), steps=(6, 9))                  # the root
-    m.side(SHARK_D, [(-30, 55), (-95, 100), (-190, 270), (-140, 50), (-100, 0), (-130, -70), (-205, -200), (-110, -110), (-30, -55)], -20, 20)
-    m.side('#7f8fa8', [(-95, 100), (-190, 270), (-158, 130)], -21.5, 21.5)                   # a lighter trailing edge
-    m.side('#7f8fa8', [(-130, -70), (-205, -200), (-160, -96)], -21.5, 21.5)
+    m.side(SHARK_D, [(x * K, z * K) for x, z in ((-30, 55), (-95, 100), (-190, 270), (-140, 50), (-100, 0), (-130, -70), (-205, -200), (-110, -110), (-30, -55))], -24, 24)
+    m.side(SHARK_EDGE, [(x * K, z * K) for x, z in ((-95, 100), (-190, 270), (-158, 130))], -29, 29, glow=1.3)   # the lit trailing edges
+    m.side(SHARK_EDGE, [(x * K, z * K) for x, z in ((-130, -70), (-205, -200), (-160, -96))], -29, 29, glow=1.3)
     for k in range(3):                                                                       # the three pale bars the old tail wore
-        m.box('#e8eef8', (-52 - k * 18, 0, -30 + k * 30), (10, 43, 14))
+        m.box('#e8eef8', (-52 - k * 18, 0, -30 + k * 30), (10, 51, 14))
 
 
 def shark_fin(m, torn=False):
-    """The dorsal fin (origin: the middle of its root on the back). torn=True: what is left of it at damage 1."""
+    """The dorsal fin (origin: the middle of its root on the back). torn=True: what is left of it at damage 1.
+    Round two: a third taller and thicker, and its trailing edge is a blade of cyan light 56 cm wide: seen from
+    behind, where the fin itself is edge-on, that blade is the shark."""
+    Z = 1.3
     if not torn:
-        m.side(SHARK_D, [(-110, 0), (140, 0), (-70, 350), (-126, 300)], -18, 18)
-        m.side('#7f8fa8', [(-110, 0), (-70, 350), (-126, 300), (-140, 90)], -19.5, 19.5)
+        m.side(SHARK_D, [(-110, 0), (140, 0), (-70, 350 * Z), (-126, 300 * Z)], -24, 24)
+        m.side(SHARK_EDGE, [(-110, 0), (-70, 350 * Z), (-126, 300 * Z), (-140, 90 * Z)], -28, 28, glow=1.3)
     else:
-        m.side(SHARK_D, [(-110, 0), (140, 0), (60, 120), (4, 96), (-20, 190), (-70, 150), (-96, 210), (-126, 120)], -18, 18)
-        m.side('#ff3355', [(60, 120), (4, 96), (14, 108)], -19.5, 19.5, glow=0.6)             # the raw edge
-        m.side('#ff3355', [(-20, 190), (-70, 150), (-56, 168)], -19.5, 19.5, glow=0.6)
+        m.side(SHARK_D, [(-110, 0), (140, 0), (60, 120 * Z), (4, 96 * Z), (-20, 190 * Z), (-70, 150 * Z), (-96, 210 * Z), (-126, 120 * Z)], -24, 24)
+        m.side(SHARK_EDGE, [(-110, 0), (-96, 210 * Z), (-126, 120 * Z), (-136, 60 * Z)], -28, 28, glow=1.3)   # what is left of the lit edge
+        m.side('#ff3355', [(60, 120 * Z), (4, 96 * Z), (14, 108 * Z)], -25.5, 25.5, glow=0.6)             # the raw edge
+        m.side('#ff3355', [(-20, 190 * Z), (-70, 150 * Z), (-56, 168 * Z)], -25.5, 25.5, glow=0.6)
 
 
 def shark_jaw(m):
@@ -628,14 +663,21 @@ def jugg_shield(m):
 
 
 def jugg_tray(m):
-    """A barrel bay's tray (origin: the middle of its floor at the hull's tail face): it runs out 120 cm with a
-    barrel standing on it, lets it go, and runs back in."""
-    HAZ = '#ffd23f'
-    m.box(CAST, (60, 0, -5), (150, 100, 10))
+    """A barrel bay's tray (origin: the middle of its floor at the hull's tail face): it runs out 210 cm with a
+    barrel standing on it, lets it go, and runs back in.
+    Round two (it was lost under the tail at 58 m): the tray is 240 cm long so it still stands in its bay when it is
+    right out (FTEntity.cpp JuggTrayRun), a lit amber rail runs down each side, and a lit amber board stands across
+    its inner end, behind the barrel: out of the hull the barrel is a dark shape against a burning panel. Run in, the
+    board and the rails are inside the hull and nothing shows."""
+    HAZ, AMBER = '#ffd23f', '#ff8a2a'
+    m.box(CAST, (105, 0, -5), (240, 100, 10))
     for s in (-1, 1):
-        m.box(METAL, (60, s * 50, 8), (150, 6, 22))
+        m.box(METAL, (105, s * 50, 8), (240, 6, 22))
+        m.box(AMBER, (105, s * 55, 22), (240, 5, 8), glow=1.4)
     for k in range(4):
         m.box(HAZ if k % 2 == 0 else DARK, (-14, -37.5 + k * 25, 4), (8, 25, 28))
+    m.box(DARK, (128, 0, 62), (8, 104, 124))
+    m.box(AMBER, (122, 0, 62), (5, 92, 112), glow=1.8)
 
 
 # ---- MR. CHUCKLES: the head on its spring, the jaw, the bomb balloons, the pie hatch
@@ -755,10 +797,13 @@ def carrier_flap(m):
 
 
 def carrier_lamp(m, color):
-    """A pair of launch lamps, one for each rear post (origin between them). Shown only while they are lit."""
+    """A pair of launch lamps, one for each rear post (origin between them). Shown only while they are lit.
+    Round two: a 72 cm square in a dark 80 cm hood (it was 36 x 32, a pixel or two at fight distance), so the
+    count of them reads from 58 m. It faces the player (-X)."""
     hw = 32 * U - 16
     for s in (-1, 1):
-        m.box(color, (0, s * (hw - 10), 0), (6, 36, 32), glow=2.6)
+        m.box(DARK, (2, s * (hw - 14), 0), (10, 80, 80))
+        m.box(color, (-5, s * (hw - 14), 0), (6, 72, 72), glow=2.6)
 
 
 def carrier_die(m):

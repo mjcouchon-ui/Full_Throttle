@@ -105,6 +105,13 @@ No file in the project is over 50 MB. `Binaries`, `Intermediate`, `Saved` and `D
 - **Highlight reel (2.3):** it loops until the dedicated CONTINUE button: Enter, pad Start, or a left click inside the button
   (`ReelContinueRect`, drawn by the HUD). Any other key or click does nothing. The cursor shows on the reel and the garage
   (`AFTPlayerController::SetMenuMouse`).
+- **Mouse (15 Nov):** every screen that takes the mouse draws its own pointer (`FTCursor.*`, canvas triangles, no texture): cream on a
+  pink print shadow, amber with sparks over anything clickable, sunk and pink with an impact star while the button is down. The
+  system arrow is replaced by an empty shape. The pointer shows when the mouse moves, clicks or scrolls and hides at the next key or
+  pad input (`UFTInputSubsystem::PointerActive`). Hover moves the focus on pause / options / controls / dialogs, the wheel steps
+  through rows (title levels, shop tiles, overlays, the nights' system menu), a right click is BACK on overlays. Driving: hold left =
+  guns, right = missile, middle click or wheel = next ammo; no pointer in a race. Test: `ft.MouseAt <x> <y>` (fractions of the
+  viewport), `ft.MouseAt row|btn|ov <n>`, `ft.MouseAt off`, with `ft.InputHold/InputRelease LeftMouseButton`, `ft.Press MouseScrollDown`.
 - **Test hooks (2.3):** `-ftwrap=N` wraps the level after N s of racing; console `ft.Press <Key>` and `ft.Click <x> <y> [Right]`
   feed keys, pad buttons and clicks through the player's input; `Content/Python/ft_skilltest.py` wraps them for PIE.
   Logs: `FTFLOW` (reel, garage, buy/refund) and `FTSKILLS` (points, the stats at each race start).

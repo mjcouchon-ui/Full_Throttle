@@ -98,7 +98,7 @@ Set(TEXT("KerbSyn2"), { { TEXT("SM_SynBarriers"), -12, 1.5f, 0,   0, 1 }, { TEXT
 
 // second pass: a side street in a gap (it starts at the kerb, 19 m out), the brighter kerb, a whole elevated line
 // (anchor 96 m: 66 to 246 m out). The bank faces that were set here are gone (third pass: the track faces the cuttings)
-Set(TEXT("G_Street"),  { { TEXT("SM_FloorCross"), 22.6f, 15, 0, 0, 1 }, { TEXT("SM_CrossTraffic"), 22.6f, 15, 0, 0, 1 } });      // third pass: cars drive away down it
+Set(TEXT("G_Street"),  { { TEXT("SM_FloorCross"), 22.6f, 15, 0, 0, 1 }, { TEXT("SM_CrossTraffic"), 22.6f, 15, 0, 0, 1 }, { TEXT("SM_ElCross"), 22.6f, 48, 0, 0, 1 } });   // round 3: a train across its far end (77 m out), a ticker and signals over its mouth (33 and 31 m)      // third pass: cars drive away down it
 Set(TEXT("KerbCafe"),  { { TEXT("SM_KerbCafe"),   -8, 3.4f, 0, 0, 1 }, { TEXT("SM_ParkedCars"),  12, 0, 0,   0, 1 } });
 Set(TEXT("KerbWorks"), { { TEXT("SM_KerbWorks"),  -6, 2.6f, 0, 0, 1 }, { TEXT("SM_ParkedCars2"), 13, 0, 0, 180, 1 } });
 Set(TEXT("ElLine"),    { { TEXT("SM_ElRail"), 0, 0, 0, -90, 1 }, { TEXT("SM_ElRail"), 0, 60, 0, -90, 1 }, { TEXT("SM_ElRail"), 0, 120, 0, 90, 1 }, { TEXT("SM_ElTrain"), 0, 60, 0, -90, 1 } });   // third pass: its train runs the line
@@ -116,7 +116,7 @@ Set(TEXT("BigFilmL"), { { TEXT("SM_RoofSign3"), 0, 0, 0,  25, 3 } });   Set(TEXT
 Set(TEXT("BigCashL"), { { TEXT("SM_RoofSign4"), 0, 0, 0,  25, 3 } });   Set(TEXT("BigCashR"), { { TEXT("SM_RoofSign4"), 0, 0, 0, -25, 3 } });
 Set(TEXT("SynGatePair"), { { TEXT("SM_SynHQ"), 0, 0, 0, 0, 0.55f } });
 Set(TEXT("ElUnder"), { { TEXT("SM_ElRail"), -13.823f, -60, 5.422f, -90, 1 }, { TEXT("SM_ElRail"), -13.823f, 0, 5.422f, -90, 1 }, { TEXT("SM_ElRail"), -13.823f, 60, 5.422f, 90, 1 }, { TEXT("SM_ElTrain"), -13.823f, 0, 5.422f, -90, 1 } });
-Set(TEXT("BlvdUnder"), { { TEXT("SM_FloorCross"), -11.104f, -42, 12.015f, 0, 1.6f }, { TEXT("SM_FloorCross"), -11.104f, 38, 12.015f, 0, 1.6f }, { TEXT("SM_CrossTraffic"), -11.104f, -42, 12.015f, 0, 1.6f }, { TEXT("SM_CrossTraffic"), -11.104f, 38, 12.015f, 0, 1.6f } });
+Set(TEXT("BlvdUnder"), { { TEXT("SM_FloorCross"), 16.896f, -42, 16.513f, 0, 1.6f }, { TEXT("SM_FloorCross"), 16.896f, 38, 16.513f, 0, 1.6f }, { TEXT("SM_CrossTraffic"), 16.896f, -42, 16.513f, 0, 1.6f }, { TEXT("SM_CrossTraffic"), 16.896f, 38, 16.513f, 0, 1.6f } });
 
 // ---- 0 to 1.10 km: FIFTH AND MAIN. Three kinds of shop row in turn on each side (out of step with the other side),
 // an alley in every other gap, taxis and a bus shelter at the kerb.
@@ -127,7 +127,7 @@ Zone(TEXT("Fifth and Main"), 0.f, 1.10f);
 	Site(TEXT("Kerb2"), 1, 17.6f, 3, 0, 0.9f);
 	Site(TEXT("Kerb1"), 1, 17.6f, 3, 1, 0.9f);
 	Site(TEXT("KerbCafe"), 1, 17.6f, 3, 2, 0.9f);
-	Site(TEXT("W_Shops1"), -1, 29, 3, 0, 1.f);
+	Site(TEXT("W_Shops1L"), -1, 29, 3, 0, 1.f);
 	Site(TEXT("W_Shops3"), -1, 29, 3, 1, 1.f);
 	Site(TEXT("W_Shops2s"), -1, 29, 3, 2, 1.f);
 	Site(TEXT("W_Shops2s"), 1, 29, 3, 0, 1.f);
@@ -207,7 +207,7 @@ Zone(TEXT("The Plaza"), 3.13f, 4.62f);
 	Site(TEXT("Kerb1"), 1, 17.6f, 3, 1, 0.9f);
 	Site(TEXT("KerbCafe"), -1, 17.6f, 3, 2, 0.9f);
 	Site(TEXT("KerbCafe"), 1, 17.6f, 3, 0, 0.9f);
-	Site(TEXT("W_Shops1"), -1, 29, 4, 0, 1.f);
+	Site(TEXT("W_Shops1L"), -1, 29, 4, 0, 1.f);
 	Site(TEXT("W_Pent"), -1, 29, 4, 2, 1.f);
 	Site(TEXT("W_Shops2s"), 1, 29, 4, 1, 1.f);
 	Site(TEXT("W_Pent"), 1, 29, 4, 3, 1.f);
@@ -224,8 +224,8 @@ Zone(TEXT("Plaza loop"), 3.208f, 3.488f);
 	Far(TEXT("SM_Monument"), 66, 70, 2, 1, 1.f, 1.2f, 0.f, -1, 0.62f, 10.f);
 	Far(TEXT("SM_GlassBlock"), 72, 84, 1, 0, 0.9f, 1.f, 0.1f, 0, 0.62f, 4.f);
 	Far(TEXT("SM_ClockTower"), 68, 72, 3, 1, 1.f, 1.3f, 0.f, 1, 0.62f, 4.f);
-	Far(TEXT("SM_FloorPlaza"), 38, 44, 2, 0, 1.f, 1.2f, 0.f, -1, 0.5f, 0.f);        // second pass: the open side of the loop
-	Far(TEXT("SM_FloorLot"), 66, 72, 2, 1, 1.f, 1.f, 0.f, 1, 0.53f, 4.f);
+	Far(TEXT("SM_FloorPlaza"), 38, 44, 2, 0, 0.5f, 1.2f, 0.f, -1, 0.5f, 0.f);        // second pass: the open side of the loop
+	Far(TEXT("SM_FloorLot"), 66, 72, 2, 1, 0.5f, 1.f, 0.f, 1, 0.53f, 4.f);
 
 // ---- 4.62 to 6.29 km: WALL STREET. A bank every other block (columns, a pediment and its clock, a ticker of lights),
 // dear front doors and a loan shop between them; glass and stone behind; deco towers all along the skyline, the bridge.
@@ -285,8 +285,8 @@ Zone(TEXT("Penthouse Row"), 6.29f, 7.66f);
 Zone(TEXT("Penthouse loop"), 6.737f, 6.972f);
 	Far(TEXT("SM_GlassBlock"), 72, 84, 1, 0, 0.9f, 1.f, 0.1f, -1, 0.62f, 4.f);
 	Far(TEXT("SM_SynHQ"), 80, 90, 3, 0, 1.f, 1.f, 0.f, 1, 0.62f, 6.f);
-	Far(TEXT("SM_FloorPlaza"), 38, 44, 2, 0, 1.f, 1.2f, 0.f, -1, 0.5f, 0.f);
-	Far(TEXT("SM_FloorLot"), 66, 72, 2, 1, 1.f, 1.f, 0.f, 1, 0.53f, 4.f);
+	Far(TEXT("SM_FloorPlaza"), 38, 44, 2, 0, 0.5f, 1.2f, 0.f, -1, 0.5f, 0.f);
+	Far(TEXT("SM_FloorLot"), 66, 72, 2, 1, 0.5f, 1.f, 0.f, 1, 0.53f, 4.f);
 
 // ---- 7.66 km to the end: SYNDICATE TERRITORY, the finale. Every other block on each side is the Syndicate's black wall
 // with the gold double chevron over a steel shutter; dear doors, a bank, a garage, a yard between them. A checkpoint, a
@@ -324,14 +324,14 @@ Zone(TEXT("Syndicate Territory"), 7.66f, 99.f);
 // and corkscrews), on the level stretches only: these districts stop at both rises and both jumps.
 const auto CityFloor = [&]()
 {
-	Far(TEXT("SM_FloorLot"), 56, 62, 3, 1, 0.9f, 1.f, 0.f, 0, 0.52f, 4.f);
-	Far(TEXT("SM_FloorPlaza"), 86, 96, 4, 2, 0.9f, 1.f, 0.1f, 0, 0.54f, 0.f);
+	Far(TEXT("SM_FloorLot"), 56, 62, 3, 1, 0.45f, 1.f, 0.f, 0, 0.52f, 4.f);
+	Far(TEXT("SM_FloorPlaza"), 86, 96, 4, 2, 0.45f, 1.f, 0.1f, 0, 0.54f, 0.f);
 };
 Zone(TEXT("Floor: to the garage jump"), 0.f, 2.52f);
 	CityFloor();
 Zone(TEXT("Floor: the plaza and wall street"), 2.89f, 5.46f);
 	CityFloor();
-	Far(TEXT("SM_FloorPlaza"), 54, 60, 6, 3, 1.f, 1.f, 0.f, 0, 0.52f, 0.f);
+	Far(TEXT("SM_FloorPlaza"), 54, 60, 6, 3, 0.5f, 1.f, 0.f, 0, 0.52f, 0.f);
 Zone(TEXT("Floor: penthouse row and the finale"), 5.95f, 99.f);
 	CityFloor();
 
@@ -413,7 +413,7 @@ Zone(TEXT("Street's end 7.19"), 7.1906f, 7.1966f); Site(TEXT("BigJazzR"), 1, 32,
 Zone(TEXT("Under the garage jump"), 2.7568f, 2.7628f);
 	SiteAfloat(TEXT("ElUnder"), 1, 0, 1, 0, 0.f);
 Zone(TEXT("Under the Wall Street jump"), 5.7881f, 5.7941f);
-	SiteAfloat(TEXT("BlvdUnder"), 1, 0, 1, 0, 0.f);
+	SiteAfloat(TEXT("BlvdUnder"), 1, 0, 1, 0, 1.f);      // round 3: on again, moved 17 m on (see the set)
 
 // ---- machinery over the roofs: tower cranes behind the Garages and Wall Street (the jib slews; the track keeps its
 // whole swing off the road), searchlights round both loops, an airship over the towers every kilometre or two
@@ -440,3 +440,38 @@ Zone(TEXT("Horizon cards"), 0.f, 99.f);
 	Far(TEXT("SM_SkyCard1"), 900, 1100, 9, 4, 1.f, 1.2f, 0.1f, 1, 30.f, 6.f);
 	Far(TEXT("SM_SkyCard2"), 1500, 1800, 12, 3, 1.f, 1.5f, 0.1f, -1, 35.f, 6.f);
 	Far(TEXT("SM_SkyCard2"), 1500, 1800, 12, 9, 1.f, 1.5f, 0.1f, 1, 35.f, 6.f);
+
+// ================================================================ ROUND 3 (15 Nov 2026, 18:00)
+// Built on the owner's order to build everything that was planned; NOT COMPILED IN THE CHECKOUT AND NOT SEEN IN THE
+// GAME when written. In the list above, numbers and names changed in place: every side street's set has a third part
+// (SM_ElCross), the left-hand shop rows use a set of their own (W_Shops1L: the JAZZ sign at the row's near end, where
+// the tall middle shop does not hide its J), the boulevard under the Wall Street jump is on again 17 m further on,
+// and the parking lots and plazas by Far rules stand at half their chance (they pay for what moves).
+Set(TEXT("W_Shops1L"), { { TEXT("SM_Shops1"),      0, 0,    0, 0, 1 }, { TEXT("SM_RoofSign1"), 10.7f, 1.4f, 5.5f, 0, 1 }, { TEXT("/Game/Maps/Metro/Life/SM_SteamGrate"), -10.7f, 1.2f, 5.5f, 0, 1 } });
+Set(TEXT("ElOverRun"), { { TEXT("SM_ElOver"), -45.243f, 0, 0, 0, 1 } });       // a span two slots long, its middle one slot on (on the left +along runs back down the road)
+
+// ---- the elevated line over the podiums' roofs (left, at the podiums' own line, 24 m up), where the street runs
+// straight and no glass infill stands: Fifth and Main, the Garages' last straight, and beside the Garage jump's
+// landing, where a flight looks. In a tower block the track leaves a span out: the line dives into the building.
+Zone(TEXT("Elevated line: Fifth and Main"), 0.07f, 0.58f);
+	Site(TEXT("ElOverRun"), -1, 29, 2, 0, 1.f);
+Zone(TEXT("Elevated line: Fifth and Main, on"), 0.74f, 0.88f);
+	Site(TEXT("ElOverRun"), -1, 29, 2, 1, 1.f);
+Zone(TEXT("Elevated line: the Garages"), 2.48f, 2.64f);
+	Site(TEXT("ElOverRun"), -1, 29, 2, 1, 1.f);
+Zone(TEXT("Elevated line: beside the Garage landing"), 2.84f, 2.96f);
+	Site(TEXT("ElOverRun"), -1, 29, 2, 1, 1.f);
+// ---- helicopters, far off (180 m and more) and high (110 m and more): each flies a circle with its searchlight down
+Zone(TEXT("Helicopters"), 0.f, 99.f);
+	Far(TEXT("SM_Chopper"), 180, 260, 41, 9, 1.f, 1.f, 0.f, -1, -110.f, 180.f);
+	Far(TEXT("SM_Chopper"), 180, 260, 41, 30, 1.f, 1.f, 0.f, 1, -120.f, 180.f);
+// ---- searchlights crossing over the Syndicate's gate (44 m and more out: past the 40 m the Chairman's district keeps)
+Zone(TEXT("Searchlights over the Syndicate's gate"), 7.7336f, 7.7396f);
+	Far(TEXT("SM_Klieg"), 44, 48, 1, 0, 1.f, 2.2f, 0.f, 0, 0.6f, 0.f);
+// ---- life for Syndicate Territory, far and high (nothing near the road there moves): searchlights behind the first
+// blocks, the far bridge with its traffic, and the helicopters and airships above
+Zone(TEXT("Searchlights: Syndicate Territory"), 7.9f, 99.f);
+	Far(TEXT("SM_Klieg"), 60, 90, 15, 4, 1.f, 1.8f, 0.2f, 0, 0.62f, 0.f);
+Zone(TEXT("Far bridges: Syndicate Territory"), 8.5f, 99.f);
+	Far(TEXT("SM_FarBridge"), 600, 760, 61, 20, 1.f, 1.f, 0.f, -1, 25.f, 8.f);
+	Far(TEXT("SM_FarBridge"), 600, 760, 61, 50, 1.f, 1.f, 0.f, 1, 25.f, 8.f);

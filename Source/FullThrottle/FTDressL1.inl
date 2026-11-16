@@ -251,7 +251,7 @@ Zone(TEXT("Export terminal"), 9.46f, 13.4f);
 	Far(TEXT("SM_FarGasworks"), 800.f, 1150.f, 7, 3, 0.9f, 1.1f, 0.1f);
 Zone(TEXT("Cooling field"), 13.4f, 17.4f);
 	Site(TEXT("CoolingField"), 0, 86.f, 3, 0, 0.95f);
-	Scatter(TEXT("SM_PipeRack"), 46.f, 54.f, 2, 0, 0.75f);
+	Scatter(TEXT("SM_PipeRack"), 46.f, 54.f, 3, 0, 0.75f);
 	Scatter(TEXT("SM_CoolingCells"), 120.f, 180.f, 2, 1, 0.8f);
 	Site(TEXT("PipeLine"), -1, 19.1f, 1, 0, 0.7f);
 	Site(TEXT("PipeLine"), 1, 19.1f, 1, 0, 0.7f);
@@ -664,7 +664,7 @@ Zone(TEXT("Steam: finale"), 13.85f, 99.f);
 Zone(TEXT("Machines: tank farm"), 1.23f, 2.6f);
 	Scatter(TEXT("SM_WorkRoad"), 49.f, 50.f, 9, 3, 1.f, 1.f, 0.f, 0, 2.f);
 Zone(TEXT("Machines: process units"), 2.6f, 3.98f);
-	Scatter(TEXT("SM_Kiln"), 46.f, 48.f, 4, 2, 0.9f, 1.f, 0.f, 0, 5.f);
+	Scatter(TEXT("SM_Kiln"), 46.f, 48.f, 4, 2, 0.f, 1.f, 0.f, 0, 5.f);
 Zone(TEXT("Machines: loading yards"), 6.72f, 7.94f);
 	Scatter(TEXT("SM_Kiln"), 46.f, 48.f, 6, 4, 0.9f, 1.f, 0.f, 0, 5.f);
 Zone(TEXT("Machines: export terminal"), 9.46f, 12.72f);
@@ -874,5 +874,12 @@ Zone(TEXT("Berth: the second"), 12.284f, 12.329f);
 	Site(TEXT("BerthSet"), 1, 130.f, 1, 0, 1.f);
 Zone(TEXT("Ground flare"), 18.437f, 18.482f);
 	Site(TEXT("BigFlareSet"), -1, 170.f, 1, 0, 1.f);
+
+// ---- 7. from the review: the process units' kilns, on the side the crown of flare derricks is not on (the third
+// pass's rule for them, above, has a chance of nothing now: its kilns stood through the crowns at slots 62, 82, 86)
+Zone(TEXT("Machines: process units, right of the first crown"), 2.6f, 3.3f);
+	Scatter(TEXT("SM_Kiln"), 46.f, 48.f, 4, 2, 0.9f, 1.f, 0.f, 1, 5.f);
+Zone(TEXT("Machines: process units, left of the second crown"), 3.3f, 3.98f);
+	Scatter(TEXT("SM_Kiln"), 46.f, 48.f, 4, 2, 0.9f, 1.f, 0.f, -1, 5.f);
 };
 FourthPass();

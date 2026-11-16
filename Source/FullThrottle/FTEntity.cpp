@@ -17,6 +17,9 @@
 #include "Serialization/JsonSerializer.h"
 #include "FTPlayerCar.h"
 #include "FTGameMode.h"   // overhaul: the boss's proxy asks whether it was wrecked when it is let go (GetActiveEntities)
+#include "EngineUtils.h"              // overhaul, round two: the boss's defeat finds the wreck of his own body (TActorIterator)
+#include "TimerManager.h"             // ... and plays its later beats on the world's timers
+#include "PhysicsEngine/BodySetup.h"  // ... and only throws a part that has a collision shape
 
 namespace
 {
@@ -244,16 +247,102 @@ namespace
 	}
 	/** A piece that flies off when the boss dies: a wreck of its own (a rigid body, as the body's). Kick is in the
 	 *  boss's own axes (cm/s) on top of the speed it was doing. */
-	void ThrowPart(AFTEntityActor& A, UStaticMeshComponent* C, const FVector& Away, const FVector& Spin)
+	/** Round two: a wreck that is not a burnt thing (the Dealer's dice, the clown's head, the yeti and his ice): its
+	 *  own colours, no fire, no smoke. Only this one wreck's look: how it flies and how long it lasts are the game's. */
+	void Unburnt(AFTWreck* Wr)
+	{
+		if (!Wr) return;
+		Wr->Mesh->SetScalarParameterValueOnMaterials(TEXT("Soot"), 0.f);
+		Wr->Fire->Deactivate();
+		Wr->Smoke->Deactivate();
+	}
+	AFTWreck* ThrowPart(AFTEntityActor& A, UStaticMeshComponent* C, const FVector& Away, const FVector& Spin, bool bBurn = true)
 	{
 		UWorld* W = A.GetWorld();
-		if (!W || !C || !C->GetStaticMesh() || !C->IsVisible()) return;
+		if (!W || !C || !C->GetStaticMesh() || !C->IsVisible()) return nullptr;
+		// (a mesh without a collision shape cannot be a rigid body: it would hang in the air where it was let go)
+		const UBodySetup* Shape = C->GetStaticMesh()->GetBodySetup();
+		if (!Shape || Shape->AggGeom.GetElementCount() == 0) return nullptr;
 		const FTransform T = C->GetComponentTransform();
 		const FTransform At = A.GetActorTransform();
 		FActorSpawnParameters SP; SP.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-		if (AFTWreck* Wr = W->SpawnActor<AFTWreck>(AFTWreck::StaticClass(), T, SP))
-			Wr->Launch(C->GetStaticMesh(), FTransform(T.GetRotation(), T.GetLocation()), At.GetUnitAxis(EAxis::X) * A.LastSpeed * 0.85f + At.TransformVectorNoScale(Away), Spin, FMath::Abs(T.GetScale3D().Z));
+		AFTWreck* Wr = W->SpawnActor<AFTWreck>(AFTWreck::StaticClass(), T, SP);
+		if (!Wr) return nullptr;
+		Wr->Launch(C->GetStaticMesh(), FTransform(T.GetRotation(), T.GetLocation()), At.GetUnitAxis(EAxis::X) * A.LastSpeed * 0.85f + At.TransformVectorNoScale(Away), Spin, FMath::Abs(T.GetScale3D().Z));
+		if (!bBurn) Unburnt(Wr);
+		return Wr;
 	}
+
+	// ---- round two: how a boss dies. Kill (the game mode's) has already blown him up and launched the wreck of his
+	// body when the proxy is let go; from here the rig gives that wreck what is his (parts left hanging on it, his own
+	// fire), throws his parts, and plays the rest of his end beat by beat. Every beat is a look: sprites and wrecks
+	// that nothing in the race reads. The wrap freezes the game for 0.22 s and then runs it at 0.22 speed, and its
+	// CUT! card covers the road where he was from 0.8 s on, so the first beat is the big one and what follows goes
+	// up, over the card, or stays on the wreck as it tumbles on.
+	/** The game's own wreck of this boss's body (the newest wreck wearing his body mesh, where he was). */
+	AFTWreck* BodyWreck(AFTEntityActor& A)
+	{
+		UWorld* W = A.GetWorld();
+		UStaticMesh* Body = A.Mesh->GetStaticMesh();
+		if (!W || !Body) return nullptr;
+		const FVector Here = A.GetActorLocation();
+		AFTWreck* Best = nullptr;
+		for (TActorIterator<AFTWreck> It(W); It; ++It)
+		{
+			AFTWreck* Wr = *It;
+			if (!Wr || !Wr->Mesh || Wr->Mesh->GetStaticMesh() != Body || Wr->Age > 0.05f) continue;
+			if (!Best || FVector::DistSquared(Wr->GetActorLocation(), Here) < FVector::DistSquared(Best->GetActorLocation(), Here)) Best = Wr;
+		}
+		return Best;
+	}
+	/** A piece left hanging on a wreck: it rides the wreck's body, without a shape of its own, and goes with it. */
+	UStaticMeshComponent* WreckBit(AFTWreck* Wr, UStaticMesh* M, const FVector& At, const FRotator& Rot, float Soot = 0.9f, float Scale = 1.f)
+	{
+		if (!Wr || !M) return nullptr;
+		UStaticMeshComponent* C = MakeBit(Wr, Wr->Mesh);
+		C->SetStaticMesh(M);
+		C->SetRelativeLocationAndRotation(At, Rot);
+		C->SetRelativeScale3D(FVector(Scale));
+		C->SetScalarParameterValueOnMaterials(TEXT("Soot"), Soot);
+		return C;
+	}
+	/** A looping effect that burns on a wreck until the wreck goes (the wreck's own component, as AFTEntityActor::Loop's
+	 *  are the proxy's: a pooled one would be left looping in the air). The Extra layer: not at Low effects quality. */
+	UNiagaraComponent* WreckLoop(AFTWreck* Wr, const TCHAR* Name, const FVector& At, const FRotator& Rot = FRotator::ZeroRotator, float Scale = 1.f)
+	{
+		UNiagaraSystem* Sys = (Wr && FTFx::Shows(Wr, FTFx::Extra)) ? FTFx::System(Name) : nullptr;
+		if (!Sys) return nullptr;
+		UNiagaraComponent* N = NewObject<UNiagaraComponent>(Wr);
+		N->SetupAttachment(Wr->Mesh);
+		N->SetAutoActivate(false);
+		N->RegisterComponent();
+		Wr->AddInstanceComponent(N);
+		N->SetAsset(Sys);
+		N->SetRelativeLocationAndRotation(At, Rot);
+		N->SetRelativeScale3D(FVector(Scale));
+		N->Activate(true);
+		return N;
+	}
+	/** What the later beats of a defeat have to go on (the proxy is hidden and back in its pool by then): the wreck
+	 *  of his body, and which way he was facing. */
+	struct FDeath { TWeakObjectPtr<AFTWreck> Body; FRotator Face = FRotator::ZeroRotator; };
+	/** A burst where a point of the body's wreck is now (Local: the body's own space), upright whatever way the wreck
+	 *  has tumbled, Lift cm higher: left in the world, as every explosion is. Nothing if the wreck has gone. */
+	void Pop(const FDeath& D, const TCHAR* Name, const FVector& Local, float Scale, int32 Layer = FTFx::Main, float Lift = 0.f)
+	{
+		if (const AFTWreck* Wr = D.Body.Get())
+			FTFx::Burst(Wr, Name, Wr->GetActorTransform().TransformPosition(Local) + FVector(0.f, 0.f, Lift), D.Face, Scale, Layer);
+	}
+	/** A later beat of a defeat: Delay seconds of the game's own clock after the kill, so it rides the wrap's slow motion. */
+	void Later(AFTEntityActor& A, float Delay, TFunction<void()> Beat)
+	{
+		UWorld* W = A.GetWorld();
+		if (!W) return;
+		FTimerHandle H;
+		W->GetTimerManager().SetTimer(H, FTimerDelegate::CreateWeakLambda(&A, [Beat]() { Beat(); }), Delay, false);
+	}
+	/** True on the one frame the boss's entrance clock passes T (seconds since he arrived): an entrance's one-off beat. */
+	inline bool Crossed(const AFTEntityActor& A, float Dt, float T) { return A.bBossLive && A.IntroT > T && A.IntroT - Dt <= T; }
 
 	// What every boss shares: where a hit shows and with what, and where it comes apart
 	struct FBossLook { const TCHAR* HurtFx; FVector HurtAt; const TCHAR* DefeatFx; FVector Heart; };
@@ -276,6 +365,8 @@ namespace
 	// Wind kind 1: the fan of rounds. Cue[0]: the barrel drop's wind-up (it runs on its own timer). Fire kinds: 1 the
 	// fan, 2 the barrels.
 	const FVector JuggTurret(-200.f, 0.f, 300.f), JuggGun(-176.f, 64.f, 70.f), JuggShield(-600.f, 196.f, 321.f), JuggTray(-625.f, 180.f, 84.f);
+	const FVector JuggStack(425.f, 266.f, 360.f);   // the top of an exhaust stack behind the cab (ft_enemy_vehicles.juggernaut_body)
+	constexpr float JuggTrayRun = 210.f;            // how far a tray runs out (round two: 120 was lost under the tail at 58 m)
 	void SetupJuggernaut(AFTEntityActor& A)
 	{
 		A.Part(0, TEXT("/Game/Characters/Bosses/SM_JuggTurret"), JuggTurret);
@@ -295,6 +386,10 @@ namespace
 		// the entrance: the turret comes up out of its ring and the shields swing up while he drops back onto his spot
 		// (done before his first fan winds up, a second after he appears)
 		const float In = A.bBossLive ? Smooth(A.IntroT / 1.0f) : 1.f;
+		// (round two: and both exhaust stacks throw a pillar of fire as he arrives: two tall bright strokes that read
+		// from 160 m; fire is nothing he attacks with)
+		if (Crossed(A, Dt, 0.05f))
+			for (int32 s = 0; s < 2; ++s) FTFx::Attach(TEXT("NS_BossPillar"), A.Mesh, FVector(JuggStack.X, (s ? 1.f : -1.f) * JuggStack.Y, JuggStack.Z), FRotator::ZeroRotator, 1.1f, FTFx::Main, true);
 		if (W2 > 0.f && A.RigG <= 0.f) { UE_LOG(LogFT, Display, TEXT("FT BOSSRIG wind level=%d kind=2"), A.Lvl); }
 		A.RigG = W2;
 		// the turret scans the road while nothing is due, squares up on the car as its guns spin, and is thrown back by the fan
@@ -325,11 +420,11 @@ namespace
 		for (int32 s = 0; s < 2; ++s)
 		{
 			const float Y = s ? 1.f : -1.f;
-			if (UStaticMeshComponent* Tr = BitOf(A, 5 + s)) Tr->SetRelativeLocation(FVector(JuggTray.X - 120.f * A.RigE, Y * JuggTray.Y, JuggTray.Z));
+			if (UStaticMeshComponent* Tr = BitOf(A, 5 + s)) Tr->SetRelativeLocation(FVector(JuggTray.X - JuggTrayRun * A.RigE, Y * JuggTray.Y, JuggTray.Z));
 			if (UStaticMeshComponent* Br = BitOf(A, 7 + s))
 			{
 				Show(Br, W2 > 0.06f && Br->GetStaticMesh() != nullptr);
-				Br->SetRelativeLocation(FVector(JuggTray.X - 120.f * A.RigE + 50.f, Y * JuggTray.Y, JuggTray.Z));
+				Br->SetRelativeLocation(FVector(JuggTray.X - JuggTrayRun * A.RigE + 50.f, Y * JuggTray.Y, JuggTray.Z));
 			}
 		}
 		A.BossAlert = FMath::Max(1.1f * W2, 0.9f * W1);   // the bays' lamps, and every other light on the hull, as the barrels come out or the guns spin up
@@ -364,15 +459,37 @@ namespace
 		if (State == 1) A.Loop(0, TEXT("NS_BossSmoke"), FVector(JuggShield.X + 60.f, -JuggShield.Y, JuggShield.Z + 20.f), true);
 		else A.Loop(1, TEXT("NS_BossFlame"), FVector(JuggShield.X + 60.f, JuggShield.Y, JuggShield.Z + 20.f), true);
 	}
-	void DefeatJuggernaut(AFTEntityActor& A)
+	void DefeatJuggernaut(AFTEntityActor& A, const FDeath& D)
 	{
-		// the turret is blown out of its ring, the guns off the turret, and whatever armour is left goes with them
-		ThrowPart(A, BitOf(A, 0), FVector(-200.f, RigRng.FRandRange(-300.f, 300.f), 1500.f), FVector(160.f, 240.f, 300.f));
+		// the magazine under the turret goes first: the turret is blown straight up out of its ring on a pillar of fire
+		// (high over the road, where the camera still sees it), the guns are torn off it to either side and whatever
+		// armour is left goes with them
+		ThrowPart(A, BitOf(A, 0), FVector(-150.f, RigRng.FRandRange(-200.f, 200.f), 2500.f), FVector(160.f, 300.f, 90.f));
 		for (int32 s = 0; s < 2; ++s)
 		{
-			ThrowPart(A, BitOf(A, 1 + s), FVector(-700.f, (s ? 1.f : -1.f) * 700.f, 900.f), FVector(300.f, 500.f, 200.f));
-			ThrowPart(A, BitOf(A, 3 + s), FVector(-300.f, (s ? 1.f : -1.f) * 1000.f, 700.f), FVector(400.f, 100.f, 100.f));
+			const float Y = s ? 1.f : -1.f;
+			ThrowPart(A, BitOf(A, 1 + s), FVector(-500.f, Y * 1500.f, 1300.f), FVector(300.f, 700.f, 200.f));
+			ThrowPart(A, BitOf(A, 3 + s), FVector(-300.f, Y * 1100.f, 1700.f), FVector(500.f, 100.f, 100.f));
 		}
+		FTFx::Burst(&A, TEXT("NS_BossPillar"), A.Mesh->GetComponentTransform().TransformPosition(JuggTurret), FRotator::ZeroRotator, 1.5f, FTFx::Main);
+		// what is left is his: the turret's ring burns like a torch, and both barrel bays hang open with their load
+		AFTWreck* Wr = D.Body.Get();
+		WreckLoop(Wr, TEXT("NS_BossWreckFire"), JuggTurret + FVector(0.f, 0.f, 20.f), FRotator::ZeroRotator, 2.2f);
+		for (int32 s = 0; s < 2; ++s)
+		{
+			const float Y = s ? 1.f : -1.f;
+			WreckBit(Wr, Kept(TEXT("/Game/Characters/Bosses/SM_JuggTray")), FVector(JuggTray.X - JuggTrayRun, Y * JuggTray.Y, JuggTray.Z), FRotator(-14.f, 0.f, 0.f));
+			WreckBit(Wr, Kept(TEXT("/Game/Characters/Pickups/SM_Barrel")), FVector(JuggTray.X - JuggTrayRun + 50.f, Y * JuggTray.Y, JuggTray.Z - 12.f), FRotator(-14.f, 0.f, 0.f));
+		}
+		// then the bays cook off, the left and then the right, and last of all his fuel
+		for (int32 s = 0; s < 2; ++s)
+			Later(A, 0.1f + 0.12f * s, [D, s]()
+			{
+				const FVector Bay(JuggTray.X - 150.f, (s ? 1.f : -1.f) * JuggTray.Y, 120.f);
+				Pop(D, TEXT("NS_BossBreak"), Bay, 1.5f);
+				Pop(D, TEXT("NS_BossBreakShards"), Bay, 1.2f, FTFx::Extra);
+			});
+		Later(A, 0.75f, [D]() { Pop(D, TEXT("NS_BossPillar"), FVector(200.f, 0.f, 200.f), 1.9f); });
 	}
 
 	// ---------------------------------------------------------------- THE ALCHEMIST (level 2): the Tesla truck
@@ -396,6 +513,11 @@ namespace
 		const float Boot = A.bBossLive ? (A.IntroT < 0.35f ? 0.f : (A.IntroT < 1.15f ? (FMath::Sin(A.IntroT * 47.f) > -0.2f ? Smooth((A.IntroT - 0.35f) / 0.8f) : 0.f) : 1.f)) : 1.f;
 		const float Spent = (A.NumCharges == 0 && A.RigC < 0.5f) ? 1.f - Smooth(A.RigC / 0.5f) : 0.f;   // (never while another strike is charging)
 		A.RigD = Boot * (1.f - 0.75f * Spent);
+		// (round two, to read from 160 m: the toroid winds up out of the coil as the power comes on, and the reactor
+		// vents two big clouds of steam to either side as it starts: white, and nothing his strikes look like)
+		const float Rise = A.bBossLive ? Smooth((A.IntroT - 0.35f) / 0.8f) : 1.f;
+		if (Crossed(A, Dt, 0.35f))
+			for (int32 s = 0; s < 2; ++s) FTFx::Attach(TEXT("NS_BossSteam"), A.Mesh, FVector(TeslaTop.X, s ? 260.f : -260.f, 330.f), FRotator::ZeroRotator, 3.f, FTFx::Extra, true);
 		// the collars: one for each strike still charging, climbing the winding at the pace of its own warning
 		for (int32 c = 0; c < 3; ++c)
 		{
@@ -417,7 +539,7 @@ namespace
 			const float Squash = Pulse(A.FireT, 8.f);
 			const FQuat Q = FQuat(FVector::UpVector, FMath::DegreesToRadians(A.RigB)) * FQuat(FVector::ForwardVector, FMath::DegreesToRadians(Tilt))
 				* FQuat(FVector::UpVector, FMath::DegreesToRadians(A.RigA - A.RigB));
-			Top->SetRelativeLocationAndRotation(TeslaTop + FVector(0.f, 0.f, 12.f * Ch - 30.f * Squash), Q);
+			Top->SetRelativeLocationAndRotation(TeslaTop + FVector(0.f, 0.f, 12.f * Ch - 30.f * Squash - 190.f * (1.f - Rise)), Q);
 			Top->SetRelativeScale3D(FVector(1.f + 0.05f * Ch + 0.16f * Squash, 1.f + 0.05f * Ch + 0.16f * Squash, 1.f - 0.32f * Squash));
 		}
 		// arcs from the toroid to its own two electrodes for the first instant of a strike
@@ -431,7 +553,7 @@ namespace
 		// peaks, dark for a moment after it has let go, and never quite steady once it is melting down
 		A.BossAlert = FMath::Lerp(-0.4f, 1.5f * Ch * Ch + (A.DmgState >= 2 ? 0.5f : 0.f), A.RigD);
 		// the crackle is the charge's (full size from 30 %); once it is melting down a small one never stops
-		A.Loop(0, TEXT("NS_BossZapCrackle"), TeslaTop, A.bBossLive && (Ch > 0.3f || A.DmgState >= 2), FRotator::ZeroRotator, Ch > 0.3f ? 1.f : 0.5f);
+		A.Loop(0, TEXT("NS_BossZapCrackle"), TeslaTop - FVector(0.f, 0.f, 190.f * (1.f - Rise)), A.bBossLive && (Ch > 0.3f || A.DmgState >= 2), FRotator::ZeroRotator, Ch > 0.3f ? 1.f : 0.5f);
 	}
 	void FireAlchemist(AFTEntityActor& A)
 	{
@@ -452,10 +574,32 @@ namespace
 		}
 		FTFx::Attach(TEXT("NS_BossZapSpray"), A.Mesh, TeslaTop, FRotator::ZeroRotator, 1.3f, FTFx::Main, true);
 	}
-	void DefeatAlchemist(AFTEntityActor& A)
+	void DefeatAlchemist(AFTEntityActor& A, const FDeath& D)
 	{
-		// the coil lets go of everything at once and the toroid is blown clear
-		ThrowPart(A, BitOf(A, 0), FVector(-500.f, RigRng.FRandRange(-500.f, 500.f), 1700.f), FVector(RigRng.FRandRange(-260.f, 260.f), 340.f, RigRng.FRandRange(-200.f, 200.f)));
+		// the coil lets go of everything it holds: the toroid is shot straight up off the winding, still crackling
+		// (it climbs over the road where the camera sees it), in a spray of arcs three times a strike's
+		if (AFTWreck* Top = ThrowPart(A, BitOf(A, 0), FVector(-200.f, RigRng.FRandRange(-250.f, 250.f), 2700.f), FVector(RigRng.FRandRange(-200.f, 200.f), 340.f, RigRng.FRandRange(-160.f, 160.f))))
+			WreckLoop(Top, TEXT("NS_BossZapCrackle"), FVector::ZeroVector, FRotator::ZeroRotator, 1.4f);
+		FTFx::Burst(&A, TEXT("NS_BossZapSpray"), A.Mesh->GetComponentTransform().TransformPosition(TeslaTop), FRotator::ZeroRotator, 3.f, FTFx::Main);
+		// the hulk keeps arcing: the winding's stump crackles all the way down the road, both capacitor towers burn
+		AFTWreck* Wr = D.Body.Get();
+		WreckLoop(Wr, TEXT("NS_BossZapCrackle"), FVector(TeslaTop.X, 0.f, 620.f), FRotator::ZeroRotator, 1.3f);
+		WreckLoop(Wr, TEXT("NS_BossWreckFire"), FVector(-555.f, 186.f, 500.f), FRotator::ZeroRotator, 1.5f);
+		WreckLoop(Wr, TEXT("NS_BossWreckFire"), FVector(-555.f, -186.f, 500.f), FRotator::ZeroRotator, 1.5f);
+		// three discharges up the winding, each higher and bigger than the last (about a third of a second apart as
+		// the player sees them, in the wrap's slow motion: a count, not a strobe), then the capacitor bank
+		for (int32 k = 0; k < 3; ++k)
+			Later(A, 0.07f + 0.08f * k, [D, k]()
+			{
+				const FVector Coil(TeslaTop.X, 0.f, 500.f);
+				Pop(D, TEXT("NS_BossZapFlash"), Coil, 1.2f + 0.5f * k, FTFx::Flash, 200.f * k);
+				Pop(D, TEXT("NS_BossZapSpray"), Coil, 2.f + 0.6f * k, FTFx::Extra, 200.f * k);
+			});
+		Later(A, 0.7f, [D]()
+		{
+			Pop(D, TEXT("NS_BossDefeatZap"), FVector(-555.f, 0.f, 420.f), 1.5f);
+			Pop(D, TEXT("NS_BossBreakShards"), FVector(-555.f, 0.f, 420.f), 1.6f, FTFx::Extra);
+		});
 	}
 
 	// ---------------------------------------------------------------- THE BIG DEALER (level 3): the bike carrier
@@ -467,6 +611,12 @@ namespace
 	const FVector CarrierLift(30.f, 0.f, 314.f), CarrierGate(-230.f, 0.f, 116.f);
 	const FVector CarrierDie[2] = { FVector(540.f, -120.f, 700.f), FVector(540.f, 120.f, 700.f) };
 	constexpr float CarrierLiftUp = 183.f;   // a jumper leaves from 497 cm over the road (TickBoss); the top deck is at 314
+	// the launch lights (round two: each lamp is a 72 cm square in an 80 cm hood now, so a count reads from 58 m): the
+	// gate's three on the rear posts beside the lower deck, the lift's three above them on the masts
+	// (ft_enemy_vehicles.carrier draws the posts and masts, carrier_lamp the lamps)
+	constexpr float CarrierLampX = -477.f;
+	const float CarrierLampZ[6] = { 284.f, 204.f, 124.f, 556.f, 476.f, 396.f };
+	constexpr float CarrierBike = 1.25f;     // the bike waiting at the gate is drawn a quarter over life size: it is the next attack
 	void SetupDealer(AFTEntityActor& A)
 	{
 		A.Part(0, TEXT("/Game/Characters/Bosses/SM_CarrierLift"), CarrierLift);
@@ -477,16 +627,16 @@ namespace
 		}
 		A.Part(5, TEXT("/Game/Characters/SnakeEyes/SM_Hog"), CarrierGate, false);
 		A.Part(6, TEXT("/Game/Characters/SnakeEyes/SM_Hog2"), CarrierLift, false);
-		static const float LampZ[6] = { 234.f, 192.f, 150.f, 440.f, 398.f, 356.f };
 		for (int32 l = 0; l < 6; ++l)
 		{
-			// (seen from 58 m a lamp is a pixel or two: each is drawn tall and burning, so the count is a column that grows)
-			UStaticMeshComponent* Lamp = A.Part(7 + l, l % 3 == 2 ? TEXT("/Game/Characters/Bosses/SM_CarrierLampG") : TEXT("/Game/Characters/Bosses/SM_CarrierLampA"), FVector(-477.f, 0.f, LampZ[l]), false);
-			Lamp->SetRelativeScale3D(FVector(1.f, 1.f, 1.9f));
+			// (the count is a column of burning squares that grows downward: amber, amber, green)
+			UStaticMeshComponent* Lamp = A.Part(7 + l, l % 3 == 2 ? TEXT("/Game/Characters/Bosses/SM_CarrierLampG") : TEXT("/Game/Characters/Bosses/SM_CarrierLampA"), FVector(CarrierLampX, 0.f, CarrierLampZ[l]), false);
+			Lamp->SetRelativeScale3D(FVector(1.f));
 			Lamp->SetScalarParameterValueOnMaterials(TEXT("Glow"), 7.f);
 			Show(Lamp, false);
 		}
 		A.RigA = A.RigB = 9.f;
+		A.RigH = -1.f;   // (what the waiting bike's lights were last set to: none yet)
 	}
 	void AnimDealer(AFTEntityActor& A, float Dt)
 	{
@@ -502,9 +652,13 @@ namespace
 			// (he stops at the lip, front wheel lifting: where on the road the real rider comes out, up to 365 cm to either
 			// side, is only known as he goes, so nothing is shown riding down the middle of the ramp)
 			const float Lip = Smooth(W1 / 0.8f), Tip = Smooth((W1 - 0.8f) / 0.2f);
-			G->SetRelativeScale3D(FVector(FMath::Max(Smooth((A.RigA - 0.55f) / 0.25f), 0.01f)));
+			G->SetRelativeScale3D(FVector(CarrierBike * FMath::Max(Smooth((A.RigA - 0.55f) / 0.25f), 0.01f)));
 			G->SetRelativeLocationAndRotation(FVector(CarrierGate.X - 240.f * Lip, 0.f, CarrierGate.Z + 2.f * Rev * W1 + 10.f * Tip),
 				FRotator(9.f * Tip + 2.5f * Rev * W1, 0.f, 0.f));
+			// (round two: his own lights burn, brighter as his count runs down, so he is a lit shape in the dark of the
+			// gate and not a shadow in it; written in half steps, a write per step)
+			const float Lit = FMath::RoundToFloat((1.f + 2.5f * W1) * 2.f) * 0.5f;
+			if (Lit != A.RigH) { A.RigH = Lit; G->SetScalarParameterValueOnMaterials(TEXT("Alert"), Lit); }
 		}
 		// the lift: it carries the next jumper up through his wind-up (he leaves from 183 cm over the deck), holds a
 		// moment after he has gone, and drops for the next
@@ -536,9 +690,16 @@ namespace
 		// (the entrance: he rolls them as he drops back onto his spot)
 		const float Roll = A.bBossLive ? 1.f - Smooth(A.IntroT / 2.6f) : 0.f;
 		A.RigE += (40.f + 1500.f * Roll + 420.f * FMath::Max(W1, W2) + 900.f * Pulse(FMath::Min(A.RigA, A.RigB), 2.5f) + 500.f * Pulse(A.HurtT, 5.f) * A.HurtAmt) * Dt;
+		// (round two: he throws them as he arrives: both dice go up six metres off their mast, half as big again at
+		// the top, and come down onto it as he reaches his spot: two white cubes in the air read from 160 m)
+		const float Toss = A.bBossLive ? FMath::Sin(PI * FMath::Clamp(A.IntroT / 1.5f, 0.f, 1.f)) : 0.f;
 		for (int32 s = 0; s < 2; ++s)
 			if (UStaticMeshComponent* D = BitOf(A, 3 + s))
-				D->SetRelativeRotation(FQuat(FVector(s ? 0.3f : 0.5f, s ? 1.f : -0.6f, 0.7f).GetSafeNormal(), FMath::DegreesToRadians(A.RigE * (s ? 1.f : -1.3f) + (s ? 40.f : 0.f))));
+			{
+				D->SetRelativeLocationAndRotation(CarrierDie[s] + FVector(0.f, 0.f, (560.f + 110.f * s) * Toss),
+					FQuat(FVector(s ? 0.3f : 0.5f, s ? 1.f : -0.6f, 0.7f).GetSafeNormal(), FMath::DegreesToRadians(A.RigE * (s ? 1.f : -1.3f) + (s ? 40.f : 0.f))));
+				D->SetRelativeScale3D(FVector(1.f + 0.5f * Toss));
+			}
 	}
 	void FireDealer(AFTEntityActor& A)
 	{
@@ -565,15 +726,32 @@ namespace
 			A.Loop(3, TEXT("NS_BossFlame"), FVector(30.f, 0.f, 330.f), true);
 		}
 	}
-	void DefeatDealer(AFTEntityActor& A)
+	void DefeatDealer(AFTEntityActor& A, const FDeath& D)
 	{
-		// the house loses: the dice, the air brakes and the lift go their own ways
+		// the house loses: both dice go up high and clean (white, tumbling over the road where the camera sees them),
+		// the bikes he never sent are thrown clear, the air brakes and the lift go their own ways, and his chips
+		// fountain out of him
 		for (int32 s = 0; s < 2; ++s)
 		{
-			ThrowPart(A, BitOf(A, 3 + s), FVector(-200.f, (s ? 1.f : -1.f) * 600.f, 1300.f), FVector(300.f, 200.f * (s ? 1.f : -1.f), 260.f));
-			ThrowPart(A, BitOf(A, 1 + s), FVector(-600.f, (s ? 1.f : -1.f) * 900.f, 500.f), FVector(120.f, 80.f, (s ? 1.f : -1.f) * 400.f));
+			const float Y = s ? 1.f : -1.f;
+			ThrowPart(A, BitOf(A, 3 + s), FVector(-200.f, Y * 500.f, 2400.f + 300.f * s), FVector(420.f, 260.f * Y, 300.f), false);
+			ThrowPart(A, BitOf(A, 1 + s), FVector(-600.f, Y * 1300.f, 900.f), FVector(120.f, 80.f, Y * 500.f));
 		}
-		ThrowPart(A, BitOf(A, 0), FVector(-300.f, 0.f, 1500.f), FVector(200.f, 320.f, 60.f));
+		ThrowPart(A, BitOf(A, 0), FVector(-300.f, 0.f, 1700.f), FVector(200.f, 320.f, 60.f));
+		ThrowPart(A, BitOf(A, 5), FVector(-1500.f, -300.f, 900.f), FVector(100.f, 500.f, 200.f));
+		ThrowPart(A, BitOf(A, 6), FVector(-400.f, 400.f, 2000.f), FVector(300.f, 400.f, 100.f));
+		FTFx::Burst(&A, TEXT("NS_BossHurtChips"), A.Mesh->GetComponentTransform().TransformPosition(FVector(-300.f, 0.f, 420.f)), A.GetActorRotation(), 3.f, FTFx::Main);
+		// the wreck is the carrier with every launch light burning at once, and the lift's ram alight
+		AFTWreck* Wr = D.Body.Get();
+		for (int32 l = 0; l < 6; ++l)
+			if (UStaticMeshComponent* Lamp = WreckBit(Wr, Kept(l % 3 == 2 ? TEXT("/Game/Characters/Bosses/SM_CarrierLampG") : TEXT("/Game/Characters/Bosses/SM_CarrierLampA")), FVector(CarrierLampX, 0.f, CarrierLampZ[l]), FRotator::ZeroRotator, 0.f))
+				Lamp->SetScalarParameterValueOnMaterials(TEXT("Glow"), 7.f);
+		WreckLoop(Wr, TEXT("NS_BossWreckFire"), FVector(30.f, 0.f, 330.f), FRotator::ZeroRotator, 1.8f);
+		// the chips keep coming, a bigger and higher fountain each time; a ring where the lift was; its ram blows last
+		for (int32 k = 0; k < 3; ++k)
+			Later(A, 0.1f + 0.14f * k, [D, k]() { Pop(D, TEXT("NS_BossHurtChips"), FVector(-300.f + 250.f * k, 0.f, 420.f), 3.f + 0.8f * k, FTFx::Main, 150.f * k); });
+		Later(A, 0.3f, [D]() { Pop(D, TEXT("NS_BossLaunch"), FVector(30.f, 0.f, 500.f), 3.f, FTFx::Flash, 200.f); });
+		Later(A, 0.8f, [D]() { Pop(D, TEXT("NS_BossBreak"), FVector(30.f, 0.f, 330.f), 1.6f); });
 	}
 
 	// ---------------------------------------------------------------- ENGINE 13 (level 4): the fire engine
@@ -614,7 +792,9 @@ namespace
 		const bool bSecond = A.Cue[2] > 0.f, bLive2 = A.Cue[2] > 1.5f;
 		A.RigD = FMath::FInterpTo(A.RigD, bSecond ? -FMath::RadiansToDegrees(FMath::Atan2(A.Cue[1], 3500.f)) : 0.f, Dt, bSecond ? 8.f : 2.f);
 		A.RigE = FMath::FInterpTo(A.RigE, -25.f - 9.f * FMath::Max(Smooth(Mortar), Thump) + 2.5f * FMath::Sin(A.AnimT * 1.7f), Dt, 6.f);
-		const FQuat LQ(FRotator(A.RigE * In + 2.f * Rattle, A.RigD, 5.f * A.DmgState));   // (knocked askew as he is worn down)
+		// (round two: on the way in the ladder stands right up before it settles over the tail: nine metres of ladder
+		// going up is a shape that reads from 160 m; it is down to its carry by the end of the entrance, as before)
+		const FQuat LQ(FRotator(A.RigE * In - 40.f * FMath::Sin(PI * In) + 2.f * Rattle, A.RigD, 5.f * A.DmgState));   // (knocked askew as he is worn down)
 		if (UStaticMeshComponent* L = BitOf(A, 1)) L->SetRelativeLocationAndRotation(FireLadderAt, LQ);
 		A.Loop(1, TEXT("NS_BossFlameJet"), FireLadderAt + LQ.RotateVector(FireTip), bLive2, (LQ * FQuat(FRotator(45.f, 0.f, 0.f))).Rotator(), 0.8f);
 		// pressure: the two throats and the tank's sight glass burn brighter as the hose fills or the mortar loads
@@ -654,11 +834,26 @@ namespace
 		if (State == 1) A.Loop(2, TEXT("NS_BossSmoke"), FVector(-205.f, 60.f, 420.f), true);
 		else A.Loop(3, TEXT("NS_BossFlame"), FVector(-205.f, -40.f, 420.f), true);
 	}
-	void DefeatEngine(AFTEntityActor& A)
+	void DefeatEngine(AFTEntityActor& A, const FDeath& D)
 	{
-		// the tank goes up: the cannon is blown off its turntable and the ladder over the side
-		ThrowPart(A, BitOf(A, 0), FVector(-600.f, RigRng.FRandRange(-300.f, 300.f), 1400.f), FVector(200.f, 380.f, 120.f));
-		ThrowPart(A, BitOf(A, 1), FVector(200.f, 900.f, 1000.f), FVector(160.f, 60.f, 260.f));
+		// the tank goes up: the cannon is blown off its turntable on a pillar of fire and the ladder goes over the
+		// side, the boiler lets go its steam, and what is left rolls on down the road with the tank's hatch a jet of flame
+		ThrowPart(A, BitOf(A, 0), FVector(-600.f, RigRng.FRandRange(-300.f, 300.f), 2300.f), FVector(200.f, 380.f, 120.f));
+		ThrowPart(A, BitOf(A, 1), FVector(200.f, 1100.f, 1500.f), FVector(160.f, 60.f, 320.f));
+		const FTransform Body = A.Mesh->GetComponentTransform();
+		FTFx::Burst(&A, TEXT("NS_BossPillar"), Body.TransformPosition(EngineHatch), FRotator::ZeroRotator, 1.8f, FTFx::Main);
+		FTFx::Burst(&A, TEXT("NS_BossSteam"), Body.TransformPosition(FVector(300.f, 0.f, 330.f)), FRotator::ZeroRotator, 3.f, FTFx::Extra);
+		AFTWreck* Wr = D.Body.Get();
+		WreckLoop(Wr, TEXT("NS_BossFlameJet"), EngineHatch, FRotator(-90.f, 0.f, 0.f), 0.8f);
+		WreckLoop(Wr, TEXT("NS_BossWreckFire"), FireCannonAt, FRotator::ZeroRotator, 1.8f);
+		// then the tank itself, in a ring and a fireball over the wreck; more steam; and the last of the fuel
+		Later(A, 0.12f, [D]()
+		{
+			Pop(D, TEXT("NS_BossMortar"), EngineHatch, 3.f, FTFx::Flash, 150.f);
+			Pop(D, TEXT("NS_BossDefeatFire"), EngineHatch, 1.2f, FTFx::Main, 300.f);
+		});
+		Later(A, 0.3f, [D]() { Pop(D, TEXT("NS_BossSteam"), FVector(300.f, 0.f, 300.f), 3.5f, FTFx::Extra); });
+		Later(A, 0.8f, [D]() { Pop(D, TEXT("NS_BossPillar"), FVector(-205.f, 0.f, 300.f), 2.2f); });
 	}
 
 	// ---------------------------------------------------------------- MR. CHUCKLES (level 5): the flying clown car
@@ -750,13 +945,16 @@ namespace
 		const float Laugh = FMath::Min(1.f, A.RigB / 0.25f);
 		const FRotator HeadRot(4.f * FMath::Sin(T * 3.3f) + 9.f * W - 16.f * Laugh + 5.f * Laugh * FMath::Sin(T * 38.f) + 14.f * Hit, 6.f * FMath::Sin(T * 0.9f), -1.4f * Rot.Roll);
 		const float Open = FMath::Max(Laugh * (0.6f + 0.4f * FMath::Abs(FMath::Sin(T * 19.f))), FMath::Max(0.55f * Hit, 0.35f * W));
+		// (round two, the entrance: a jack-in-the-box. As he comes down out of the sky his head is thrown two and a half
+		// metres up its spring and bounces down onto it, smaller each time; it has settled before he is on his spot)
+		const FVector Neck = ClownNeck + FVector(0.f, 0.f, A.bBossLive ? 250.f * FMath::Exp(-2.2f * A.IntroT) * FMath::Abs(FMath::Cos(A.IntroT * 7.f)) : 0.f);
 		if (UStaticMeshComponent* H = BitOf(A, 6))
 		{
-			H->SetRelativeRotation(HeadRot);
+			H->SetRelativeLocationAndRotation(Neck, HeadRot);
 			const float Nose = FMath::RoundToFloat(4.f * W) * 0.55f;
 			if (Nose != A.RigH) { A.RigH = Nose; H->SetScalarParameterValueOnMaterials(TEXT("Alert"), Nose); }
 		}
-		if (UStaticMeshComponent* J = BitOf(A, 7)) J->SetRelativeLocationAndRotation(ClownNeck + HeadRot.RotateVector(FVector(0.f, 0.f, -62.f * Open)), HeadRot);
+		if (UStaticMeshComponent* J = BitOf(A, 7)) J->SetRelativeLocationAndRotation(Neck + HeadRot.RotateVector(FVector(0.f, 0.f, -62.f * Open)), HeadRot);
 		// the pie oven: its lid swings up through the wind-up of a fan of pies and shows them racked; shut once they have gone
 		A.RigD = FMath::FInterpTo(A.RigD, W2 > 0.05f ? 1.f : 0.f, Dt, W2 > 0.05f ? 7.f : 5.f);
 		if (UStaticMeshComponent* Ld = BitOf(A, 8)) Ld->SetRelativeRotation(FRotator(-112.f * A.RigD, 0.f, 0.f));
@@ -783,14 +981,30 @@ namespace
 		for (int32 k = 0; k < 3; ++k)
 			FTFx::Attach(TEXT("NS_BossPop"), A.Mesh, ClownWinch + FVector(-150.f + 90.f * k, -200.f + 200.f * k, 880.f + 60.f * k), FRotator::ZeroRotator, 1.f, FTFx::Main, true);
 	}
-	void DefeatChuckles(AFTEntityActor& A)
+	void DefeatChuckles(AFTEntityActor& A, const FDeath& D)
 	{
-		// the rig lets go: the four propellers spin off their motors, and his head goes up off its spring
+		// the party is over: the four propellers spin off their motors and the rig goes after them, his head shoots
+		// up off its spring (clean, not burnt: it is the last of him anyone sees, high over the road), and every
+		// balloon he has left bursts in turn, nine metres up
 		for (int32 p = 0; p < NumClownProps; ++p)
-			ThrowPart(A, BitOf(A, 1 + p), FVector(p < 2 ? -700.f : 500.f, (p % 2 ? 1.f : -1.f) * 900.f, 1000.f), FVector(100.f, 80.f, (p % 2 ? 1.f : -1.f) * 900.f));
-		ThrowPart(A, BitOf(A, 6), FVector(-300.f, 0.f, 2000.f), FVector(420.f, 60.f, 90.f));
-		for (int32 k = 0; k < 3; ++k)
-			FTFx::Burst(&A, TEXT("NS_BossPop"), A.Mesh->GetComponentTransform().TransformPosition(ClownWinch + FVector(-150.f + 90.f * k, -200.f + 200.f * k, 880.f + 60.f * k)), FRotator::ZeroRotator, 1.3f, FTFx::Main);
+			ThrowPart(A, BitOf(A, 1 + p), FVector(p < 2 ? -900.f : 700.f, (p % 2 ? 1.f : -1.f) * 1400.f, 1300.f), FVector(100.f, 80.f, (p % 2 ? 1.f : -1.f) * 1200.f));
+		ThrowPart(A, BitOf(A, 0), FVector(300.f, RigRng.FRandRange(-300.f, 300.f), 1500.f), FVector(60.f, 240.f, 120.f));
+		ThrowPart(A, BitOf(A, 6), FVector(-300.f, 0.f, 2800.f), FVector(520.f, 60.f, 90.f), false);
+		const FTransform Body = A.Mesh->GetComponentTransform();
+		const FVector Bunch = ClownWinch + FVector(-150.f, 0.f, 900.f);
+		FTFx::Burst(&A, TEXT("NS_BossConfetti"), Body.TransformPosition(Bunch - FVector(0.f, 0.f, 300.f)), FRotator::ZeroRotator, 3.f, FTFx::Main);
+		const int32 Left = A.DmgState >= 2 ? 3 : (A.DmgState == 1 ? 5 : 8);
+		for (int32 k = 0; k < Left; ++k)
+		{
+			// (0.075 s of the game's clock apart: a third of a second as the player sees it in the wrap's slow motion)
+			const FVector At = Bunch + FVector(-90.f + 60.f * (k % 4), -210.f + 140.f * (k % 4), 60.f * (k / 4) + 40.f * (k % 3));
+			if (k == 0) FTFx::Burst(&A, TEXT("NS_BossPop"), Body.TransformPosition(At), FRotator::ZeroRotator, 1.6f, FTFx::Main);
+			else Later(A, 0.075f * k, [D, At]() { Pop(D, TEXT("NS_BossPop"), At, 1.6f); });
+		}
+		// the car goes on down the road spilling what was in it: the pies all at once, and confetti in clouds
+		Later(A, 0.2f, [D]() { Pop(D, TEXT("NS_BossPieBlast"), ClownOven, 3.f, FTFx::Main, 100.f); });
+		for (int32 k = 0; k < 4; ++k)
+			Later(A, 0.15f + 0.22f * k, [D, k]() { Pop(D, TEXT("NS_BossHurtConfetti"), FVector(-300.f, 0.f, 330.f), 3.f, FTFx::Main, 120.f * k); });
 	}
 
 	// ---------------------------------------------------------------- THE ABOMINABLE (level 6): the yeti
@@ -835,7 +1049,10 @@ namespace
 		// leaning at the car when he charges, flinching from a hit
 		const FRotator Body(-5.f * FMath::Sin(P * 6.f) * (1.f - Plant) + A.Charge * (bWayIn ? -9.f : 11.f) - 9.f * FMath::Max(W1, W2) + 17.f * Slam + 12.f * Throw - 7.f * Roar - 8.f * Hit,
 			0.f, 5.f * FMath::Sin(P * 3.f) * (1.f - Plant));
-		A.Mesh->SetRelativeTransform(FTransform(Body, FVector(0.f, 0.f, 90.f * FMath::Abs(FMath::Sin(P * 3.f)) * (1.f - 0.8f * Plant) - 50.f * Slam)));
+		// (round two, the entrance: he comes in with one great bound, three and a half metres clear of the snow, and is
+		// down again 1.2 s after he appears: ten metres of yeti in the air reads from 160 m. No attack of his leaves the ground)
+		const float Bound = A.bBossLive ? 350.f * FMath::Sin(PI * FMath::Clamp(A.IntroT / 1.2f, 0.f, 1.f)) : 0.f;
+		A.Mesh->SetRelativeTransform(FTransform(Body, FVector(0.f, 0.f, 90.f * FMath::Abs(FMath::Sin(P * 3.f)) * (1.f - 0.8f * Plant) - 50.f * Slam + Bound)));
 		if (A.Extra->IsVisible())
 			A.Extra->SetRelativeRotation(FRotator(14.f * FMath::Sin(P * 6.f + 0.8f) + 12.f * A.Charge, 0.f, 16.f * FMath::Sin(P * 3.f + 0.4f)));   // (the 2.8 arms)
 		// the arms: they pump as he runs; both go back to pack a snowball and over to throw it; right back and then
@@ -879,10 +1096,29 @@ namespace
 				Show(Ice, false);
 			}
 	}
-	void DefeatYeti(AFTEntityActor& A)
+	void DefeatYeti(AFTEntityActor& A, const FDeath& D)
 	{
-		// what ice is left on him goes flying (the rest is snow: his own burst)
-		for (int32 i = 0; i < 3; ++i) ThrowPart(A, BitOf(A, 2 + i), FVector(-300.f, (i == 0 ? -700.f : (i == 1 ? 700.f : 0.f)), 1200.f), FVector(300.f, 200.f, 260.f));
+		// he does not burn. What ice is left on him bursts off and goes up clean, in a cloud of snow and a fountain of
+		// ice from his head (ten metres up: over the road where the camera sees it)
+		for (int32 i = 0; i < 3; ++i)
+			ThrowPart(A, BitOf(A, 2 + i), FVector(-300.f, (i == 0 ? -900.f : (i == 1 ? 900.f : 0.f)), 2000.f + 300.f * i), FVector(300.f, 200.f, 260.f), false);
+		const FTransform Body = A.Mesh->GetComponentTransform();
+		FTFx::Burst(&A, TEXT("NS_BossSnowSlam"), Body.TransformPosition(FVector(0.f, 0.f, 700.f)), FRotator::ZeroRotator, 2.4f, FTFx::Main);
+		FTFx::Burst(&A, TEXT("NS_BossIceBreak"), Body.TransformPosition(FVector(0.f, 0.f, 1000.f)), FRotator::ZeroRotator, 2.5f, FTFx::Main);
+		// his wreck is himself: white, not sooted, no fire on him, both arms flung up and back as he goes over, and
+		// snow streaming off him where a truck would trail flame
+		if (AFTWreck* Wr = D.Body.Get())
+		{
+			Unburnt(Wr);
+			for (int32 s = 0; s < 2; ++s)
+				WreckBit(Wr, Kept(s ? TEXT("/Game/Characters/Bosses/SM_YetiArmR") : TEXT("/Game/Characters/Bosses/SM_YetiArmL")), YetiShoulder[s], FRotator(-38.f, 0.f, (s ? 1.f : -1.f) * 34.f), 0.f);
+			WreckLoop(Wr, TEXT("NS_BossSnowKick"), FVector(0.f, 0.f, 500.f), FRotator::ZeroRotator, 1.6f);
+		}
+		// the ice goes off one shoulder and then the other, and a last cloud as he comes down
+		for (int32 s = 0; s < 2; ++s)
+			Later(A, 0.12f + 0.12f * s, [D, s]() { Pop(D, TEXT("NS_BossIceBreak"), FVector(0.f, s ? 270.f : -270.f, 960.f), 2.5f); });
+		Later(A, 0.5f, [D]() { Pop(D, TEXT("NS_BossSnowSlam"), FVector(0.f, 0.f, 500.f), 3.f); });
+		Later(A, 0.9f, [D]() { Pop(D, TEXT("NS_BossDefeatSnow"), FVector(0.f, 0.f, 600.f), 1.5f); });
 	}
 
 	// ---------------------------------------------------------------- THE GREAT WHITE (level 7): the shark car
@@ -909,8 +1145,18 @@ namespace
 		A.RigB = FMath::FInterpTo(A.RigB, bJaws ? 1.f : 0.f, Dt, bJaws ? 7.f : 3.5f);
 		const float Whip = A.FireKind == 1 ? Pulse(A.FireT, 5.f) : 0.f, Buck = A.FireKind == 2 ? Pulse(A.FireT, 5.f) : 0.f;
 		// (the entrance: one leap clear of the road, nose up and then down, as it drops back onto its spot)
+		// (round two: the leap is twice as high, four and a half metres clear, out of a spout of water where it leaves
+		// the road; the same 1.1 s)
 		const float Air = A.bBossLive ? FMath::Clamp(A.IntroT / 1.1f, 0.f, 1.f) : 1.f;
-		const float Leap = 230.f * FMath::Sin(PI * Air), Dive = 22.f * FMath::Sin(2.f * PI * Air);
+		const float Leap = 460.f * FMath::Sin(PI * Air), Dive = 26.f * FMath::Sin(2.f * PI * Air);
+		if (Crossed(A, Dt, 0.05f)) FTFx::Attach(TEXT("NS_BossSpray"), A.GetRootComponent(), FVector(0.f, 0.f, 60.f), FRotator::ZeroRotator, 3.f, FTFx::Extra, true);
+		// (round two: it swims in a wake. Two low sheets of spray run back off its flanks all the time it is on the
+		// road and facing away: a white V on the road that marks it out from behind. Knee high, and it dies away
+		// (0.4 s) as soon as either load starts to wind up, stays off until the fish have gone, and is off while it
+		// has turned on the car: nothing it fires is ever behind spray)
+		const bool bWake = A.bBossLive && Air >= 1.f && A.RigB < 0.08f && A.Wind < 0.05f && A.FireT > 0.7f;
+		A.Loop(2, TEXT("NS_BossWake"), FVector(-300.f, -300.f, 30.f), bWake, FRotator(0.f, -24.f, 0.f));
+		A.Loop(3, TEXT("NS_BossWake"), FVector(-300.f, 300.f, 30.f), bWake, FRotator(0.f, 24.f, 0.f));
 		A.Mesh->SetRelativeTransform(FTransform(FRotator(-5.f * W2 + 8.f * Buck + Dive, 180.f * Smooth(A.RigB) + 5.f * FMath::Sin(A.RigA) * (1.f - 0.6f * W1) + 8.f * Hit * FMath::Sin(A.AnimT * 31.f),
 			4.f * FMath::Sin(A.RigA * 0.5f + 1.f) + (A.DmgState >= 2 ? 12.f : 0.f)), FVector(0.f, 0.f, 6.f * FMath::Sin(A.RigA * 0.5f) + Leap)));
 		if (Air < 1.f) HangWheels(A, 0.f, A.AnimT * 600.f);   // (its wheels leave the road with it)
@@ -943,11 +1189,28 @@ namespace
 		else A.Loop(1, TEXT("NS_BossFlame"), FVector(-420.f, -120.f, 440.f), true);   // a launcher burns, and it lists
 		FTFx::Attach(TEXT("NS_BossSpray"), A.Mesh, SharkFinAt + FVector(0.f, 0.f, 150.f), FRotator::ZeroRotator, 1.4f, FTFx::Main, true);
 	}
-	void DefeatShark(AFTEntityActor& A)
+	void DefeatShark(AFTEntityActor& A, const FDeath& D)
 	{
-		ThrowPart(A, BitOf(A, 0), FVector(-900.f, RigRng.FRandRange(-500.f, 500.f), 800.f), FVector(200.f, 100.f, 600.f));
-		ThrowPart(A, BitOf(A, 1), FVector(-200.f, RigRng.FRandRange(-400.f, 400.f), 1600.f), FVector(500.f, 200.f, 100.f));
-		ThrowPart(A, BitOf(A, 2), FVector(600.f, 0.f, 900.f), FVector(100.f, 600.f, 100.f));
+		// gutted: the dorsal fin goes straight up on a spout of water (high over the road, where the camera sees it),
+		// the tail whips off to one side and the jaw is torn away
+		ThrowPart(A, BitOf(A, 1), FVector(-200.f, RigRng.FRandRange(-250.f, 250.f), 2600.f), FVector(500.f, 200.f, 100.f));
+		ThrowPart(A, BitOf(A, 0), FVector(-1100.f, RigRng.FRand() < 0.5f ? -1300.f : 1300.f, 1000.f), FVector(200.f, 100.f, 700.f));
+		ThrowPart(A, BitOf(A, 2), FVector(700.f, 0.f, 1300.f), FVector(100.f, 600.f, 100.f));
+		FTFx::Burst(&A, TEXT("NS_BossSpray"), A.Mesh->GetComponentTransform().TransformPosition(SharkFinAt), FRotator::ZeroRotator, 3.f, FTFx::Main);
+		// the wreck rolls on with both launchers burning
+		AFTWreck* Wr = D.Body.Get();
+		WreckLoop(Wr, TEXT("NS_BossWreckFire"), FVector(-420.f, 120.f, 440.f), FRotator::ZeroRotator, 1.6f);
+		WreckLoop(Wr, TEXT("NS_BossWreckFire"), FVector(-420.f, -120.f, 440.f), FRotator::ZeroRotator, 1.6f);
+		// its magazines go, one launcher and then the other, each in a flash of the sea's colour and a spout; and a
+		// last, biggest spout out of its belly
+		for (int32 s = 0; s < 2; ++s)
+			Later(A, 0.1f + 0.14f * s, [D, s]()
+			{
+				const FVector Mouth(-640.f, s ? 120.f : -120.f, 400.f);
+				Pop(D, TEXT("NS_BossFishFlash"), Mouth, 2.6f, FTFx::Flash, 100.f);
+				Pop(D, TEXT("NS_BossSpray"), Mouth, 2.6f, FTFx::Main, 100.f);
+			});
+		Later(A, 0.75f, [D]() { Pop(D, TEXT("NS_BossSpray"), FVector(0.f, 0.f, 250.f), 3.6f); });
 	}
 
 	// ---------------------------------------------------------------- THE CHAIRMAN (level 8): the limo gunship
@@ -1018,8 +1281,12 @@ namespace
 		for (int32 s = 0; s < 2; ++s)
 			if (UStaticMeshComponent* Bay = BitOf(A, 2 + s)) Bay->SetRelativeRotation(FRotator(0.f, 0.f, (s ? 1.f : -1.f) * 62.f * A.RigE));
 		// the jets: two flames at the rear; one coughs once he is nearly done
-		A.Loop(0, TEXT("NS_BossJet"), FVector(-602.f, -299.f, 60.f), true);
-		A.Loop(1, TEXT("NS_BossJet"), FVector(-602.f, 299.f, 60.f), A.DmgState < 2 || FMath::Sin(T * 7.f) > -0.2f);
+		// (round two: half as big again, and he arrives on full burn: three times that as he appears, throttled back
+		// over the 1.6 s he takes to reach his spot. Two long blue-white flames low at his tail read from 160 m, and
+		// they are his hover, nothing he fires)
+		const float Burn = 1.5f * (A.bBossLive ? 1.f + 2.f * (1.f - Smooth(A.IntroT / 1.6f)) : 1.f);
+		A.Loop(0, TEXT("NS_BossJet"), FVector(-602.f, -299.f, 60.f), true, FRotator::ZeroRotator, Burn);
+		A.Loop(1, TEXT("NS_BossJet"), FVector(-602.f, 299.f, 60.f), A.DmgState < 2 || FMath::Sin(T * 7.f) > -0.2f, FRotator::ZeroRotator, Burn);
 		A.BossAlert = 1.2f * FMath::Max3(W1, W2, W3);   // the fins' lights and the tail flare with every wind-up
 	}
 	void FireChairman(AFTEntityActor& A)
@@ -1039,26 +1306,40 @@ namespace
 		else A.Loop(4, TEXT("NS_BossFlame"), FVector(-600.f, 299.f, 110.f), true);
 		FTFx::Attach(TEXT("NS_BossHurtBills"), A.Mesh, FVector(-560.f, 0.f, 260.f), FRotator::ZeroRotator, 2.f, FTFx::Main, true);
 	}
-	void DefeatChairman(AFTEntityActor& A)
+	void DefeatChairman(AFTEntityActor& A, const FDeath& D)
 	{
-		ThrowPart(A, BitOf(A, 0), FVector(-600.f, RigRng.FRandRange(-300.f, 300.f), 1300.f), FVector(200.f, 400.f, 160.f));
-		ThrowPart(A, BitOf(A, 1), FVector(100.f, RigRng.FRandRange(-300.f, 300.f), 1700.f), FVector(300.f, 200.f, 300.f));
+		// the vault bursts: both turrets are blown out of him (the boot's highest, over the road where the camera
+		// sees it), the rocket bays are torn off the wings to either side, and his money goes up in a fountain
+		ThrowPart(A, BitOf(A, 0), FVector(-500.f, RigRng.FRandRange(-250.f, 250.f), 2500.f), FVector(200.f, 400.f, 160.f));
+		ThrowPart(A, BitOf(A, 1), FVector(100.f, RigRng.FRandRange(-300.f, 300.f), 1900.f), FVector(300.f, 200.f, 300.f));
+		for (int32 s = 0; s < 2; ++s) ThrowPart(A, BitOf(A, 2 + s), FVector(-300.f, (s ? 1.f : -1.f) * 1400.f, 1100.f), FVector(600.f, 100.f, 100.f));
+		FTFx::Burst(&A, TEXT("NS_BossHurtBills"), A.Mesh->GetComponentTransform().TransformPosition(FVector(-300.f, 0.f, 300.f)), A.GetActorRotation(), 4.f, FTFx::Main);
+		// the wreck goes on down the road on the one jet that still burns, the other alight
+		AFTWreck* Wr = D.Body.Get();
+		WreckLoop(Wr, TEXT("NS_BossJet"), FVector(-602.f, -299.f, 60.f), FRotator::ZeroRotator, 2.4f);
+		WreckLoop(Wr, TEXT("NS_BossWreckFire"), FVector(-600.f, 299.f, 110.f), FRotator::ZeroRotator, 1.6f);
+		// the rockets he never fired cook off straight up out of both wings, and the money keeps coming, higher each time
+		for (int32 s = 0; s < 2; ++s)
+			Later(A, 0.12f + 0.12f * s, [D, s]() { Pop(D, TEXT("NS_BossRocketUp"), FVector(LimoBay.X, s ? 200.f : -200.f, LimoBay.Z + 40.f), 2.2f); });
+		for (int32 k = 0; k < 4; ++k)
+			Later(A, 0.2f + 0.2f * k, [D, k]() { Pop(D, TEXT("NS_BossHurtBills"), FVector(-300.f, 0.f, 300.f), 3.5f, FTFx::Main, 120.f * k); });
 	}
 
 	// ---------------------------------------------------------------- every boss
 	/** The effects a boss's rig uses, loaded as he appears (FTFx::System keeps them): never from disk in the middle of his fight. */
 	void RigPreload(int32 Lvl)
 	{
-		static const TCHAR* Shared[] = { TEXT("NS_BossBreak"), TEXT("NS_BossBreakShards"), TEXT("NS_BossSmoke"), TEXT("NS_BossFlame") };
-		static const TCHAR* Own[8][7] = {
-			{ TEXT("NS_BossHurtSparks"), TEXT("NS_BossDefeat"), TEXT("NS_BossGunFlash"), TEXT("NS_BossDust"), nullptr, nullptr, nullptr },
-			{ TEXT("NS_BossHurtZap"), TEXT("NS_BossDefeatZap"), TEXT("NS_BossZapCrackle"), TEXT("NS_BossZapFlash"), TEXT("NS_BossZapSpray"), nullptr, nullptr },
-			{ TEXT("NS_BossHurtChips"), TEXT("NS_BossDefeatChips"), TEXT("NS_BossLaunch"), TEXT("NS_BossDust"), TEXT("NS_BossTyreSmoke"), nullptr, nullptr },
-			{ TEXT("NS_BossHurtSparks"), TEXT("NS_BossDefeatFire"), TEXT("NS_BossFlameJet"), TEXT("NS_BossSteam"), TEXT("NS_BossMortar"), TEXT("NS_BossDust"), nullptr },
-			{ TEXT("NS_BossHurtConfetti"), TEXT("NS_BossDefeatConfetti"), TEXT("NS_BossConfetti"), TEXT("NS_BossPop"), TEXT("NS_BossPieBlast"), TEXT("NS_BossTyreSmoke"), nullptr },
-			{ TEXT("NS_BossHurtSnow"), TEXT("NS_BossDefeatSnow"), TEXT("NS_BossSnowKick"), TEXT("NS_BossSnowSlam"), TEXT("NS_BossIceBreak"), nullptr, nullptr },
-			{ TEXT("NS_BossHurtSpray"), TEXT("NS_BossDefeatSplash"), TEXT("NS_BossFishFlash"), TEXT("NS_BossSpray"), nullptr, nullptr, nullptr },
-			{ TEXT("NS_BossHurtBills"), TEXT("NS_BossDefeatCash"), TEXT("NS_BossGunFlash"), TEXT("NS_BossGunStream"), TEXT("NS_BossRocketUp"), TEXT("NS_BossJet"), nullptr },
+		static const TCHAR* Shared[] = { TEXT("NS_BossBreak"), TEXT("NS_BossBreakShards"), TEXT("NS_BossSmoke"), TEXT("NS_BossFlame"), TEXT("NS_BossWreckFire") };
+		// (round two: with what his entrance and his end use. A row is nullptr-padded to its eight places)
+		static const TCHAR* Own[8][8] = {
+			{ TEXT("NS_BossHurtSparks"), TEXT("NS_BossDefeat"), TEXT("NS_BossGunFlash"), TEXT("NS_BossDust"), TEXT("NS_BossPillar"), nullptr, nullptr, nullptr },
+			{ TEXT("NS_BossHurtZap"), TEXT("NS_BossDefeatZap"), TEXT("NS_BossZapCrackle"), TEXT("NS_BossZapFlash"), TEXT("NS_BossZapSpray"), TEXT("NS_BossSteam"), nullptr, nullptr },
+			{ TEXT("NS_BossHurtChips"), TEXT("NS_BossDefeatChips"), TEXT("NS_BossLaunch"), TEXT("NS_BossDust"), TEXT("NS_BossTyreSmoke"), nullptr, nullptr, nullptr },
+			{ TEXT("NS_BossHurtSparks"), TEXT("NS_BossDefeatFire"), TEXT("NS_BossFlameJet"), TEXT("NS_BossSteam"), TEXT("NS_BossMortar"), TEXT("NS_BossDust"), TEXT("NS_BossPillar"), nullptr },
+			{ TEXT("NS_BossHurtConfetti"), TEXT("NS_BossDefeatConfetti"), TEXT("NS_BossConfetti"), TEXT("NS_BossPop"), TEXT("NS_BossPieBlast"), TEXT("NS_BossTyreSmoke"), nullptr, nullptr },
+			{ TEXT("NS_BossHurtSnow"), TEXT("NS_BossDefeatSnow"), TEXT("NS_BossSnowKick"), TEXT("NS_BossSnowSlam"), TEXT("NS_BossIceBreak"), nullptr, nullptr, nullptr },
+			{ TEXT("NS_BossHurtSpray"), TEXT("NS_BossDefeatSplash"), TEXT("NS_BossFishFlash"), TEXT("NS_BossSpray"), TEXT("NS_BossWake"), nullptr, nullptr, nullptr },
+			{ TEXT("NS_BossHurtBills"), TEXT("NS_BossDefeatCash"), TEXT("NS_BossGunFlash"), TEXT("NS_BossGunStream"), TEXT("NS_BossRocketUp"), TEXT("NS_BossJet"), nullptr, nullptr },
 		};
 		for (const TCHAR* N : Shared) FTFx::System(N);
 		for (const TCHAR* N : Own[FMath::Clamp(Lvl, 0, 7)]) if (N) FTFx::System(N);
@@ -1152,23 +1433,37 @@ namespace
 				for (const FFTEnt& E : GM->GetActiveEntities()) if (E.Proxy.Get() == &A) { bWrecked = E.Hp <= 0.f; break; }
 		if (bWrecked)
 		{
+			// round two: his end is his own, and it is played in beats (see "how a boss dies" above). First, on the
+			// frame of the kill (the frame the wrap freezes on): his burst, bigger than it was, and his shards
 			const FBossLook& L = LookOf(A);
 			const FVector At = A.Mesh->GetComponentTransform().TransformPosition(L.Heart);
-			FTFx::Burst(&A, L.DefeatFx, At, A.GetActorRotation(), 1.f, FTFx::Main);
+			FTFx::Burst(&A, L.DefeatFx, At, A.GetActorRotation(), 1.3f, FTFx::Main);
 			FTFx::Burst(&A, TEXT("NS_BossBreakShards"), At, A.GetActorRotation(), 1.6f, FTFx::Extra);
+			FDeath D;
+			D.Body = BodyWreck(A);
+			D.Face = A.GetActorRotation();
 			switch (A.Lvl)
 			{
-			case 0: DefeatJuggernaut(A); break;
-			case 1: DefeatAlchemist(A); break;
-			case 2: DefeatDealer(A); break;
-			case 3: DefeatEngine(A); break;
-			case 4: DefeatChuckles(A); break;
-			case 5: DefeatYeti(A); break;
-			case 6: DefeatShark(A); break;
-			case 7: DefeatChairman(A); break;
+			case 0: DefeatJuggernaut(A, D); break;
+			case 1: DefeatAlchemist(A, D); break;
+			case 2: DefeatDealer(A, D); break;
+			case 3: DefeatEngine(A, D); break;
+			case 4: DefeatChuckles(A, D); break;
+			case 5: DefeatYeti(A, D); break;
+			case 6: DefeatShark(A, D); break;
+			case 7: DefeatChairman(A, D); break;
 			default: break;
 			}
-			UE_LOG(LogFT, Display, TEXT("FT BOSSRIG defeat level=%d speed=%.0f"), A.Lvl, A.LastSpeed);
+			// every boss: his wreck goes up once more as the card comes on, a blast that stands two and a half metres
+			// over it and bigger than the first, so it shows over the card's top edge
+			const TCHAR* Again = L.DefeatFx;
+			const FVector Heart = L.Heart;
+			Later(A, 0.42f, [D, Again, Heart]()
+			{
+				Pop(D, Again, Heart, 1.7f, FTFx::Main, 250.f);
+				Pop(D, TEXT("NS_BossBreakShards"), Heart, 1.8f, FTFx::Extra, 250.f);
+			});
+			UE_LOG(LogFT, Display, TEXT("FT BOSSRIG defeat level=%d speed=%.0f wreck=%d"), A.Lvl, A.LastSpeed, D.Body.IsValid() ? 1 : 0);
 		}
 		for (UNiagaraComponent* N : A.BossFx) if (N && N->IsActive()) N->Deactivate();
 	}
@@ -1854,6 +2149,10 @@ namespace
 		FVector GroundP = FVector::ZeroVector, GroundN = FVector::UpVector;
 		bool bGround = false;
 		float HalfHeight = 60.f;
+		// FX round 4: the burning trail it leaves while it slides (FTFx::WreckTrail): where its next length starts
+		float HalfWidth = 80.f;
+		FVector TrailFrom = FVector::ZeroVector;
+		bool bTrail = false;
 	};
 	TMap<TWeakObjectPtr<AFTWreck>, FWreckLook>& WreckLooks()
 	{
@@ -1883,6 +2182,7 @@ namespace
 		const FBoxSphereBounds Bd = InMesh ? InMesh->GetBounds() : FBoxSphereBounds(ForceInit);
 		const float Size = FMath::Clamp((float)Bd.BoxExtent.X / 230.f, 0.6f, 2.f) * Scale;
 		Look.HalfHeight = FMath::Max(30.f, (float)Bd.BoxExtent.Z * Scale);
+		Look.HalfWidth = FMath::Max(40.f, (float)Bd.BoxExtent.Y * Scale);
 		int32 Room = FMath::Clamp((bLow ? 10 : 24) - InAir, 0, bLow ? 2 : 4);
 		FRandomStream& Rnd = WreckRand();
 		auto Throw = [&](UStaticMeshComponent* C, const FVector& LocalAt, const FVector& S3, float Rest, bool bWheel)
@@ -1949,7 +2249,7 @@ namespace
 		if (!World || Dt <= 0.f) return;
 		const bool bEarly = W->Age < 3.5f;
 		UNiagaraComponent* Sc = Look.Scrape.Get();
-		if (Look.Pieces.Num() == 0 && !(Sc && (bEarly || Sc->IsActive()))) return;
+		if (Look.Pieces.Num() == 0 && !bEarly && !(Sc && Sc->IsActive())) return;
 		const FVector At = W->GetActorLocation();
 		// the road under the wreck: one line a frame, shared by its pieces (they are never far from it)
 		if (W->Age < 4.f)
@@ -2004,11 +2304,11 @@ namespace
 			if (bLens && FVector::DistSquared(Pc.P, Lens) < FMath::Square(420.f)) C->SetVisibility(false);
 		}
 		// where the body drags on the road it throws sparks back along its slide
+		const FVector Vel = W->Mesh->GetPhysicsLinearVelocity();
+		const float Up = (float)FVector::DotProduct(At - Look.GroundP, N);
+		const bool bDrag = bEarly && Look.bGround && Vel.SizeSquared() > FMath::Square(900.f) && Up < Look.HalfHeight + 70.f;
 		if (Sc)
 		{
-			const FVector Vel = W->Mesh->GetPhysicsLinearVelocity();
-			const float Up = (float)FVector::DotProduct(At - Look.GroundP, N);
-			const bool bDrag = bEarly && Look.bGround && Vel.SizeSquared() > FMath::Square(900.f) && Up < Look.HalfHeight + 70.f;
 			if (bDrag)
 			{
 				const FVector Flat = (Vel - N * FVector::DotProduct(Vel, N)).GetSafeNormal();
@@ -2017,6 +2317,19 @@ namespace
 			}
 			else if (Sc->IsActive()) Sc->Deactivate();
 		}
+		// FX round 4: and it leaves a burning trail: a length of scorched road every 4 m of its slide, a lick of flame on
+		// every other one (FTFx::WreckTrail has the caps: 160 lengths kept, 8 flames alight; none at Low)
+		if (bDrag)
+		{
+			const FVector Under = At - N * Up;
+			if (!Look.bTrail) { Look.bTrail = true; Look.TrailFrom = Under; }
+			else if (FVector::DistSquared(Under, Look.TrailFrom) > FMath::Square(400.f))
+			{
+				FTFx::WreckTrail(W, Look.TrailFrom, Under, N, Look.HalfWidth * 1.3f);
+				Look.TrailFrom = Under;
+			}
+		}
+		else Look.bTrail = false;
 	}
 }
 AFTWreck::AFTWreck()

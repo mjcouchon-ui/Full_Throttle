@@ -120,6 +120,10 @@ void AFTBrawlPlayerController::SetupInputComponent()
  for(FKey K:{EKeys::Enter,EKeys::SpaceBar,EKeys::Gamepad_FaceButton_Bottom}) Bind(K,&AFTBrawlPlayerController::MenuAccept);
  for(FKey K:{EKeys::Gamepad_FaceButton_Right,EKeys::Gamepad_Special_Left}) Bind(K,&AFTBrawlPlayerController::MenuBack);
  Bind(EKeys::LeftMouseButton,&AFTBrawlPlayerController::MenuClick);
+ // the mouse on the system screens: the wheel steps through the rows, a right click is BACK (both do nothing in a fight)
+ Bind(EKeys::MouseScrollUp,&AFTBrawlPlayerController::MenuUp);
+ Bind(EKeys::MouseScrollDown,&AFTBrawlPlayerController::MenuDown);
+ Bind(EKeys::RightMouseButton,&AFTBrawlPlayerController::MenuBack);
 }
 bool AFTBrawlPlayerController::MenuReady() const { return bMenuInputReady && FPlatformTime::Seconds()>=MenuReadyAt; }
 void AFTBrawlPlayerController::PauseBrawl() { if(MenuReady()) if(auto* G=GetWorld()->GetAuthGameMode<AFTBrawlGameMode>()) G->ToggleSystemMenu(); }
@@ -133,7 +137,9 @@ int32 AFTBrawlPlayerController::MouseRow() const
 {
  const AFTBrawlGameMode* G=GetWorld()->GetAuthGameMode<AFTBrawlGameMode>();
  float X=0,Y=0; int32 W=0,H=0; GetViewportSize(W,H);
- if(!G || H<=0 || !GetMousePosition(X,Y)) return INDEX_NONE;
+ FVector2D At; const UFTInputSubsystem* Input=UFTInputSubsystem::Get(this);
+ if(!G || H<=0 || !Input || !Input->PointerPosition(this,At)) return INDEX_NONE;
+ X=At.X; Y=At.Y;
  const float Scale=H/720.f;
  for(int32 Row=0;Row<G->SystemRows().Num();++Row)
   if(G->SystemItemRect(Row,W/Scale).IsInside(FVector2D(X/Scale,Y/Scale))) return Row;
@@ -166,6 +172,7 @@ void AFTBrawlPlayerController::PlayerTick(float DeltaTime)
   else if(G->bDisconnectedPause && !Input->HasDisconnectedController()) G->bDisconnectedPause=false;
  }
  Super::PlayerTick(DeltaTime);
+ if(Input) Input->ObservePointer(this);
  if(G) G->PollSystemSave();
  if(!bMenuInputReady)
  {
@@ -184,10 +191,9 @@ void AFTBrawlPlayerController::PlayerTick(float DeltaTime)
   UE_LOG(LogTemp,Display,TEXT("FT BRAWL SYSTEM input_ready=1"));
  }
  const bool bMenu=G && G->SystemScreen!=0;
- float X=0,Y=0;
- if(GetMousePosition(X,Y))
+ FVector2D At;
+ if(Input && Input->PointerPosition(this,At))
  {
-  const FVector2D At(X,Y);
   if(bMenu && bPointerReady && (!Input || !Input->UsesGamepad()) && (At-LastMouse).SizeSquared()>4.f)
   { const int32 Row=MouseRow(); if(G->SystemRows().IsValidIndex(Row)) { G->SystemSelection=Row; G->SyncPauseCompatibility(); } }
   LastMouse=At; bPointerReady=bMenu;

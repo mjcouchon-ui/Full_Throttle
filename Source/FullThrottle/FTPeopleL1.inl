@@ -35,8 +35,8 @@ Zone(TEXT("People: the kerb"), 0.30f, 99.f);
 	Scatter(CREW("ApplauseB"), 24.f, 24.f, 12, 4, 1.f, 1.f, 0.f, 1);
 // ---- the far shift and the crows, the whole road
 Zone(TEXT("People: far"), 0.03f, 99.f);
-	Far(PPL("SM_FarCatwalk"), 120.f, 200.f, 9, 3, 0.9f, 1.f, 0.f, -1, 1.5f, 10.f);
-	Far(PPL("SM_FarCatwalk"), 120.f, 200.f, 9, 7, 0.9f, 1.f, 0.f, 1, 1.5f, 10.f);
+	Far(PPL("SM_FarCatwalk"), 120.f, 200.f, 16, 3, 0.9f, 1.f, 0.f, -1, 1.5f, 10.f);
+	Far(PPL("SM_FarCatwalk"), 120.f, 200.f, 16, 11, 0.9f, 1.f, 0.f, 1, 1.5f, 10.f);
 	Far(PPL("SM_CrowFlock"), 260.f, 460.f, 12, 1, 0.9f, 1.f, 0.2f, -1, 0.f, 180.f);
 	Far(PPL("SM_CrowFlock"), 260.f, 460.f, 12, 7, 0.9f, 1.f, 0.2f, 1, 0.f, 180.f);
 
@@ -166,8 +166,136 @@ Zone(TEXT("People: reactor two"), 21.4f, 25.6f);
 	Scatter(PPL("SM_Gantry_C"), N, N, 3, 0, 1.f, 1.f, 0.f, 1);
 	Scatter(PPL("SM_DockCrowd_B"), N, N, 6, 5, 1.f, 1.f, 0.f, 1);
 	Scatter(PPL("SM_Guards"), 25.9f, 25.9f, 6, 2, 1.f, 1.f, 0.f, 1);
-	Scatter(CREW("Camera"), 25.4f, 25.4f, 30, 11, 1.f, 1.f, 0.f, -1);
-	Scatter(CREW("Village"), 25.6f, 25.6f, 30, 26, 1.f, 1.f, 0.f, 1);
+	Scatter(CREW("Camera"), 25.4f, 25.4f, 30, 13, 1.f, 1.f, 0.f, -1);
+	Scatter(CREW("Village"), 25.6f, 25.6f, 30, 28, 1.f, 1.f, 0.f, 1);
 
 #undef PPL
 #undef CREW
+
+{
+// ---- BEGIN far (ft_people_chem_far.py) ----
+// FAR LIFE AND CREATURES of the works (the extra worker "far", 15 Nov 2026). Meshes: Content/Python/ft_people_chem_far.py
+// -> /Game/People/ChemicalWorks/SM_Far*. Nothing here stands nearer than 44 m: the 17 to 40 m band is the main
+// worker's and the film crew's. Every piece is TALL, lit by a steady light of its own (no blinking) and saved with the
+// always-moving master.
+//   44 to 62 m      SM_FarYardDogs: the strays on their container stack, the rats on the pipe behind (Scatter: on the land)
+//   60 to 100 m     SM_FarCrows_A: the crows against their lit hoarding
+//   100 to 160 m    SM_FarShift_A: the shift change on its footbridge
+//   120 to 210 m    SM_FarTankCrew: the gang on the tank top
+//   120 to 300 m    SM_FarFlock_A (gulls wheeling) and SM_FarFlock_B (the skein crossing): Far rules with no drop, so
+//                   the sky's birds stay beside loops, pipes and jumps
+// The standing pieces are Scatters: they stand on the land where it rises and falls (the plateau, the ramps).
+// Each district has its own mix; left and right are separate rules with phases apart, so the two sides never mirror.
+#define FARP(n) TEXT("/Game/People/ChemicalWorks/SM_Far" n)
+Zone(TEXT("People far: the sky"), 0.03f, 99.f);
+	Far(FARP("Flock_A"), 120.f, 300.f, 22, 3, 1.f, 1.f, 0.2f, -1, 0.f, 180.f);
+	Far(FARP("Flock_A"), 120.f, 300.f, 22, 14, 1.f, 1.f, 0.2f, 1, 0.f, 180.f);
+	Far(FARP("Flock_B"), 150.f, 280.f, 56, 20, 1.f, 1.f, 0.f, -1, 0.f, 15.f);
+	Far(FARP("Flock_B"), 150.f, 280.f, 56, 48, 1.f, 1.f, 0.f, 1, 0.f, 15.f);
+Zone(TEXT("People far: gate"), 0.10f, 1.23f);
+	Scatter(FARP("YardDogs"), 46.f, 60.f, 6, 1, 1.f, 1.f, 0.f, -1, 8.f);
+	Scatter(FARP("YardDogs"), 46.f, 60.f, 6, 4, 1.f, 1.f, 0.f, 1, 8.f);
+	Scatter(FARP("Shift_A"), 105.f, 150.f, 12, 5, 1.f, 1.f, 0.f, -1, 8.f);
+	Scatter(FARP("Shift_A"), 105.f, 150.f, 12, 11, 1.f, 1.f, 0.f, 1, 8.f);
+Zone(TEXT("People far: tank farm"), 1.23f, 2.6f);
+	Scatter(FARP("TankCrew"), 120.f, 200.f, 7, 2, 1.f, 1.f, 0.f, -1, 20.f);
+	Scatter(FARP("TankCrew"), 120.f, 200.f, 7, 5, 1.f, 1.f, 0.f, 1, 20.f);
+	Scatter(FARP("YardDogs"), 46.f, 60.f, 12, 3, 1.f, 1.f, 0.f, -1, 8.f);
+	Scatter(FARP("YardDogs"), 46.f, 60.f, 12, 9, 1.f, 1.f, 0.f, 1, 8.f);
+Zone(TEXT("People far: process units"), 2.6f, 3.98f);
+	Scatter(FARP("Shift_A"), 100.f, 150.f, 7, 1, 1.f, 1.f, 0.f, -1, 8.f);
+	Scatter(FARP("Shift_A"), 100.f, 150.f, 7, 4, 1.f, 1.f, 0.f, 1, 8.f);
+	Scatter(FARP("Crows_A"), 60.f, 100.f, 12, 6, 1.f, 1.f, 0.f, -1, 8.f);
+	Scatter(FARP("Crows_A"), 60.f, 100.f, 12, 0, 1.f, 1.f, 0.f, 1, 8.f);
+Zone(TEXT("People far: reactor block"), 3.98f, 5.35f);
+	Scatter(FARP("Crows_A"), 60.f, 100.f, 7, 0, 1.f, 1.f, 0.f, -1, 8.f);
+	Scatter(FARP("Crows_A"), 60.f, 100.f, 7, 3, 1.f, 1.f, 0.f, 1, 8.f);
+	Scatter(FARP("TankCrew"), 130.f, 210.f, 14, 5, 1.f, 1.f, 0.f, -1, 20.f);
+	Scatter(FARP("TankCrew"), 130.f, 210.f, 14, 12, 1.f, 1.f, 0.f, 1, 20.f);
+Zone(TEXT("People far: pipe alley"), 5.35f, 6.72f);
+	Scatter(FARP("Shift_A"), 100.f, 150.f, 7, 2, 1.f, 1.f, 0.f, -1, 8.f);
+	Scatter(FARP("Shift_A"), 100.f, 150.f, 7, 5, 1.f, 1.f, 0.f, 1, 8.f);
+	Scatter(FARP("YardDogs"), 46.f, 60.f, 12, 0, 1.f, 1.f, 0.f, -1, 8.f);
+	Scatter(FARP("YardDogs"), 46.f, 60.f, 12, 6, 1.f, 1.f, 0.f, 1, 8.f);
+Zone(TEXT("People far: loading yards"), 6.72f, 7.94f);
+	Scatter(FARP("YardDogs"), 46.f, 60.f, 6, 2, 1.f, 1.f, 0.f, -1, 8.f);
+	Scatter(FARP("YardDogs"), 46.f, 60.f, 6, 5, 1.f, 1.f, 0.f, 1, 8.f);
+	Scatter(FARP("Crows_A"), 60.f, 100.f, 12, 4, 1.f, 1.f, 0.f, -1, 8.f);
+	Scatter(FARP("Crows_A"), 60.f, 100.f, 12, 10, 1.f, 1.f, 0.f, 1, 8.f);
+Zone(TEXT("People far: waste run"), 8.09f, 9.46f);
+	Scatter(FARP("Crows_A"), 60.f, 100.f, 6, 0, 1.f, 1.f, 0.f, -1, 8.f);
+	Scatter(FARP("Crows_A"), 60.f, 100.f, 6, 3, 1.f, 1.f, 0.f, 1, 8.f);
+	Scatter(FARP("YardDogs"), 46.f, 60.f, 8, 2, 1.f, 1.f, 0.f, -1, 8.f);
+	Scatter(FARP("YardDogs"), 46.f, 60.f, 8, 6, 1.f, 1.f, 0.f, 1, 8.f);
+Zone(TEXT("People far: export terminal"), 9.46f, 12.72f);
+	Scatter(FARP("Shift_A"), 100.f, 150.f, 18, 1, 1.f, 1.f, 0.f, -1, 8.f);
+	Scatter(FARP("Shift_A"), 100.f, 150.f, 18, 10, 1.f, 1.f, 0.f, 1, 8.f);
+	Scatter(FARP("TankCrew"), 120.f, 200.f, 24, 6, 1.f, 1.f, 0.f, -1, 20.f);
+	Scatter(FARP("TankCrew"), 120.f, 200.f, 24, 18, 1.f, 1.f, 0.f, 1, 20.f);
+	Scatter(FARP("YardDogs"), 46.f, 60.f, 28, 3, 1.f, 1.f, 0.f, -1, 8.f);
+	Scatter(FARP("YardDogs"), 46.f, 60.f, 28, 17, 1.f, 1.f, 0.f, 1, 8.f);
+Zone(TEXT("People far: flare avenue"), 12.72f, 13.85f);
+	Scatter(FARP("Crows_A"), 60.f, 100.f, 12, 2, 1.f, 1.f, 0.f, -1, 8.f);
+	Scatter(FARP("Crows_A"), 60.f, 100.f, 12, 8, 1.f, 1.f, 0.f, 1, 8.f);
+Zone(TEXT("People far: cooling field"), 13.85f, 17.4f);
+	Scatter(FARP("TankCrew"), 120.f, 200.f, 18, 4, 1.f, 1.f, 0.f, -1, 20.f);
+	Scatter(FARP("TankCrew"), 120.f, 200.f, 18, 13, 1.f, 1.f, 0.f, 1, 20.f);
+	Scatter(FARP("Crows_A"), 60.f, 100.f, 28, 9, 1.f, 1.f, 0.f, -1, 8.f);
+	Scatter(FARP("Crows_A"), 60.f, 100.f, 28, 23, 1.f, 1.f, 0.f, 1, 8.f);
+	Scatter(FARP("Shift_A"), 100.f, 150.f, 40, 15, 1.f, 1.f, 0.f, -1, 8.f);
+	Scatter(FARP("Shift_A"), 100.f, 150.f, 40, 35, 1.f, 1.f, 0.f, 1, 8.f);
+Zone(TEXT("People far: tank farm B"), 17.4f, 21.4f);
+	Scatter(FARP("TankCrew"), 120.f, 200.f, 22, 2, 1.f, 1.f, 0.f, -1, 20.f);
+	Scatter(FARP("TankCrew"), 120.f, 200.f, 22, 13, 1.f, 1.f, 0.f, 1, 20.f);
+	Scatter(FARP("YardDogs"), 46.f, 60.f, 24, 7, 1.f, 1.f, 0.f, -1, 8.f);
+	Scatter(FARP("YardDogs"), 46.f, 60.f, 24, 19, 1.f, 1.f, 0.f, 1, 8.f);
+	Scatter(FARP("Crows_A"), 60.f, 100.f, 44, 10, 1.f, 1.f, 0.f, -1, 8.f);
+	Scatter(FARP("Crows_A"), 60.f, 100.f, 44, 32, 1.f, 1.f, 0.f, 1, 8.f);
+Zone(TEXT("People far: reactor two"), 21.4f, 25.6f);
+	Scatter(FARP("Crows_A"), 60.f, 100.f, 22, 1, 1.f, 1.f, 0.f, -1, 8.f);
+	Scatter(FARP("Crows_A"), 60.f, 100.f, 22, 12, 1.f, 1.f, 0.f, 1, 8.f);
+	Scatter(FARP("Shift_A"), 100.f, 150.f, 28, 6, 1.f, 1.f, 0.f, -1, 8.f);
+	Scatter(FARP("Shift_A"), 100.f, 150.f, 28, 20, 1.f, 1.f, 0.f, 1, 8.f);
+	Scatter(FARP("YardDogs"), 46.f, 60.f, 36, 9, 1.f, 1.f, 0.f, -1, 8.f);
+	Scatter(FARP("YardDogs"), 46.f, 60.f, 36, 27, 1.f, 1.f, 0.f, 1, 8.f);
+#undef FARP
+// ---- END far ----
+}
+
+{
+// ---- BEGIN watch (ft_people_chem_watch.py) ----
+// THE WATCHERS: the night shift, downed tools, massed on raised steel 40 m from the centre line (all TALL pieces,
+// steady light only), and on the roofs of far tanks. Every/phase count 45.24 m slots. The dressing's blow-down stacks
+// (41 to 43 m) and light masts (37 to 40 m) take phases 2 and 4 of every 5 slots as far as 12.72 km, and phases 4
+// and 1 of every 6 from 13.85 km: the watchers take the other phases of the same periods (0, 1, 3 of 5, then 0, 2, 3, 5
+// of 6), so they never stand in one. The flare avenue (12.72 to 13.85 km) is left to its flames.
+#define WATCH(n) TEXT("/Game/People/ChemicalWorks/SM_Watch" n)
+Zone(TEXT("People watch: the works"), 0.03f, 12.72f);
+	Scatter(WATCH("Stand_A"), 40.5f, 40.5f, 10, 0, 0.8f, 1.f, 0.f, -1);
+	Scatter(WATCH("Stand_B"), 40.5f, 40.5f, 10, 5, 0.8f, 1.f, 0.f, -1);
+	Scatter(WATCH("Lift_A"), 40.f, 40.f, 10, 3, 0.8f, 1.f, 0.f, -1);
+	Scatter(WATCH("Lift_B"), 40.f, 40.f, 10, 8, 0.8f, 1.f, 0.f, -1);
+	Scatter(WATCH("Roof"), 40.5f, 40.5f, 10, 1, 1.f, 1.f, 0.f, -1);
+	Scatter(WATCH("Stand_B"), 40.5f, 40.5f, 10, 3, 0.8f, 1.f, 0.f, 1);
+	Scatter(WATCH("Stand_A"), 40.5f, 40.5f, 10, 8, 0.8f, 1.f, 0.f, 1);
+	Scatter(WATCH("Lift_B"), 40.f, 40.f, 10, 1, 0.8f, 1.f, 0.f, 1);
+	Scatter(WATCH("Lift_A"), 40.f, 40.f, 10, 6, 0.8f, 1.f, 0.f, 1);
+	Scatter(WATCH("Roof"), 40.5f, 40.5f, 10, 5, 1.f, 1.f, 0.f, 1);
+Zone(TEXT("People watch: the finale"), 13.85f, 99.f);
+	Scatter(WATCH("Stand_A"), 40.5f, 40.5f, 12, 0, 0.8f, 1.f, 0.f, -1);
+	Scatter(WATCH("Stand_B"), 40.5f, 40.5f, 12, 6, 0.8f, 1.f, 0.f, -1);
+	Scatter(WATCH("Lift_A"), 40.f, 40.f, 12, 3, 0.8f, 1.f, 0.f, -1);
+	Scatter(WATCH("Lift_B"), 40.f, 40.f, 12, 9, 0.8f, 1.f, 0.f, -1);
+	Scatter(WATCH("Roof"), 40.5f, 40.5f, 12, 2, 1.f, 1.f, 0.f, -1);
+	Scatter(WATCH("Stand_B"), 40.5f, 40.5f, 12, 3, 0.8f, 1.f, 0.f, 1);
+	Scatter(WATCH("Stand_A"), 40.5f, 40.5f, 12, 9, 0.8f, 1.f, 0.f, 1);
+	Scatter(WATCH("Lift_B"), 40.f, 40.f, 12, 0, 0.8f, 1.f, 0.f, 1);
+	Scatter(WATCH("Lift_A"), 40.f, 40.f, 12, 6, 0.8f, 1.f, 0.f, 1);
+	Scatter(WATCH("Roof"), 40.5f, 40.5f, 12, 5, 1.f, 1.f, 0.f, 1);
+// the far tanks: Far rules (they stay beside loops and pipes), standing 1.2 m under the road's level like the land
+Zone(TEXT("People watch: far tanks"), 0.3f, 99.f);
+	Far(WATCH("TankFar"), 70.f, 110.f, 12, 2, 1.f, 1.f, 0.f, -1, 1.2f, 8.f);
+	Far(WATCH("TankFar"), 70.f, 110.f, 12, 8, 1.f, 1.f, 0.f, 1, 1.2f, 8.f);
+#undef WATCH
+// ---- END watch ----
+}

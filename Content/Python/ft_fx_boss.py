@@ -15,7 +15,8 @@ from ft_fx import C_FIRE, C_EMBER, C_ZAP, C_WHITE, C_SMOKE, C_SMOKE_D, C_SMOKE_L
 
 AL = unreal.EditorAssetLibrary
 # 2: sprites sized to be seen from the fight's distance (a boss on his spot is 58 m away: 37 px to the metre at 3440)
-VERSION = 2
+# 3: round two: NS_BossPillar, NS_BossWreckFire, NS_BossWake (the entrances, the ends, the shark's wake)
+VERSION = 3
 ARCS = heat((C_WHITE, 1.0), (C_ZAP, 0.5), ((0.3, 0.5, 1.0), 0.0))
 FLAME = heat(((1.0, 0.85, 0.35), 1.0), (C_FIRE, 0.6), (C_EMBER, 0.0))
 
@@ -42,6 +43,13 @@ def definitions():
     add('NS_BossDefeat', fx(n=3, life=(0.3, 0.42), size=((620, 620), (820, 820)), mat=cel('Burst'),
                             ramp=heat(((1.0, 0.95, 0.7), 1.0), ((1.0, 0.6, 0.15), 0.7), (C_EMBER, 0.3), ((0.5, 0.06, 0.04), 0.0)),
                             grow=(0.35, 1.0, 1.35), rot=True, sort=True))
+    # ---- round two: the entrances and the ends. A pillar of fire that stands straight up whatever it is on (the
+    # Juggernaut's stacks as he arrives, a magazine or a fuel tank going up: 12 m at size 1, tall enough to show over
+    # the wrap's card), and the fire a boss's wreck burns with (it rises in the world while the wreck tumbles)
+    add('NS_BossPillar', fx(n=14, life=(0.35, 0.6), size=((150, 150), (240, 240)), mat=cel('Blob'), ramp=FLAME, grow=(0.7, 1.2, 0.6),
+                            speed=(900, 3400), cone=7.0, axis=(0, 0, 1), world=True, drag=1.2, rot=True, sort=True))
+    add('NS_BossWreckFire', fx(rate=14, life=(0.35, 0.6), size=((150, 180), (220, 280)), mat=cel('Blob'), ramp=FLAME, grow=(1.0, 0.9, 0.3),
+                               speed=(300, 620), cone=16.0, axis=(0, 0, 1), world=True, sphere=40.0, rot=True, sort=True, owner=False))
     # ---- THE ALCHEMIST: the coil crackles as it fills, lets go in a flash and a spray of arcs, and shorts when hit
     add('NS_BossHurtZap', fx(n=12, life=(0.07, 0.16), size=((22, 90), (32, 160)), mat=cel('Shard'), ramp=ARCS,
                              speed=(1200, 3000), stretch=(1500, 1.8), align=True, sort=True, pool=(2, 8)))
@@ -116,6 +124,10 @@ def definitions():
                            speed=(900, 2300), cone=40.0, gravity=-1600.0, stretch=(1500, 1.8), align=True, sort=True))
     add('NS_BossFishFlash', fx(n=1, life=(0.08, 0.1), size=((220, 220), (260, 260)), mat=cel('Flash'), ramp=heat((C_WHITE, 1.0), (C_SEA, 0.55), (C_SEA, 0.0)),
                                grow=(0.5, 1.0, 1.1), rot=True, sort=True, pool=(2, 8)))
+    # (round two) its wake: a low sheet of spray running back off a flank, knee high and gone in 0.4 s. The rig holds
+    # one each side while it swims ahead, and drops both before anything is fired (FTEntity.cpp, AnimShark)
+    add('NS_BossWake', fx(rate=30, life=(0.25, 0.42), size=((70, 70), (120, 120)), mat=cel('Puff'), ramp=sea, grow=(0.6, 1.3, 1.8),
+                          speed=(700, 1300), cone=14.0, axis=(-1, 0, 0.16), drag=1.6, box=(40, 30, 6), sort=True, owner=False))
     add('NS_BossDefeatSplash', fx(n=4, life=(0.34, 0.5), size=((640, 640), (900, 900)), mat=cel('Burst'),
                                   ramp=heat((C_WHITE, 1.0), (C_SEA, 0.65), ((0.08, 0.45, 0.8), 0.3), ((0.06, 0.3, 0.6), 0.0)), grow=(0.35, 1.0, 1.4), rot=True, sort=True))
     # ---- THE CHAIRMAN: banknotes out of him when he is hit, the sunroof guns' fire while the stream runs, rockets

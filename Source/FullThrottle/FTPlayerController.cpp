@@ -2,6 +2,7 @@
 #include "FTGameInstance.h"
 #include "FTGameMode.h"
 #include "FTInput.h"
+#include "FTCursor.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
 #include "InputKeyEventArgs.h"
@@ -54,6 +55,30 @@ namespace
 			UE_LOG(LogTemp, Display, TEXT("FTINPUT cursor at %.0f,%.0f"), X, Y);
 			FTTap(World, Args.Num() > 2 && Args[2].Equals(TEXT("Right"), ESearchCase::IgnoreCase) ? EKeys::RightMouseButton : EKeys::LeftMouseButton);
 		}));
+#if !UE_BUILD_SHIPPING
+	// A test run (-RenderOffScreen) has no real mouse: ft.MouseAt puts the pointer at a fraction of the viewport, for
+	// every screen that reads it; ft.Press / ft.InputHold LeftMouseButton and ft.Press MouseScrollDown then click and scroll.
+	FAutoConsoleCommandWithWorldAndArgs GFTMouseAt(TEXT("ft.MouseAt"), TEXT("FULL THROTTLE tests: pointer at <x 0..1> <y 0..1> of the viewport; 'off' gives it back to the real mouse"),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+		{
+			UFTInputSubsystem* Input = UFTInputSubsystem::Get(World);
+			if (!Input || Args.IsEmpty()) return;
+			FVector2D At = Args.Num() >= 2 ? FVector2D(FCString::Atof(*Args[0]), FCString::Atof(*Args[1])) : FVector2D(-1.f, -1.f);
+			// ft.MouseAt row|btn|ov <n>: the middle of the title's row n, the title's button n or the open overlay's control n
+			const AFTGameMode* GM = World ? World->GetAuthGameMode<AFTGameMode>() : nullptr;
+			const APlayerController* PC = World ? World->GetFirstPlayerController() : nullptr;
+			if (GM && PC && Args.Num() >= 2 && !FChar::IsDigit(Args[0][0]))
+			{
+				const TArray<FBox2D>& Rects = Args[0] == TEXT("row") ? GM->TitleRowRects : Args[0] == TEXT("btn") ? GM->TitleBtnRects : GM->OverlayRects;
+				const int32 N = FCString::Atoi(*Args[1]);
+				int32 Vw = 0, Vh = 0; PC->GetViewportSize(Vw, Vh);
+				if (!Rects.IsValidIndex(N) || !Rects[N].bIsValid || Vw <= 0 || Vh <= 0) { UE_LOG(LogTemp, Warning, TEXT("FTINPUT pointer: no %s %d"), *Args[0], N); return; }
+				At = Rects[N].GetCenter() / FVector2D(Vw, Vh);
+			}
+			Input->SetPointerOverride(At);
+			UE_LOG(LogTemp, Display, TEXT("FTINPUT pointer override %.3f,%.3f"), At.X, At.Y);
+		}));
+#endif
 }
 
 void AFTCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTime)
@@ -94,6 +119,8 @@ void AFTPlayerController::BeginPlay()
 void AFTPlayerController::ApplyMouseMode(const TCHAR* Why)
 {
 	SetShowMouseCursor(bMenuMouse);
+	if (bMenuMouse) FTCursor::HideSystemCursor(this);
+	if (UFTInputSubsystem* Input = UFTInputSubsystem::Get(this)) Input->ResyncPointer();
 	if (bMenuMouse)
 	{
 		FInputModeGameAndUI Mode;
@@ -110,6 +137,8 @@ void AFTPlayerController::SetMenuMouse(bool bOn)
 	if (bOn == bMenuMouse) return;
 	bMenuMouse = bOn;
 	SetShowMouseCursor(bOn);
+	if (bOn) FTCursor::HideSystemCursor(this);
+	if (UFTInputSubsystem* Input = UFTInputSubsystem::Get(this)) Input->ResyncPointer();
 	if (bOn)
 	{
 		FInputModeGameAndUI Mode;
@@ -123,9 +152,16 @@ void AFTPlayerController::SetMenuMouse(bool bOn)
 
 FVector2D AFTPlayerController::MousePos() const
 {
-	float X = -1.f, Y = -1.f;
-	if (!GetMousePosition(X, Y)) return FVector2D(-1.f, -1.f);
-	return FVector2D(X, Y);
+	FVector2D At;
+	const UFTInputSubsystem* Input = UFTInputSubsystem::Get(this);
+	if (!Input || !Input->PointerPosition(this, At)) return FVector2D(-1.f, -1.f);
+	return At;
+}
+
+bool AFTPlayerController::PointerShown() const
+{
+	const UFTInputSubsystem* Input = UFTInputSubsystem::Get(this);
+	return bMenuMouse && Input && Input->PointerActive() && !Input->UsesGamepad();
 }
 
 bool AFTPlayerController::InputKey(const FInputKeyEventArgs& Params)
@@ -256,6 +292,7 @@ void AFTPlayerController::BlockMenuInputUntilRelease()
 void AFTPlayerController::PlayerTick(float Dt)
 {
 	Super::PlayerTick(Dt);
+	if (UFTInputSubsystem* Input = UFTInputSubsystem::Get(this)) Input->ObservePointer(this);
 	UFTGameInstance* GI = GetGameInstance<UFTGameInstance>();
 	if (!GI) return;
 	const float RealDt = FApp::GetDeltaTime();
@@ -317,7 +354,8 @@ void AFTPlayerController::PlayerTick(float Dt)
 	const bool bPadM = IsInputKeyDown(UFTInputSubsystem::RacePadKey(EFTAction::Missile));
 	In.bMissile = BindHit((int32)EFTAction::Missile, L) || WasInputKeyJustPressed(EKeys::RightMouseButton) || (bPadM && !bPrevPadMissile);
 	bPrevPadMissile = bPadM;
-	In.bAmmo = bRaceInput && (BindHit((int32)EFTAction::Ammo, L) || WasInputKeyJustPressed(UFTInputSubsystem::RacePadKey(EFTAction::Ammo)) || WasInputKeyJustPressed(EKeys::MiddleMouseButton));
+	In.bAmmo = bRaceInput && (BindHit((int32)EFTAction::Ammo, L) || WasInputKeyJustPressed(UFTInputSubsystem::RacePadKey(EFTAction::Ammo)) || WasInputKeyJustPressed(EKeys::MiddleMouseButton)
+		|| WasInputKeyJustPressed(EKeys::MouseScrollUp) || WasInputKeyJustPressed(EKeys::MouseScrollDown));
 	if (bSuppressGameplay)
 	{
 		// Check held buttons, not one-frame events. Resetting a pressed event alone would
@@ -344,8 +382,9 @@ bool AFTPlayerController::MenuRight() const
 	const UFTGameInstance* GI = GetGameInstance<UFTGameInstance>();
 	return Hit(EKeys::Right) || Hit(EKeys::D) || Hit(EKeys::Gamepad_DPad_Right) || Hit(EKeys::Gamepad_LeftStick_Right) || (GI && BindHit((int32)EFTAction::Right, GI->Layout));
 }
-bool AFTPlayerController::MenuUp() const { return Hit(EKeys::Up) || Hit(EKeys::W) || Hit(EKeys::Gamepad_DPad_Up) || Hit(EKeys::Gamepad_LeftStick_Up); }
-bool AFTPlayerController::MenuDown() const { return Hit(EKeys::Down) || Hit(EKeys::S) || Hit(EKeys::Gamepad_DPad_Down) || Hit(EKeys::Gamepad_LeftStick_Down); }
+// (the mouse wheel steps through a list like Up / Down, on the screens that take the mouse)
+bool AFTPlayerController::MenuUp() const { return Hit(EKeys::Up) || Hit(EKeys::W) || Hit(EKeys::Gamepad_DPad_Up) || Hit(EKeys::Gamepad_LeftStick_Up) || (bMenuMouse && Hit(EKeys::MouseScrollUp)); }
+bool AFTPlayerController::MenuDown() const { return Hit(EKeys::Down) || Hit(EKeys::S) || Hit(EKeys::Gamepad_DPad_Down) || Hit(EKeys::Gamepad_LeftStick_Down) || (bMenuMouse && Hit(EKeys::MouseScrollDown)); }
 bool AFTPlayerController::MenuOk() const { return Hit(EKeys::Enter) || Hit(EKeys::SpaceBar) || Hit(EKeys::Gamepad_FaceButton_Bottom); }
 bool AFTPlayerController::MenuBack() const { return Hit(EKeys::Escape) || Hit(EKeys::Gamepad_FaceButton_Right) || Hit(EKeys::Gamepad_Special_Left); }
 

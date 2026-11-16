@@ -804,49 +804,100 @@ Zone(TEXT("Cut banks"), 0.f, 99.f);
 //    prop now), the middle range avalanches on a clock, the ranges are taller with bigger banners.
 // None of these casts a shadow: they stand beyond 70 m or are Far.
 Zone(TEXT("Round three: the rack railway, the top"), 0.3f, 1.19f);
-	Scatter(TEXT("SM_RackTrain"), 96, 102, 9, 3, 1.f, 1.f, 0.f, 1, 6.f);
+	Scatter(TEXT("SM_RackTrain"), 96, 102, 9, 3, 0.f, 1.f, 0.f, 1, 6.f);     // second part: off (chance 0): laid across the slope now (the sets RackR and RackL at the end of this file)
 
 Zone(TEXT("Round three: the rack railway, the half pipe"), 1.19f, 2.43f);
-	Scatter(TEXT("SM_RackTrain"), 96, 102, 9, 5, 1.f, 1.f, 0.f, -1, 6.f);
+	Scatter(TEXT("SM_RackTrain"), 96, 102, 9, 5, 0.f, 1.f, 0.f, -1, 6.f);     // second part: off (chance 0): laid across the slope now (the sets RackR and RackL at the end of this file)
 
 Zone(TEXT("Round three: the rack railway, the whiteout"), 5.65f, 7.3f);
-	Scatter(TEXT("SM_RackTrain"), 96, 102, 9, 0, 1.f, 1.f, 0.f, 1, 6.f);
+	Scatter(TEXT("SM_RackTrain"), 96, 102, 9, 0, 0.f, 1.f, 0.f, 1, 6.f);     // second part: off (chance 0): laid across the slope now (the sets RackR and RackL at the end of this file)
 
 Zone(TEXT("Round three: the rack railway, the valley run"), 7.3f, 8.94f);
-	Scatter(TEXT("SM_RackTrain"), 96, 102, 9, 7, 1.f, 1.f, 0.f, 1, 6.f);
+	Scatter(TEXT("SM_RackTrain"), 96, 102, 9, 7, 0.f, 1.f, 0.f, 1, 6.f);     // second part: off (chance 0): laid across the slope now (the sets RackR and RackL at the end of this file)
 
 Zone(TEXT("Round three: the rack railway, the white ridge"), 11.6f, 14.3f);
-	Scatter(TEXT("SM_RackTrain"), 96, 102, 10, 0, 1.f, 1.f, 0.f, -1, 6.f);
-	Scatter(TEXT("SM_RackTrain"), 96, 102, 10, 5, 1.f, 1.f, 0.f, 1, 6.f);
+	Scatter(TEXT("SM_RackTrain"), 96, 102, 10, 0, 0.f, 1.f, 0.f, -1, 6.f);     // second part: off (chance 0): laid across the slope now (the sets RackR and RackL at the end of this file)
+	Scatter(TEXT("SM_RackTrain"), 96, 102, 10, 5, 0.f, 1.f, 0.f, 1, 6.f);     // second part: off (chance 0): laid across the slope now (the sets RackR and RackL at the end of this file)
 
 Zone(TEXT("Round three: the rack railway, the high ridge"), 19.7f, 22.4f);
-	Scatter(TEXT("SM_RackTrain"), 96, 102, 10, 3, 1.f, 1.f, 0.f, -1, 6.f);
-	Scatter(TEXT("SM_RackTrain"), 96, 102, 10, 8, 1.f, 1.f, 0.f, 1, 6.f);
+	Scatter(TEXT("SM_RackTrain"), 96, 102, 10, 3, 0.f, 1.f, 0.f, -1, 6.f);     // second part: off (chance 0): laid across the slope now (the sets RackR and RackL at the end of this file)
+	Scatter(TEXT("SM_RackTrain"), 96, 102, 10, 8, 0.f, 1.f, 0.f, 1, 6.f);     // second part: off (chance 0): laid across the slope now (the sets RackR and RackL at the end of this file)
 
 Zone(TEXT("Round three: groomers, the top"), 0.26f, 1.19f);
-	Scatter(TEXT("SM_GroomerRun"), 84, 90, 7, 1, 1.f, 1.f, 0.f, 1, 10.f);
+	Scatter(TEXT("SM_GroomerRun"), 84, 90, 7, 1, 0.f, 1.f, 0.f, 1, 10.f);     // second part: off (chance 0): laid across the slope now (the sets GroomR and GroomL at the end of this file)
 
 Zone(TEXT("Round three: groomers, the half pipe"), 1.19f, 2.43f);
-	Scatter(TEXT("SM_GroomerRun"), 84, 90, 7, 4, 1.f, 1.f, 0.f, 1, 10.f);
+	Scatter(TEXT("SM_GroomerRun"), 84, 90, 7, 4, 0.f, 1.f, 0.f, 1, 10.f);     // second part: off (chance 0): laid across the slope now (the sets GroomR and GroomL at the end of this file)
 
 Zone(TEXT("Round three: groomers, Black diamond"), 4.02f, 5.65f);
-	Scatter(TEXT("SM_GroomerRun"), 84, 90, 7, 2, 1.f, 1.f, 0.f, -1, 10.f);
-	Scatter(TEXT("SM_GroomerRun"), 84, 90, 7, 5, 1.f, 1.f, 0.f, 1, 10.f);
+	Scatter(TEXT("SM_GroomerRun"), 84, 90, 7, 2, 0.f, 1.f, 0.f, -1, 10.f);     // second part: off (chance 0): laid across the slope now (the sets GroomR and GroomL at the end of this file)
+	Scatter(TEXT("SM_GroomerRun"), 84, 90, 7, 5, 0.f, 1.f, 0.f, 1, 10.f);     // second part: off (chance 0): laid across the slope now (the sets GroomR and GroomL at the end of this file)
 
 Zone(TEXT("Round three: groomers, the whiteout"), 5.65f, 7.3f);
-	Scatter(TEXT("SM_GroomerRun"), 84, 90, 7, 3, 1.f, 1.f, 0.f, -1, 10.f);
+	Scatter(TEXT("SM_GroomerRun"), 84, 90, 7, 3, 0.f, 1.f, 0.f, -1, 10.f);     // second part: off (chance 0): laid across the slope now (the sets GroomR and GroomL at the end of this file)
 
 Zone(TEXT("Round three: groomers, the valley run"), 7.3f, 8.94f);
-	Scatter(TEXT("SM_GroomerRun"), 84, 90, 7, 6, 1.f, 1.f, 0.f, 1, 10.f);
+	Scatter(TEXT("SM_GroomerRun"), 84, 90, 7, 6, 0.f, 1.f, 0.f, 1, 10.f);     // second part: off (chance 0): laid across the slope now (the sets GroomR and GroomL at the end of this file)
 
 Zone(TEXT("Round three: groomers, the resort"), 14.3f, 17.f);
-	Scatter(TEXT("SM_GroomerRun"), 84, 90, 8, 3, 1.f, 1.f, 0.f, 1, 10.f);
+	Scatter(TEXT("SM_GroomerRun"), 84, 90, 8, 3, 0.f, 1.f, 0.f, 1, 10.f);     // second part: off (chance 0): laid across the slope now (the sets GroomR and GroomL at the end of this file)
 
 Zone(TEXT("Round three: groomers, the last lifts"), 22.4f, 99.f);
-	Scatter(TEXT("SM_GroomerRun"), 84, 90, 8, 5, 1.f, 1.f, 0.f, 1, 10.f);
+	Scatter(TEXT("SM_GroomerRun"), 84, 90, 8, 5, 0.f, 1.f, 0.f, 1, 10.f);     // second part: off (chance 0): laid across the slope now (the sets GroomR and GroomL at the end of this file)
 
 Zone(TEXT("Round three: the far road and the cloud"), 0.f, 99.f);
 	Far(TEXT("SM_PloughConvoy"), 335, 360, 33, 4, 1.f, 1.f, 0.f, -1, -30.f, 3.f);
 	Far(TEXT("SM_PloughConvoy"), 335, 360, 33, 20, 1.f, 1.f, 0.f, 1, -30.f, 3.f);
 	Far(TEXT("SM_CloudDrift"), 900, 1100, 30, 7, 1.f, 1.f, 0.2f, -1, -260.f, 0.f);
 	Far(TEXT("SM_CloudDrift"), 900, 1100, 30, 22, 1.f, 1.f, 0.2f, 1, -260.f, 0.f);
+
+// ---- ROUND THREE, SECOND PART (15 Nov 2026; NOT COMPILED and not seen in the game when it was committed).
+//  - The rack railway and the groomers' strips ran straight up the slope, away from the road: from the car their
+//    trains and groomers only grew and shrank. Their sixteen Scatter rules are off in place (chance 0) and the same
+//    pieces are laid here by sets, turned 50 degrees ACROSS the slope with the far end towards the car coming (yaw +50
+//    on the right of the road, -50 on the left), on the same slots; the meshes are rebuilt with the slope's rise along
+//    that line. Everything of round three also runs faster (the kit).
+//  - The cable car beyond the gondola (SM_CableCar: a 600 m span up to a station on its own mountain, four big cabins),
+//    its middle 640 m out on the RIGHT (the mesh is turned for that side), 26 m up (the snowfield's height out there).
+//  - An aurora over the horizon ahead (SM_Aurora: two pale curtains 1.4 km long, 1.6 km out and more, 650 m up). The
+//    level is in daylight: if it looks wrong in the game, its two rules' chance is the switch.
+Set(TEXT("RackR"), { { TEXT("SM_RackTrain"), 0, 0, 0, 50, 1 } });
+Set(TEXT("RackL"), { { TEXT("SM_RackTrain"), 0, 0, 0, -50, 1 } });
+Set(TEXT("GroomR"), { { TEXT("SM_GroomerRun"), 0, 0, 0, 50, 1 } });
+Set(TEXT("GroomL"), { { TEXT("SM_GroomerRun"), 0, 0, 0, -50, 1 } });
+
+Zone(TEXT("Second part: the rack railway, the top"), 0.3f, 1.19f);
+	Site(TEXT("RackR"), 1, 98, 9, 3, 1.f);
+Zone(TEXT("Second part: the rack railway, the half pipe"), 1.19f, 2.43f);
+	Site(TEXT("RackL"), -1, 98, 9, 5, 1.f);
+Zone(TEXT("Second part: the rack railway, the whiteout"), 5.65f, 7.3f);
+	Site(TEXT("RackR"), 1, 98, 9, 0, 1.f);
+Zone(TEXT("Second part: the rack railway, the valley run"), 7.3f, 8.94f);
+	Site(TEXT("RackR"), 1, 98, 9, 7, 1.f);
+Zone(TEXT("Second part: the rack railway, the white ridge"), 11.6f, 14.3f);
+	Site(TEXT("RackL"), -1, 98, 10, 0, 1.f);
+	Site(TEXT("RackR"), 1, 98, 10, 5, 1.f);
+Zone(TEXT("Second part: the rack railway, the high ridge"), 19.7f, 22.4f);
+	Site(TEXT("RackL"), -1, 98, 10, 3, 1.f);
+	Site(TEXT("RackR"), 1, 98, 10, 8, 1.f);
+
+Zone(TEXT("Second part: groomers, the top"), 0.26f, 1.19f);
+	Site(TEXT("GroomR"), 1, 86, 7, 1, 1.f);
+Zone(TEXT("Second part: groomers, the half pipe"), 1.19f, 2.43f);
+	Site(TEXT("GroomR"), 1, 86, 7, 4, 1.f);
+Zone(TEXT("Second part: groomers, Black diamond"), 4.02f, 5.65f);
+	Site(TEXT("GroomL"), -1, 86, 7, 2, 1.f);
+	Site(TEXT("GroomR"), 1, 86, 7, 5, 1.f);
+Zone(TEXT("Second part: groomers, the whiteout"), 5.65f, 7.3f);
+	Site(TEXT("GroomL"), -1, 86, 7, 3, 1.f);
+Zone(TEXT("Second part: groomers, the valley run"), 7.3f, 8.94f);
+	Site(TEXT("GroomR"), 1, 86, 7, 6, 1.f);
+Zone(TEXT("Second part: groomers, the resort"), 14.3f, 17.f);
+	Site(TEXT("GroomR"), 1, 86, 8, 3, 1.f);
+Zone(TEXT("Second part: groomers, the last lifts"), 22.4f, 99.f);
+	Site(TEXT("GroomR"), 1, 86, 8, 5, 1.f);
+
+Zone(TEXT("Second part: the cable car and the aurora"), 0.f, 99.f);
+	Far(TEXT("SM_CableCar"), 630, 650, 60, 32, 1.f, 1.f, 0.f, 1, -26.f, 0.f);
+	Far(TEXT("SM_Aurora"), 1600, 2100, 90, 20, 1.f, 1.f, 0.15f, -1, -650.f, 8.f);
+	Far(TEXT("SM_Aurora"), 1600, 2100, 90, 65, 1.f, 1.f, 0.15f, 1, -650.f, 8.f);

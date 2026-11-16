@@ -1,4 +1,5 @@
 #include "FTGameInstance.h"
+#include "FTStandalone.h"
 #include "FTInput.h"
 #include "UObject/UObjectGlobals.h"
 #include "FTCore.h"
@@ -90,7 +91,7 @@ void UFTGameInstance::Init()
 	FCoreDelegates::OnSyncLoadPackage.AddWeakLambda(this, [this](const FString& Pkg) { if (HitchLoads.Num() < 4) HitchLoads.Add(FPaths::GetBaseFilename(Pkg)); ++HitchLoadN; });
 	FCoreUObjectDelegates::GetPreGarbageCollectDelegate().AddWeakLambda(this, [this]() { ++HitchGCs; });
 #endif
-#if UE_BUILD_SHIPPING
+#if UE_BUILD_SHIPPING && !FT_STANDALONE   // the jam build (FTStandalone.h) runs on its own
 	{
 		// WispOS launch ticket: WispOS writes $WISPOS_APP_DATA/launch-ticket and passes the same value in
 		// WISPOS_LAUNCH_TICKET. Compare, delete the file, run. Anything else: say so and quit.

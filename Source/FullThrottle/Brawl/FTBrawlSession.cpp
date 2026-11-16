@@ -1,6 +1,7 @@
 #include "FTBrawlGameMode.h"
 #include "FTBrawlPlayerController.h"
 #include "FTInput.h"
+#include "FTCursor.h"
 #include "Engine/World.h"
 #include "Engine/GameInstance.h"
 #include "GameFramework/PlayerInput.h"
@@ -140,6 +141,8 @@ void AFTBrawlGameMode::SetSystemScreen(int32 Screen)
 			{ SystemPausedAudio.Add(*It); It->SetPaused(true); }
 		}
 		PC->bShowMouseCursor=Screen!=0;
+		if (Screen) FTCursor::HideSystemCursor(PC);   // the drawn pointer (FTBrawlHUD) stands in for the system's arrow
+		if (UFTInputSubsystem* Pointer=UFTInputSubsystem::Get(this)) Pointer->ResyncPointer();
 		if (Screen)
 		{ FInputModeGameAndUI Mode; Mode.SetHideCursorDuringCapture(false); Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock); PC->SetInputMode(Mode); }
 		else PC->SetInputMode(FInputModeGameOnly());
