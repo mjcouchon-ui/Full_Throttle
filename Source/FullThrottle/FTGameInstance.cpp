@@ -344,11 +344,16 @@ static TAutoConsoleVariable<int32> CVarFTSunRays(TEXT("ft.SunRays"), 0,
 	TEXT("0 = one hard sample: the projection pass 0.64 -> 0.37 ms (Level 1) and 0.81 -> 0.35 ms (Level 2), +2.3 to +4.7 fps in 4 interleaved EPIC runs, ")
 	TEXT("same picture side by side (cel bands + motion blur hide the soft edge). -1 = the preset's own count (4.2). Applied with the quality preset."));
 
-static TAutoConsoleVariable<int32> CVarFTGpuTrim(TEXT("ft.GpuTrim"), 1,
+static TAutoConsoleVariable<int32> CVarFTGpuTrim(TEXT("ft.GpuTrim"), 2,
 	TEXT("4.3: 1 = three cuts over the preset that look the same side by side (Bayshore day + Chem Works night frames): Lumen's screen-probe ")
 	TEXT("integrate at half resolution (r.Lumen.ScreenProbeGather.IntegrateDownsampleFactor 2), motion blur gathers at half resolution ")
 	TEXT("(r.MotionBlur.HalfResGather 1), translucency lighting volume 32^3 (r.TranslucencyLightingVolume.Dim, never raised). Release build EPIC 2560x1440, ")
-	TEXT("4 interleaved pairs on Levels 1-2: 140.4-142.2 -> 150.6-152.3 fps (GPU 6.64-6.71 -> 6.14-6.23 ms). 0 = the preset's own values (4.2). Applied with the quality preset."));
+	TEXT("4 interleaved pairs on Levels 1-2: 140.4-142.2 -> 150.6-152.3 fps (GPU 6.64-6.71 -> 6.14-6.23 ms). ")
+	TEXT("2 (4.4) = also: sun/moon shadow pages one step coarser (r.Shadow.Virtual.ResolutionLodBiasDirectional -0.5, EPIC was -1.5), no Lumen short-range AO ")
+	TEXT("(r.Lumen.ScreenProbeGather.ShortRangeAO 0: the cel bands + ink lines carry contact shape), TSR without history resurrection and reprojection field ")
+	TEXT("(r.TSR.Resurrection 0, r.TSR.ReprojectionField 0); 2x crops on Bayshore day + Chem Works night look the same (no ghosting on kite strings, poles, the car). ")
+	TEXT("Release build EPIC 2560x1440, 4 interleaved pairs on Levels 1-2: 150.5-152.4 -> 160.8-164.2 fps (GPU 6.13-6.23 -> 5.69-5.79 ms). ")
+	TEXT("0 = the preset's own values (4.2), 1 = 4.3. Applied with the quality preset."));
 
 void UFTGameInstance::ApplyQuality(int32 Q, bool bSave)
 {
@@ -432,6 +437,15 @@ void UFTGameInstance::ApplyQuality(int32 Q, bool bSave)
 			if (IConsoleVariable* V = CM.FindConsoleVariable(TEXT("r.Lumen.ScreenProbeGather.IntegrateDownsampleFactor"))) if (V->GetInt() < 2) V->Set(2, ECVF_SetByCode);
 			if (IConsoleVariable* V = CM.FindConsoleVariable(TEXT("r.MotionBlur.HalfResGather"))) V->Set(1, ECVF_SetByCode);
 			if (IConsoleVariable* V = CM.FindConsoleVariable(TEXT("r.TranslucencyLightingVolume.Dim"))) if (V->GetInt() > 32) V->Set(32, ECVF_SetByScalability); // preset priority: a lower preset picked later can still go under 32
+		}
+		if (GpuTrim > 1)
+		{
+			// 4.4: ft.GpuTrim 2 (see its help); preset priority and only ever cheaper, so LOW..HIGH keep their own values
+			IConsoleManager& CM = IConsoleManager::Get();
+			if (IConsoleVariable* V = CM.FindConsoleVariable(TEXT("r.Shadow.Virtual.ResolutionLodBiasDirectional"))) if (V->GetFloat() < -0.5f) V->Set(-0.5f, ECVF_SetByScalability);
+			if (IConsoleVariable* V = CM.FindConsoleVariable(TEXT("r.Lumen.ScreenProbeGather.ShortRangeAO"))) if (V->GetInt() != 0) V->Set(0, ECVF_SetByScalability);
+			if (IConsoleVariable* V = CM.FindConsoleVariable(TEXT("r.TSR.Resurrection"))) if (V->GetInt() != 0) V->Set(0, ECVF_SetByScalability);
+			if (IConsoleVariable* V = CM.FindConsoleVariable(TEXT("r.TSR.ReprojectionField"))) if (V->GetInt() != 0) V->Set(0, ECVF_SetByScalability);
 		}
 		UE_LOG(LogFT, Display, TEXT("FTQUALITY applied=%d overall=%d dynres=%d aa=%s sunrays=%d gputrim=%d"), Q, S->GetOverallScalabilityLevel(), bDyn ? 1 : 0, Aa == 4 ? TEXT("TSR") : TEXT("TAA"), SunRays, GpuTrim);
 		if (AppleCap > 0.f)
