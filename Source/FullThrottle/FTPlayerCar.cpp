@@ -75,14 +75,15 @@ static TAutoConsoleVariable<int32> CVarFTSetCeil(TEXT("ft.SetCeil"), 1,
 static TAutoConsoleVariable<float> CVarFTPipeEdge(TEXT("ft.PipeEdge"), 850.f,
 	TEXT("4.9: in a pipe (not a loop or a corkscrew) the lane ends this far from the middle (cm, at most 900): past it the car's outward speed against the surface is taken out and a stiff spring holds it; 2 m further it is put back. Level 7's fast pipe swept a car near its barrier into the deck at turbo speed and spun it. 0 = 4.8."));
 #if !UE_BUILD_SHIPPING
+static TAutoConsoleVariable<int32> CVarFTHitTrace(TEXT("ft.HitTrace"), 0, TEXT("FULL THROTTLE 5.2 tests: 1 = log FTHIT for every hit on the track (normal and impulse in the road's frame, the car's speed and yaw rate) and FTTW every frame in a corkscrew (each sideways push of the frame); 2 = FTTW in pipes too"));
 static TAutoConsoleVariable<int32> CVarFTGlueTrace(TEXT("ft.GlueTrace"), 0, TEXT("FULL THROTTLE 4.9 tests: 1 = log FTGT every frame on ordinary road (lift, speed off the road, wheels, suspension, the glue/crest/bump-stop terms)"));
 #endif
 static TAutoConsoleVariable<int32> CVarFTPipeKick(TEXT("ft.PipeKick"), 1,
 	TEXT("5.0: 1 = in a pipe, for 0.15 s after the chassis strikes the deck (not drifting), the car's yaw rate is held within 1 rad/s of turning it back onto the surface's path (Level 7's fast pipe at 24 fps: the swept deck struck the chassis and kicked it 6-8 rad/s round: herr 38-55 deg, a spin). Only below 40 fps. 0 = 4.9."));
 static TAutoConsoleVariable<int32> CVarFTWheelBarrier(TEXT("ft.WheelBarrier"), 1,
 	TEXT("5.0: 1 = on ordinary road beside the barrier (|x| > 11.5 m), while the chassis is more than 20 cm over ride height, the wheels' suspension traces ignore static geometry (the road is out of their reach then: they reach 14 cm down), their contacts don't count as wheels down, and a body over the barrier line is eased back in at 3 m/s. The rear wheels sit 12 cm wider than the body box, so their traces landed on the 160 cm barrier top and the springs held the car up there (the 12 fps road flights in the outer lanes, lift 146-711 cm with wheels 'down'). 0 = 4.9."));
-static TAutoConsoleVariable<int32> CVarFTLandAim(TEXT("ft.LandAim"), 3,
-	TEXT("5.1 (bits): 1 = over a gap jump the car's arc is bent down (never up, at most ft.LandAimMax) so it meets the road by the landing zone's end instead of flying past it 3-17 m up; 2 = a car still in the air past the landing zone stays in its jump (no glue yank, no snap-down) until it touches down. 0 = 5.0 (past the zone the glue pulled it down at 12 g: the 'road drops' on Levels 1, 7 and 8)."));
+static TAutoConsoleVariable<int32> CVarFTLandAim(TEXT("ft.LandAim"), 7,
+	TEXT("5.1 (bits): 1 = over a gap jump the car's arc is bent down (never up, at most ft.LandAimMax) so it meets the road by the landing zone's end instead of flying past it 3-17 m up; 2 = a car still in the air past the landing zone stays in its jump (no glue yank, no snap-down) until it touches down. 4 = late aim (5.2): the car climbs on air gravity alone and the pull starts only once the full pull is just enough to meet the zone (rise ~5.1-5.6 m at 60 fps instead of ~4.2-4.7, same landing). 3 = 5.1. 0 = 5.0 (past the zone the glue pulled it down at 12 g: the 'road drops' on Levels 1, 7 and 8)."));
 static TAutoConsoleVariable<float> CVarFTLandAimMax(TEXT("ft.LandAimMax"), 3000.f,
 	TEXT("5.1: the most extra downward pull ft.LandAim adds over air gravity (cm/s^2). 1,500 left turbo-speed jumps (~9,500 cm/s) 7-10 m up past the zone; 3,000 lands them in it (jumps rise ~4 m instead of ~6.5 m)."));
 static TAutoConsoleVariable<int32> CVarFTCrestFollow(TEXT("ft.CrestFollow"), 1,
@@ -707,6 +708,28 @@ void AFTPlayerCar::OnBodyHit(UPrimitiveComponent* HitComp, AActor* Other, UPrimi
 		LastHitT = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
 		LastHitUp = FVector::DotProduct(Hit.ImpactNormal, RoadUp);
 		LastHitTrack = Other == Track;
+#if !UE_BUILD_SHIPPING
+		if (CVarFTHitTrace.GetValueOnGameThread() > 0 && Other == Track)
+		{
+			// 5.2 probe: the hit in the road's own frame (r = across, u = up, f = along), the impulse as a speed change, where on the
+			// body it landed (across / ahead of the middle), the car's speed and yaw rate as the hit is reported
+			const FFTFrame Fh = Track->Sample(D);
+			const FVector N = Hit.ImpactNormal;
+			const FVector Vh = Chassis->GetPhysicsLinearVelocity();
+			const float Imp = NormalImpulse.Size() / FMath::Max(1.f, Chassis->GetMass());
+			const FVector Rel = Hit.ImpactPoint - Chassis->GetComponentLocation();
+			const FVector Ni = NormalImpulse.GetSafeNormal();
+			UE_LOG(LogFT, Display, TEXT("FTHIT t=%.3f D=%.0f X=%.0f hx=%.0f hh=%.0f n(r,u,f)=%.2f,%.2f,%.2f imp=%.0f impdir(r,u,f)=%.2f,%.2f,%.2f across=%.0f ahead=%.0f pen=%.1f v(f,r,u)=%.0f,%.0f,%.0f yawrate=%.2f w=%.2f flags=%d comp=%s"),
+				GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f, D, X, Hx, Hh, FVector::DotProduct(N, Fh.Right), FVector::DotProduct(N, Fh.Up), FVector::DotProduct(N, Fh.Fwd), Imp,
+				FVector::DotProduct(Ni, Fh.Right), FVector::DotProduct(Ni, Fh.Up), FVector::DotProduct(Ni, Fh.Fwd),
+				FVector::DotProduct(Rel, Chassis->GetRightVector()), FVector::DotProduct(Rel, Chassis->GetForwardVector()), Hit.PenetrationDepth,
+				FVector::DotProduct(Vh, Fh.Fwd), FVector::DotProduct(Vh, Fh.Right), FVector::DotProduct(Vh, Fh.Up),
+				FVector::DotProduct(Chassis->GetPhysicsAngularVelocityInRadians(), Fh.Up), Chassis->GetPhysicsAngularVelocityInRadians().Size(), (int32)Fh.Flags,
+				OtherComp ? *OtherComp->GetName() : TEXT("-"));
+			++TwHits; TwHitImp = FMath::Max(TwHitImp, Imp);
+			if (FMath::Abs(FVector::DotProduct(N, Fh.Up)) < 0.5f) TwHitNR = FVector::DotProduct(NormalImpulse, Fh.Right) / FMath::Max(1.f, Chassis->GetMass());
+		}
+#endif
 	}
 	if (Other && Other == Track)
 	{
@@ -883,6 +906,29 @@ void AFTPlayerCar::Tick(float Dt)
 	}
 
 	ApplyArcade(Dt);
+#if !UE_BUILD_SHIPPING
+	{
+		// 5.2 ft.HitTrace: one FTTW line a frame in a corkscrew (2: and in pipes). v0 = the car's speed (along, across, up the
+		// road) as the frame began, vset = across after this frame's direct speed sets; the pushes held over the frame
+		// (cm/s^2): cp = corkscrew centre pull, lat = the lane spring/damper, grip, gov (governor's across part); back/out =
+		// put in from the edge (cm / cm/s); hits = track hits reported since the last line (max impulse, across part of a barrier's)
+		const int32 HT = CVarFTHitTrace.GetValueOnGameThread();
+		const uint16 Fl = Track->FlagsAt(D);
+		if (HT > 0 && ((Fl & FTFlag::Twist) || (HT > 1 && (Fl & FTFlag::Pipe))) && !bWrecked && !Drive.bFrozen)
+		{
+			const FFTFrame Ft = Track->Sample(D);
+			const FVector Vs = Chassis->GetPhysicsLinearVelocity();
+			const FVector CarF = Chassis->GetForwardVector();
+			const FVector Cf = (CarF - Ft.Up * FVector::DotProduct(CarF, Ft.Up)).GetSafeNormal();
+			const float Herr = FMath::RadiansToDegrees(FMath::Atan2(FVector::DotProduct(FVector::CrossProduct(PathF, Cf), Ft.Up), FVector::DotProduct(Cf, PathF)));
+			UE_LOG(LogFT, Display, TEXT("FTTW t=%.3f dt=%.3f D=%.0f X=%.0f lift=%.0f wh=%d herr=%.1f yaw0=%.2f yawset=%.2f v0(f,r,u)=%.0f,%.0f,%.0f vset_r=%.0f cp=%.0f lat=%.0f grip=%.0f gov=%.0f back=%.0f out=%.0f sweep=%.0f want=%.2f yawA=%.1f hits=%d imp=%.0f impR=%.0f put=%d fl=%d"),
+				GetWorld()->GetTimeSeconds(), Dt, D, X, TwLift, WheelsDown, Herr, TwW0, FVector::DotProduct(Chassis->GetPhysicsAngularVelocityInRadians(), Ft.Up),
+				FVector::DotProduct(TwV0, Ft.Fwd), FVector::DotProduct(TwV0, Ft.Right), FVector::DotProduct(TwV0, Ft.Up), FVector::DotProduct(Vs, Ft.Right),
+				TwCp, TwLat, TwGrip, TwGov, TwBack, TwOut, TwSweep, TwWant, TwYawA, TwHits, TwHitImp, TwHitNR, TwPut ? 1 : 0, (int32)Fl);
+		}
+		TwHits = 0; TwHitImp = TwHitNR = 0.f;
+	}
+#endif
 	LastSpeed = Speed;
 	if (NoseProbeT >= 0.f)
 	{
@@ -1258,15 +1304,24 @@ void AFTPlayerCar::TickBody(float Dt)
 	// heave: the springs compress under a hard push down (a landing, the bottom of a dip) and the body sinks
 	const float HeaveT = FMath::Clamp(-(AccF.Z) / G * 5.f, -10.f, 6.f);
 	const float W = BodyFreq, Z = BodyDamp;
-	auto Spring = [&](float& X, float& V, float Target)
+	// 5.2: stepped at 1/120 s at most. One step a frame is unstable past W x Dt ~2 (frames over ~0.17 s): a run of slow
+	// frames (3 fps, or a stall streak) grew the swing every frame until the body sat 27-100 km under the road (v520
+	// ft.FarProbe: the low-fps 'precision loss' ensure; the chassis and the game were fine, the car drawn was gone)
+	const int32 NSub = FMath::Clamp(FMath::CeilToInt(Dt * 120.f), 1, 64);
+	const float Hs = Dt / NSub;
+	auto Spring = [&](float& X, float& V, float Target, float Lim)
 	{
-		const float Acc = W * W * (Target - X) - 2.f * Z * W * V;
-		V += Acc * Dt; X += V * Dt;
-		if (!FMath::IsFinite(X)) { X = 0.f; V = 0.f; }
+		for (int32 i = 0; i < NSub; ++i)
+		{
+			const float Acc = W * W * (Target - X) - 2.f * Z * W * V;
+			V += Acc * Hs; X += V * Hs;
+		}
+		if (!FMath::IsFinite(X) || !FMath::IsFinite(V)) { X = 0.f; V = 0.f; }
+		if (FMath::Abs(X) > Lim) { X = FMath::Sign(X) * Lim; V = 0.f; }
 	};
-	Spring(BodyRoll, BodyRollV, RollT);
-	Spring(BodyPitch, BodyPitchV, PitchT);
-	Spring(BodyHeave, BodyHeaveV, HeaveT);
+	Spring(BodyRoll, BodyRollV, RollT, 12.f);
+	Spring(BodyPitch, BodyPitchV, PitchT, 8.f);
+	Spring(BodyHeave, BodyHeaveV, HeaveT, 25.f);
 	// the body pivots about its middle at axle height, so a roll doesn't swing it off the wheels
 	const FVector Pivot(0.f, 0.f, 40.f);
 	const FRotator Rot(BodyPitch, 0.f, BodyRoll);
@@ -1386,6 +1441,8 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 	const FFTFrame F = Track->Sample(D);
 	PathF = F.Fwd; PathYawRate = 0.f;
 	HopCd = FMath::Max(0.f, HopCd - Dt);
+	TwCp = TwLat = TwGrip = TwGov = TwBack = TwOut = TwSweep = TwYawA = TwWant = 0.f; TwPut = false;
+	TwV0 = Chassis->GetPhysicsLinearVelocity(); TwW0 = FVector::DotProduct(Chassis->GetPhysicsAngularVelocityInRadians(), F.Up);
 
 	// 2.5: the surface under the car. Flat road: the frame itself. Half pipe: the U's curve (height and slope
 	// across). Coaster: the car's own rail, followed by continuity so a cross-over keeps it on the same rail.
@@ -1443,6 +1500,7 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 	const bool bFlagJump = (F.Flags & (FTFlag::Kicker | FTFlag::Gap)) != 0 || ((F.Flags & FTFlag::Landing) && !bGrounded) || LaunchT > 0.f || !bSolid;
 	// height over the surface measured along its normal (on a half pipe wall the frame's up is tilted off it)
 	const float Lift = Hr / FMath::Sqrt(1.f + Slope * Slope) - ChassisZ;
+	TwLift = Lift;
 
 	// 5.1 landing aim (ft.LandAim; loop target "road drops with no jump flag"). A gap jump's landing zone is the first 8%
 	// of the ramp down (u 0.6-0.68), but the road under the gap pitches down from the kicker's +A to the ramp's -B, and at
@@ -1455,6 +1513,7 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 	// in its jump (no glue, no snap) until it touches down, so it comes down on gravity and the aim, not on the glue.
 	const int32 LandAim = CVarFTLandAim.GetValueOnGameThread();
 	AimA = 0.f;
+	if (bGrounded || bWrecked) bLateAimOn = false;
 	if ((F.Flags & (FTFlag::Kicker | FTFlag::Gap)) && GapLandEnd < D)
 	{
 		GapLandEnd = -1.f;
@@ -1487,7 +1546,16 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 			const float GAir = 980.f * AirGravityScale;
 			// the extra downward pull that puts the car on the road there at that time (z + vz t - (g + a) t^2 / 2 = zt)
 			const float Need = 2.f * (Pc.Z + Vc.Z * T - Pt.Z) / (T * T) - GAir;
-			AimA = FMath::Clamp(Need, 0.f, CVarFTLandAimMax.GetValueOnGameThread());
+			const float AimMax = CVarFTLandAimMax.GetValueOnGameThread();
+			AimA = FMath::Clamp(Need, 0.f, AimMax);
+			// 5.2 (bit 4, late aim): spread over the whole flight the pull also flattened the climb (rise ~4 m, was ~6.5). Now the
+			// car climbs on air gravity alone and the pull only starts once the full pull is just enough to meet the zone's end
+			// (the most height the cap allows for the same landing point); once started it stays on until touchdown.
+			if (LandAim & 4)
+			{
+				if (!bLateAimOn && Need < AimMax * 0.9f) AimA = 0.f;
+				else bLateAimOn = true;
+			}
 			if (AimA > 0.f) Chassis->AddForce(FVector(0, 0, -AimA), NAME_None, true);
 		}
 	}
@@ -1728,7 +1796,11 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 		if (bSweep)
 		{
 			const float VLatR = FVector::DotProduct(Vc, F.Right);
-			if (F.Flags & FTFlag::Twist) Chassis->AddForce(F.Right * FMath::Clamp(-X * 22.f - VLatR * 9.f, -12000.f, 12000.f), NAME_None, true);
+			if (F.Flags & FTFlag::Twist)
+			{
+				TwCp = FMath::Clamp(-X * 22.f - VLatR * 9.f, -12000.f, 12000.f);
+				Chassis->AddForce(F.Right * TwCp, NAME_None, true);
+			}
 			// 3.6: and the car rides with the deck's sweep. Off the centreline a rolling deck moves along its own normal
 			// (roll rate x distance out), so a car driving straight was struck by it (Level 2's second corkscrew, entered at
 			// turbo speed: ~8,200 -> ~2,700 cm/s for a frame in every run) or left hanging. Near the surface, its speed along
@@ -1739,7 +1811,10 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 				const FVector Sweep = (F2.Pos + F2.Right * X) - (F.Pos + F.Right * X);
 				const float VUp = FVector::DotProduct(Sweep, F.Up) / 100.f * FMath::Max(FVector::DotProduct(Vc, F.Fwd), 0.f);
 				if (FMath::Abs(VUp) > 300.f)
-					Chassis->SetPhysicsLinearVelocity(Chassis->GetPhysicsLinearVelocity() + F.Up * (VUp - FVector::DotProduct(Vc, F.Up)));
+				{
+					TwSweep = VUp - FVector::DotProduct(Vc, F.Up);
+					Chassis->SetPhysicsLinearVelocity(Chassis->GetPhysicsLinearVelocity() + F.Up * TwSweep);
+				}
 			}
 		}
 		// plus a pull back square to the surface (the car's own lean off it, about the road's forward axis)
@@ -1761,6 +1836,7 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 			const float Xc = FMath::Clamp(X, -FT::RoadHalf, FT::RoadHalf);
 			const float Vr = FMath::Max(FVector::DotProduct(Chassis->GetPhysicsLinearVelocity(), F.Fwd), bInSet ? SetFloor : 0.f);
 			UE_LOG(LogFT, Display, TEXT("FTPUTBACK D=%.0f X=%.0f lift=%.0f v=%.0f %s"), D, X, Lift, Vr, bSetP ? TEXT("setpiece") : TEXT("road"));
+			TwPut = true; TwLift = Lift;
 			Chassis->SetWorldTransform(Track->TransformAt(D, Xc, Track->SurfaceH(D, Xc) + ChassisZ + 6.f), false, nullptr, ETeleportType::TeleportPhysics);
 			FVector Vput = F.Fwd * Vr;
 			// 4.5: in a twist or a pipe the deck off the centreline sweeps along its own normal (roll rate x distance out:
@@ -1974,6 +2050,7 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 				Chassis->SetWorldLocation(Chassis->GetComponentLocation() - F.Right * FMath::Sign(X) * Back, false, nullptr, ETeleportType::TeleportPhysics);
 				const float Out = (FVector::DotProduct(Vg, F.Right) - PipeLatV) * FMath::Sign(X);   // (4.6: against the surface, which slides in a pipe)
 				if (Out > 0.f) { Vg -= F.Right * FMath::Sign(X) * Out; Chassis->SetPhysicsLinearVelocity(Vg); }
+				TwBack = -FMath::Sign(X) * Back; TwOut = Out > 0.f ? -FMath::Sign(X) * Out : 0.f;
 				if (bInSet) ++SetSnaps;
 			}
 			float VLatR = FVector::DotProduct(Vg, F.Right) - PipeLatV;
@@ -2001,7 +2078,8 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 			// damp the sideways speed while off the wheels, and always when it is heading out past 9 m
 			const bool bOutward = Over * VLatR > 0.f;
 			const float LatA = (bPipeEdge ? 4.f : 1.f) * GlueK * Over + ((!bGrounded || bOutward) ? GlueDamp * VLatR : 0.f);
-			if (LatA != 0.f) Chassis->AddForce(-F.Right * FMath::Clamp(LatA, bPipeEdge ? -60000.f : -20000.f, bPipeEdge ? 60000.f : 20000.f), NAME_None, true);
+			TwLat = -FMath::Clamp(LatA, bPipeEdge ? -60000.f : -20000.f, bPipeEdge ? 60000.f : 20000.f);
+			if (TwLat != 0.f) Chassis->AddForce(F.Right * TwLat, NAME_None, true);
 		}
 		Chassis->AddForce(-Up * Pull, NAME_None, true);
 		TrPull = Pull;
@@ -2085,14 +2163,14 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 		// 2.6 (spec 05 §1): speed moves toward the target at the stated rate (420 / 900 su/s, by the Gearbox), both
 		// ways; a stiff gain so it reaches the target instead of settling under it
 		const float A = FMath::Clamp(Gap * 8.f, (bInSet || LandHoldT > 0.f) ? 0.f : -Drive.Accel, Drive.Accel);
-		if ((AM & 1) && !bUnstick) Chassis->AddForce(Cf * A, NAME_None, true);
+		if ((AM & 1) && !bUnstick) { Chassis->AddForce(Cf * A, NAME_None, true); TwGov = A * FVector::DotProduct(Cf, F.Right); }
 
 		// grip: remove sideways slip unless sliding on purpose
 		const float LatTarget = Drive.DriftDir != 0 ? Drive.DriftTargetLat : 0.f;
 		const float GripNow = FMath::Lerp(Grip, 2.2f, DriftBlend);
 		// (4.6: in a pipe the slip is against the surface, which slides sideways as the road rolls round the tube)
 		const float SurfLat = bPipeHead ? 0.f : PipeLatV * FVector::DotProduct(F.Right, Cr);   // (4.7: none needed once the nose follows the surface)
-		if (AM & 2) Chassis->AddForce(Cr * FMath::Clamp((LatTarget + SurfLat - VLat) * GripNow, -9000.f, 9000.f), NAME_None, true);
+		if (AM & 2) { const float GA = FMath::Clamp((LatTarget + SurfLat - VLat) * GripNow, -9000.f, 9000.f); Chassis->AddForce(Cr * GA, NAME_None, true); TwGrip = GA * FVector::DotProduct(Cr, F.Right); }
 
 		// yaw: steer rate, plus following the bend, plus drift angle
 		const float SK = FMath::Clamp(FMath::Abs(VAlong) / 9600.f, 0.f, 1.f);
@@ -2109,7 +2187,8 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 			// never let it swing more than ~40 degrees off the road unless drifting
 			if (FMath::Abs(HeadErr) > 0.7f) Want = RoadRate + PathYawRate - FMath::Sign(HeadErr) * 2.5f;
 		}
-		if (AM & 4) Chassis->AddTorqueInRadians(Up * FMath::Clamp((Want - YawRate) * 11.f, -40.f, 40.f), NAME_None, true);
+		TwWant = Want; TwYawA = FMath::Clamp((Want - YawRate) * 11.f, -40.f, 40.f);
+		if (AM & 4) Chassis->AddTorqueInRadians(Up * TwYawA, NAME_None, true);
 #if !UE_BUILD_SHIPPING
 		if (CVarFTPipeTrace.GetValueOnGameThread() > 0 && (F.Flags & FTFlag::Pipe))
 			UE_LOG(LogFT, Display, TEXT("FTPIPE2 D=%.0f herr=%.1f steer=%.2f want=%.2f yawrate=%.2f pathYawR=%.2f vlat=%.0f surfLat=%.0f valong=%.0f"),

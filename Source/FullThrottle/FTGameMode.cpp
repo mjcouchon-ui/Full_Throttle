@@ -52,6 +52,7 @@ static TAutoConsoleVariable<int32> CVarFTAutoSmooth(TEXT("ft.AutoSmooth"), 1, TE
 static TAutoConsoleVariable<float> CVarFTAutoX(TEXT("ft.AutoX"), -99999.f, TEXT("FULL THROTTLE 3.6 tests: the autopilot holds this road x (cm, -1371..1371 between the barriers) instead of picking a lane; -99999 = off"));
 static TAutoConsoleVariable<float> CVarFTHp(TEXT("ft.Hp"), 0.f, TEXT("FULL THROTTLE test hook: start each race with this armour, e.g. 30 = already burning (0 = normal)"));
 static TAutoConsoleVariable<int32> CVarFTAttract(TEXT("ft.Attract"), 1, TEXT("FULL THROTTLE 3.0: 1 = the title plays the game by itself and cuts between the levels (attract mode)"));
+static TAutoConsoleVariable<int32> CVarFTFarProbe(TEXT("ft.FarProbe"), 0, TEXT("FULL THROTTLE 5.2 tests: 1 = every frame, log FTFAR for any scene component in the world whose location is NaN or more than 1e9 cm out (the low-fps 'precision loss' ensure)"));
 static TAutoConsoleVariable<float> CVarFTShots(TEXT("ft.Shots"), 0.f, TEXT("FULL THROTTLE: take a screenshot every N seconds while racing (0 = off)"));
 
 using FT::XU; using FT::DU; using FT::RoadHalf; using FT::LaneX; using FT::BaseSpeed; using FT::WallH;
@@ -659,6 +660,26 @@ void AFTGameMode::FinishRating()
 void AFTGameMode::Tick(float Dt)
 {
 	Super::Tick(Dt);
+#if !UE_BUILD_SHIPPING
+	if (CVarFTFarProbe.GetValueOnGameThread() > 0)
+	{
+		// 5.2 probe: what goes NaN or flies off (at 3 fps a primitive's transform failed the large-world check once a run)
+		static int32 FarLogged = 0;
+		for (TObjectIterator<USceneComponent> It; It && FarLogged < 40; ++It)
+		{
+			USceneComponent* C = *It;
+			if (!C || C->GetWorld() != GetWorld() || !C->IsRegistered()) continue;
+			const FVector L = C->GetComponentLocation();
+			if (L.ContainsNaN() || L.GetAbsMax() > 1e9 || C->GetComponentTransform().ContainsNaN())
+			{
+				++FarLogged;
+				UE_LOG(LogFT, Display, TEXT("FTFAR frame=%llu dt=%.3f comp=%s class=%s owner=%s ownerClass=%s loc=%s scale=%s attach=%s"), (unsigned long long)GFrameCounter, Dt,
+					*C->GetName(), *C->GetClass()->GetName(), C->GetOwner() ? *C->GetOwner()->GetName() : TEXT("-"), C->GetOwner() ? *C->GetOwner()->GetClass()->GetName() : TEXT("-"),
+					*L.ToString(), *C->GetComponentScale().ToString(), C->GetAttachParent() ? *C->GetAttachParent()->GetName() : TEXT("-"));
+			}
+		}
+	}
+#endif
 	if (!Track || !Car) return;
 	const float RDt = FMath::Min(FApp::GetDeltaTime(), 0.1f);
 	AFTPlayerController* PC = Cast<AFTPlayerController>(GetWorld()->GetFirstPlayerController());

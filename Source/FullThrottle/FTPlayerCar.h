@@ -221,6 +221,11 @@ protected:
 	static constexpr float HopDur = 0.85f;
 	// 2.5 tests: what the car last hit (stall reports)
 	FString LastHit; float LastHitT = 0.f; float LastHitUp = 1.f; bool LastHitTrack = false;
+	// 5.2 ft.HitTrace probe (corkscrew barrier spins): this frame's sideways pushes along the road's right (cm/s^2 held over
+	// the frame, or cm/s set directly), the speed before/after the direct sets, and the track hits since the last frame
+	float TwCp = 0.f, TwLat = 0.f, TwGrip = 0.f, TwGov = 0.f, TwBack = 0.f, TwOut = 0.f, TwSweep = 0.f, TwYawA = 0.f, TwWant = 0.f, TwLift = 0.f, TwHitImp = 0.f, TwHitNR = 0.f;
+	FVector TwV0 = FVector::ZeroVector; float TwW0 = 0.f; int32 TwHits = 0; bool TwPut = false;
+	bool bLateAimOn = false;   // 5.2 ft.LandAim 4: the late landing aim has started on this flight
 	TArray<FTransform> PartRest;
 	bool bHangModel = false;
 	// 3.3 half pipe air: where it left (x, height over the frame), its speed up and along
