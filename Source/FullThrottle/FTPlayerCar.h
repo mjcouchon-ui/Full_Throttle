@@ -249,4 +249,9 @@ protected:
 	// made in BeginPlay, shown by SetDamageLook in the order of FTPlayerCar.cpp's CarMarks
 	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> DamageMarks;
 	int32 MarksShown = 0;
+	// 4.8: the chassis's own physical material (ft.BodySlide; the PM_CarBody asset it used to look for never existed)
+	UPROPERTY(Transient) TObjectPtr<class UPhysicalMaterial> BodySlidePM;
+	int32 BodySlideOn = -1;                    // the ft.BodySlide value last applied (-1 = not yet)
+	float BodySlideMu = -1.f;                  // ...and its friction
+	void ApplyBodySlide();
 };

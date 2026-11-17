@@ -15,6 +15,7 @@
 #include "NiagaraSystem.h"
 #include "Sound/SoundBase.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
+#include "PhysicsEngine/PhysicsSettings.h"
 #include "HAL/IConsoleManager.h"
 #include "FTFx.h"
 #include "NiagaraSystem.h"
@@ -45,6 +46,15 @@ static FAutoConsoleCommandWithWorldAndArgs GFTNosePin(TEXT("ft.NosePin"),
 	{
 		for (TActorIterator<AFTPlayerCar> It(W); It; ++It) It->NosePin(A.Num() ? FCString::Atof(*A[0]) : 60.f, A.Num() > 1 ? FCString::Atoi(*A[1]) : 1);
 	}));
+static TAutoConsoleVariable<int32> CVarFTPipeTrace(TEXT("ft.PipeTrace"), 0, TEXT("FULL THROTTLE 4.8 tests: 1 = log FTPIPE every frame the car is in a pipe"));
+static FAutoConsoleCommandWithWorldAndArgs GFTWarp(TEXT("ft.Warp"),
+	TEXT("FULL THROTTLE 4.8 tests: ft.Warp <D cm> [X cm] [speed cm/s]: put the car on the track there (FTWARP log)"),
+	FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& A, UWorld* W)
+	{
+		if (A.Num() < 1) return;
+		const float Dw = FCString::Atof(*A[0]), Xw = A.Num() > 1 ? FCString::Atof(*A[1]) : 0.f, Sw = A.Num() > 2 ? FCString::Atof(*A[2]) : 0.f;
+		for (TActorIterator<AFTPlayerCar> It(W); It; ++It) { It->PlaceOnTrack(Dw, Xw, Sw); UE_LOG(LogFT, Display, TEXT("FTWARP D=%.0f X=%.0f v=%.0f"), Dw, Xw, Sw); }
+	}));
 #endif
 static TAutoConsoleVariable<int32> CVarFTLandKeep(TEXT("ft.LandKeep"), 1,
 	TEXT("4.6: 1 = a jump's touchdown keeps its flight speed through the impact also when it lands on its belly (wheels reading in the air) and when the turbo is on (flight speed under the governor's target: held 0.3 s, no gain). 0 = 4.5."));
@@ -52,6 +62,12 @@ static TAutoConsoleVariable<int32> CVarFTLandCushion(TEXT("ft.LandCushion"), 1,
 	TEXT("4.7: 1 = in the last ~2 frames before a jump's touchdown the speed into the deck is cut to 600 cm/s and the car is squared to the road and pointed along it (if within 35 degrees), so a long landing doesn't slam the chassis into the deck and spin. 0 = 4.6."));
 static TAutoConsoleVariable<int32> CVarFTPipeHead(TEXT("ft.PipeHead"), 1,
 	TEXT("4.7: 1 = in a pipe the car's nose (yaw assist, air control, autopilot) follows the road surface's own direction under it, not the tube's axis, and the sideways feed-forward is capped at 60,000 instead of 20,000 cm/s^2. 0 = 4.6 (crabbed 20-30 degrees at turbo speed in Level 7's fast pipe, slid to the barrier, spun)."));
+static TAutoConsoleVariable<int32> CVarFTBodySlide(TEXT("ft.BodySlide"), 1,
+	TEXT("4.8: 1 = the chassis box gets its own low-friction, no-bounce physical material (friction ft.BodyFriction, combine Min; restitution 0, combine Min), so a barrier scrape or a belly touchdown slides instead of dragging. 0 = 4.7 (the PM_CarBody asset never existed: engine default friction 0.7, restitution 0.3)."));
+static TAutoConsoleVariable<float> CVarFTBodyFriction(TEXT("ft.BodyFriction"), 0.1f,
+	TEXT("4.8: the chassis friction ft.BodySlide gives it (combine Min, so the lower of this and what it touches)."));
+static TAutoConsoleVariable<int32> CVarFTPhysSubsteps(TEXT("ft.PhysSubsteps"), 16,
+	TEXT("4.8: most physics substeps (8.3 ms each) in one frame. With 8 (4.7, the project setting) a frame slower than 15 fps ran the car's physics slower than the game clock (72% of real time at 11 fps: the car lost ground to the world and its assists). 16 keeps it real time down to 7.5 fps. 0 = leave the project setting."));
 static TAutoConsoleVariable<int32> CVarFTCrestFollow(TEXT("ft.CrestFollow"), 1,
 	TEXT("4.6: 1 = where the surface curves away from the car (crests, a pipe's inner wall) the car is pulled with the curve (v^2 x curvature), so it doesn't float over it on the glue spring. 0 = 4.5."));
 
@@ -320,7 +336,9 @@ void AFTPlayerCar::BeginPlay()
 	SetFX(SpeedFXR, TEXT("/Game/FX/NS_SpeedLines"));
 	if (!EngineAudio->Sound) EngineAudio->SetSound(Load<USoundBase>(TEXT("/Game/Audio/SFX/S_EngineLoop")));
 	if (!SkidAudio->Sound) SkidAudio->SetSound(Load<USoundBase>(TEXT("/Game/Audio/SFX/S_Skid")));
-	if (UPhysicalMaterial* PM = Load<UPhysicalMaterial>(TEXT("/Game/Core/Physics/PM_CarBody"))) { Chassis->SetPhysMaterialOverride(PM); UE_LOG(LogFT, Display, TEXT("FTBODYPM friction=%.2f static=%.2f restitution=%.2f combine=%d"), PM->Friction, PM->StaticFriction, PM->Restitution, (int32)PM->FrictionCombineMode); }
+	// 4.8: /Game/Core/Physics/PM_CarBody was loaded here but never existed (the body ran on the engine default, friction
+	// 0.7 and restitution 0.3): the body's material is now made in code (ApplyBodySlide, also re-run when ft.BodySlide changes)
+	ApplyBodySlide();
 	// the suspension traces must never find the car's own chassis (a Vehicle-channel body)
 	Vehicle->SetWheelTraceResponseToChannel(ECC_Vehicle, ECR_Ignore);
 	Vehicle->SetWheelTraceResponseToChannel(ECC_Pawn, ECR_Ignore);
@@ -699,6 +717,33 @@ void AFTPlayerCar::OnBodyHit(UPrimitiveComponent* HitComp, AActor* Other, UPrimi
 	}
 }
 
+void AFTPlayerCar::ApplyBodySlide()
+{
+	BodySlideOn = CVarFTBodySlide.GetValueOnGameThread();
+	BodySlideMu = CVarFTBodyFriction.GetValueOnGameThread();
+	if (!Chassis) return;
+	if (BodySlideOn > 0)
+	{
+		// a new object for each friction value: a physical material's solver copy is made on first use
+		UPhysicalMaterial* PM = NewObject<UPhysicalMaterial>(this, NAME_None, RF_Transient);
+		PM->Friction = PM->StaticFriction = FMath::Max(0.f, BodySlideMu);
+		PM->bOverrideFrictionCombineMode = true;
+		PM->FrictionCombineMode = EFrictionCombineMode::Min;
+		PM->Restitution = 0.f;
+		PM->bOverrideRestitutionCombineMode = true;
+		PM->RestitutionCombineMode = EFrictionCombineMode::Min;
+		BodySlidePM = PM;
+		Chassis->SetPhysMaterialOverride(PM);
+	}
+	else
+	{
+		BodySlidePM = nullptr;
+		Chassis->SetPhysMaterialOverride(nullptr);
+	}
+	UE_LOG(LogFT, Display, TEXT("FTBODYPM slide=%d friction=%.2f restitution=%.2f"), BodySlideOn,
+		BodySlideOn > 0 ? BodySlideMu : 0.7f, BodySlideOn > 0 ? 0.f : 0.3f);
+}
+
 void AFTPlayerCar::Tick(float Dt)
 {
 	Super::Tick(Dt);
@@ -717,6 +762,18 @@ void AFTPlayerCar::Tick(float Dt)
 		bFxStage = bStage;
 		FTFx::Tick(this, Dt);
 	}
+	{
+		// 4.8 (ft.PhysSubsteps): physics keeps the game's clock in slow frames
+		const int32 Sub = CVarFTPhysSubsteps.GetValueOnGameThread();
+		UPhysicsSettings* PS = UPhysicsSettings::Get();
+		if (Sub > 0 && PS && PS->MaxSubsteps != Sub)
+		{
+			UE_LOG(LogFT, Display, TEXT("FTSUBSTEPS %d -> %d (substep %.4f s: real time down to %.1f fps)"), PS->MaxSubsteps, Sub, PS->MaxSubstepDeltaTime, 1.f / FMath::Max(PS->MaxSubstepDeltaTime * Sub, 1e-3f));
+			PS->MaxSubsteps = Sub;
+		}
+		else if (Sub == 0 && PS && PS->MaxSubsteps != 8) { UE_LOG(LogFT, Display, TEXT("FTSUBSTEPS %d -> 8 (project setting)"), PS->MaxSubsteps); PS->MaxSubsteps = 8; }
+	}
+	if (CVarFTBodySlide.GetValueOnGameThread() != BodySlideOn || (BodySlideOn > 0 && CVarFTBodyFriction.GetValueOnGameThread() != BodySlideMu)) ApplyBodySlide();
 	if (!Track || !Track->IsBuilt() || !Chassis->IsSimulatingPhysics()) return;
 
 	float Xl, Hl;
@@ -1675,6 +1732,15 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 			auto Ang = [&](const FVector& Dv) { return FMath::Atan2(FVector::DotProduct(Dv, F.Right), FVector::DotProduct(Dv, F.Fwd)); };
 			PathYawRate = (Ang(Pa - P0) - Ang(P0 - Pb)) / L * Vr;
 		}
+#if !UE_BUILD_SHIPPING
+		// 4.8 tests: ft.PipeTrace 1 = one line a frame in a pipe (Level 7's fast pipe at low fps)
+		if (CVarFTPipeTrace.GetValueOnGameThread() > 0)
+		{
+			const FVector Vt = Chassis->GetPhysicsLinearVelocity();
+			UE_LOG(LogFT, Display, TEXT("FTPIPE dt=%.3f D=%.0f X=%.0f lift=%.0f wh=%d vr=%.0f vlatR=%.0f vup=%.0f surfV=%.0f pipeA=%.0f yawR=%.2f"),
+				Dt, D, X, Lift, WheelsDown, Vr, FVector::DotProduct(Vt, F.Right) - PipeLatV, FVector::DotProduct(Vt, Up), PipeLatV, PipeA, PathYawRate);
+		}
+#endif
 	}
 	const FVector HeadRef = bPipeHead ? PathF : F.Fwd;
 
@@ -1839,6 +1905,11 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 			if (FMath::Abs(HeadErr) > 0.7f) Want = RoadRate + PathYawRate - FMath::Sign(HeadErr) * 2.5f;
 		}
 		if (AM & 4) Chassis->AddTorqueInRadians(Up * FMath::Clamp((Want - YawRate) * 11.f, -40.f, 40.f), NAME_None, true);
+#if !UE_BUILD_SHIPPING
+		if (CVarFTPipeTrace.GetValueOnGameThread() > 0 && (F.Flags & FTFlag::Pipe))
+			UE_LOG(LogFT, Display, TEXT("FTPIPE2 D=%.0f herr=%.1f steer=%.2f want=%.2f yawrate=%.2f pathYawR=%.2f vlat=%.0f surfLat=%.0f valong=%.0f"),
+				D, FMath::RadiansToDegrees(HeadErr), Drive.Steer, Want, YawRate, PathYawRate, VLat, SurfLat, VAlong);
+#endif
 		// keep it square to the road (anti-flip): roll/pitch toward the road's normal, damped
 		{
 			const FVector CarUp = Chassis->GetUpVector();
