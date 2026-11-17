@@ -413,7 +413,12 @@ void AFTBrawlHUD::DrawHUD()
 	const float HintPulse = bReducedMotion ? 1.f : 0.82f + 0.18f * FMath::Sin(G->StT * 5.f);
 	if (P.St == TEXT("held")) Callout(TEXT("MASH ") + BrawlKey(G, EFTBrawlAction::Punch) + TEXT(" / ") + BrawlKey(G, EFTBrawlAction::Kick) + TEXT(" TO BREAK FREE"), Mid, 150, Red, Strong, HintPulse);
 	if (G->Go > 0) Callout(TEXT("GO →"), R - 70 + (bReducedMotion ? 0.f : 5.f * FMath::Sin(G->StT * 4.f)), H / 2 - 40, Yellow, Heading, HintPulse);
-	if (P.St == TEXT("lift") || P.St == TEXT("carry")) Callout(BrawlKey(G, EFTBrawlAction::GrabThrow) + TEXT(": THROW HIM (MOVE TO AIM)"), Mid, 150, Yellow, Strong, HintPulse);
+	if (P.St == TEXT("lift") || P.St == TEXT("carry") || P.St == TEXT("pummel"))
+	{
+		Callout(BrawlKey(G, EFTBrawlAction::GrabThrow) + TEXT(": THROW HIM (MOVE TO AIM)"), Mid, 150, Yellow, Strong, HintPulse);
+		// the grab's other endings (FTBrawlMoves.cpp)
+		Callout(BrawlKey(G, EFTBrawlAction::Punch) + TEXT(": KNEE   /   BACK: OVER YOUR HEAD   /   DOWN: SLAM"), Mid, 178, Yellow, Strong, HintPulse);
+	}
 	if (G->Foes.Num() && Bi != INDEX_NONE && G->Foes[Bi].St == TEXT("dizzy")) Callout(TEXT("DIZZY! HIT HIM!"), Mid, 196, Yellow, Strong, bBlink ? 1.f : 0.55f);
 	// the key strip: the races' (ink bar, grey Rajdhani, " / " between)
 	{
@@ -535,15 +540,16 @@ void AFTBrawlHUD::DrawCut(AFTBrawlGameMode* G)
 
 void AFTBrawlHUD::DrawCombatHelp(AFTBrawlGameMode* G)
 {
-	const float W = Canvas->ClipX / S, Pw = FMath::Min(620.f, W - 64.f), X = (W - Pw) * .5f;
-	// The health plate grows for held items and buffs; keep its timers clear.
-	const int32 StatusRows = int32(G->Held >= 0) + int32(G->PowerT > 0) + int32(G->ToughT > 0) + int32(G->BuzzT > 0);
-	const float Y = FMath::Max(155.f, 25.f + 108.f + 21.f * StatusRows + 12.f);
-	Plate(X, Y, Pw, 100.f, Cyan);
-	Txt(TEXT("ON FOOT / SAME HANDS, NEW MOVES"), X + 16, Y + 10, Cyan, Label);
-	Txt(BrawlKey(G, EFTBrawlAction::Punch) + TEXT("  PUNCH / USE    ") + BrawlKey(G, EFTBrawlAction::Kick) + TEXT("  KICK / THROW WEAPON"), X + 16, Y + 34, White, Body, 0, false, Pw - 32);
-	Txt(BrawlKey(G, EFTBrawlAction::Jump) + TEXT("  JUMP    ") + BrawlKey(G, EFTBrawlAction::GrabThrow) + TEXT("  LIFT / THROW FOE"), X + 16, Y + 56, White, Body, 0, false, Pw - 32);
-	Txt(BrawlKey(G, EFTBrawlAction::Pause) + TEXT("  PAUSE FOR CONTROLS / REPLAY TIPS"), X + 16, Y + 80, Grey, Label, 0, false, Pw - 32);
+	// On the bottom edge, above the key strip (which already names punch, kick, jump, grab): it used to sit over the
+	// fighters' heads. It names the moves the strip does not.
+	const float W = Canvas->ClipX / S, Pw = FMath::Min(860.f, W - 64.f), X = (W - Pw) * .5f;
+	const int32 Bi = G->BossIdx();
+	const bool bBossPlate = Bi != INDEX_NONE && G->Foes[Bi].St != TEXT("dead");
+	const float Y = 720.f - 44.f - 52.f - (bBossPlate ? 64.f : 0.f);
+	const FString Pk = BrawlKey(G, EFTBrawlAction::Punch), Kk = BrawlKey(G, EFTBrawlAction::Kick);
+	Plate(X, Y, Pw, 52.f, Cyan);
+	Txt(TEXT("TAP LEFT / RIGHT TWICE  DASH      TAP UP / DOWN TWICE  SIDESTEP      HOLD ") + Pk + TEXT("  HEAVY PUNCH"), X + 16, Y + 8, White, Label, 0, false, Pw - 32);
+	Txt(Pk + TEXT(" ") + Pk + TEXT(" ") + Kk + TEXT("  LAUNCHER      ") + Pk + TEXT(" + ") + Kk + TEXT("  CLEAR THE CROWD (COSTS HEALTH)      ") + BrawlKey(G, EFTBrawlAction::Pause) + TEXT("  ALL CONTROLS"), X + 16, Y + 29, Grey, Label, 0, false, Pw - 32);
 }
 
 void AFTBrawlHUD::DrawControls(AFTBrawlGameMode* G)

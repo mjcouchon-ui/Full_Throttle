@@ -511,6 +511,7 @@ void UFTGameInstance::StopTitleMusic(float FadeSeconds)
 }
 
 static TAutoConsoleVariable<float> CVarFTHitchMs(TEXT("ft.HitchMs"), 40.f, TEXT("4.2: frames longer than this (ms) are logged as FTHITCH2 with the loads and GCs in them (17 to catch the bench's > 17.5 ms frames)"));
+static TAutoConsoleVariable<int32> CVarWarmBrawlSprites(TEXT("ft.WarmBrawlSprites"), 0, TEXT("1 = also preload every brawl sprite folder for the whole process (before the per-night sprite bank)"));
 static TAutoConsoleVariable<int32> CVarWarmBrawlAudio(TEXT("ft.WarmBrawlAudio"), 1, TEXT("1 = preload the nights' SFX with their sprites (run 2 cycle 2)"));
 
 void UFTGameInstance::OnPostLoadMap(UWorld* World)
@@ -523,7 +524,9 @@ void UFTGameInstance::OnPostLoadMap(UWorld* World)
 	{
 		bBrawlWarmStarted = true;
 		TArray<FAssetData> Found;
-		UAssetManager::Get().GetAssetRegistry().GetAssetsByPath(FName(TEXT("/Game/Brawl/Sprites")), Found, true, true);
+		// the night's drawings are loaded by the brawl itself, that night's cast only, and let go when its map ends
+		// (Brawl/FTBrawlSpriteBank): every folder held here for the whole process was 4.5 GB. 1 = the old way.
+		if (CVarWarmBrawlSprites.GetValueOnGameThread()) UAssetManager::Get().GetAssetRegistry().GetAssetsByPath(FName(TEXT("/Game/Brawl/Sprites")), Found, true, true);
 		// run 2 cycle 2: the fight's sound effects too (18 + 6 small waves); they loaded one by one on first use, mid-fight
 		if (CVarWarmBrawlAudio.GetValueOnGameThread())
 		{

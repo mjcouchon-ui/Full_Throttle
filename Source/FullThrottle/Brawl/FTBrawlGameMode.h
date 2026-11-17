@@ -42,6 +42,20 @@ struct FFTBrawlBody
 	float SigX = 0;                                                   // nights 4-7 (run 32365): where the flame / lunge starts
 	// rusher / grappler / thrower
 	bool bStruck = false; float Hold = 0; int32 Mash = 0;
+	// juggling (FTBrawlMoves.cpp): hits taken in the air since he was launched, and when the last one was (fight time)
+	int32 Jug = 0; float JugAt = -9.f; float StompAt = -9.f;   // StompAt: the last stamp that kept him down (its own marker, not the juggle count)
+	int32 Stag = 0; float StagAt = -9.f;    // a boss in his second phase: staggers in a row; after four he shrugs the next blows off
+	float Shrug = 0.f;                    // for this long blows hurt a boss but neither stagger nor floor him
+	float NoFloor = 0.f;                  // a boss just back on his feet: for this long a blow hurts him but cannot floor him
+	// stage 2 "variety" (FTBrawlVariety.cpp): which of the character's six looks he wears, how he fights (Mind: an
+	// EFTBrawlMind), his own timers for it, a blocker's guard; a boss's phase (1, then 2 from half health) and the
+	// flags of his second-phase patterns (a second rush, a second signature move, a second swing)
+	int32 Look = 0; uint8 Mind = 0; float MindT = 0, MindWait = 0, MindSide = 0;
+	int32 Guard = 3; float GuardT = 0;
+	int32 Phase = 1; float PhaseAt = -9.f; bool bChain = false, bEncore = false, bOneTwo = false;
+	// stage 2 "hitfeel" (FTBrawlFeel.cpp): Kb = what is left of a knock-back as a speed along the room (px/s, it dies
+	// away), Rock = how far the struck figure shakes while the hit-stop holds (px)
+	float Kb = 0, Rock = 0;
 	bool bIn = false;                     // entered the gameplay boundary (KeepOnScreen)
 	bool bSeen = false;                   // entered the actual camera view; retain in presentation framing (also without QA)
 	UPROPERTY() TObjectPtr<AFTBrawlFighter> Actor = nullptr;
@@ -99,6 +113,7 @@ class AFTBrawlGameMode : public AGameModeBase
 public:
 	AFTBrawlGameMode();
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type Reason) override;
 	virtual void Tick(float Dt) override;
 
 	// read by AFTBrawlHUD
@@ -194,6 +209,22 @@ public:
 #if !UE_BUILD_SHIPPING
 	void PrepareGrabFixture(bool bEnable);
 #endif
+	// development pose stage (FTBrawlPose.cpp): ftb.Pose / ftb.PoseFilm / ftb.PoseSweep / ftb.PoseClear show any character in
+	// any state at any move-time through the fight's own SyncBody -> AFTBrawlFighter::Pose. Inert unless one is called:
+	// PoseBodies stays empty and Tick never leaves the ordinary path. While it is in use the fight stands still.
+	void PoseCommand(const TArray<FString>& Args, bool bFilm);
+	void PoseSweep(const TArray<FString>& Args);
+	void PoseClear();
+	void PoseBackdrop(const TArray<FString>& Args);
+	UPROPERTY() TObjectPtr<class AStaticMeshActor> PoseCard;
+	bool PoseActive() const { return PoseBodies.Num() > 0; }
+	void TickPose(float Dt);
+	UPROPERTY() TArray<FFTBrawlBody> PoseBodies;
+	struct FPoseRun { FString Who, Token; FName State, Prev; float BaseX = 0, BaseY = 0, Dir = 1, T = 0, Speed = 0, HeightCm = 228; int32 Combo = 0, Lead = 0, Ticks = 0; bool bBossKind = false, bStarted = false; double ArmedAt = 0; FName LastFrame; };
+	TArray<FPoseRun> PoseRuns;   // one per PoseBodies entry
+	void PoseApply(int32 Index, bool bPrime);
+	void SyncBody(FFTBrawlBody& F);
+	static void StyleBossSignature(int32 BossNight, FName& Pose, float PoseTime);
 
 private:
 	void ReplayCombatHelp();
@@ -213,11 +244,13 @@ private:
 	void CompleteSystemAction(bool bDiscard);
 	bool IsSystemSaving() const;
 	bool HasSystemSaveError() const;
-	struct FIn { float Steer = 0, Throttle = 0; bool Fire = false, Kick = false, Jump = false, Enter = false, Grab = false; };
+	// Dash / Side (FTBrawlMoves.cpp): a double tap along the room (-1 / +1 = the way to dash) or into it (+1 = up the
+	// floor band, -1 = down it), true for the one frame it is read; the autopilot sets them directly
+	struct FIn { float Steer = 0, Throttle = 0; bool Fire = false, Kick = false, Jump = false, Enter = false, Grab = false; int32 Dash = 0, Side = 0; };
 	FIn ReadInput();
 	FIn AutoInput();
 	FIn Latch;
-	struct FBufferedInput { float Fire = 0, Kick = 0, Jump = 0, Grab = 0; };
+	struct FBufferedInput { float Fire = 0, Kick = 0, Jump = 0, Grab = 0, Dash = 0, Side = 0; int32 DashDir = 0, SideDir = 0; };
 	FBufferedInput Buffered;
 	void BufferInput(const FIn& In);
 	float ContactPause = 0.f;
@@ -305,6 +338,13 @@ private:
 	bool bHeldPickupPresentation = false;
 	FTransform HeldPickupTransform;
 	AFTBrawlFighter* SpawnFighter(const FFTBrawlKind& K, const FFTBrawlLook& L);
+	// the night's drawings, loaded before the night (FTBrawlSpriteBank): one list for the spawn and for the warm-up
+	struct FSpriteChoice { FString Sprite; float H; };
+	void SpriteChoices(const FFTBrawlKind& K, TArray<FSpriteChoice>& Out) const;
+	FName BossHelpKind(int32 c) const;
+	void NightSprites(TArray<FString>& Out) const;
+	void CutSprites(TArray<FString>& Out) const;   // FTBrawlCutscene.cpp
+	void WarmNight();
 	void BuildVenue();
 	void BuildVenueAmbience(float StartX, float EndX, float BackWallY);
 	void TickVenueAmbience(float RealDt);
@@ -396,4 +436,177 @@ private:
 	UPROPERTY() TMap<FName, TObjectPtr<class USoundBase>> Sounds;
 	double RumbleAt = -1; float RumbleI = 0; int32 Voice = 0, NSfx = 0, NRumble = 0;
 	static bool Standing(const FFTBrawlBody& F);   // on his feet and hittable (not flying, down, getting up, lifted or hurled)
+
+	// ---- Nova's wider move set (FTBrawlMoves.cpp; the table of every move is at the top of that file) ----
+	// New states: sidestep dashfwd dashatk runatk airjab dive launch charging heavy special backatk stomp pummel
+	// throwback slam wpnair wpndash airtoss, and the look "wpnbreak". None of them changes an older state's length.
+public:
+	void MoveCommand(const TArray<FString>& Args);   // development: ftb.Move <name> starts a move as its input would
+	void MoveFixture(const TArray<FString>& Args);   // development: ftb.MoveFixture <layout> stands quiet foes round Nova
+	void SeqCommand(const TArray<FString>& Args);    // development: ftb.Seq <step> ... plays a timed run of button presses
+	static bool IsNewMove(FName St);                 // one of the new player states
+private:
+	void MovesReset();
+	void MovesReadTaps(FIn& In);                     // ReadInput: double taps -> In.Dash / In.Side
+	void MovesTick(float Dt, const FIn& In);         // every fight step, before the player's states
+	bool MovesAir(float Dt, const FIn& In);          // in the air: air jab, dive, air weapon swing and throw; true = it took the press
+	bool MovesState(float Dt, const FIn& In);        // one of the new ground states is running (true = handled)
+	void MovesNeutral(const FIn& In);                // starts a new move from idle / walk (or cancels a punch into one)
+	bool MovesCarry(const FIn& In);                  // carrying a foe: pummel, slam, throw back; true = it took the press
+	bool MovesHoldGrab(FFTBrawlBody& G);             // places the grabbed foe during pummel / slam / throwback; true = still held
+	void MovesJuggle(float Dmg, float Reach);        // the older attacks can also hit a foe who is in the air
+	bool MovesEvade(const FFTBrawlBody& From);       // HurtPlayer: inside a sidestep's or the special's window = no hit
+	void MovesStylePose(const FFTBrawlBody& F, FName& St, float& PoseTime) const;   // looks only (the weapon just broke)
+	void MovesTint(FLinearColor& Tint) const;        // charging glow, the dodge window
+	bool MovesWeaponAngle(float& Ang) const;         // the held weapon's angle in the new weapon moves
+	bool MovesAuto(FIn& I, const FFTBrawlBody* Tgt); // the autopilot uses the new moves (ftb.AutoMoves 1)
+	bool MoveStart(FName Move, const FIn& In);       // begin one move now (shared by input, autopilot and ftb.Move)
+	int32 MoveStrike(float Dmg, float Front, float Back, float Depth, bool bDown, bool bFists, const TCHAR* HitSfx, float SfxPitch = 1.f);
+	bool JuggleOne(FFTBrawlBody& F, float Dmg, float Pop, float Push);
+	float MoveMult(bool bFists) const;
+	// the held weapon's numbers (the item table lives in FTBrawlGameMode.cpp)
+	float HeldDmg() const; float HeldReach() const; bool HeldDown() const; bool HeldGlass() const;
+	void HeldUsed(const FFTBrawlBody& On);          // one use of the held weapon spent on a hit
+	void ThrowHeld(float FromZ);                     // the held weapon leaves his hand (toss, airtoss)
+	void HeldGive(int32 Kind);                       // development: put a weapon in his hand (-1 = a frying pan)
+	FName PendingMove; float PendingPower = 0.f, PendingT = 0.f;   // ftb.Move: a move waiting for its jump or grab
+	struct FSeqStep { FIn In; float Dur = 0.05f; FString Text; };
+	TArray<FSeqStep> SeqSteps; int32 SeqAt = 0; float SeqT = 0.f;   // ftb.Seq: the presses still to play
+	void MovesSeqInput(FIn& In, float Dt);           // Tick: the sequence's buttons go in as if pressed
+	FName TraceSt; float TraceT = 0.f;               // ftb.MoveTrace: the player's last logged state
+	float EvadeT = 0.f;           // > 0: nothing hits him (sidestep, special)
+	bool bEvadeSaid = false;      // one "DODGE!" a window
+	float BreakLookT = 0.f;       // the weapon broke a moment ago: he looks at his empty hand (looks only)
+	float FireHeldT = 0.f;        // how long the punch button has been down
+	float AirT = 0.f;             // time since take-off (the jump drawing picks up from here after an air move)
+	bool bBreakArmour = false;    // set round a thrown body's hit: it floors a boss whatever he is doing
+	float MovePower = 0.f;        // the charged heavy: 0..1
+	float CarryT = 0.f;           // the carry clock, kept across a pummel
+	int32 AirJabs = 0, Pummels = 0, HeldBoth = 0;
+	bool bMoveHit = false, bMoveDone = false, bChargeFull = false;
+	double TapSteerAt = -9, TapThrottleAt = -9; int32 TapSteerDir = 0, TapThrottleDir = 0; bool bTapSteerDown = false, bTapThrottleDown = false;
+	float AutoHoldFire = 0.f; int32 AutoPlan = 0; float AutoPlanT = 0.f;
+
+	// ---- enemy variety and the bosses' second phase (FTBrawlVariety.cpp; the tables are at the top of that file) ----
+public:
+	void VarietyCommand(const TArray<FString>& Args);   // development: ftb.Variety looks|mind|phase2|bosshp|list
+private:
+	void VarietyReset();
+	void VarietySpawn(FFTBrawlBody& F, FName Kind);                // MakeFoe: picks his look and his way of fighting
+	bool VarietyBlock(FFTBrawlBody& F, float Dmg, bool bDown);    // HitFoe: a blocker takes it on his guard (true = no hit)
+	bool VarietyState(FFTBrawlBody& F, float Dt);                  // UpdateFoes: the new foe states (block, rage); true = handled
+	void VarietyWalk(FFTBrawlBody& F, float Dt, int32 Engaged, bool& bWant, float& Tx, float& Ty, float& Sp);   // where he walks, whether he may swing
+	void VarietyThrower(FFTBrawlBody& F, float Dt, bool bDealer, float& Tx, float& Ty, float& Sp);              // the same for bottle and card throwers
+	float VarietyCd(const FFTBrawlBody& F) const;                  // how his cooldown after an attack is scaled
+	float VarietyMelee(const FFTBrawlBody& F) const;               // inside this distance a thrower slaps instead
+	bool VarietyBossPhase(FFTBrawlBody& F);                        // half health: the second phase begins (true = this step is spent)
+	bool VarietyBeat(float Dt);                                    // Step: the short transition beat holds the fight
+	bool VarietyCallOk(const FFTBrawlBody& F) const;               // the boss calls his help after the beat's banner, not over it
+	bool VarietyEncore(FFTBrawlBody& F, FName Tell);               // phase 2: the move just ended is told and done once more
+	bool VarietyOneTwo(FFTBrawlBody& F);                           // phase 2: a second swing, with its own full wind-up
+	void VarietyLeap(FFTBrawlBody& F, float Dt);                   // phase 2, Earl: the second slam's leap travels toward Nova
+	float VarietyWhirlSpeed(const FFTBrawlBody& F) const;          // phase 2, Vinnie: the whirlwind chases faster
+	void VarietyStyle(FFTBrawlBody& F, FName St, float& Lean);     // SyncBody: looks only (glow, guard stance, lean)
+	TMap<FName, int32> MindCount; TMap<FString, int32> LookCount;  // how many of a role / of a character have spawned this night
+	float PhaseBeat = 0.f;                                         // > 0: the transition beat is playing
+
+	// ---- the stages: breakable scenery, onlookers, depth layers, lighting moods (FTBrawlStage.cpp; the tables and the
+	// development command ftb.Stage are described at the top of that file). Looks and scenery only, except that a
+	// breakable can be hit, can drop a pickup, and its pieces can stagger a foe standing right behind it.
+public:
+	void StageCommand(const TArray<FString>& Args);   // development: ftb.Stage list | goto | hit | react | mood | show
+	bool StageAdopt(const TCHAR* Prop, float CmPerPx, float WorldX, float WorldY, bool bFlip);   // BuildVenue: a painted prop at the wall that can break (true = the stage owns it)
+private:
+	struct FStageBreak
+	{
+		int32 Kind = 0, State = 0, Id = 0;     // State: 0 whole, 1 damaged, 2 wrecked (the heap), 3 gone
+		float X = 0, Y = 0;                     // brawl px: along the room, and the depth it is hit at
+		FVector At = FVector::ZeroVector;       // world cm: where its base stands
+		float K = 0.1f;                         // cm per px of its drawings
+		float Hp = 0, Max = 0, Flash = 0, Wob = 0, WobDir = 1, T = 0, Depth = 34;
+		bool bFlip = false, bOwn = false;
+		int32 LastBody = -1; float LastBodyT = -9.f;
+		TWeakObjectPtr<class AStaticMeshActor> Actor;
+		TWeakObjectPtr<class APointLight> Light;
+	};
+	struct FStageChip { FVector P = FVector::ZeroVector, V = FVector::ZeroVector; FRotator R = FRotator::ZeroRotator, Spin = FRotator::ZeroRotator; FVector S = FVector::OneVector; float T = 0, Life = 6; uint8 Mat = 0; bool bRest = false; };
+	struct FStageBy
+	{
+		int32 Who = 0, Pose = 0;                // Pose: 0 watching, 1 cheering, 2 flinching, 3 ducking
+		float X = 0, Y = 0, Back = 0, K = 0.1f, Hold = 0, Delay = 0, Phase = 0, Dir = 1, Pop = 0;
+		int32 Next = 0;
+		TWeakObjectPtr<class AStaticMeshActor> Actor;
+	};
+	struct FStageLight { TWeakObjectPtr<class ULightComponent> L; float Base = 0; };
+	TArray<FStageBreak> StageBreaks;
+	TArray<FStageChip> StageChips;
+	TArray<FStageBy> StageBys;
+	TArray<FStageLight> StageLights;
+	UPROPERTY() TArray<TObjectPtr<class UTexture>> StageTex;          // every drawing the stage shows (kept loaded)
+	UPROPERTY() TArray<TObjectPtr<class AActor>> StageFg;             // the near layer between the camera and the room
+	UPROPERTY() TArray<TObjectPtr<UInstancedStaticMeshComponent>> StageChipIsm;   // wood, glass, brass
+	UPROPERTY() TArray<TObjectPtr<class APointLight>> StageMoodL;     // two mood lights that ride with the camera, one at Nova
+	UPROPERTY() TObjectPtr<class APostProcessVolume> StageGrade;      // the room's own post-process volume: the mood's grade (gain, saturation, vignette; never the cel material)
+	FVector StageGain = FVector(1, 1, 1); float StageSat = 1.f, StageVig = 0.45f, StageVig0 = 0.45f;
+	void StageBuild();                               // BeginPlay, after BuildVenue
+	void StageReset(bool bKeep);                     // ResetState: everything whole again
+	void StageStep(float Dt);                        // every fight step: bodies and bottles against the scenery, what the onlookers saw
+	void StageSync(float Dt);                        // every frame: cards, pieces, onlookers, lights
+	void StageStrike(float Dmg, float Front, float Back, float Depth, bool bDown);   // one of Nova's attacks is live
+	bool StageThrown(float X, float Y, float Z, float Dir, float Dmg);              // a thrown weapon passes (true = it hit scenery)
+	void StageDropItem(int32 Slot, float X, float Y);   // FTBrawlGameMode.cpp (the item table lives there): 0 bottle, 1 food, 2 knuckles, 3 jacket, 4 stool
+	int32 StageAddBreak(int32 Kind, float CmPerPx, float WorldX, float WorldY, bool bFlip, bool bOwn);
+	void StageHit(int32 I, float Dmg, float Dir, bool bHeavy, const TCHAR* By);
+	void StageShow(int32 I);
+	void StageBurst(const FVector& At, float Dir, int32 N, int32 Mat, float Force);
+	void StageReact(int32 Pose, float X, float Range, float Hold);
+	int32 StageMood() const;
+	TSet<int32> StageSwung; FName StageSwingSt; float StageSwingT = 0.f;   // which breakables this swing has already hit
+	FRandomStream StageLookRnd;                      // onlookers and chips: looks only, may be drawn every picture
+	FRandomStream StageRnd;                          // the stage's own dice: never the fight's
+	int32 StageKos = 0, StageWave = 0, StageShots = 0, StageBottles = 0, StageChain = 0, StageMoodNow = -1, StageMoodForce = -1, StageWrecked = 0;
+	FName StagePSt; bool bStageWon = false, bStageShown = true;
+	float StageDim = 1.f, StageDimSet = -1.f, StageFlicker = 0.f, StageMoodI = 0.f, StageT = 0.f;
+	FLinearColor StageMoodC = FLinearColor::Black;
+
+	// ---- hit feel (FTBrawlFeel.cpp; the numbers are in the table at the top of that file). Hit-stop by strength, sparks
+	// and shock rings (M_BrawlGlow; the rings use the existing ring mask), dust, a directed camera kick that dies away,
+	// knock-back that slides instead of jumping, a flash on Nova too, the slow beat, the camera's lead and rise.
+	// ftb.Feel 0 switches all of it off (the fight is then as it was before this file).
+public:
+	void FeelCommand(const TArray<FString>& Args);   // development: ftb.FeelTest slow [boss] | spark <0|1|2> | stats
+private:
+	struct FFeelSpark { FVector P = FVector::ZeroVector, V = FVector::ZeroVector; float Age = 0, Life = 0, Len = 0, Wide = 0, Glow = 0; };
+	struct FFeelRing { FVector P = FVector::ZeroVector; float Age = 0, Life = 0, R0 = 0, R1 = 0, Glow = 0; bool bFloor = false; };
+	UPROPERTY() TArray<TObjectPtr<class AStaticMeshActor>> FeelSparkQuads;
+	UPROPERTY() TArray<TObjectPtr<class AStaticMeshActor>> FeelRingQuads;
+	TArray<FFeelSpark> FeelSparks; TArray<FFeelRing> FeelRings;
+	int32 FeelNextSpark = 0, FeelNextRing = 0;
+	FVector2D FeelKickOff = FVector2D::ZeroVector, FeelKickVel = FVector2D::ZeroVector;   // the camera's kick: cm along the room, cm up
+	float FeelLead = 0.f, FeelRise = 0.f;                    // the camera's lead along the room and its rise (cm), eased
+	float FeelSlowT = 0.f, FeelSlowLen = 0.f, FeelSlowTo = 1.f;   // the slow beat: real seconds left, its length, the slowest speed
+	float FeelDustT = 0.f;
+	// what the night added up to (logged once at the win and by ftb.FeelTest stats)
+	int32 FeelLight = 0, FeelHeavy = 0, FeelNova = 0, FeelNovaDown = 0, FeelBeats = 0; bool bFeelLogged = false;
+	float FeelStopT = 0.f, FeelStopAdded = 0.f, FeelSlowAdded = 0.f, FeelRealT = 0.f;
+	bool FeelOn() const;
+	void FeelInit();                                  // BeginPlay: the spark and ring quads
+	void FeelReset(bool bKeep);                       // ResetState
+	void FeelStop(float Steps, float OldSteps);       // a hit-stop of Steps fight steps where the older rule gave OldSteps
+	void FeelFoeHit(FFTBrawlBody& F, float Dmg, bool bDown, float X0);   // HitFoe, last line: X0 = where he stood before the shove
+	void FeelNovaHurt(float Dmg, bool bDown, float X0);                  // HurtPlayer, last line
+	void FeelNovaSqueeze(const FFTBrawlBody& By);     // a knee or a squeeze while he is held (no HurtPlayer there)
+	void FeelLand(FFTBrawlBody& F);                   // a knocked or thrown body meets the floor
+	void FeelImpact(const FVector& At, float Dir, int32 Grade, const FLinearColor& Color);   // sparks, ring and kick at a contact: 0 light, 1 heavy, 2 finishing
+	void FeelSparkBurst(const FVector& At, float Dir, int32 N, float Speed, const FLinearColor& Color);
+	void FeelRing(const FVector& At, float R0, float R1, float Life, bool bFloor, const FLinearColor& Color, float Glow);
+	void FeelKick(float DirX, float DirZ, float Cm);  // the camera is knocked that way and swings back
+	void FeelSlow(float RealSeconds, float Speed);
+	void FeelTickFx(float Dt);                        // Step, first: sparks and rings (they run on through a hit-stop)
+	void FeelPaused(float Dt);                        // Step, while a hit-stop holds
+	void FeelStep(float Dt);                          // Step, when it does not: the knock-backs slide
+	float FeelTimeScale(float RealDt);                // Tick: how fast the fight runs this frame (1 = as ever)
+	void FeelCamera(float RealDt, float MidX, float& Sx, float& Sz, float& LeadX, float& RiseZ);   // SyncActors: kick, lead, rise
+	void FeelBody(FFTBrawlBody& F);                   // SyncBody: the struck figure shakes while the hit-stop holds
+	void FeelStats(const TCHAR* Why);
 };

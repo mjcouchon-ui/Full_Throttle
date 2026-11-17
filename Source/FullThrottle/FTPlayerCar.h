@@ -113,6 +113,8 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Car|Tuning") float RailK = 36.f;
 	UPROPERTY(EditAnywhere, Category = "Car|Tuning") float RailDamp = 12.f;
 	bool IsOnRails() const { return bRailInit; }
+	/** 4.7: the road surface's direction under the car (in a pipe, not the tube's axis; elsewhere the road's forward). */
+	FVector RoadPathFwd() const { return PathF; }
 	/** 3.3: which of the three coaster rails the car rides (0 left, 1 centre, 2 right), -1 off the rails. */
 	int32 RailIndex() const;
 	// 3.3 half pipe air and grind (the game mode scores them; it reads these and clears the events)
@@ -195,7 +197,7 @@ protected:
 	float LaunchT = 0.f;   // a ramp launch is in the air: no glue until it lands
 	// 2.5 set pieces: speed at the way in, held as a floor all the way through; telemetry
 	float LandProbeT = 0.f, LandProbeV = 0.f, LandProbeMin = 0.f, LandProbeLowT = 0.f;   // 4.6 FTLANDED telemetry
-	bool bLandArmed = false, bLandAbove = false; float LandAirV = 0.f, LandFloor = 0.f, LandHoldT = 0.f; // 3.6: a jump's landing keeps its speed
+	bool bLandArmed = false, bLandAbove = false, CushionLogged = false; float LandAirV = 0.f, LandFloor = 0.f, LandHoldT = 0.f; // 3.6: a jump's landing keeps its speed
 	bool bInSet = false; uint16 SetKind = 0; float SetEntry = 0.f, SetFloor = 0.f, SetMin = 0.f, SetMaxLift = 0.f, SetAir = 0.f, SetD0 = 0.f; int32 SetSnaps = 0;
 	// 2.5 coaster: the rail the car rides (followed by continuity: the rail point nearest the last one)
 	bool bRailInit = false; FVector2D RailPt = FVector2D::ZeroVector; float HopCd = 0.f;
@@ -208,6 +210,10 @@ protected:
 	float WallEpT = -1.f, WallEpV0 = 0.f, WallEpMin = 0.f, WallEpTgt = 0.f, WallEpD = 0.f, WallEpX = 0.f, WallEpFwd = 0.f; int32 WallEpHits = 0;
 	float NoseProbeT = -1.f, NoseProbeD = 0.f;   // 4.6 ft.NosePin probe
 	float CrestA = 0.f, PipeA = 0.f;   // 4.6: the crest and pipe feed-forwards this tick (cm/s^2, telemetry)
+	// 4.7 FTSPIN telemetry: the last ~0.6 s (time, heading error, yaw rate, slip / steer, wheels, x, speed) and the spin under way
+	TArray<FVector4f> SpinHist, SpinHist2;
+	FVector PathF = FVector::ForwardVector; float PathYawRate = 0.f;   // 4.7: the road surface's own direction under the car (a pipe's isn't its axis), and how fast it turns
+	float SpinT = -1.f, SpinMax = 0.f, SpinV0 = 0.f, SpinVMin = 0.f, SpinD = 0.f, SpinOkT = 0.f, LastLandT = -10.f;
 	// 2.5 coaster: a hop's arc (HopT < 0: not hopping) from where it left
 	float HopT = -1.f; FVector2D HopFrom = FVector2D::ZeroVector;
 	static constexpr float HopDur = 0.85f;

@@ -216,6 +216,23 @@ FVector AFTBrawlGameMode::RigLoc() const
 	return FVector(World(Cam + 480.f, 460.f, 0).X, CCamY, CCamZ);   // where SyncActors puts the fight camera
 }
 
+// The sprite folders this map's cutscenes can put on screen (the AddCast calls below), for the night's warm-up.
+// Somebody left out here is still whole when he is first shown: his folder is then loaded at his AddCast, behind the
+// cut's black, and the log says "Error: FTBRAWL sprites late", which fails the night's test run: add him here.
+void AFTBrawlGameMode::CutSprites(TArray<FString>& Out) const
+{
+	Out.AddUnique(TEXT("Nova"));
+	if (bDay) { for (const FDayActor& A : DayActors) Out.AddUnique(A.Sprite); return; }
+	if (Night >= 2 && Night <= 7)
+	{
+		const FNightCut& N = NightCuts[Night - 2];
+		Out.AddUnique(N.Guy); Out.AddUnique(N.BossSprite);
+		if (N.Third) Out.AddUnique(N.Third);
+		return;
+	}
+	for (const TCHAR* Who : { TEXT("Punk"), TEXT("Earl"), TEXT("Photo"), TEXT("Kip"), TEXT("Bouncer") }) Out.AddUnique(Who);   // night 1: THAT NIGHT, LAST CALL, the pier
+}
+
 FFTCutActor& AFTBrawlGameMode::AddCast(FName Key, const FString& Who, float HeightCm, float Scale, const FVector& At, float Dir)
 {
 	if (FFTCutActor* Old = CutCast.Find(Key)) { if (Old->A) Old->A->Destroy(); }

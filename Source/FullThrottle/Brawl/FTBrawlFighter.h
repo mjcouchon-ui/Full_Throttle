@@ -12,6 +12,7 @@ class USkeletalMeshComponent;
 class UAnimSequence;
 class UMaterialInstanceDynamic;
 class UTexture;
+namespace FTBrawlChart { struct FChart; }
 
 USTRUCT()
 struct FFTBrawlLook
@@ -45,6 +46,20 @@ public:
 	bool SpritePixelToWorld(const FVector2D& Pixel, FVector& Point) const;
 	void SetTint(const FLinearColor& C);   // multiplies the paint (power-up glow)
 	void SetEnemyPresentation(const FString& Who, FName FighterRole);
+	// the two materials a fighter's card is drawn with (Nova and the cutscene people; the foes): also loaded, and their
+	// shaders made whole, with the night's cast (FTBrawlSpriteBank)
+	static const TCHAR* SpriteMaterialPath() { return TEXT("/Game/Brawl/Materials/M_BrawlSprite.M_BrawlSprite"); }
+	static const TCHAR* EnemyMaterialPath() { return TEXT("/Game/Brawl/Materials/M_BrawlEnemyV.M_BrawlEnemyV"); }
+	// stage 2 "variety" (FTBrawlVariety.cpp): one of the character's six looks (0 = as drawn; colour tables FTBrawlLooks.inl,
+	// applied in M_BrawlEnemyV), the boss's second-phase glow (0..1, the ink line burns in Color), and small standing
+	// accents the fight adds on top of a pose (a blocker's raised guard). All inert on the older material.
+	static int32 NumEnemyLooks(const FString& Who);   // 6 if the character has a colour table, else 1
+	void SetEnemyLook(int32 LookIndex);
+	int32 EnemyLook() const { return CurLook; }
+	void SetRage(float Amount, const FLinearColor& Color);
+	void SetFlashColor(const FLinearColor& Color);
+	void SetAccent(float RimAdd, float SquashMul, float LeanAdd) { ExtraRim = RimAdd; ExtraSquash = SquashMul; ExtraLean = LeanAdd; }
+	const FString& SpriteName() const { return SpriteWho; }
 	// Pose: state name as in brawl.js, t = time in state, walk phase, lean in degrees (+ = backwards), flash 0..1
 	void Pose(FName St, float T, float Walk, int32 Combo, float LeanDeg, float Flash, bool bVisible);
 
@@ -75,11 +90,15 @@ private:
 	bool bEnemySprite = false;
 	bool bCardDealerSprite = false;
 	float EnemyRim = -1.f;
+	int32 CurLook = 0; float CurRage = -1.f; bool bLookMaterial = false;
+	float ExtraRim = 0.f, ExtraSquash = 1.f, ExtraLean = 0.f;
+	FLinearColor CurFlashColor = FLinearColor(-1, -1, -1, 1);
 	FName LastSpriteState, PreviousSpriteState;
 	float SpriteStateStarted = 0.f;
 	float LastSpriteTime = 0.f;
 	float TurnStarted = -1.f;
 	bool bSpriteFacesRight = true;
+	const FTBrawlChart::FChart* SpriteChart = nullptr;   // this character's exposure chart, null = none (FTBrawlCharts.inl)
 	UTexture* Frame(std::initializer_list<const TCHAR*> Names) const;
 	void PoseSprite(FName St, float T, float Walk, int32 Combo, float LeanDeg, float Flash, bool bVisible);
 };

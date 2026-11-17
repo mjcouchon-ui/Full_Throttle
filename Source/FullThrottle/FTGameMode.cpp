@@ -48,6 +48,7 @@ static TAutoConsoleVariable<int32> CVarFTAutopilot(TEXT("ft.Autopilot"), 0, TEXT
 static TAutoConsoleVariable<int32> CVarFTTwistCam(TEXT("ft.TwistCam"), 1, TEXT("FULL THROTTLE 3.7/3.9.7: 1 = through corkscrews and corkscrew pipes the chase camera rides the road's own frame where it is, pulled halfway to the corkscrew's centre line (never under the road); 0 = the 3.6 camera"));
 static TAutoConsoleVariable<int32> CVarFTSweptContact(TEXT("ft.SweptContact"), 1,
 	TEXT("4.5: 1 = a missile's hit test is swept over its move this frame. At ~13,000 cm/s on the game clock a frame slower than ~1/27 s carried it clean past a biker's 500 cm window between two looks (a laptop at 20-25 fps, a hitch). 0 = 4.4 (overlap test only)."));
+static TAutoConsoleVariable<int32> CVarFTAutoSmooth(TEXT("ft.AutoSmooth"), 1, TEXT("FULL THROTTLE 4.7: 1 = the autopilot (attract mode, tests) changes lanes at a sideways speed it can stop from, whatever its speed; 0 = 4.6 (aimed by distance: at turbo speed it crossed at 2,700 cm/s into the barrier)"));
 static TAutoConsoleVariable<float> CVarFTAutoX(TEXT("ft.AutoX"), -99999.f, TEXT("FULL THROTTLE 3.6 tests: the autopilot holds this road x (cm, -1371..1371 between the barriers) instead of picking a lane; -99999 = off"));
 static TAutoConsoleVariable<float> CVarFTHp(TEXT("ft.Hp"), 0.f, TEXT("FULL THROTTLE test hook: start each race with this armour, e.g. 30 = already burning (0 = normal)"));
 static TAutoConsoleVariable<int32> CVarFTAttract(TEXT("ft.Attract"), 1, TEXT("FULL THROTTLE 3.0: 1 = the title plays the game by itself and cuts between the levels (attract mode)"));
@@ -1738,10 +1739,23 @@ void AFTGameMode::TickPlayer(float Dt)
 		if (CVarFTAutoX.GetValueOnGameThread() > -9999.f) AutoLane = CVarFTAutoX.GetValueOnGameThread();
 		In = FFTInput();
 		// steer by heading: aim at the chosen lane at a shallow angle
+		static IConsoleVariable* CVarFTPipeHeadG = IConsoleManager::Get().FindConsoleVariable(TEXT("ft.PipeHead"));
 		const FFTFrame AF = Track->Sample(Car->D);
 		const FVector CF = Car->GetActorForwardVector();
-		const float Head = FMath::Atan2(FVector::DotProduct(FVector::CrossProduct(AF.Fwd, CF), AF.Up), FVector::DotProduct(CF, AF.Fwd));
-		const float WantHead = FMath::Clamp((AutoLane - Car->X) / 1800.f, -0.3f, 0.3f);
+		// (4.7: against the road surface's own direction, which in a pipe isn't the tube's axis; ft.PipeHead 0 = the axis)
+		const FVector AFwd = CVarFTPipeHeadG && CVarFTPipeHeadG->GetInt() ? Car->RoadPathFwd() : AF.Fwd;
+		const float Head = FMath::Atan2(FVector::DotProduct(FVector::CrossProduct(AFwd, CF), AF.Up), FVector::DotProduct(CF, AFwd));
+		float WantHead = FMath::Clamp((AutoLane - Car->X) / 1800.f, -0.3f, 0.3f);
+		// 4.7 (ft.AutoSmooth): the heading above aims at the lane by distance alone, so at turbo speed it crossed the road
+		// at up to 0.3 rad x 9,000 = 2,700 cm/s and had no time to straighten before the barrier. Now it asks for a
+		// sideways speed (the lane gap closed in about a second, at most 1,300 cm/s, slowing as it closes) whatever the
+		// car's speed, and never aims for closer than 1.5 m to the barrier.
+		if (CVarFTAutoSmooth.GetValueOnGameThread())
+		{
+			const float Lane = FMath::Clamp(AutoLane, -(FT::Edge - 150.f), FT::Edge - 150.f);
+			const float VWant = FMath::Clamp((Lane - Car->X) * 1.1f, -1300.f, 1300.f);
+			WantHead = FMath::Asin(FMath::Clamp(VWant / FMath::Max(FMath::Abs(Car->Speed), 2500.f), -0.3f, 0.3f));
+		}
 		In.RawSteer = In.Steer = FMath::Clamp((WantHead - Head) * 2.2f, -1.f, 1.f);
 		In.bFire = true;
 		if (bAttract)

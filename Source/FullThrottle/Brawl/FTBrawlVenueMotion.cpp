@@ -158,8 +158,14 @@ void AFTBrawlGameMode::StyleBossPose(FName& Pose, float& PoseTime) const
 		Pose = EntranceAge < 2.46f ? FName(TEXT("intro")) : FName(TEXT("intro2"));
 		PoseTime = EntranceAge;
 	}
-	else if ((Night == 2 && Pose == TEXT("dizzy") && PoseTime < 0.35f)
-		|| (Night == 3 && Pose == TEXT("fire") && PoseTime >= 0.6f))
+	else StyleBossSignature(Night, Pose, PoseTime);
+}
+
+// (split out so that the development pose stage, FTBrawlPose.cpp, renames a posed boss's state by the same rule)
+void AFTBrawlGameMode::StyleBossSignature(int32 BossNight, FName& Pose, float PoseTime)
+{
+	if ((BossNight == 2 && Pose == TEXT("dizzy") && PoseTime < 0.35f)
+		|| (BossNight == 3 && Pose == TEXT("fire") && PoseTime >= 0.6f))
 	{
 		// Vinnie's first stunned breath and the Pit Boss's settled aim after the final shot.
 		Pose = TEXT("signaturefollow");

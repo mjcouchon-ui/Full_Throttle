@@ -1,4 +1,5 @@
 #include "FTBrawlFighter.h"
+#include "FTBrawlSpriteBank.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
@@ -12,6 +13,7 @@
 #include "FTBrawlStudioAssets.inl"
 #include "FTBrawlStudioFrames.inl"
 #include "FTBrawlBossFrames.inl"
+#include "FTBrawlCharts.inl"
 
 // colour slots: 0 skin, 1 shirt, 2 pants, 3 hair
 AFTBrawlFighter::AFTBrawlFighter()
@@ -222,23 +224,30 @@ namespace
 
 bool AFTBrawlFighter::SetSprite(const FString& Who, float HeightCm, const FLinearColor& Tint)
 {
-	UMaterialInterface* M = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Brawl/Materials/M_BrawlSprite.M_BrawlSprite"), nullptr, LOAD_Quiet | LOAD_NoWarn);
+	UMaterialInterface* M = LoadObject<UMaterialInterface>(nullptr, SpriteMaterialPath(), nullptr, LOAD_Quiet | LOAD_NoWarn);
 	UStaticMesh* Plane = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Plane.Plane"));
 	if (!M || !Plane) return false;
 	const FString Lo = Who.ToLower();
-	for (const TCHAR* N : GFrameNames)
+	// his drawings come from the night's table of his folder (FTBrawlSpriteBank): a name that is not in it does not exist,
+	// so nothing is asked of the loader here, found or not. (No bank = no world: the old lookup by path.)
+	UFTBrawlSpriteBank* Bank = UFTBrawlSpriteBank::Get(this);
+	const TMap<FName, TObjectPtr<UTexture>>* All = Bank ? &Bank->Table(Who).Frames : nullptr;
+	auto Drawing = [&](const FName& Name) -> UTexture*
 	{
-		const FString A = FString::Printf(TEXT("/Game/Brawl/Sprites/%s/T_%s_%s.T_%s_%s"), *Who, *Lo, N, *Lo, N);
-		if (UTexture* Tx = LoadObject<UTexture>(nullptr, *A, nullptr, LOAD_Quiet | LOAD_NoWarn)) Frames.Add(FName(N), Tx);
-	}
+		if (All) { const TObjectPtr<UTexture>* T = All->Find(Name); return T ? T->Get() : nullptr; }
+		const FString N = Name.ToString();
+		const FString A = FString::Printf(TEXT("/Game/Brawl/Sprites/%s/T_%s_%s.T_%s_%s"), *Who, *Lo, *N, *Lo, *N);
+		return LoadObject<UTexture>(nullptr, *A, nullptr, LOAD_Quiet | LOAD_NoWarn);
+	};
+	for (const TCHAR* N : GFrameNames)
+		if (UTexture* Tx = Drawing(FName(N))) Frames.Add(FName(N), Tx);
 	SpriteWho = Who;
 	auto LoadStudioFrames = [&](const TCHAR* const* Names, int32 Count) {
 		int32 Loaded = 0;
 		for (int32 Index = 0; Index < Count; ++Index)
 		{
 			const TCHAR* Name = Names[Index];
-			const FString Asset = FString::Printf(TEXT("/Game/Brawl/Sprites/%s/T_%s_%s.T_%s_%s"), *Who, *Lo, Name, *Lo, Name);
-			if (UTexture* Texture = LoadObject<UTexture>(nullptr, *Asset, nullptr, LOAD_Quiet | LOAD_NoWarn))
+			if (UTexture* Texture = Drawing(FName(Name)))
 			{
 				Frames.Add(FName(Name), Texture);
 				++Loaded;
@@ -258,6 +267,31 @@ bool AFTBrawlFighter::SetSprite(const FString& Who, float HeightCm, const FLinea
 	else if (Who == TEXT("Earl") || Who == TEXT("Vinnie") || Who == TEXT("Pitboss") || Who == TEXT("Frankie") || Who == TEXT("Kingpin") || Who == TEXT("Sven") || Who == TEXT("Commodore"))
 		LoadStudioFrames(FTBrawlStudio::BossFrameNames, UE_ARRAY_COUNT(FTBrawlStudio::BossFrameNames));
 	if (!Frames.Contains(TEXT("idle"))) { Frames.Reset(); return false; }
+	// the character's own exposure chart (Charts/FTBrawlChart_<Who>.inl): its drawings are loaded with him
+	SpriteChart = FTBrawlChart::Find(Who);
+	if (SpriteChart)
+	{
+		int32 Missing = 0;
+		for (const FName& Name : SpriteChart->FrameNames)
+		{
+			if (Frames.Contains(Name)) continue;
+			const FString N = Name.ToString();
+			if (UTexture* Texture = Drawing(Name)) Frames.Add(Name, Texture);
+			else
+			{
+				++Missing;
+				UE_LOG(LogTemp, Error, TEXT("FTBRAWL chart missing drawing who=%s frame=%s (its rows fall back to the older rules)"), *Who, *N);
+			}
+		}
+#if !UE_BUILD_SHIPPING
+		static TSet<FString> Told;
+		if (!Told.Contains(Who))
+		{
+			Told.Add(Who);
+			UE_LOG(LogTemp, Display, TEXT("FTBRAWL chart who=%s states=%d rows=%d drawings=%d missing=%d"), *Who, SpriteChart->States.Num(), SpriteChart->NumRows, SpriteChart->FrameNames.Num(), Missing);
+		}
+#endif
+	}
 	bCardDealerSprite = Who == TEXT("Dealer");
 	Sprite = NewObject<UStaticMeshComponent>(this, TEXT("Sprite"));
 	Sprite->SetupAttachment(Body);
@@ -289,10 +323,14 @@ void AFTBrawlFighter::SetTint(const FLinearColor& C)
 void AFTBrawlFighter::SetEnemyPresentation(const FString& Who, FName FighterRole)
 {
 	if (!Sprite) return;
-	UMaterialInterface* Material = LoadObject<UMaterialInterface>(nullptr,
+	// M_BrawlEnemyV (Content/Python/brawl_variety.py) = M_BrawlEnemy plus the colour tables and the second-phase glow
+	UMaterialInterface* Material = LoadObject<UMaterialInterface>(nullptr, EnemyMaterialPath(), nullptr, LOAD_Quiet | LOAD_NoWarn);
+	bLookMaterial = Material != nullptr;
+	if (!Material) Material = LoadObject<UMaterialInterface>(nullptr,
 		TEXT("/Game/Brawl/Materials/M_BrawlEnemy.M_BrawlEnemy"), nullptr, LOAD_Quiet | LOAD_NoWarn);
 	if (!Material) return;
 	bEnemySprite = true;
+	CurLook = 0; CurRage = -1.f; CurFlashColor = FLinearColor(-1, -1, -1, 1);
 
 	struct FKeyLight { const TCHAR* Name; const TCHAR* Color; };
 	static const FKeyLight BossLights[] = {
@@ -327,6 +365,48 @@ void AFTBrawlFighter::SetEnemyPresentation(const FString& Who, FName FighterRole
 	SpriteMid->SetVectorParameterValue(TEXT("EnemyKey"), FLinearColor(FColor::FromHex(Color)));
 	Sprite->SetMaterial(0, SpriteMid);
 	CurFrame = nullptr;
+}
+
+#include "FTBrawlLooks.inl"
+
+int32 AFTBrawlFighter::NumEnemyLooks(const FString& Who)
+{
+	for (const FFTBrawlLookTable& T : GFTBrawlLooks) if (Who == T.Who) return 6;
+	return 1;
+}
+
+void AFTBrawlFighter::SetEnemyLook(int32 LookIndex)
+{
+	if (!SpriteMid || !bEnemySprite || !bLookMaterial) return;
+	const FFTBrawlLookTable* Table = nullptr;
+	for (const FFTBrawlLookTable& T : GFTBrawlLooks) if (SpriteWho == T.Who) { Table = &T; break; }
+	if (!Table) return;
+	CurLook = ((LookIndex % 6) + 6) % 6;
+	static const TCHAR* Names[4][3] = {
+		{ TEXT("VarA0"), TEXT("VarB0"), TEXT("VarC0") }, { TEXT("VarA1"), TEXT("VarB1"), TEXT("VarC1") },
+		{ TEXT("VarA2"), TEXT("VarB2"), TEXT("VarC2") }, { TEXT("VarA3"), TEXT("VarB3"), TEXT("VarC3") } };
+	for (int32 Rule = 0; Rule < 4; Rule++)
+		for (int32 Vec = 0; Vec < 3; Vec++)
+		{
+			const float* V = Table->V[CurLook][Rule][Vec];
+			SpriteMid->SetVectorParameterValue(Names[Rule][Vec], FLinearColor(V[0], V[1], V[2], V[3]));
+		}
+}
+
+void AFTBrawlFighter::SetRage(float Amount, const FLinearColor& Color)
+{
+	if (!SpriteMid || !bLookMaterial) return;
+	if (CurRage < 0.f) SpriteMid->SetVectorParameterValue(TEXT("RageColor"), Color);
+	if (FMath::IsNearlyEqual(Amount, CurRage, 0.004f)) return;
+	SpriteMid->SetScalarParameterValue(TEXT("Rage"), Amount);
+	CurRage = Amount;
+}
+
+void AFTBrawlFighter::SetFlashColor(const FLinearColor& Color)
+{
+	if (!SpriteMid || Color.Equals(CurFlashColor, 0.002f)) return;
+	SpriteMid->SetVectorParameterValue(TEXT("FlashColor"), Color);
+	CurFlashColor = Color;
 }
 
 UTexture* AFTBrawlFighter::Frame(std::initializer_list<const TCHAR*> Names) const
@@ -508,6 +588,8 @@ void AFTBrawlFighter::PoseSprite(FName St, float T, float Walk, int32 Combo, flo
 	else if (S == TEXT("down") || S == TEXT("dead")) Tx = Frame({ TEXT("down") });
 	else if (S == TEXT("getup")) Tx = Frame({ TEXT("getup"), TEXT("down") });
 	else if (S == TEXT("cheer")) Tx = Frame({ TEXT("cheer"), TEXT("win"), TEXT("taunt"), TEXT("idle") });
+	else if (S == TEXT("rage")) Tx = Frame({ TEXT("taunt"), TEXT("wind"), TEXT("idle") });   // the boss's second wind (FTBrawlVariety.cpp): a stand-in drawing
+	else if (S == TEXT("block")) Tx = Frame({ TEXT("idle") });                                 // a blocker takes a hit on his guard: his stance, braced below
 	else if (const TObjectPtr<UTexture>* Named = Frames.Find(St)) Tx = *Named;   // cutscenes: any frame by its name (taunt, give, smoke...)
 	else { Tx = Frame({ TEXT("idle") }); Squash = 1.f + FMath::Sin(T * 5.f) * 0.012f; }   // idle: a breath
 	if (bEnemySprite)
@@ -531,6 +613,25 @@ void AFTBrawlFighter::PoseSprite(FName St, float T, float Walk, int32 Combo, flo
 			Lean += (S == TEXT("hurt") ? 7.f : 3.f) * Snap;
 			Squash *= 1.f - 0.055f * Snap;
 		}
+		else if (S == TEXT("block"))
+		{
+			Lean += 6.f * Snap;
+			Squash *= 1.f - 0.06f * Snap;
+			Rim += 0.9f * Snap;
+		}
+		else if (S == TEXT("rage"))
+		{
+			const float Swell = FMath::Sin(FMath::Min(T, 1.2f) / 1.2f * PI);
+			Lean -= 5.f * Swell;
+			Squash *= 1.f + 0.05f * Swell;
+			Rim += 0.8f * Swell;
+		}
+		if (S == TEXT("walk") || S == TEXT("idle") || S == TEXT("block"))
+		{
+			Lean += ExtraLean;
+			Squash *= ExtraSquash;
+		}
+		Rim += ExtraRim;
 		if (!FMath::IsNearlyEqual(Rim, EnemyRim, 0.005f))
 		{
 			SpriteMid->SetScalarParameterValue(TEXT("EnemyRim"), Rim);
@@ -546,6 +647,10 @@ void AFTBrawlFighter::PoseSprite(FName St, float T, float Walk, int32 Combo, flo
 		if (!bEnemySprite) Squash = 1.f;
 	}
 	if (UTexture* Boss = FTBrawlStudio::SelectBossFrame(SpriteWho, S, T, Walk, Combo, Frames)) Tx = Boss;
+	// The character's own chart, where it has this state, decides last (FTBrawlCharts.inl).
+	if (SpriteChart)
+		if (UTexture* Charted = FTBrawlChart::Select(*SpriteChart, St, T, Walk, Combo, StateAge, PreviousSpriteState,
+			TurnStarted >= 0.f ? T - TurnStarted : -1.f, Frames)) Tx = Charted;
 	if (Tx && Tx != CurFrame)
 	{
 		SpriteMid->SetTextureParameterValue(TEXT("Tex"), Tx);
