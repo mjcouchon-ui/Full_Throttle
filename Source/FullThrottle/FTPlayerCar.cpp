@@ -70,6 +70,8 @@ static TAutoConsoleVariable<int32> CVarFTPhysSubsteps(TEXT("ft.PhysSubsteps"), 1
 	TEXT("4.8: most physics substeps (8.3 ms each) in one frame. With 8 (4.7, the project setting) a frame slower than 15 fps ran the car's physics slower than the game clock (72% of real time at 11 fps: the car lost ground to the world and its assists). 16 keeps it real time down to 7.5 fps. 0 = leave the project setting."));
 static TAutoConsoleVariable<int32> CVarFTLowFpsGlue(TEXT("ft.LowFpsGlue"), 63,
 	TEXT("4.9: frame-rate-aware road hold (bits). The assists are applied once a frame and held for all its physics substeps, so at 12 fps (8 m a frame at turbo speed) a pull worked out for where the car was went on acting 8 m later. 1 = the crest pull follows the surface's curve over the distance the frame covers, not at its start; 2 = the glue spring never pulls harder than what brings the car to ride height by the frame's end; 4 = the bump stop never pushes it back past the stop in one frame; 8 = the snap back down is 35 cm per 60th of a second, not per frame; 16 = the crest pull works up to 100 cm per 60th of a second of lift; 32 = the glue judges closing speed against the road under the stretch the frame covers. 0 = 4.8."));
+static TAutoConsoleVariable<int32> CVarFTSetCeil(TEXT("ft.SetCeil"), 1,
+	TEXT("4.9: 1 = in a set piece (loop, corkscrew, pipe, coaster) the car is never faster along the road than 1.1 x the most of its way-in speed, the governor's target and the set floor, + 300 cm/s. Level 7's fast pipe fed the deck-sweep assist's speed back into forward speed: 31,592 cm/s. 0 = 4.8."));
 static TAutoConsoleVariable<float> CVarFTPipeEdge(TEXT("ft.PipeEdge"), 850.f,
 	TEXT("4.9: in a pipe (not a loop or a corkscrew) the lane ends this far from the middle (cm, at most 900): past it the car's outward speed against the surface is taken out and a stiff spring holds it; 2 m further it is put back. Level 7's fast pipe swept a car near its barrier into the deck at turbo speed and spun it. 0 = 4.8."));
 #if !UE_BUILD_SHIPPING
@@ -1440,7 +1442,7 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 		const float VRoad = FVector::DotProduct(Chassis->GetPhysicsLinearVelocity(), F.Fwd);
 		if (bSetNow && !bInSet)
 		{
-			bInSet = true; SetKind = Kind; SetEntry = VRoad; SetMin = VRoad; SetMaxLift = -1e6f; SetAir = 0.f; SetD0 = D; SetSnaps = 0;
+			bInSet = true; SetKind = Kind; SetEntry = VRoad; SetMin = VRoad; SetMaxLift = -1e6f; SetAir = 0.f; SetD0 = D; SetSnaps = 0; SetCeilFrames = 0;
 			SetFloor = FMath::Max(VRoad, FT::BaseSpeed) * 0.98f;
 		}
 		else if (!bSetNow && bInSet)
@@ -1448,9 +1450,9 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 			bInSet = false;
 			static IConsoleVariable* AutoS = IConsoleManager::Get().FindConsoleVariable(TEXT("ft.Autopilot"));
 			if (AutoS && AutoS->GetInt() > 0)
-				UE_LOG(LogFT, Display, TEXT("FTSET kind=%s D=%.0f entry=%.0f min=%.0f exit=%.0f kept=%.0f%% maxLift=%.0f air=%.2fs snaps=%d"),
+				UE_LOG(LogFT, Display, TEXT("FTSET kind=%s D=%.0f entry=%.0f min=%.0f exit=%.0f kept=%.0f%% maxLift=%.0f air=%.2fs snaps=%d ceil=%d"),
 					(SetKind & FTFlag::Coaster) ? TEXT("coaster") : ((SetKind & FTFlag::Loop) ? TEXT("loop") : ((SetKind & FTFlag::Pipe) ? TEXT("pipe") : TEXT("twist"))),
-					SetD0, SetEntry, SetMin, VRoad, 100.f * SetMin / FMath::Max(SetEntry, 1.f), SetMaxLift, SetAir, SetSnaps);
+					SetD0, SetEntry, SetMin, VRoad, 100.f * SetMin / FMath::Max(SetEntry, 1.f), SetMaxLift, SetAir, SetSnaps, SetCeilFrames);
 		}
 		if (bInSet)
 		{
@@ -1460,6 +1462,20 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 			{
 				FVector Vn = Chassis->GetPhysicsLinearVelocity() + F.Fwd * (SetFloor - VRoad);
 				Chassis->SetPhysicsLinearVelocity(Vn);
+			}
+			// 4.9 (ft.SetCeil): and nothing in there speeds it up past what it came in with or is driving for. Off the
+			// centreline of Level 7's fast pipe the deck-sweep assist sets the car's speed along the normal in proportion
+			// to its forward speed (x0.87 at X ~1,000); striking the static deck turned that back into forward speed, which
+			// fed the next frame's sweep: 10,935 -> 31,352 cm/s in 0.4 s (v490 d_24_l), then a put-back at 316 m/s.
+			if (CVarFTSetCeil.GetValueOnGameThread() && !bWrecked)
+			{
+				const float Ceil = FMath::Max3(SetEntry, Drive.TargetSpeed, SetFloor) * 1.1f + 300.f;
+				const float VNow = FVector::DotProduct(Chassis->GetPhysicsLinearVelocity(), F.Fwd);
+				if (VNow > Ceil)
+				{
+					Chassis->SetPhysicsLinearVelocity(Chassis->GetPhysicsLinearVelocity() - F.Fwd * (VNow - Ceil));
+					++SetCeilFrames;
+				}
 			}
 			SetMin = FMath::Min(SetMin, FVector::DotProduct(Chassis->GetPhysicsLinearVelocity(), F.Fwd));
 			SetMaxLift = FMath::Max(SetMaxLift, Lift);
