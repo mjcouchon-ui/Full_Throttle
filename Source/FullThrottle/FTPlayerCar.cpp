@@ -68,6 +68,13 @@ static TAutoConsoleVariable<float> CVarFTBodyFriction(TEXT("ft.BodyFriction"), 0
 	TEXT("4.8: the chassis friction ft.BodySlide gives it (combine Min, so the lower of this and what it touches)."));
 static TAutoConsoleVariable<int32> CVarFTPhysSubsteps(TEXT("ft.PhysSubsteps"), 16,
 	TEXT("4.8: most physics substeps (8.3 ms each) in one frame. With 8 (4.7, the project setting) a frame slower than 15 fps ran the car's physics slower than the game clock (72% of real time at 11 fps: the car lost ground to the world and its assists). 16 keeps it real time down to 7.5 fps. 0 = leave the project setting."));
+static TAutoConsoleVariable<int32> CVarFTLowFpsGlue(TEXT("ft.LowFpsGlue"), 63,
+	TEXT("4.9: frame-rate-aware road hold (bits). The assists are applied once a frame and held for all its physics substeps, so at 12 fps (8 m a frame at turbo speed) a pull worked out for where the car was went on acting 8 m later. 1 = the crest pull follows the surface's curve over the distance the frame covers, not at its start; 2 = the glue spring never pulls harder than what brings the car to ride height by the frame's end; 4 = the bump stop never pushes it back past the stop in one frame; 8 = the snap back down is 35 cm per 60th of a second, not per frame; 16 = the crest pull works up to 100 cm per 60th of a second of lift; 32 = the glue judges closing speed against the road under the stretch the frame covers. 0 = 4.8."));
+static TAutoConsoleVariable<float> CVarFTPipeEdge(TEXT("ft.PipeEdge"), 850.f,
+	TEXT("4.9: in a pipe (not a loop or a corkscrew) the lane ends this far from the middle (cm, at most 900): past it the car's outward speed against the surface is taken out and a stiff spring holds it; 2 m further it is put back. Level 7's fast pipe swept a car near its barrier into the deck at turbo speed and spun it. 0 = 4.8."));
+#if !UE_BUILD_SHIPPING
+static TAutoConsoleVariable<int32> CVarFTGlueTrace(TEXT("ft.GlueTrace"), 0, TEXT("FULL THROTTLE 4.9 tests: 1 = log FTGT every frame on ordinary road (lift, speed off the road, wheels, suspension, the glue/crest/bump-stop terms)"));
+#endif
 static TAutoConsoleVariable<int32> CVarFTCrestFollow(TEXT("ft.CrestFollow"), 1,
 	TEXT("4.6: 1 = where the surface curves away from the car (crests, a pipe's inner wall) the car is pulled with the curve (v^2 x curvature), so it doesn't float over it on the glue spring. 0 = 4.5."));
 
@@ -1674,14 +1681,25 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 	// kind=road, rise 0: no grip, no steering). That pull is now fed forward from the surface's own curve under the car,
 	// measured 2.5 m either side along its path; the glue and the springs only handle what is left.
 	CrestA = 0.f;
+	const int32 LowFps = CVarFTLowFpsGlue.GetValueOnGameThread();
+	float TrBump = 0.f, TrPull = 0.f, TrPullCap = -1.f;
 	if (CVarFTCrestFollow.GetValueOnGameThread() && (AM & 64) && !bWrecked && !bRealJump && !bCoaster && bSolid
-		&& Lift < 100.f && Lift > -60.f && FMath::Abs(X) < FT::Edge)
+		&& Lift < ((LowFps & 16) ? 100.f * FMath::Max(1.f, Dt * 60.f) : 100.f) && Lift > -60.f && FMath::Abs(X) < FT::Edge)
 	{
 		constexpr float L = 250.f;
 		auto SurfP = [this](float Dd) { const FFTFrame Fs = Track->Sample(Dd); return Fs.Pos + Fs.Right * X + Fs.Up * Track->SurfaceH(Dd, X); };
 		const FVector P0 = F.Pos + F.Right * X + F.Up * SurfH;
-		const float Kn = FVector::DotProduct(SurfP(D + L) + SurfP(D - L) - 2.f * P0, Up) / (L * L);
+		float Kn = FVector::DotProduct(SurfP(D + L) + SurfP(D - L) - 2.f * P0, Up) / (L * L);
 		const float Vr = FMath::Max(FVector::DotProduct(Chassis->GetPhysicsLinearVelocity(), F.Fwd), 0.f);
+		// 4.9 (ft.LowFpsGlue 1): the pull is held for the whole frame, so it follows the curve over the stretch the car
+		// covers in it (the change of the surface's slope from here to there), not the curve under it now: at 12 fps
+		// and turbo speed that stretch is 8 m, over a crest only 5-10 m long
+		const float Span = Vr * Dt;
+		if ((LowFps & 1) && Span > L)
+		{
+			auto SlopeAt = [&](float Dd) { return FVector::DotProduct(SurfP(Dd + L) - SurfP(Dd - L), Up) / (2.f * L); };
+			Kn = (SlopeAt(D + Span) - SlopeAt(D)) / Span;
+		}
 		if (Kn < 0.f)
 		{
 			CrestA = FMath::Min(-Kn * Vr * Vr, 15000.f);
@@ -1756,9 +1774,12 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 	{
 		FVector Vb = Chassis->GetPhysicsLinearVelocity();
 		const float Into = FVector::DotProduct(Vb, Up);   // < 0: still sinking
-		const float WantOut = FMath::Min((BumpStopLift - Lift) * 12.f, 500.f);
+		float WantOut = FMath::Min((BumpStopLift - Lift) * 12.f, 500.f);
+		// (4.9, ft.LowFpsGlue 4: at most back to the stop by the frame's end, the springs do the rest; at 12 fps the x12 and a jump to ride height threw it back up 50 cm)
+		if (LowFps & 4) WantOut = FMath::Min(WantOut, (BumpStopLift - Lift) / FMath::Max(Dt, 1e-3f));
 		if (Into < WantOut)
 		{
+			TrBump = WantOut - Into;
 			Vb += Up * (WantOut - Into);
 			Chassis->SetPhysicsLinearVelocity(Vb);
 			++StopFrames;
@@ -1781,9 +1802,12 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 			Away = 0.f;
 		}
 		// (only with every wheel off, and at most 35 cm a frame: a bad height reading must never push it through the deck)
+		// (4.9, ft.LowFpsGlue 8: 35 cm per 60th of a second, not per frame: at 12 fps a frame's 35 cm was 420 cm/s, and a
+		// car off a crest whose road fell away faster than that was never caught: v490 rf0_L8, 9.5 m up, on its roof)
 		if (Lift > StickMaxLift && WheelsDown == 0 && !bWrecked)
 		{
-			const FVector P = Chassis->GetComponentLocation() - Up * FMath::Min(Lift - 8.f, 35.f);
+			const float SnapMax = (LowFps & 8) ? 35.f * FMath::Max(1.f, Dt * 60.f) : 35.f;
+			const FVector P = Chassis->GetComponentLocation() - Up * FMath::Min(Lift - 8.f, SnapMax);
 			Chassis->SetWorldLocation(P, false, nullptr, ETeleportType::TeleportPhysics);
 			if (bInSet) ++SetSnaps;
 		}
@@ -1798,12 +1822,36 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 		if (Lift > -4.f)
 		{
 			// never take off more than the away speed itself in one step (stays stable at low frame rates)
-			float DampA = Away > 0.f ? FMath::Min(Away * GlueDamp, Away / FMath::Max(Dt, 1e-3f)) : Away * GlueDamp;
+			const bool bSet = (F.Flags & (FTFlag::Pipe | FTFlag::Loop | FTFlag::Twist)) != 0;
+			// 4.9 (ft.LowFpsGlue 32): "coming toward the road" is judged against the road under the stretch this frame
+			// covers. Over a crest at 12 fps the road ahead falls away 1-2 m in one frame; a car sinking at 1,800 cm/s
+			// still lost ground to it, but the damping read it as closing fast and pulled nothing (v490 rf0_L8 D 98,969)
+			float AwayC = Away;
+			if ((LowFps & 32) && !bSet && Dt > 0.025f && bSolid)
+			{
+				const float Vr = FMath::Max(FVector::DotProduct(Vg, F.Fwd), 0.f);
+				const FFTFrame Fa = Track->Sample(D + Vr * Dt);
+				const FVector Pa = Fa.Pos + Fa.Right * X + Fa.Up * Track->SurfaceH(D + Vr * Dt, X);
+				const FVector P0 = F.Pos + F.Right * X + F.Up * SurfH;
+				// (how far the road there lies under this point's tangent plane: 0 on a straight slope)
+				const float Drop = -FVector::DotProduct(Pa - P0, Up);
+				AwayC = Away + FMath::Max(Drop, 0.f) / Dt;
+			}
+			float DampA = AwayC > 0.f ? FMath::Min(AwayC * GlueDamp, AwayC / FMath::Max(Dt, 1e-3f)) : AwayC * GlueDamp;
 			// in pipes, loops and twists the surface itself turns away from the car, so "coming toward the road"
 			// (Away < 0) says nothing about closing in on it: there the spring always pulls in full, up to 20 g
-			const bool bSet = (F.Flags & (FTFlag::Pipe | FTFlag::Loop | FTFlag::Twist)) != 0;
 			if (bSet) DampA = FMath::Max(DampA, 0.f);
-			Pull += FMath::Clamp(GlueK * FMath::Max(Lift, 0.f) + DampA, 0.f, bSet ? 20000.f : 12000.f);
+			float Spring = FMath::Clamp(GlueK * FMath::Max(Lift, 0.f) + DampA, 0.f, bSet ? 20000.f : 12000.f);
+			// 4.9 (ft.LowFpsGlue 2): held for the whole frame, the spring is explicit: at 12 fps GlueDamp x Dt = 2, and a pull
+			// sized for where the car is now drove it through its springs by the frame's end (the next frame's bump stop
+			// threw it back up: wheels chattering +-14 cm, "flights" with lift ~0). Never more than what brings it to ride
+			// height by the frame's end (x + v t - a t^2 / 2 = 0); binds only below ~40 fps.
+			if ((LowFps & 2) && !bSet && Dt > 0.025f)
+			{
+				TrPullCap = FMath::Max(0.f, 2.f * (Lift + AwayC * Dt) / (Dt * Dt));
+				Spring = FMath::Min(Spring, TrPullCap);
+			}
+			Pull += Spring;
 		}
 		// down on its belly (wheel traces start under the road and find nothing): lift it back onto its wheels
 		// instead of sitting there until the crew resets it 1.5 s later
@@ -1824,15 +1872,48 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 				if (Out > 0.f) { Vg -= F.Right * FMath::Sign(X) * Out; Chassis->SetPhysicsLinearVelocity(Vg); }
 				if (bInSet) ++SetSnaps;
 			}
-			const float VLatR = FVector::DotProduct(Vg, F.Right) - PipeLatV;
-			const float Over = FMath::Sign(X) * FMath::Max(FMath::Abs(X) - 900.f, 0.f);
+			float VLatR = FVector::DotProduct(Vg, F.Right) - PipeLatV;
+			// 4.9 pipe edge (ft.PipeEdge, LOOP-REPORT 41 target 2). Level 7's fast pipe at turbo speed: past X ~900 the deck
+			// sweeps along its own normal at up to 100 m/s and the pull that keeps the car on the curving surface there passes
+			// 60,000 cm/s^2; the car swung across the pipe at 2,000-3,000 cm/s (vlatR), was struck by the deck, thrown 3-4 m
+			// up, put back (speed climbing to 17,000) and spun (v480 pw24: 11 spins, 21 put-backs in 24 passes). In a pipe the
+			// lane now ends at ft.PipeEdge: past it the outward speed (against the surface) is taken out, a stiff spring
+			// holds it, and 2 m further on it is put back.
+			const float PE = CVarFTPipeEdge.GetValueOnGameThread();
+			const bool bPipeEdge = PE > 0.f && (F.Flags & FTFlag::Pipe) && !(F.Flags & (FTFlag::Twist | FTFlag::Loop)) && !bWrecked;
+			const float LaneEdge = bPipeEdge ? FMath::Min(PE, 900.f) : 900.f;
+			if (bPipeEdge && FMath::Abs(X) > LaneEdge)
+			{
+				if (FMath::Abs(X) > LaneEdge + 200.f)
+				{
+					const float Back = FMath::Abs(X) - (LaneEdge + 150.f);
+					Chassis->SetWorldLocation(Chassis->GetComponentLocation() - F.Right * FMath::Sign(X) * Back, false, nullptr, ETeleportType::TeleportPhysics);
+					if (bInSet) ++SetSnaps;
+				}
+				const float Out = VLatR * FMath::Sign(X);
+				if (Out > 0.f) { Vg -= F.Right * FMath::Sign(X) * Out; Chassis->SetPhysicsLinearVelocity(Vg); VLatR -= FMath::Sign(X) * Out; }
+			}
+			const float Over = FMath::Sign(X) * FMath::Max(FMath::Abs(X) - LaneEdge, 0.f);
 			// damp the sideways speed while off the wheels, and always when it is heading out past 9 m
 			const bool bOutward = Over * VLatR > 0.f;
-			const float LatA = GlueK * Over + ((!bGrounded || bOutward) ? GlueDamp * VLatR : 0.f);
-			if (LatA != 0.f) Chassis->AddForce(-F.Right * FMath::Clamp(LatA, -20000.f, 20000.f), NAME_None, true);
+			const float LatA = (bPipeEdge ? 4.f : 1.f) * GlueK * Over + ((!bGrounded || bOutward) ? GlueDamp * VLatR : 0.f);
+			if (LatA != 0.f) Chassis->AddForce(-F.Right * FMath::Clamp(LatA, bPipeEdge ? -60000.f : -20000.f, bPipeEdge ? 60000.f : 20000.f), NAME_None, true);
 		}
 		Chassis->AddForce(-Up * Pull, NAME_None, true);
+		TrPull = Pull;
 	}
+#if !UE_BUILD_SHIPPING
+	// 4.9 tests: ft.GlueTrace 1 = one line a frame on ordinary road (road flights at low fps)
+	if (CVarFTGlueTrace.GetValueOnGameThread() > 0 && !(F.Flags & (FTFlag::SetPiece | FTFlag::Coaster)) && !bCoaster)
+	{
+		const FVector Vt = Chassis->GetPhysicsLinearVelocity();
+		auto Su = [this](int32 i) { return Vehicle->Wheels.IsValidIndex(i) && Vehicle->Wheels[i] ? Vehicle->Wheels[i]->GetSuspensionOffset() : 0.f; };
+		auto Ia = [this](int32 i) { return Vehicle->Wheels.IsValidIndex(i) && Vehicle->Wheels[i] ? (int32)Vehicle->Wheels[i]->IsInAir() : 9; };
+		UE_LOG(LogFT, Display, TEXT("FTGT dt=%.3f D=%.0f X=%.0f lift=%.1f vn=%.0f v=%.0f wh=%d air=%d%d%d%d susp=%.0f,%.0f,%.0f,%.0f pull=%.0f cap=%.0f crest=%.0f bump=%.0f jump=%d fl=%d up=%.3f fz=%.3f"),
+			Dt, D, X, Lift, FVector::DotProduct(Vt, Up), FVector::DotProduct(Vt, F.Fwd), WheelsDown, Ia(0), Ia(1), Ia(2), Ia(3), Su(0), Su(1), Su(2), Su(3),
+			TrPull, TrPullCap, CrestA, TrBump, bRealJump ? 1 : 0, (int32)F.Flags, FVector::DotProduct(Chassis->GetUpVector(), Up), FVector::DotProduct(Chassis->GetForwardVector(), Up));
+	}
+#endif
 
 	const FVector CarF = Chassis->GetForwardVector();
 	const FVector Cf = (CarF - Up * FVector::DotProduct(CarF, Up)).GetSafeNormal();
