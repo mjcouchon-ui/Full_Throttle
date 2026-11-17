@@ -84,6 +84,8 @@ static TAutoConsoleVariable<int32> CVarFTWheelBarrier(TEXT("ft.WheelBarrier"), 1
 	TEXT("5.0: 1 = on ordinary road beside the barrier (|x| > 11.5 m), while the chassis is more than 20 cm over ride height, the wheels' suspension traces ignore static geometry (the road is out of their reach then: they reach 14 cm down), their contacts don't count as wheels down, and a body over the barrier line is eased back in at 3 m/s. The rear wheels sit 12 cm wider than the body box, so their traces landed on the 160 cm barrier top and the springs held the car up there (the 12 fps road flights in the outer lanes, lift 146-711 cm with wheels 'down'). 0 = 4.9."));
 static TAutoConsoleVariable<int32> CVarFTLandAim(TEXT("ft.LandAim"), 7,
 	TEXT("5.1 (bits): 1 = over a gap jump the car's arc is bent down (never up, at most ft.LandAimMax) so it meets the road by the landing zone's end instead of flying past it 3-17 m up; 2 = a car still in the air past the landing zone stays in its jump (no glue yank, no snap-down) until it touches down. 4 = late aim (5.2): the car climbs on air gravity alone and the pull starts only once the full pull is just enough to meet the zone (rise ~5.1-5.6 m at 60 fps instead of ~4.2-4.7, same landing). 3 = 5.1. 0 = 5.0 (past the zone the glue pulled it down at 12 g: the 'road drops' on Levels 1, 7 and 8)."));
+static TAutoConsoleVariable<float> CVarFTAirRoll(TEXT("ft.AirRoll"), 150.f,
+	TEXT("5.3: the car's roll is kept matched to the road's while it is within this many cm over a deck (not only on its wheels; never on a real jump). 0 = 5.2: a car lifted off the barrier lane where Level 7's road banks up (D ~405,400) landed on its side."));
 static TAutoConsoleVariable<float> CVarFTLandAimMax(TEXT("ft.LandAimMax"), 3000.f,
 	TEXT("5.1: the most extra downward pull ft.LandAim adds over air gravity (cm/s^2). 1,500 left turbo-speed jumps (~9,500 cm/s) 7-10 m up past the zone; 3,000 lands them in it (jumps rise ~4 m instead of ~6.5 m)."));
 static TAutoConsoleVariable<int32> CVarFTCrestFollow(TEXT("ft.CrestFollow"), 1,
@@ -1786,7 +1788,14 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 	// the centreline, and its roll turned with the road's.
 	// (The roll is matched on all road, not only corkscrews: where a 57-degree banked wall unwinds to flat in 25 m,
 	// the Chemical Works road rolls 2 rad/s under a car at its edge, and its nose planted into the deck.)
-	if (!bCoaster && !bWrecked && !bRealJump && (bGrounded || (F.Flags & FTFlag::SetPiece)))
+	// 5.3 (ft.AirRoll; loop "capsize" hunt): and just off the deck too. Level 7 D ~405,400 (60 fps, 2 of 2 barrier-lane drives):
+	// a crest lifts the car ~50 cm off the barrier lane just where the road banks up past 46 degrees (section 25, Wall); off
+	// its wheels (and WheelBarrier reads it so beside the barrier) the roll hold stopped, the road rolled ~90 degrees under a
+	// level car, and it came down on its side and slid there ~65 m until the capsize reset (6,500 -> 2,700 cm/s). Now the roll
+	// is matched while the car is within ft.AirRoll cm of a deck under it (never on a real jump).
+	const float AirRollLift = CVarFTAirRoll.GetValueOnGameThread();
+	const bool bNearDeck = AirRollLift > 0.f && bSolid && Lift < AirRollLift && Lift > -60.f && FMath::Abs(X) < FT::Edge;
+	if (!bCoaster && !bWrecked && !bRealJump && (bGrounded || bNearDeck || (F.Flags & FTFlag::SetPiece)))
 	{
 		const FVector Vc = Chassis->GetPhysicsLinearVelocity();
 		const FFTFrame F2 = Track->Sample(D + 100.f);
