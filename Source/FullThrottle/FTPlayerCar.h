@@ -202,6 +202,7 @@ protected:
 	// 2.5 coaster: the rail the car rides (followed by continuity: the rail point nearest the last one)
 	bool bRailInit = false; FVector2D RailPt = FVector2D::ZeroVector; float HopCd = 0.f;
 	FVector SurfN = FVector::UpVector;
+	bool bWheelsOffStatic = false;   // 5.0 ft.WheelBarrier: the wheel traces ignore static geometry (lifted beside the barrier)
 	float StallT = 0.f;
 	// 4.6 barrier contact: a glancing hit keeps the speed the car had (WallFloor, held while it scrapes, eased to the
 	// governor's speed); a nose pinned into the barrier is turned back along the road (NoseT). LastSpeed = last tick's.

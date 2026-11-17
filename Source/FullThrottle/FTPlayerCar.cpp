@@ -77,6 +77,10 @@ static TAutoConsoleVariable<float> CVarFTPipeEdge(TEXT("ft.PipeEdge"), 850.f,
 #if !UE_BUILD_SHIPPING
 static TAutoConsoleVariable<int32> CVarFTGlueTrace(TEXT("ft.GlueTrace"), 0, TEXT("FULL THROTTLE 4.9 tests: 1 = log FTGT every frame on ordinary road (lift, speed off the road, wheels, suspension, the glue/crest/bump-stop terms)"));
 #endif
+static TAutoConsoleVariable<int32> CVarFTPipeKick(TEXT("ft.PipeKick"), 1,
+	TEXT("5.0: 1 = in a pipe, for 0.15 s after the chassis strikes the deck (not drifting), the car's yaw rate is held within 1 rad/s of turning it back onto the surface's path (Level 7's fast pipe at 24 fps: the swept deck struck the chassis and kicked it 6-8 rad/s round: herr 38-55 deg, a spin). Only below 40 fps. 0 = 4.9."));
+static TAutoConsoleVariable<int32> CVarFTWheelBarrier(TEXT("ft.WheelBarrier"), 1,
+	TEXT("5.0: 1 = on ordinary road beside the barrier (|x| > 11.5 m), while the chassis is more than 20 cm over ride height, the wheels' suspension traces ignore static geometry (the road is out of their reach then: they reach 14 cm down), their contacts don't count as wheels down, and a body over the barrier line is eased back in at 3 m/s. The rear wheels sit 12 cm wider than the body box, so their traces landed on the 160 cm barrier top and the springs held the car up there (the 12 fps road flights in the outer lanes, lift 146-711 cm with wheels 'down'). 0 = 4.9."));
 static TAutoConsoleVariable<int32> CVarFTCrestFollow(TEXT("ft.CrestFollow"), 1,
 	TEXT("4.6: 1 = where the surface curves away from the car (crests, a pipe's inner wall) the car is pulled with the curve (v^2 x curvature), so it doesn't float over it on the glue spring. 0 = 4.5."));
 
@@ -494,6 +498,7 @@ void AFTPlayerCar::NosePin(float Deg, int32 Side)
 void AFTPlayerCar::PlaceOnTrack(float InD, float InX, float InSpeed)
 {
 	if (!Track) return;
+	if (bWheelsOffStatic) { bWheelsOffStatic = false; Vehicle->SetWheelTraceResponseToChannel(ECC_WorldStatic, ECR_Block); }   // (5.0 ft.WheelBarrier)
 	// 2.5: on a coaster, onto the nearest rail; in a half pipe, onto its curve
 	bRailInit = false;
 	float Hs = 0.f;
@@ -1367,6 +1372,8 @@ bool AFTPlayerCar::TickHalfPipe(float Dt, const FFTFrame& F, float Slope)
 
 void AFTPlayerCar::ApplyArcade(float Dt)
 {
+	// (5.0 ft.WheelBarrier: never left off on a wreck or a car parked for a slate)
+	if (bWheelsOffStatic && (bWrecked || Drive.bFrozen)) { bWheelsOffStatic = false; Vehicle->SetWheelTraceResponseToChannel(ECC_WorldStatic, ECR_Block); }
 	if (bWrecked)
 	{
 		Chassis->AddForce(FVector(0, 0, -400.f), NAME_None, true);
@@ -1432,6 +1439,35 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 	const bool bRealJump = (F.Flags & (FTFlag::Kicker | FTFlag::Gap)) != 0 || ((F.Flags & FTFlag::Landing) && !bGrounded) || LaunchT > 0.f || !bSolid;
 	// height over the surface measured along its normal (on a half pipe wall the frame's up is tilted off it)
 	const float Lift = Hr / FMath::Sqrt(1.f + Slope * Slope) - ChassisZ;
+
+	// 5.0 wheels on the barrier (ft.WheelBarrier). The rear wheels' centres are 112 cm out, the body box 100: with the body
+	// against the barrier (at 1,371 cm) they already hang 12 cm over its top. Lifted ~0.7 m by a crest, their suspension rays
+	// start above the 160 cm barrier and land on it; the springs then held the car up there (lift ~150 cm, up to 7 m on Level
+	// 8's hills) with its wheels reading 'down', so the snap-down (all wheels off only) never came: the outer-lane "road
+	// flights" at low frame rates. More than 20 cm over ride height no wheel can reach the road (14 cm of droop), so beside the
+	// barrier the traces then ignore static geometry and the glue brings the car down.
+	{
+		const bool bZone = CVarFTWheelBarrier.GetValueOnGameThread() && !bWrecked && !bRealJump && !bCoaster && bSolid
+			&& !(F.Flags & (FTFlag::SetPiece | FTFlag::Coaster | FTFlag::HalfPipe)) && FMath::Abs(X) > FT::RoadHalf - 20.f && FMath::Abs(X) < FT::Edge + 400.f;
+		const bool bIgnore = bZone && Lift > 20.f;
+		if (bIgnore != bWheelsOffStatic)
+		{
+			bWheelsOffStatic = bIgnore;
+			Vehicle->SetWheelTraceResponseToChannel(ECC_WorldStatic, bIgnore ? ECR_Ignore : ECR_Block);
+			static IConsoleVariable* AutoB = IConsoleManager::Get().FindConsoleVariable(TEXT("ft.Autopilot"));
+			if (bIgnore && AutoB && AutoB->GetInt() > 0)
+				UE_LOG(LogFT, Display, TEXT("FTWHEELBAR D=%.0f X=%.0f lift=%.0f wheels=%d v=%.0f"), D, X, Lift, WheelsDown, Speed);
+		}
+		if (bIgnore)
+		{
+			WheelsDown = 0; bGrounded = false;   // (what they touch up there is not the road)
+			if (FMath::Abs(X) > FT::Edge - 130.f)
+			{
+				const float In = FVector::DotProduct(Chassis->GetPhysicsLinearVelocity(), F.Right) * -FMath::Sign(X);
+				if (In < 300.f) Chassis->SetPhysicsLinearVelocity(Chassis->GetPhysicsLinearVelocity() - F.Right * FMath::Sign(X) * (300.f - In));
+			}
+		}
+	}
 
 	// 2.5 set pieces (loops, corkscrews, pipes, coaster rails): the car keeps the speed it came in with, all the
 	// way round. The owner: "some of the corkscrews really slow the car down ... it needs to maintain speed".
@@ -1937,9 +1973,29 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 	const FVector V = Chassis->GetPhysicsLinearVelocity();
 	const float VAlong = FVector::DotProduct(V, Cf);
 	const float VLat = FVector::DotProduct(V, Cr);
-	const FVector W = Chassis->GetPhysicsAngularVelocityInRadians();
-	const float YawRate = FVector::DotProduct(W, Up);
+	FVector W = Chassis->GetPhysicsAngularVelocityInRadians();
+	float YawRate = FVector::DotProduct(W, Up);
 	const float HeadErr = FMath::Atan2(FVector::DotProduct(FVector::CrossProduct(HeadRef, Cf), Up), FVector::DotProduct(Cf, HeadRef));   // (4.7: the surface's path in a pipe)
+	// 5.0 pipe kick (ft.PipeKick, LOOP-REPORT 43 target 2). The last Level 7 fast-pipe spins at 24 fps start 0.08-0.12 s after
+	// the chassis meets the deck (its normal sweeps through a car off the centreline): one frame the yaw rate goes -0.9 -> +6.2
+	// rad/s against a wanted -2.1, the nose is 38-55 degrees off the path a frame later and the car spins. For 0.15 s after
+	// such a strike (in a pipe, not drifting) the yaw rate is held within 1 rad/s of turning back onto the surface's path.
+	// (only below 40 fps: at 60 fps the hold fought the yaw assist and spun the car in 12 of 16 passes; there the strike never spun it)
+	if (CVarFTPipeKick.GetValueOnGameThread() && Dt > 0.025f && (F.Flags & FTFlag::Pipe) && !(F.Flags & (FTFlag::Twist | FTFlag::Loop)) && !bWrecked && !bCoaster
+		&& Drive.DriftDir == 0 && LastHitTrack && FMath::Abs(LastHitUp) > 0.5f && GetWorld() && GetWorld()->GetTimeSeconds() - LastHitT < 0.15f)
+	{
+		const float Tgt = PathYawRate - FMath::Clamp(HeadErr * 3.f, -3.f, 3.f);
+		const float Held = FMath::Clamp(YawRate, Tgt - 1.f, Tgt + 1.f);
+		if (Held != YawRate)
+		{
+			static IConsoleVariable* AutoK = IConsoleManager::Get().FindConsoleVariable(TEXT("ft.Autopilot"));
+			if (AutoK && AutoK->GetInt() > 0)
+				UE_LOG(LogFT, Display, TEXT("FTPIPEKICK D=%.0f X=%.0f yawrate=%.2f -> %.2f herr=%.0f hitAgo=%.2f wheels=%d"), D, X, YawRate, Held, FMath::RadiansToDegrees(HeadErr), GetWorld()->GetTimeSeconds() - LastHitT, WheelsDown);
+			W += Up * (Held - YawRate);
+			YawRate = Held;
+			Chassis->SetPhysicsAngularVelocityInRadians(W);
+		}
+	}
 
 	DriftBlend = FMath::FInterpTo(DriftBlend, Drive.DriftDir != 0 ? 1.f : 0.f, Dt, 6.f);
 	const float RearFr = FMath::Lerp(RearFriction, DriftRearFriction, DriftBlend);
