@@ -260,5 +260,10 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<class UPhysicalMaterial> BodySlidePM;
 	int32 BodySlideOn = -1;                    // the ft.BodySlide value last applied (-1 = not yet)
 	float BodySlideMu = -1.f;                  // ...and its friction
+	int32 WheelDebrisOn = -1;                  // 5.4: the ft.WheelDebris value last applied to the wheel traces (-1 = not yet)
+public:
+	/** 5.4 tests (Dev only): a wreck-sized physics body under the car, moving with it (ft.DropWreck) */
+	void DropWreck(float Below, float Ahead, float Size, float Up);
+private:
 	void ApplyBodySlide();
 };

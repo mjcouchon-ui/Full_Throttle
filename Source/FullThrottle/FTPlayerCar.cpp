@@ -18,6 +18,7 @@
 #include "PhysicsEngine/PhysicsSettings.h"
 #include "HAL/IConsoleManager.h"
 #include "FTFx.h"
+#include "FTEntity.h"
 #include "NiagaraSystem.h"
 #include "GameFramework/PlayerController.h"
 #include "Camera/PlayerCameraManager.h"
@@ -55,7 +56,16 @@ static FAutoConsoleCommandWithWorldAndArgs GFTWarp(TEXT("ft.Warp"),
 		const float Dw = FCString::Atof(*A[0]), Xw = A.Num() > 1 ? FCString::Atof(*A[1]) : 0.f, Sw = A.Num() > 2 ? FCString::Atof(*A[2]) : 0.f;
 		for (TActorIterator<AFTPlayerCar> It(W); It; ++It) { It->PlaceOnTrack(Dw, Xw, Sw); UE_LOG(LogFT, Display, TEXT("FTWARP D=%.0f X=%.0f v=%.0f"), Dw, Xw, Sw); }
 	}));
+static FAutoConsoleCommandWithWorldAndArgs GFTDropWreck(TEXT("ft.DropWreck"),
+	TEXT("FULL THROTTLE 5.4 tests: ft.DropWreck [below cm] [ahead cm] [size cm] [up cm/s]: a wreck (AFTWreck, a box) that far under / ahead of the car, moving with it, thrown up at [up] (FTDROPWRECK log)"),
+	FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& A, UWorld* W)
+	{
+		for (TActorIterator<AFTPlayerCar> It(W); It; ++It)
+			It->DropWreck(A.Num() > 0 ? FCString::Atof(*A[0]) : 110.f, A.Num() > 1 ? FCString::Atof(*A[1]) : 0.f, A.Num() > 2 ? FCString::Atof(*A[2]) : 140.f, A.Num() > 3 ? FCString::Atof(*A[3]) : 0.f);
+	}));
 #endif
+static TAutoConsoleVariable<int32> CVarFTWheelDebris(TEXT("ft.WheelDebris"), 1,
+	TEXT("5.4: 1 = the wheels' suspension traces ignore physics bodies and destructibles (enemy wrecks, their shattered pieces, the car's own shed parts), as the chassis already did ('debris never stops the car'). 0 = 5.3: on Level 7 (D ~555,300) an SUV shot down mid-gap tumbled under the car, one wheel stood on it 2.5 m up and rolled the car onto its roof."));
 static TAutoConsoleVariable<int32> CVarFTLandKeep(TEXT("ft.LandKeep"), 1,
 	TEXT("4.6: 1 = a jump's touchdown keeps its flight speed through the impact also when it lands on its belly (wheels reading in the air) and when the turbo is on (flight speed under the governor's target: held 0.3 s, no gain). 0 = 4.5."));
 static TAutoConsoleVariable<int32> CVarFTLandCushion(TEXT("ft.LandCushion"), 1,
@@ -645,6 +655,23 @@ void AFTPlayerCar::RestoreParts()
 	ShedQuietT = GetWorld() ? GetWorld()->GetTimeSeconds() + 0.5f : -1.f;   // FX overhaul: a repair puts them back and sheds again by the armour left: quietly
 }
 
+void AFTPlayerCar::DropWreck(float Below, float Ahead, float Size, float Up)
+{
+#if !UE_BUILD_SHIPPING
+	// 5.4 tests: the Level 7 mid-gap roll-over as a repro (an enemy shot down in the air tumbling under the car)
+	UWorld* W = GetWorld();
+	UStaticMesh* Box = Load<UStaticMesh>(TEXT("/Engine/BasicShapes/Cube"));
+	if (!W || !Chassis || !Box) return;
+	const FVector V = Chassis->GetPhysicsLinearVelocity();
+	const FVector At = Chassis->GetComponentLocation() - RoadUp * Below + V.GetSafeNormal() * Ahead;
+	FActorSpawnParameters SP; SP.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	AFTWreck* Wr = W->SpawnActor<AFTWreck>(AFTWreck::StaticClass(), FTransform(At), SP);
+	if (!Wr) return;
+	Wr->Launch(Box, FTransform(Chassis->GetComponentRotation(), At), V + RoadUp * Up, FVector(0.f, 0.f, 60.f), Size / 100.f);
+	UE_LOG(LogFT, Display, TEXT("FTDROPWRECK D=%.0f below=%.0f ahead=%.0f size=%.0f up=%.0f v=%.0f"), D, Below, Ahead, Size, Up, V.Size());
+#endif
+}
+
 void AFTPlayerCar::SetHenchmenForLevel(int32 Level)
 {
 	if (Level <= 0 || !bHangModel) return;
@@ -817,6 +844,17 @@ void AFTPlayerCar::Tick(float Dt)
 		else if (Sub == 0 && PS && PS->MaxSubsteps != 8) { UE_LOG(LogFT, Display, TEXT("FTSUBSTEPS %d -> 8 (project setting)"), PS->MaxSubsteps); PS->MaxSubsteps = 8; }
 	}
 	if (CVarFTBodySlide.GetValueOnGameThread() != BodySlideOn || (BodySlideOn > 0 && CVarFTBodyFriction.GetValueOnGameThread() != BodySlideMu)) ApplyBodySlide();
+	// 5.4 (ft.WheelDebris): what the wheels may stand on. Only the track and the scenery are static; everything that
+	// simulates (enemy wrecks, their shattered pieces, the car's shed parts) already ignores the chassis by design, but the
+	// suspension traces still found it: a wreck tumbling under the car in a gap jump held one wheel up and rolled it over.
+	if (CVarFTWheelDebris.GetValueOnGameThread() != WheelDebrisOn && Vehicle)
+	{
+		WheelDebrisOn = CVarFTWheelDebris.GetValueOnGameThread();
+		const ECollisionResponse R = WheelDebrisOn > 0 ? ECR_Ignore : ECR_Block;
+		Vehicle->SetWheelTraceResponseToChannel(ECC_PhysicsBody, R);
+		Vehicle->SetWheelTraceResponseToChannel(ECC_Destructible, R);
+		UE_LOG(LogFT, Display, TEXT("FTWHEELDEBRIS %d (wheel traces %s physics bodies + destructibles)"), WheelDebrisOn, WheelDebrisOn > 0 ? TEXT("ignore") : TEXT("block"));
+	}
 	if (!Track || !Track->IsBuilt() || !Chassis->IsSimulatingPhysics()) return;
 
 	float Xl, Hl;
