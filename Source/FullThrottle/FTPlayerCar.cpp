@@ -81,6 +81,10 @@ static TAutoConsoleVariable<int32> CVarFTPipeKick(TEXT("ft.PipeKick"), 1,
 	TEXT("5.0: 1 = in a pipe, for 0.15 s after the chassis strikes the deck (not drifting), the car's yaw rate is held within 1 rad/s of turning it back onto the surface's path (Level 7's fast pipe at 24 fps: the swept deck struck the chassis and kicked it 6-8 rad/s round: herr 38-55 deg, a spin). Only below 40 fps. 0 = 4.9."));
 static TAutoConsoleVariable<int32> CVarFTWheelBarrier(TEXT("ft.WheelBarrier"), 1,
 	TEXT("5.0: 1 = on ordinary road beside the barrier (|x| > 11.5 m), while the chassis is more than 20 cm over ride height, the wheels' suspension traces ignore static geometry (the road is out of their reach then: they reach 14 cm down), their contacts don't count as wheels down, and a body over the barrier line is eased back in at 3 m/s. The rear wheels sit 12 cm wider than the body box, so their traces landed on the 160 cm barrier top and the springs held the car up there (the 12 fps road flights in the outer lanes, lift 146-711 cm with wheels 'down'). 0 = 4.9."));
+static TAutoConsoleVariable<int32> CVarFTLandAim(TEXT("ft.LandAim"), 3,
+	TEXT("5.1 (bits): 1 = over a gap jump the car's arc is bent down (never up, at most ft.LandAimMax) so it meets the road by the landing zone's end instead of flying past it 3-17 m up; 2 = a car still in the air past the landing zone stays in its jump (no glue yank, no snap-down) until it touches down. 0 = 5.0 (past the zone the glue pulled it down at 12 g: the 'road drops' on Levels 1, 7 and 8)."));
+static TAutoConsoleVariable<float> CVarFTLandAimMax(TEXT("ft.LandAimMax"), 3000.f,
+	TEXT("5.1: the most extra downward pull ft.LandAim adds over air gravity (cm/s^2). 1,500 left turbo-speed jumps (~9,500 cm/s) 7-10 m up past the zone; 3,000 lands them in it (jumps rise ~4 m instead of ~6.5 m)."));
 static TAutoConsoleVariable<int32> CVarFTCrestFollow(TEXT("ft.CrestFollow"), 1,
 	TEXT("4.6: 1 = where the surface curves away from the car (crests, a pipe's inner wall) the car is pulled with the curve (v^2 x curvature), so it doesn't float over it on the glue spring. 0 = 4.5."));
 
@@ -1436,9 +1440,57 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 	// lifted car is pulled back down hard. A jump section's kicker and gap, and a ramp launch, fly as before.
 	LaunchT = FMath::Max(0.f, LaunchT - Dt);
 	if (LaunchT < 1.3f && bGrounded) LaunchT = 0.f; // landed after a launch
-	const bool bRealJump = (F.Flags & (FTFlag::Kicker | FTFlag::Gap)) != 0 || ((F.Flags & FTFlag::Landing) && !bGrounded) || LaunchT > 0.f || !bSolid;
+	const bool bFlagJump = (F.Flags & (FTFlag::Kicker | FTFlag::Gap)) != 0 || ((F.Flags & FTFlag::Landing) && !bGrounded) || LaunchT > 0.f || !bSolid;
 	// height over the surface measured along its normal (on a half pipe wall the frame's up is tilted off it)
 	const float Lift = Hr / FMath::Sqrt(1.f + Slope * Slope) - ChassisZ;
+
+	// 5.1 landing aim (ft.LandAim; loop target "road drops with no jump flag"). A gap jump's landing zone is the first 8%
+	// of the ramp down (u 0.6-0.68), but the road under the gap pitches down from the kicker's +A to the ramp's -B, and at
+	// turbo speed it falls away faster than the car's air gravity (1.7 g): every gap on Levels 1, 7 and 8 was flown past
+	// its landing zone, the car still 3-17 m up (Level 8 D 280,700: 17 m, Level 1 D 357,800: 10-14 m) at every frame
+	// rate. Past the zone the jump was over, so the glue took the car's speed off the road away in one frame and pulled it
+	// down at 12 g with the snap-down teleporting it 35 cm a frame: a drop. Bit 1: in the air over the gap and the landing
+	// zone the car's arc is bent down (only ever down, at most ft.LandAimMax = 3,000 cm/s^2 more than air gravity) so it meets the
+	// road at the zone's end; a car that would come down sooner is left alone. Bit 2: a car still up past the zone stays
+	// in its jump (no glue, no snap) until it touches down, so it comes down on gravity and the aim, not on the glue.
+	const int32 LandAim = CVarFTLandAim.GetValueOnGameThread();
+	AimA = 0.f;
+	if ((F.Flags & (FTFlag::Kicker | FTFlag::Gap)) && GapLandEnd < D)
+	{
+		GapLandEnd = -1.f;
+		bool bSeen = false;
+		for (float s = D; s < D + 60000.f; s += 200.f)
+		{
+			const bool bL = (Track->FlagsAt(s) & FTFlag::Landing) != 0;
+			if (bL) bSeen = true;
+			else if (bSeen) { GapLandEnd = s; break; }
+		}
+	}
+	if (bGrounded || bWrecked || bCoaster || (F.Flags & FTFlag::SetPiece) || LaunchT > 0.f || (bSolid && Lift < 20.f && !(F.Flags & (FTFlag::Gap | FTFlag::Kicker))))
+		bGapFlight = false;
+	else if ((LandAim & 2) && GapLandEnd > 0.f && (F.Flags & (FTFlag::Gap | FTFlag::Landing)))
+		bGapFlight = true;
+	if (bGapFlight && GapLandEnd > 0.f && D > GapLandEnd + 15000.f) bGapFlight = false; // never more than 150 m past the zone
+	const bool bRealJump = bFlagJump || bGapFlight;
+	if ((LandAim & 1) && !bGrounded && !bWrecked && !bCoaster && LaunchT <= 0.f && GapLandEnd > 0.f
+		&& ((F.Flags & (FTFlag::Gap | FTFlag::Landing)) || bGapFlight))
+	{
+		const FVector Vc = Chassis->GetPhysicsLinearVelocity();
+		const float Vf = FMath::Max(FVector::DotProduct(Vc, F.Fwd), 1500.f);
+		// aim at the zone's end (4 m short of it); once past it, at where the car will be in 0.35 s
+		const float Daim = D < GapLandEnd - 800.f ? GapLandEnd - 400.f : D + Vf * 0.35f;
+		const float T = (Daim - D) / Vf;
+		if (T > 0.12f)
+		{
+			const FVector Pt = Track->TransformAt(Daim, X, Track->SurfaceH(Daim, X) + ChassisZ).GetLocation();
+			const FVector Pc = Chassis->GetComponentLocation();
+			const float GAir = 980.f * AirGravityScale;
+			// the extra downward pull that puts the car on the road there at that time (z + vz t - (g + a) t^2 / 2 = zt)
+			const float Need = 2.f * (Pc.Z + Vc.Z * T - Pt.Z) / (T * T) - GAir;
+			AimA = FMath::Clamp(Need, 0.f, CVarFTLandAimMax.GetValueOnGameThread());
+			if (AimA > 0.f) Chassis->AddForce(FVector(0, 0, -AimA), NAME_None, true);
+		}
+	}
 
 	// 5.0 wheels on the barrier (ft.WheelBarrier). The rear wheels' centres are 112 cm out, the body box 100: with the body
 	// against the barrier (at 1,371 cm) they already hang 12 cm over its top. Lifted ~0.7 m by a crest, their suspension rays
@@ -1961,9 +2013,9 @@ void AFTPlayerCar::ApplyArcade(float Dt)
 		const FVector Vt = Chassis->GetPhysicsLinearVelocity();
 		auto Su = [this](int32 i) { return Vehicle->Wheels.IsValidIndex(i) && Vehicle->Wheels[i] ? Vehicle->Wheels[i]->GetSuspensionOffset() : 0.f; };
 		auto Ia = [this](int32 i) { return Vehicle->Wheels.IsValidIndex(i) && Vehicle->Wheels[i] ? (int32)Vehicle->Wheels[i]->IsInAir() : 9; };
-		UE_LOG(LogFT, Display, TEXT("FTGT dt=%.3f D=%.0f X=%.0f lift=%.1f vn=%.0f v=%.0f wh=%d air=%d%d%d%d susp=%.0f,%.0f,%.0f,%.0f pull=%.0f cap=%.0f crest=%.0f bump=%.0f jump=%d fl=%d up=%.3f fz=%.3f"),
+		UE_LOG(LogFT, Display, TEXT("FTGT dt=%.3f D=%.0f X=%.0f lift=%.1f vn=%.0f v=%.0f wh=%d air=%d%d%d%d susp=%.0f,%.0f,%.0f,%.0f pull=%.0f cap=%.0f crest=%.0f bump=%.0f jump=%d fl=%d up=%.3f fz=%.3f aim=%.0f gf=%d"),
 			Dt, D, X, Lift, FVector::DotProduct(Vt, Up), FVector::DotProduct(Vt, F.Fwd), WheelsDown, Ia(0), Ia(1), Ia(2), Ia(3), Su(0), Su(1), Su(2), Su(3),
-			TrPull, TrPullCap, CrestA, TrBump, bRealJump ? 1 : 0, (int32)F.Flags, FVector::DotProduct(Chassis->GetUpVector(), Up), FVector::DotProduct(Chassis->GetForwardVector(), Up));
+			TrPull, TrPullCap, CrestA, TrBump, bFlagJump ? 1 : 0, (int32)F.Flags, FVector::DotProduct(Chassis->GetUpVector(), Up), FVector::DotProduct(Chassis->GetForwardVector(), Up), AimA, bGapFlight ? 1 : 0);
 	}
 #endif
 

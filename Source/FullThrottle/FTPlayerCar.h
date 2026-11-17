@@ -195,6 +195,7 @@ protected:
 	float DriftBlend = 0.f;
 	float CapsizeT = 0.f;
 	float LaunchT = 0.f;   // a ramp launch is in the air: no glue until it lands
+	float GapLandEnd = -1.f; bool bGapFlight = false; float AimA = 0.f; // 5.1: the jump's landing-zone end, a gap flight still up past it, the aim's pull (ft.LandAim)
 	// 2.5 set pieces: speed at the way in, held as a floor all the way through; telemetry
 	float LandProbeT = 0.f, LandProbeV = 0.f, LandProbeMin = 0.f, LandProbeLowT = 0.f;   // 4.6 FTLANDED telemetry
 	bool bLandArmed = false, bLandAbove = false, CushionLogged = false; float LandAirV = 0.f, LandFloor = 0.f, LandHoldT = 0.f; // 3.6: a jump's landing keeps its speed
